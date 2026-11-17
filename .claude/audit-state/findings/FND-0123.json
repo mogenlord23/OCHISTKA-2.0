@@ -1,0 +1,12 @@
+{
+  "id": "FND-0123",
+  "file": "apps/desktop/src/components/PlaceholderPage.svelte",
+  "lines": "3",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-consistency",
+  "summary": "Default В разработке is the same for seven subsections and does not use CLAUDE.md status terms or give the reason, against the rule to show unavailable features disabled with a reason",
+  "evidence": "PlaceholderPage.svelte:3; CLAUDE.md status rule; FND-0097",
+  "failure_scenario": "User cannot tell why each subsection is empty.",
+  "status": "open"
+}

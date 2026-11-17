@@ -1,0 +1,12 @@
+{
+  "id": "FND-0125",
+  "file": "apps/desktop/src/components/PlaceholderPage.svelte",
+  "lines": "test coverage",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Note override path untested; no test file for PlaceholderPage; only default text checked (App.test.ts:53, VpnPage.test.ts:16)",
+  "evidence": "grep for Подразделы уточняются finds only App.svelte:72 and no test; no PlaceholderPage.test.ts",
+  "failure_scenario": "Regression in note prop goes unnoticed (CLAUDE.md: every feature has tests).",
+  "status": "open"
+}

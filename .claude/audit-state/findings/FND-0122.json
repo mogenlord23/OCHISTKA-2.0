@@ -1,0 +1,12 @@
+{
+  "id": "FND-0122",
+  "file": "apps/desktop/src/components/PlaceholderPage.svelte",
+  "lines": "16-18 (with App.svelte:114 pattern)",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "accessibility-contrast",
+  "summary": "Placeholder text over the decorative 7% pattern on Компьютер drops to about 4.27:1 (below AA for normal text) in dev builds; shared root cause with lead and footer text",
+  "evidence": "PlaceholderPage.svelte:16-18; App.svelte:114 pattern; contrast 4.86 plain, about 4.27 over pattern (sRGB blend assumption); FND-0035 CSP blocks pattern in release",
+  "failure_scenario": "Компьютер, Настройки in dev build: placeholder text over a pattern shape below 4.5:1. Caveats: dev only, blend assumption.",
+  "status": "open"
+}
