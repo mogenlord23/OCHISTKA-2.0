@@ -1,0 +1,12 @@
+{
+  "id": "FND-0060",
+  "file": "apps/desktop/src/lib/api.ts",
+  "lines": "16,20,24,28,32",
+  "severity": "info",
+  "confidence": "high",
+  "type": "unchecked-cast",
+  "summary": "invoke<T> is a compile-time cast only; DTO drift in the backend would appear as undefined fields rather than an error",
+  "evidence": "api.ts:16-33 generic invoke; current Rust DTOs match types.ts (traced by auditor)",
+  "failure_scenario": "Removed rename_all in a Rust DTO surfaces as undefined fields in the UI. Not a live bug today.",
+  "status": "open"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "FND-0058",
+  "file": "apps/desktop/src/lib/api.ts",
+  "lines": "59 (with types.ts:30)",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "doc-drift",
+  "summary": "types.ts says message is already Russian, but non-CommandError rejections pass through as raw text labelled probe, and the UI titles them as data-read failures",
+  "evidence": "api.ts:59; types.ts:30; Home.svelte:47-51 heading for probe",
+  "failure_scenario": "toCommandError(\"invalid args ...\") -> {kind:\"probe\", message:\"invalid args ...\"}. UNVERIFIED exact Tauri rejection strings.",
+  "status": "open"
+}
