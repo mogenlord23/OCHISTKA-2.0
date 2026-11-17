@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 31,
+  "files_reviewed": 32,
   "lines_total": 3277,
-  "lines_reviewed": 2507,
-  "coverage_pct": 76.5,
+  "lines_reviewed": 2573,
+  "coverage_pct": 78.52,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -350,12 +350,18 @@
       ]
     },
     "apps/desktop/src/components/VpnPage.svelte": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 66,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 66,
+      "functions_analyzed": 1,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0131",
+        "FND-0132",
+        "FND-0133",
+        "FND-0134",
+        "FND-0135"
+      ]
     },
     "apps/desktop/src/lib/format.ts": {
       "status": "complete",

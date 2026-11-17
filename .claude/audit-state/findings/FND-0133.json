@@ -1,0 +1,12 @@
+{
+  "id": "FND-0133",
+  "file": "apps/desktop/src/components/VpnPage.svelte",
+  "lines": "12",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Button title promises the import appears in the next version; platform-status says planned and plan says только каркас, so the promise has no documented basis",
+  "evidence": "VpnPage.svelte:12; docs/platform-status.md:15; skeleton plan sections-and-antivirus.md:7",
+  "failure_scenario": "User expects a near-term release date that is not documented.",
+  "status": "open"
+}

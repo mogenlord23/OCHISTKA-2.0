@@ -1,0 +1,12 @@
+{
+  "id": "FND-0134",
+  "file": "apps/desktop/src/components/VpnPage.svelte",
+  "lines": "11",
+  "severity": "info",
+  "confidence": "high",
+  "type": "accessibility",
+  "summary": "Input name comes only from aria-label, not from a visible label; aria-label differs from the visible heading, a mismatch for voice control",
+  "evidence": "VpnPage.svelte:9 h2 Ссылка подписки / импорта; line 11 aria-label Ссылка подписки",
+  "failure_scenario": "Voice control user says the visible name and it does not match.",
+  "status": "open"
+}
