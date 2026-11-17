@@ -1,0 +1,12 @@
+{
+  "id": "FND-0024",
+  "file": "apps/desktop/src/App.svelte",
+  "lines": "12",
+  "severity": "info",
+  "confidence": "high",
+  "type": "duplication",
+  "summary": "VERSION is a hand-kept copy of package.json and tauri.conf.json versions",
+  "evidence": "App.svelte:12 const VERSION = '0.1.0'; package.json:3; tauri.conf.json:4",
+  "failure_scenario": "Versions drift apart silently after a bump.",
+  "status": "open"
+}

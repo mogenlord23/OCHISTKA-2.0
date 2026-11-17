@@ -1,0 +1,12 @@
+{
+  "id": "FND-0023",
+  "file": "apps/desktop/src/App.svelte",
+  "lines": "105-206 (literals)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "consistency",
+  "summary": "Several style rules use literal colours and sizes instead of the variables App sets on the same component",
+  "evidence": "App.svelte:105-106,138,146,153,161,175-177,185-186,205-206 literals vs variables set at lines 32-48",
+  "failure_scenario": "Values match today; drift if a token changes.",
+  "status": "open"
+}

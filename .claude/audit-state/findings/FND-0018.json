@@ -1,0 +1,12 @@
+{
+  "id": "FND-0018",
+  "file": "apps/desktop/src/App.svelte",
+  "lines": "65-70",
+  "severity": "medium",
+  "confidence": "high",
+  "type": "state-loss",
+  "summary": "Switching sections destroys VirusesPage state: scan results, journal and running scan are lost; a second scan can start while the first runs",
+  "evidence": "App.svelte:65-70 if/else chain unmounts VirusesPage on section change; VirusesPage.svelte:21-27 keeps state locally",
+  "failure_scenario": "Start scan of a large folder, click VPN then Вирусы: Проверка shows ready and Начать is enabled; journal and findings are empty. A second scan_start can run concurrently (backend guard UNVERIFIED).",
+  "status": "open"
+}

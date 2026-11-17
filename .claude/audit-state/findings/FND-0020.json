@@ -1,0 +1,12 @@
+{
+  "id": "FND-0020",
+  "file": "apps/desktop/src/App.svelte",
+  "lines": "16,83-90",
+  "severity": "low",
+  "confidence": "high",
+  "type": "dead-control",
+  "summary": "ЗВУК toggle changes its label and does nothing else; it is enabled and not persisted",
+  "evidence": "App.svelte:16 soundOn state; only uses at lines 86-89; no audio code anywhere in apps/desktop/src",
+  "failure_scenario": "Click ЗВУК: ВКЛ, label flips to ВЫКЛ, no effect; after reload it is ВКЛ again. Breaks the rule that unavailable features are shown disabled with a reason.",
+  "status": "open"
+}
