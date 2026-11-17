@@ -4,6 +4,7 @@ pub mod linux;
 pub mod macos;
 pub mod windows;
 
+use ochistka_core::scan::VirusScanPort;
 use ochistka_core::system::SystemInfoPort;
 
 /// Адаптер текущей ОС. На прочих ОС, кроме Windows и macOS, — заглушка Linux.
@@ -20,6 +21,29 @@ pub fn current_system_info() -> Box<dyn SystemInfoPort> {
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn current_system_info() -> Box<dyn SystemInfoPort> {
     Box::new(linux::LinuxSystemInfo)
+}
+
+/// Сканер ClamAV: на Windows — clamscan.exe из папки установки, на других ОС — заглушка с причиной.
+#[cfg(target_os = "windows")]
+pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
+    use std::path::{Path, PathBuf};
+
+    let install_dir: Option<PathBuf> = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    match install_dir {
+        Some(dir) => Box::new(windows::clamav::ClamAvScanner::from_install_dir(&dir)),
+        None => Box::new(windows::clamav::ClamAvScanner::unavailable(
+            "не удалось определить папку установки",
+        )),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
+    Box::new(windows::clamav::ClamAvScanner::unavailable(
+        "проверка ClamAV доступна только в Windows",
+    ))
 }
 
 #[cfg(test)]
@@ -62,5 +86,12 @@ mod tests {
             assert!(disk.used_bytes <= disk.total_bytes);
             assert!((0.0..=100.0).contains(&disk.usage_percent));
         }
+    }
+
+    #[test]
+    fn virus_scanner_reports_engine_status_on_this_os() {
+        let status = current_virus_scanner().engine_status();
+        assert!(!status.available);
+        assert!(!status.reason.is_empty());
     }
 }

@@ -2,11 +2,12 @@
 
 use std::sync::Arc;
 
+use ochistka_core::scan::{run_scan, EngineStatus, ScanReport, VirusScanPort};
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
 use tauri::State;
 
-/// Ошибка для интерфейса: `kind` — "unsupported" (ОС не поддерживается) или "probe" (сбой чтения).
+/// Ошибка для интерфейса: `kind` — тип ошибки, `message` — текст на русском.
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct CommandError {
     pub kind: String,
@@ -18,6 +19,8 @@ impl From<CoreError> for CommandError {
         let kind = match err {
             CoreError::Unsupported { .. } => "unsupported",
             CoreError::Probe(_) => "probe",
+            CoreError::EngineMissing(_) => "engineMissing",
+            CoreError::InvalidTarget(_) => "invalidTarget",
         };
         Self {
             kind: kind.to_string(),
@@ -30,9 +33,14 @@ pub fn load_overview(port: &dyn SystemInfoPort) -> Result<SystemOverview, Comman
     port.overview().map_err(CommandError::from)
 }
 
-/// Состояние приложения: адаптер системных сведений текущей ОС.
+pub fn scan_with(port: &dyn VirusScanPort, target: &str) -> Result<ScanReport, CommandError> {
+    run_scan(port, target).map_err(CommandError::from)
+}
+
+/// Состояние приложения: адаптеры системных сведений и сканера.
 pub struct AppState {
     pub system: Arc<dyn SystemInfoPort>,
+    pub scanner: Arc<dyn VirusScanPort>,
 }
 
 /// Чтение выполняется в фоновом потоке, чтобы не блокировать главный поток окна.
@@ -49,12 +57,31 @@ pub async fn get_system_overview(
         })?
 }
 
+/// Проверка идёт в фоне: окно остаётся отзывчивым, пока работает clamscan.
+#[tauri::command]
+pub async fn scan_start(
+    state: State<'_, AppState>,
+    target: String,
+) -> Result<ScanReport, CommandError> {
+    let scanner = Arc::clone(&state.scanner);
+    tauri::async_runtime::spawn_blocking(move || scan_with(scanner.as_ref(), &target))
+        .await
+        .map_err(|err| CommandError {
+            kind: "probe".into(),
+            message: err.to_string(),
+        })?
+}
+
+#[tauri::command]
+pub fn clamav_status(state: State<'_, AppState>) -> EngineStatus {
+    state.scanner.engine_status()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ochistka_core::system::{
-        CoreError, CpuStatus, MemoryStatus, SystemInfoPort, SystemOverview,
-    };
+    use ochistka_core::scan::Finding;
+    use ochistka_core::system::{CpuStatus, MemoryStatus};
 
     enum Outcome {
         Ok,
@@ -113,5 +140,57 @@ mod tests {
         let err = load_overview(&port).unwrap_err();
         assert_eq!(err.kind, "probe");
         assert_eq!(err.message, "ошибка чтения системных данных: x");
+    }
+
+    struct FakeScanner {
+        engine_ok: bool,
+    }
+
+    impl VirusScanPort for FakeScanner {
+        fn engine_status(&self) -> EngineStatus {
+            EngineStatus {
+                available: self.engine_ok,
+                reason: if self.engine_ok {
+                    String::new()
+                } else {
+                    "clamscan.exe не найден".into()
+                },
+            }
+        }
+
+        fn scan(&self, _target: &str) -> Result<ScanReport, CoreError> {
+            if !self.engine_ok {
+                return Err(CoreError::EngineMissing("clamscan.exe не найден".into()));
+            }
+            Ok(ScanReport {
+                scanned_files: 2,
+                infected_files: 1,
+                errors: 0,
+                findings: vec![Finding {
+                    path: "C:\\a.exe".into(),
+                    signature: "Win.Test.X".into(),
+                }],
+            })
+        }
+    }
+
+    #[test]
+    fn scan_returns_engine_report() {
+        let report = scan_with(&FakeScanner { engine_ok: true }, "C:\\Users").unwrap();
+        assert_eq!(report.infected_files, 1);
+        assert_eq!(report.findings[0].signature, "Win.Test.X");
+    }
+
+    #[test]
+    fn scan_maps_missing_engine_to_kind_engine_missing() {
+        let err = scan_with(&FakeScanner { engine_ok: false }, "C:\\Users").unwrap_err();
+        assert_eq!(err.kind, "engineMissing");
+        assert_eq!(err.message, "движок недоступен: clamscan.exe не найден");
+    }
+
+    #[test]
+    fn scan_maps_invalid_target_to_kind_invalid_target() {
+        let err = scan_with(&FakeScanner { engine_ok: true }, "Downloads").unwrap_err();
+        assert_eq!(err.kind, "invalidTarget");
     }
 }
