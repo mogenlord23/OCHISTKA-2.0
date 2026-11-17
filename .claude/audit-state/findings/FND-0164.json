@@ -1,0 +1,12 @@
+{
+  "id": "FND-0164",
+  "file": "apps/desktop/src/App.test.ts",
+  "lines": "41-47",
+  "severity": "low",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "No test checks that switching sections resets activeSub to the new section first subtab",
+  "evidence": "App.test.ts:41-47; App.svelte:20-23 select(); App.svelte:22 reset line; VirusesPage.svelte:84,129,165 subsection branches",
+  "failure_scenario": "Deleting App.svelte:22 and clicking Вирусы leaves activeSub as subscription, the page body is empty, and the test passes.",
+  "status": "open"
+}

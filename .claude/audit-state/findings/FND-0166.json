@@ -1,0 +1,12 @@
+{
+  "id": "FND-0166",
+  "file": "apps/desktop/src/App.test.ts",
+  "lines": "16",
+  "severity": "info",
+  "confidence": "high",
+  "type": "dead-mock",
+  "summary": "getSystemOverview mock is never reached: Home is mounted only through ComputerPage and no test selects Компьютер",
+  "evidence": "App.test.ts:16; Home.svelte:21; ComputerPage.svelte:2",
+  "failure_scenario": "None; misleading setup. Related FND-0129.",
+  "status": "open"
+}
