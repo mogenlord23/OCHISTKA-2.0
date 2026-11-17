@@ -1,0 +1,12 @@
+{
+  "id": "FND-0053",
+  "file": "crates/ochistka-core/src/scan.rs",
+  "lines": "96-103 (reached via commands.rs:81-84)",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "heuristic-evasion",
+  "summary": "Trailing dot or space after the last extension zeroes the heuristic: invoice.pdf.exe. scores 0 instead of 70 because the extension becomes an empty or non-listed string; Windows resolves the file anyway",
+  "evidence": "scan.rs:96-103 split on \".\" and take last part; Win32 path normalisation strips trailing dot and space (UNVERIFIED in this source)",
+  "failure_scenario": "assess_file(\"C:\\\\Users\\\\u\\\\Downloads\\\\invoice.pdf.exe.\") returns score 0. Hint only. Related to FND-0008 but a different cause.",
+  "status": "open"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "FND-0054",
+  "file": "crates/ochistka-core/src/scan.rs",
+  "lines": "55-56, 64",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Doc promises no control characters, but char::is_control covers only category Cc: format and separator characters (RLO U+202E, U+2028, U+FEFF, U+200B) pass and can spoof displayed paths; rejected input is echoed verbatim to the UI",
+  "evidence": "scan.rs:55-56 doc; scan.rs:64 is_control; system.rs:103-104 and commands.rs:31 echo target into CommandError.message",
+  "failure_scenario": "\"C:\\\\x\\\\\\u{202E}exe.fdp\" accepted and displayed reversed. Does not enable option injection.",
+  "status": "open"
+}
