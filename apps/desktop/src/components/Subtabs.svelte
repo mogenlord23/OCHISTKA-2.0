@@ -34,6 +34,7 @@
   }
 
   button {
+    min-height: 44px;
     padding: 10px 16px;
     border: 0;
     border-radius: 8px;
