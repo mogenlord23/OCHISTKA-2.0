@@ -1,0 +1,12 @@
+{
+  "id": "FND-0176",
+  "file": "apps/desktop/src/components/TitleBar.test.ts",
+  "lines": "29-37",
+  "severity": "low",
+  "confidence": "high",
+  "type": "weak-assertion",
+  "summary": "Window-control click counts are checked only after all three clicks, so the test passes if the handlers are wired to the wrong buttons (for example minimise bound to close)",
+  "evidence": "apps/desktop/src/components/TitleBar.test.ts:29-37; TitleBar.svelte:13-15",
+  "failure_scenario": "Changing TitleBar.svelte:13 to close and line 15 to minimise leaves all counts at 1, so the test passes. The Свернуть button would then close the window in the real app.",
+  "status": "open"
+}

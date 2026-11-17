@@ -1,0 +1,12 @@
+{
+  "id": "FND-0179",
+  "file": "apps/desktop/src/components/TitleBar.test.ts",
+  "lines": "25-26",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "toBeTruthy after getByText adds nothing because getByText already throws when no element matches; same pattern in App.test.ts:58-60",
+  "evidence": "TitleBar.test.ts:25-26; App.test.ts:58-60",
+  "failure_scenario": "None. Redundant assertion.",
+  "status": "open"
+}
