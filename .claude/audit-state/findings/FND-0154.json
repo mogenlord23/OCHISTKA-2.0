@@ -1,0 +1,12 @@
+{
+  "id": "FND-0154",
+  "file": "apps/desktop/package.json",
+  "lines": "17",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "version-mismatch",
+  "summary": "@types/node is pinned to ^26.6.6 while README promises Node 22 and newer; no current code uses a Node-26-only API, so the risk is latent",
+  "evidence": "apps/desktop/package.json:17; package-lock.json:914-922; README.md:9; vite.config.ts:6 is the only Node API consumer",
+  "failure_scenario": "If later config or test code uses an API added after Node 22, it type-checks but fails at runtime on Node 22. Related FND-0151.",
+  "status": "open"
+}

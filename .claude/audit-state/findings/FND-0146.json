@@ -6,7 +6,7 @@
   "confidence": "high",
   "type": "cross-file-mismatch",
   "summary": "The tsconfig is checked by an undeclared TypeScript 6.0.3 (npm auto-installed peer for svelte-check), not the declared typescript ^7.0.2; npm run check does not use the declared compiler",
-  "evidence": "apps/desktop/package.json:21 typescript ^7.0.2 (installed 7.0.2); root node_modules/svelte-check peer ^5 || ^6; node_modules/svelte-check/dist/src/index.js:14 require typescript resolves to 6.0.3; package-lock.json:2426-2432 peer true; TS 7 package exposes no compiler API",
+  "evidence": "apps/desktop/package.json:21 typescript ^7.0.2 (installed 7.0.2); root node_modules/svelte-check peer ^5 || ^6; node_modules/svelte-check/dist/src/index.js:14 require typescript resolves to 6.0.3; package-lock.json:2426-2432 peer true; TS 7 package exposes no compiler API; also apps/desktop/package.json:21 declares typescript ^7.0.2 (audit of that file, cross-referenced, not re-filed)",
   "failure_scenario": "A lockfile or hoisting change makes svelte-check load TS 7, where ts.createLanguageService is missing, and npm run check crashes; editors and npx tsc diagnostics can differ from check. Dedupe with the apps/desktop/package.json audit.",
   "status": "open"
 }

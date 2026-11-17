@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 36,
+  "files_reviewed": 37,
   "lines_total": 3277,
-  "lines_reviewed": 2637,
-  "coverage_pct": 80.47,
+  "lines_reviewed": 2665,
+  "coverage_pct": 81.32,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -464,12 +464,14 @@
       ]
     },
     "apps/desktop/package.json": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 28,
-      "inspected_lines": 0,
+      "inspected_lines": 28,
       "functions_analyzed": 0,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0154"
+      ]
     },
     "apps/desktop/vite.config.ts": {
       "status": "complete",
