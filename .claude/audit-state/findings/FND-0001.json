@@ -1,0 +1,12 @@
+{
+  "id": "FND-0001",
+  "file": "apps/desktop/src-tauri/src/lib.rs",
+  "lines": "24-25",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "silent-failure",
+  "summary": "Startup failure in a release build is invisible: .expect panics and the GUI subsystem has no console",
+  "evidence": "lib.rs:24-25 .run(...).expect(\"не удалось запустить OCHISTKA\"); main.rs:1 windows_subsystem in release",
+  "failure_scenario": "Release build on a machine where the webview cannot be created: the process exits with no dialog and no log.",
+  "status": "open"
+}
