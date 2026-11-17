@@ -1,0 +1,12 @@
+{
+  "id": "FND-0153",
+  "file": "package.json",
+  "lines": "11-12",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "scope",
+  "summary": "format and format:check run prettier over . which includes .claude/audit-state and docs/superpowers/plans, not excluded by .prettierignore",
+  "evidence": "package.json:11-12; .prettierignore:1-7 excludes .superpowers but not .claude",
+  "failure_scenario": "format:check pass or fail depends on agent-generated audit files. UNVERIFIED whether they are Prettier-clean.",
+  "status": "open"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "FND-0151",
+  "file": "package.json",
+  "lines": "1-20",
+  "severity": "low",
+  "confidence": "high",
+  "type": "missing-validation",
+  "summary": "No engines field, while README promises Node.js 22 or newer, but locked jsdom, vitest and vite need narrower ranges (jsdom excludes 22.0 to 22.21 and 23.x; vitest excludes 23.x)",
+  "evidence": "README.md:9; package-lock.json:1704-1706 jsdom; lock:2580-2582 vitest; lock:2474-2476 vite; no .npmrc with engine-strict",
+  "failure_scenario": "On Node 22.11.0, 23.x or 24.10.0, install prints EBADENGINE and npm test may fail for reasons unrelated to the code. Runtime failure UNVERIFIED.",
+  "status": "open"
+}

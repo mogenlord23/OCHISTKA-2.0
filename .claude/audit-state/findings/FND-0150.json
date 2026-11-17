@@ -1,0 +1,12 @@
+{
+  "id": "FND-0150",
+  "file": "package.json",
+  "lines": "14",
+  "severity": "info",
+  "confidence": "high",
+  "type": "fail-fast-masking",
+  "summary": "The && chains stop at the first failure, so a svelte-check failure hides fmt and clippy results and a vitest failure hides cargo test results",
+  "evidence": "package.json:13 test chain; package.json:14 check chain",
+  "failure_scenario": "Only one layer of problems is reported per run; exit status remains non-zero.",
+  "status": "open"
+}
