@@ -1,0 +1,12 @@
+{
+  "id": "FND-0074",
+  "file": "apps/desktop/src/lib/format.ts",
+  "lines": "5-6, 19",
+  "severity": "info",
+  "confidence": "high",
+  "type": "missing-validation",
+  "summary": "No guard for non-finite or negative input; outputs NaN, Infinity or negative values if the backend contract changes",
+  "evidence": "format.ts:5-6, 19; unreachable today (u64 bytes, clamped percentages); related FND-0067",
+  "failure_scenario": "If a NaN percentage ever reaches formatPercent it shows \"NaN %\"; a null from serde shows \"0 %\".",
+  "status": "open"
+}

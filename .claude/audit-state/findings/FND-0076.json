@@ -1,0 +1,12 @@
+{
+  "id": "FND-0076",
+  "file": "apps/desktop/src/lib/format.ts",
+  "lines": "19",
+  "severity": "info",
+  "confidence": "high",
+  "type": "ux-rounding",
+  "summary": "Math.round maps 99.5 to 100 %: nearly full disk reads as full; 0.01 to 0.49 reads as 0 %",
+  "evidence": "format.ts:19; Home.svelte aria-valuenow uses the same rounding (consistent)",
+  "failure_scenario": "Disk at 99.6 % shows \"100 %\".",
+  "status": "open"
+}

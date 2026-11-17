@@ -1,0 +1,12 @@
+{
+  "id": "FND-0078",
+  "file": "apps/desktop/src/lib/format.ts",
+  "lines": "4-20 (tests at format.test.ts:4-20)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Tests cover only 0, 500, 1536, 1 GiB and 12.4; missing 1023/1024, 1048575 boundary, ТБ and the cap, .5 rounding, non-finite inputs",
+  "evidence": "format.test.ts:4-20",
+  "failure_scenario": "Regressions in FND-0073 and rounding go unnoticed.",
+  "status": "open"
+}

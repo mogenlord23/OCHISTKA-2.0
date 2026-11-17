@@ -1,0 +1,12 @@
+{
+  "id": "FND-0075",
+  "file": "apps/desktop/src/lib/format.ts",
+  "lines": "1, 10",
+  "severity": "info",
+  "confidence": "high",
+  "type": "edge-case",
+  "summary": "Largest unit is ТБ; sizes of 1 PiB and above show as 1024.0 ТБ or more; output stays correct",
+  "evidence": "format.ts:1, 10 unit guard",
+  "failure_scenario": "Recorded for completeness only.",
+  "status": "open"
+}
