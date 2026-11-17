@@ -9,27 +9,33 @@
     onSelect: (id: SectionId) => void;
   } = $props();
 
-  const statusLabel = (id: SectionId) =>
-    id === 'viruses' || id === 'computer' ? 'В РАБОТЕ' : 'В РАЗРАБОТКЕ';
+  /** Контурные иконки разделов: собственные, в стиле панели приложения. */
+  const icons: Record<SectionId, string> = {
+    vpn: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+    viruses: 'M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z',
+    processes: 'M6 4h12v16H6zM9 8h6M9 12h6M9 16h6',
+    programs: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+    disks: 'M4 6h16v12H4zM4 14h16M16 17h2',
+    computer: 'M3 4h18v12H3zM8 20h8M12 16v4',
+    design: 'M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-2 0-3 3 0 4-2a9 9 0 0 0-6-11z',
+  };
 </script>
 
 <aside class="rail" aria-label="Разделы приложения">
-  <div class="heading">РАЗДЕЛЫ</div>
   <nav aria-label="Навигация">
-    {#each SECTIONS as section, index (section.id)}
+    {#each SECTIONS as section (section.id)}
       <button
         type="button"
         class="item"
         class:active={active === section.id}
-        style:--accent={section.accent}
+        aria-label={section.title}
         aria-current={active === section.id ? 'page' : undefined}
         onclick={() => onSelect(section.id)}
       >
-        <span class="index">{String(index + 1).padStart(2, '0')}</span>
-        <span class="copy">
-          <span class="title">{section.title}</span>
-          <small>{statusLabel(section.id)}</small>
-        </span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d={icons[section.id]} />
+        </svg>
+        <span class="label">{section.title}</span>
       </button>
     {/each}
   </nav>
@@ -39,41 +45,35 @@
   .rail {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    width: 230px;
-    padding: 18px 12px;
-    background: #111111;
-    border-left: 2px solid #343434;
-  }
-
-  .heading {
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    color: #8b8b8b;
+    width: 124px;
+    padding: 8px 8px 0;
+    background: #080808;
   }
 
   nav {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .item {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border: 2px solid transparent;
+    gap: 6px;
+    padding: 12px 4px;
+    border: 0;
     border-radius: 12px;
-    background: #141414;
+    background: transparent;
     color: #fafafa;
     font: inherit;
-    text-align: left;
+    font-size: 12px;
+    font-weight: 800;
     cursor: pointer;
   }
 
   .item:hover {
-    border-color: var(--accent);
+    background: #1a1a1a;
   }
 
   .item.active {
@@ -81,27 +81,18 @@
     color: #080808;
   }
 
-  .index {
-    font-weight: 800;
-    color: var(--accent);
+  svg {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
-  .item.active .index {
-    color: #080808;
-  }
-
-  .copy {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .title {
-    font-weight: 800;
+  .label {
     text-transform: uppercase;
-  }
-
-  small {
-    font-size: 11px;
-    opacity: 0.8;
+    text-align: center;
   }
 </style>

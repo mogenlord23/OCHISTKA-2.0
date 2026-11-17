@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { SECTIONS } from './sections';
 
 describe('SECTIONS', () => {
-  it('lists seven sections in the order the owner set', () => {
+  it('lists seven sections with VPN first and viruses second', () => {
     expect(SECTIONS.map((section) => section.title)).toEqual([
-      'Вирусы',
       'VPN',
+      'Вирусы',
       'Процессы',
       'Программы',
       'Диски',
@@ -23,6 +23,15 @@ describe('SECTIONS', () => {
     ]);
   });
 
+  it('gives the VPN section its three subsections in order', () => {
+    const vpn = SECTIONS.find((section) => section.id === 'vpn');
+    expect(vpn?.subsections.map((item) => item.title)).toEqual([
+      'Подписка и импорт',
+      'Серверы',
+      'Маршруты и исключения',
+    ]);
+  });
+
   it('gives the computer section its four subsections', () => {
     const computer = SECTIONS.find((section) => section.id === 'computer');
     expect(computer?.subsections.map((item) => item.title)).toEqual([
@@ -31,6 +40,13 @@ describe('SECTIONS', () => {
       'Boost',
       'Драйверы',
     ]);
+  });
+
+  it('has a page colour and a lead string for every section', () => {
+    for (const section of SECTIONS) {
+      expect(section.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(typeof section.lead).toBe('string');
+    }
   });
 
   it('has unique section ids', () => {

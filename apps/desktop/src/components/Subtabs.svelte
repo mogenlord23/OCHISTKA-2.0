@@ -30,23 +30,24 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 12px 0 20px;
+    margin: 16px 0 20px;
   }
 
   button {
-    padding: 8px 14px;
-    border: 1px solid #343434;
+    padding: 10px 16px;
+    border: 0;
     border-radius: 8px;
-    background: #141414;
-    color: #d4d4d4;
+    background: #080808;
+    color: #fafafa;
     font: inherit;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 13px;
     cursor: pointer;
   }
 
   button.active {
-    border-color: var(--accent);
-    background: var(--accent);
+    background: #fafafa;
     color: #080808;
-    font-weight: 700;
   }
 </style>
