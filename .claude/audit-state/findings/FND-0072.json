@@ -1,0 +1,12 @@
+{
+  "id": "FND-0072",
+  "file": "crates/platform/src/linux/mod.rs",
+  "lines": "lib.rs:21-24 (cfg not windows or macos) selecting this stub",
+  "severity": "info",
+  "confidence": "high",
+  "type": "naming",
+  "summary": "Non-Windows, non-macOS targets (FreeBSD, Android and others) fall through to LinuxSystemInfo and report \"недоступно на Linux\" for the wrong OS",
+  "evidence": "platform lib.rs:21-24 cfg(not(any(windows,macos))); comment at lib.rs:10 documents it",
+  "failure_scenario": "A FreeBSD build shows \"Сведения о системе недоступно на Linux\". Cosmetic; only Windows is in scope.",
+  "status": "open"
+}

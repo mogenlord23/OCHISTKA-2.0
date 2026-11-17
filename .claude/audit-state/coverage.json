@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 16,
+  "files_reviewed": 17,
   "lines_total": 3277,
-  "lines_reviewed": 1503,
-  "coverage_pct": 45.87,
+  "lines_reviewed": 1517,
+  "coverage_pct": 46.29,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -210,12 +210,15 @@
       ]
     },
     "crates/platform/src/linux/mod.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 14,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 14,
+      "functions_analyzed": 3,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0071",
+        "FND-0072"
+      ]
     },
     "crates/platform/src/macos/mod.rs": {
       "status": "not-started",
