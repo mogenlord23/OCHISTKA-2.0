@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 14,
+  "files_reviewed": 15,
   "lines_total": 3277,
-  "lines_reviewed": 1320,
-  "coverage_pct": 40.28,
+  "lines_reviewed": 1323,
+  "coverage_pct": 40.37,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -182,12 +182,18 @@
       ]
     },
     "apps/desktop/src-tauri/build.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 3,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 3,
+      "functions_analyzed": 1,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0061",
+        "FND-0062",
+        "FND-0063",
+        "FND-0064",
+        "FND-0065"
+      ]
     },
     "crates/ochistka-core/src/system.rs": {
       "status": "not-started",

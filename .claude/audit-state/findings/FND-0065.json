@@ -1,0 +1,12 @@
+{
+  "id": "FND-0065",
+  "file": "apps/desktop/src-tauri/build.rs",
+  "lines": "2 (tauri-build windows-app-manifest.xml:1-14)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "config-default",
+  "summary": "Default Windows manifest has no requestedExecutionLevel and no supportedOS, so the exe runs as the invoking user and legacy APIs report Windows 8",
+  "evidence": "tauri-build src/windows-app-manifest.xml:1-14; repo search for GetVersion, RtlGetVersion, requireAdministrator, runas, IsUserAnAdmin, dpiAware, longPathAware, MAX_PATH: no matches",
+  "failure_scenario": "Currently consistent with CLAUDE.md (admin per action). Would break if an admin-required API is added later or if OS version checks are made.",
+  "status": "open"
+}

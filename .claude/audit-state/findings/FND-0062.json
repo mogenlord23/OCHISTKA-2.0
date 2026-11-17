@@ -1,0 +1,12 @@
+{
+  "id": "FND-0062",
+  "file": "apps/desktop/src-tauri/build.rs",
+  "lines": "2 (via tauri-build lib.rs:950-956, embed-resource lib.rs:641-645)",
+  "severity": "low",
+  "confidence": "high",
+  "type": "stale-build-cache",
+  "summary": "Build reads STATIC_VCRUNTIME, RC, RC_<target> and MINGW_CHOST without rerun-if-env-changed; changes have no effect until forced rebuild",
+  "evidence": "tauri-build lib.rs:950-956; embed-resource lib.rs:641-645; no cargo:rerun-if-env-changed emitted",
+  "failure_scenario": "Build once with static CRT, then STATIC_VCRUNTIME=false cargo build: cached output stays static. RC change likewise. Upstream behaviour inherited by bare build(); UNVERIFIED on Windows.",
+  "status": "open"
+}

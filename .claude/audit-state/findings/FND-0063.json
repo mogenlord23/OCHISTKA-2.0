@@ -1,0 +1,12 @@
+{
+  "id": "FND-0063",
+  "file": "apps/desktop/src-tauri/build.rs",
+  "lines": "2 (embed-resource windows_msvc.rs:34-36; tauri-winres lib.rs:541-543)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "build-tool-path-resolution",
+  "summary": "Without RC env or Windows Kits, the build runs a bare rc.exe or windres from PATH; a failing RC panics via unwrap, bypassing the contextual error",
+  "evidence": "embed-resource windows_msvc.rs:34-36 unwrap_or(Path::new(\"rc.exe\")); tauri-winres lib.rs:541-543 unwrap",
+  "failure_scenario": "Build host with a rogue rc.exe on PATH runs it at build time. Build-host trust dependency, undocumented in the project.",
+  "status": "open"
+}
