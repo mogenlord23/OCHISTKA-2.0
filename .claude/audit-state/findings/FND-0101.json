@@ -1,0 +1,12 @@
+{
+  "id": "FND-0101",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "54-62, 76-77",
+  "severity": "info",
+  "confidence": "high",
+  "type": "incomplete-journal",
+  "summary": "Journal records only successful scans; failed attempts (invalid target, missing engine, clamscan error) are not listed",
+  "evidence": "VirusesPage.svelte:54-62 runs only after scanStart resolves; catch at 76-77 does not record",
+  "failure_scenario": "User cannot see that a scan was attempted and failed.",
+  "status": "open"
+}

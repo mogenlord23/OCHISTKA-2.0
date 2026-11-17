@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 23,
+  "files_reviewed": 24,
   "lines_total": 3277,
-  "lines_reviewed": 1760,
-  "coverage_pct": 53.71,
+  "lines_reviewed": 2071,
+  "coverage_pct": 63.2,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -296,12 +296,23 @@
       "finding_ids": []
     },
     "apps/desktop/src/components/VirusesPage.svelte": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 311,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 311,
+      "functions_analyzed": 2,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0092",
+        "FND-0093",
+        "FND-0094",
+        "FND-0095",
+        "FND-0096",
+        "FND-0097",
+        "FND-0098",
+        "FND-0099",
+        "FND-0100",
+        "FND-0101"
+      ]
     },
     "apps/desktop/src/components/VpnPage.svelte": {
       "status": "not-started",

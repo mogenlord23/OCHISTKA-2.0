@@ -1,0 +1,12 @@
+{
+  "id": "FND-0096",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "35-36, 100",
+  "severity": "low",
+  "confidence": "low",
+  "type": "race-condition",
+  "summary": "defaultScanTarget result overwrites target after the user may have typed a path; input is enabled during mount",
+  "evidence": "VirusesPage.svelte:35-36 assignment; 100 input not disabled during mount",
+  "failure_scenario": "User types D:\\Work before the second IPC response: the input is overwritten with the default folder. Window is short; UNVERIFIED.",
+  "status": "open"
+}

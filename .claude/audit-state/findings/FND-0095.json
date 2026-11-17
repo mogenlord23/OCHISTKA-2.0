@@ -1,0 +1,12 @@
+{
+  "id": "FND-0095",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "29-34, 85",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "unrecoverable-state",
+  "summary": "Engine status fetched once at mount: IPC failure leaves engine null with the start button disabled forever; the \"install ClamAV\" instruction has no refresh, so the user must switch sections",
+  "evidence": "VirusesPage.svelte:29-34 one-shot onMount; 85-91 alert; 107 disabled condition",
+  "failure_scenario": "User installs ClamAV into the clamav folder while the page is open: the button stays disabled until a section switch remounts the page.",
+  "status": "open"
+}

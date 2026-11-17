@@ -1,0 +1,12 @@
+{
+  "id": "FND-0093",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "170 (key from 56)",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "duplicate-each-key",
+  "summary": "Journal key is startedAt (HH:MM:SS without date) plus target; two runs in the same second or at the same clock time on different days collide",
+  "evidence": "VirusesPage.svelte:54-58 toLocaleTimeString(\"ru-RU\"); line 170 key",
+  "failure_scenario": "Two runs of the same target at the same clock time on different days in one long session: Журнал throws duplicate key. Date rollover is the more plausible case.",
+  "status": "open"
+}

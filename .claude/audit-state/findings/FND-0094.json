@@ -1,0 +1,12 @@
+{
+  "id": "FND-0094",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "63-68 (and 143)",
+  "severity": "low",
+  "confidence": "high",
+  "type": "silent-failure",
+  "summary": "assessFile errors are swallowed by .catch(() => null); a finding without a hint shows nothing and no reason",
+  "evidence": "VirusesPage.svelte:63-68, 71-74, 143",
+  "failure_scenario": "File deleted between scan and assessment: no hint, no reason. Related FND-0025, FND-0047.",
+  "status": "open"
+}

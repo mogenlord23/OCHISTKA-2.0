@@ -1,0 +1,12 @@
+{
+  "id": "FND-0100",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "122, 133",
+  "severity": "info",
+  "confidence": "high",
+  "type": "hidden-data",
+  "summary": "report.errors is never shown; infectedFiles and findings can disagree (FND-0009), giving \"Находок: 1\" on one tab and \"Угроз не найдено\" on the other",
+  "evidence": "VirusesPage.svelte:122 vs 133; types.ts:44 errors field; FND-0005 makes errors effectively 0",
+  "failure_scenario": "Scan with unreadable files looks clean; mismatch between counters.",
+  "status": "open"
+}

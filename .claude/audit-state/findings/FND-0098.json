@@ -1,0 +1,12 @@
+{
+  "id": "FND-0098",
+  "file": "apps/desktop/src/components/VirusesPage.svelte",
+  "lines": "52-79, 118-120",
+  "severity": "low",
+  "confidence": "high",
+  "type": "misleading-status",
+  "summary": "scanning stays true and the message says \"Проверяем файлы\" while assessFile calls run after scanStart already resolved; each call can block (FND-0025)",
+  "evidence": "VirusesPage.svelte:52-79 finally after Promise.all; 118-120 status text",
+  "failure_scenario": "Share of 20 findings goes offline after the scan: UI reports scanning for about 20 SMB timeouts with no progress change.",
+  "status": "open"
+}
