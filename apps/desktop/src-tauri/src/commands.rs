@@ -2,7 +2,11 @@
 
 use std::sync::Arc;
 
-use ochistka_core::scan::{run_scan, EngineStatus, ScanReport, VirusScanPort};
+use std::path::Path;
+
+use ochistka_core::scan::{
+    run_scan, score_suspicion, validate_target, EngineStatus, ScanReport, Suspicion, VirusScanPort,
+};
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
 use tauri::State;
@@ -70,6 +74,19 @@ pub async fn scan_start(
             kind: "probe".into(),
             message: err.to_string(),
         })?
+}
+
+/// Оценка одного файла: проверка пути, сбор признаков и эвристика. Не вердикт.
+pub fn assess_path(path: &str) -> Result<Suspicion, CommandError> {
+    validate_target(path).map_err(CommandError::from)?;
+    let facts = ochistka_platform::windows::files::file_facts(Path::new(path))
+        .map_err(CommandError::from)?;
+    Ok(score_suspicion(&facts))
+}
+
+#[tauri::command]
+pub fn assess_file(path: String) -> Result<Suspicion, CommandError> {
+    assess_path(&path)
 }
 
 #[tauri::command]
@@ -192,5 +209,17 @@ mod tests {
     fn scan_maps_invalid_target_to_kind_invalid_target() {
         let err = scan_with(&FakeScanner { engine_ok: true }, "Downloads").unwrap_err();
         assert_eq!(err.kind, "invalidTarget");
+    }
+    #[test]
+    fn assess_rejects_relative_path() {
+        assert_eq!(
+            assess_path("invoice.exe").unwrap_err().kind,
+            "invalidTarget"
+        );
+    }
+
+    #[test]
+    fn assess_reports_missing_file_as_probe() {
+        assert_eq!(assess_path("Z:\\missing\\x.exe").unwrap_err().kind, "probe");
     }
 }
