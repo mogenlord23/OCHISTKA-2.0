@@ -1,15 +1,15 @@
 {
   "files_total": 50,
-  "files_reviewed": 0,
+  "files_reviewed": 1,
   "lines_total": 3277,
-  "lines_reviewed": 0,
-  "coverage_pct": 0.0,
+  "lines_reviewed": 5,
+  "coverage_pct": 0.15,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 5,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 5,
+      "functions_analyzed": 1,
       "resume_at": null,
       "finding_ids": []
     },
