@@ -1,0 +1,12 @@
+{
+  "id": "FND-0114",
+  "file": "apps/desktop/src/components/Subtabs.svelte",
+  "lines": "15,20",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "a11y-semantics",
+  "summary": "Subtabs are view switchers marked up as a navigation landmark with aria-current, not as tablist/tab with aria-selected and aria-controls; aria-label Подразделы is identical in every section",
+  "evidence": "Subtabs.svelte:15,20; CLAUDE.md calls them вкладки; App.svelte:65-75 content panel swap",
+  "failure_scenario": "Design choice to confirm; not a WCAG failure today. Screen-reader users hear a navigation list rather than tabs.",
+  "status": "open"
+}

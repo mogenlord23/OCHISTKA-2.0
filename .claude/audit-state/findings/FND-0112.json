@@ -1,0 +1,12 @@
+{
+  "id": "FND-0112",
+  "file": "apps/desktop/src/components/Subtabs.svelte",
+  "lines": "16",
+  "severity": "low",
+  "confidence": "high",
+  "type": "latent-crash",
+  "summary": "A duplicate subsection id makes the keyed each throw each_key_duplicate in dev and production; the section page fails to render (settles FND-0081 UNVERIFIED step)",
+  "evidence": "Subtabs.svelte:16 keyed by item.id; svelte each.js:358-362 and errors.js:137-146 throw in both DEV and prod; no test guards it",
+  "failure_scenario": "Add a duplicate id to viruses subsections in sections.ts and open Вирусы: throws. Latent: current data has no duplicates. May be merged into FND-0081.",
+  "status": "open"
+}
