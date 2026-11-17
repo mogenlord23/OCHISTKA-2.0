@@ -1,4 +1,4 @@
-// Зеркало DTO ядра (crates/ochistka-core, camelCase). Пишется вручную.
+// Зеркало DTO бэкенда (camelCase). Пишется вручную.
 
 export interface CpuStatus {
   usagePercent: number;
@@ -25,8 +25,33 @@ export interface SystemOverview {
   disks: DiskStatus[];
 }
 
-/** Ошибка команды: "unsupported" — ОС без адаптера, "probe" — сбой чтения. */
+export type ErrorKind = 'unsupported' | 'probe' | 'engineMissing' | 'invalidTarget';
+
+/** Ошибка команды. `message` уже на русском. */
 export interface CommandError {
-  kind: 'unsupported' | 'probe';
+  kind: ErrorKind;
   message: string;
+}
+
+export interface Finding {
+  path: string;
+  signature: string;
+}
+
+export interface ScanReport {
+  scannedFiles: number;
+  infectedFiles: number;
+  errors: number;
+  findings: Finding[];
+}
+
+export interface EngineStatus {
+  available: boolean;
+  reason: string;
+}
+
+/** Эвристическая подсказка по файлу. Не вердикт. */
+export interface Suspicion {
+  score: number;
+  reasons: string[];
 }

@@ -1,13 +1,43 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CommandError, SystemOverview } from './types';
+import type {
+  CommandError,
+  EngineStatus,
+  ErrorKind,
+  ScanReport,
+  Suspicion,
+  SystemOverview,
+} from './types';
 
-/** Интервал опроса раздела «Главная», мс. */
+/** Интервал опроса раздела «Компьютер», мс. */
 export const POLL_INTERVAL_MS = 2000;
 
-/** Единственная точка вызова системных данных из интерфейса. */
+/** Единственная точка вызова бэкенда из интерфейса. */
 export function getSystemOverview(): Promise<SystemOverview> {
   return invoke<SystemOverview>('get_system_overview');
 }
+
+export function scanStart(target: string): Promise<ScanReport> {
+  return invoke<ScanReport>('scan_start', { target });
+}
+
+export function clamavStatus(): Promise<EngineStatus> {
+  return invoke<EngineStatus>('clamav_status');
+}
+
+export function assessFile(path: string): Promise<Suspicion> {
+  return invoke<Suspicion>('assess_file', { path });
+}
+
+export function defaultScanTarget(): Promise<string> {
+  return invoke<string>('default_scan_target');
+}
+
+const ERROR_KINDS: readonly ErrorKind[] = [
+  'unsupported',
+  'probe',
+  'engineMissing',
+  'invalidTarget',
+];
 
 function isCommandError(err: unknown): err is CommandError {
   return (
@@ -15,7 +45,8 @@ function isCommandError(err: unknown): err is CommandError {
     err !== null &&
     'kind' in err &&
     'message' in err &&
-    (err.kind === 'unsupported' || err.kind === 'probe') &&
+    typeof err.kind === 'string' &&
+    (ERROR_KINDS as readonly string[]).includes(err.kind) &&
     typeof err.message === 'string'
   );
 }

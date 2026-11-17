@@ -41,8 +41,6 @@
   });
 </script>
 
-<h1>Главная</h1>
-
 {#if error}
   <section class="alert" role="alert">
     <h2>
@@ -122,10 +120,6 @@
 {/if}
 
 <style>
-  h1 {
-    margin-top: 0;
-  }
-
   h2 {
     margin: 0 0 8px;
     font-size: 16px;
