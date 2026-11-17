@@ -1,0 +1,12 @@
+{
+  "id": "FND-0199",
+  "file": "apps/desktop/src/lib/format.test.ts",
+  "lines": "10",
+  "severity": "info",
+  "confidence": "high",
+  "type": "edge-case",
+  "summary": "Fractional values below 1024 print raw floats through the bytes branch (formatBytes(0.1+0.2) gives 0.30000000000000004 Б); no test covers it and the test name does not describe it",
+  "evidence": "format.ts:5-6; format.test.ts:10; FND-0074 covers only negative and non-finite input",
+  "failure_scenario": "Not reachable today: the Rust backend sends u64 integers. Defensive gap only.",
+  "status": "open"
+}
