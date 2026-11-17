@@ -11,7 +11,7 @@ describe('SECTION_COLORS', () => {
       programs: '#ff7a00',
       disks: '#f5ff00',
       computer: '#cf00ff',
-      design: '#ff5a5f',
+      design: '#f83c5c',
     });
   });
 

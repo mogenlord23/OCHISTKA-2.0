@@ -8,7 +8,7 @@ export const SECTION_COLORS: Record<SectionId, string> = {
   programs: '#ff7a00',
   disks: '#f5ff00',
   computer: '#cf00ff',
-  design: '#ff5a5f',
+  design: '#f83c5c',
 };
 
 export const HEADING_FONT = "'Arial Black', 'Segoe UI', system-ui, sans-serif";
