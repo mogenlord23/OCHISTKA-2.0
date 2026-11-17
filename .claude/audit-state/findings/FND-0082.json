@@ -1,0 +1,12 @@
+{
+  "id": "FND-0082",
+  "file": "apps/desktop/src/lib/tokens.ts",
+  "lines": "23-29",
+  "severity": "low",
+  "confidence": "high",
+  "type": "missing-validation",
+  "summary": "luminance assumes #rrggbb and never checks; malformed input becomes a wrong colour via bitwise coercion, e.g. #fff reads as #000fff and a 1:1 white-on-white result",
+  "evidence": "tokens.ts:23-29 parseInt(hex.slice(1),16) with bit masks; no format check; no test for malformed input",
+  "failure_scenario": "textOn(\"#fff\") returns white, giving 1:1 white text on white. Latent: runtime only passes valid SECTION_COLORS today, but contrastRatio and textOn are public and hex may come from screenshots.",
+  "status": "open"
+}

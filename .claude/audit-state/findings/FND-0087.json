@@ -1,0 +1,12 @@
+{
+  "id": "FND-0087",
+  "file": "apps/desktop/src/lib/tokens.ts",
+  "lines": "tokens.test.ts:34-39",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "contrastRatio tested only at black and white; malformed hex, mid-tone luminance and the AA-unreachable band are untested; a swapped channel weight would pass",
+  "evidence": "tokens.test.ts:34-39",
+  "failure_scenario": "Regressions in luminance weights or hex parsing go unnoticed.",
+  "status": "open"
+}

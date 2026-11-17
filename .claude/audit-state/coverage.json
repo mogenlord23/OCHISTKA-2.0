@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 20,
+  "files_reviewed": 21,
   "lines_total": 3277,
-  "lines_reviewed": 1627,
-  "coverage_pct": 49.65,
+  "lines_reviewed": 1696,
+  "coverage_pct": 51.75,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -336,12 +336,19 @@
       ]
     },
     "apps/desktop/src/lib/tokens.ts": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 69,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 69,
+      "functions_analyzed": 4,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0082",
+        "FND-0083",
+        "FND-0084",
+        "FND-0085",
+        "FND-0086",
+        "FND-0087"
+      ]
     },
     "apps/desktop/src/vite-env.d.ts": {
       "status": "not-started",

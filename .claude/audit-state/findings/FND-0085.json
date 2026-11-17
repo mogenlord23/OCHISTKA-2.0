@@ -1,0 +1,12 @@
+{
+  "id": "FND-0085",
+  "file": "apps/desktop/src/lib/tokens.ts",
+  "lines": "68 in TitleBar.svelte, 191 in VirusesPage.svelte",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "Literal #ff009d copies of SECTION_COLORS.vpn in TitleBar close hover and VirusesPage alert border",
+  "evidence": "TitleBar.svelte:68; VirusesPage.svelte:191; tokens.ts:5",
+  "failure_scenario": "Brand colour change leaves these two stale.",
+  "status": "open"
+}

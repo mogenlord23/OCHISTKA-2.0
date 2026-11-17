@@ -1,0 +1,12 @@
+{
+  "id": "FND-0084",
+  "file": "apps/desktop/src/lib/tokens.ts",
+  "lines": "41-42, 48",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "textOn hardcodes #080808 and #ffffff instead of NEUTRAL.black and a white token; they can drift apart",
+  "evidence": "tokens.ts:41-42 literals; NEUTRAL defined at tokens.ts:48",
+  "failure_scenario": "Changing NEUTRAL.black leaves textOn unchanged.",
+  "status": "open"
+}
