@@ -1,0 +1,12 @@
+{
+  "id": "FND-0066",
+  "file": "crates/ochistka-core/src/system.rs",
+  "lines": "16-21",
+  "severity": "info",
+  "confidence": "high",
+  "type": "numeric-precision",
+  "summary": "usage_percent converts u64 to f32 before dividing; near 1e12 bytes a nearly full disk reports exactly 100.0",
+  "evidence": "system.rs:20 used as f32 / total as f32 * 100.0; hand-computed example 999_999_970_000 / 1_000_000_000_000",
+  "failure_scenario": "Any future == 100.0 full-disk check fires falsely. No effect today (formatPercent rounds). Fix: compute in f64.",
+  "status": "open"
+}

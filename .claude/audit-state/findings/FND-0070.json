@@ -1,0 +1,12 @@
+{
+  "id": "FND-0070",
+  "file": "crates/ochistka-core/src/system.rs",
+  "lines": "95-105 (Probe at 99-100)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "message-drift",
+  "summary": "Probe message prefix \"ошибка чтения системных данных\" is reused for clamscan launch, exit-code and file-access failures; CoreError also carries scan-domain variants inside the system module",
+  "evidence": "system.rs:99-100; clamav.rs:77,83; files.rs:23; system.rs:1 module doc says system data only",
+  "failure_scenario": "A clamscan launch failure shows \"ошибка чтения системных данных\" to the user.",
+  "status": "open"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "FND-0069",
+  "file": "crates/ochistka-core/src/system.rs",
+  "lines": "72-78",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "edge-case",
+  "summary": "Display name: emptiness is checked on trimmed value but stored untrimmed; zero-width-only names count as non-empty; both inputs empty gives empty label; duplicate mount points would hit Home.svelte keyed each (UNVERIFIED that sysinfo can produce duplicates)",
+  "evidence": "system.rs:72-78; Home.svelte keyed each by mountPoint",
+  "failure_scenario": "DiskStatus::new(\"\\u{200B}\", \"E:\\\\\", ..) gives an invisible label; duplicate mountPoint could trigger Svelte duplicate-key error.",
+  "status": "open"
+}
