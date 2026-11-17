@@ -7,6 +7,7 @@
   import ComputerPage from './components/ComputerPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
+  import { BODY_FONT, HEADING_FONT, textOn } from './lib/tokens';
 
   const VERSION = '0.1.0';
 
@@ -22,7 +23,13 @@
   }
 </script>
 
-<div class="shell" style:--accent={section.accent}>
+<div
+  class="shell"
+  style:--accent={section.accent}
+  style:--page-text={textOn(section.accent)}
+  style:--font-heading={HEADING_FONT}
+  style:--font-body={BODY_FONT}
+>
   <TitleBar />
 
   <div class="body">
@@ -77,7 +84,7 @@
 <style>
   :global(body) {
     margin: 0;
-    font-family: system-ui, sans-serif;
+    font-family: var(--font-body, system-ui, sans-serif);
     background: #080808;
     color: #fafafa;
   }
@@ -103,23 +110,24 @@
 
   h1 {
     margin: 4px 0 0;
+    font-family: var(--font-heading);
     font-size: 44px;
     font-weight: 900;
     text-transform: uppercase;
-    color: #080808;
+    color: var(--page-text);
   }
 
   .lead {
     margin: 4px 0 0;
     font-size: 14px;
     font-weight: 700;
-    color: #080808;
+    color: var(--page-text);
   }
 
   footer {
     margin-top: 24px;
     font-size: 11px;
-    color: #080808;
+    color: var(--page-text);
   }
 
   .side {

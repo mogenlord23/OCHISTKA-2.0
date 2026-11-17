@@ -1,3 +1,5 @@
+import { SECTION_COLORS } from './tokens';
+
 /** Семь разделов приложения, по порядку правой панели. Подразделы — вкладки на странице. */
 export type SectionId =
   'viruses' | 'vpn' | 'processes' | 'programs' | 'disks' | 'computer' | 'design';
@@ -21,7 +23,7 @@ export const SECTIONS: readonly Section[] = [
   {
     id: 'vpn',
     title: 'VPN',
-    accent: '#ff009d',
+    accent: SECTION_COLORS.vpn,
     lead: 'Твоё подключение. Твои правила.',
     subsections: [
       { id: 'subscription', title: 'Подписка и импорт' },
@@ -32,7 +34,7 @@ export const SECTIONS: readonly Section[] = [
   {
     id: 'viruses',
     title: 'Вирусы',
-    accent: '#b4ff00',
+    accent: SECTION_COLORS.viruses,
     lead: 'Сначала проверка. Решение об удалении принимаешь ты.',
     subsections: [
       { id: 'scan', title: 'Проверка' },
@@ -43,19 +45,25 @@ export const SECTIONS: readonly Section[] = [
   {
     id: 'processes',
     title: 'Процессы',
-    accent: '#147cff',
+    accent: SECTION_COLORS.processes,
     lead: 'Что запущено и сколько ресурсов занимает прямо сейчас.',
     subsections: [
       { id: 'processes', title: 'Процессы' },
       { id: 'services', title: 'Службы' },
     ],
   },
-  { id: 'programs', title: 'Программы', accent: '#f5ff00', lead: '', subsections: [] },
-  { id: 'disks', title: 'Диски', accent: '#ff7a00', lead: '', subsections: [] },
+  {
+    id: 'programs',
+    title: 'Программы',
+    accent: SECTION_COLORS.programs,
+    lead: '',
+    subsections: [],
+  },
+  { id: 'disks', title: 'Диски', accent: SECTION_COLORS.disks, lead: '', subsections: [] },
   {
     id: 'computer',
     title: 'Компьютер',
-    accent: '#cf00ff',
+    accent: SECTION_COLORS.computer,
     lead: 'Комплектующие, текущая нагрузка, настройки, Boost и драйверы.',
     subsections: [
       { id: 'components', title: 'Комплектующие и графики' },
@@ -64,5 +72,5 @@ export const SECTIONS: readonly Section[] = [
       { id: 'drivers', title: 'Драйверы' },
     ],
   },
-  { id: 'design', title: 'Оформление', accent: '#00e5c3', lead: '', subsections: [] },
+  { id: 'design', title: 'Оформление', accent: SECTION_COLORS.design, lead: '', subsections: [] },
 ];
