@@ -1,0 +1,12 @@
+{
+  "id": "FND-0196",
+  "file": "apps/desktop/src/lib/api.test.ts",
+  "lines": "22,45",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "ScanReport fixture has an empty findings array, so the Finding DTO shape (path, signature) is never used in any TS test; an instance of FND-0191",
+  "evidence": "api.test.ts:22,45; types.ts:36-39; scan.rs:9-12",
+  "failure_scenario": "None on its own; part of FND-0191.",
+  "status": "open"
+}

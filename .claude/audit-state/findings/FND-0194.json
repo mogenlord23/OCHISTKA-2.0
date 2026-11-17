@@ -1,0 +1,12 @@
+{
+  "id": "FND-0194",
+  "file": "apps/desktop/src/lib/api.test.ts",
+  "lines": "32-38",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Rejection passthrough tested only for getSystemOverview and uses toEqual although the test name says unchanged; scanStart, clamavStatus, assessFile and defaultScanTarget have no rejection test",
+  "evidence": "api.test.ts:32-38; api.ts:19-33",
+  "failure_scenario": "Low risk today; future wrapper logic changing errors would go unnoticed.",
+  "status": "open"
+}

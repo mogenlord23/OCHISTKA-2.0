@@ -1,0 +1,12 @@
+{
+  "id": "FND-0195",
+  "file": "apps/desktop/src/lib/api.test.ts",
+  "lines": "3-10",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "POLL_INTERVAL_MS is not imported or asserted in this file",
+  "evidence": "api.test.ts:3-10; api.ts:12; FND-0170 cross-reference",
+  "failure_scenario": "The polling period can change without any failure in this file.",
+  "status": "open"
+}

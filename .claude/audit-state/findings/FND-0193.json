@@ -1,0 +1,12 @@
+{
+  "id": "FND-0193",
+  "file": "apps/desktop/src/lib/api.test.ts",
+  "lines": "29,46,58,65,72",
+  "severity": "low",
+  "confidence": "high",
+  "type": "weak-assertion",
+  "summary": "Invoke assertions use toHaveBeenCalledWith without toHaveBeenCalledTimes, so a duplicate invoke would not be caught",
+  "evidence": "api.test.ts:29,46,58,65,72; api.ts:19-21",
+  "failure_scenario": "Calling invoke scan_start twice per click leaves the test green; scans run twice in production.",
+  "status": "open"
+}

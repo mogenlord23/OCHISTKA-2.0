@@ -1,0 +1,12 @@
+{
+  "id": "FND-0192",
+  "file": "apps/desktop/src/lib/api.test.ts",
+  "lines": "76-85",
+  "severity": "low",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "toCommandError tests cover one of four ERROR_KINDS and none of the rejection branches (unknown kind, non-string message, null); test name says scan kinds but checks one",
+  "evidence": "api.test.ts:76-85; api.ts:36,37,39,45,49,50; FND-0057 cross-reference",
+  "failure_scenario": "Deleting invalidTarget at api.ts:39 leaves all tests green; an invalidTarget error becomes probe with [object Object] message.",
+  "status": "open"
+}
