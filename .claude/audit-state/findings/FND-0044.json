@@ -1,0 +1,12 @@
+{
+  "id": "FND-0044",
+  "file": "crates/platform/src/windows/files.rs",
+  "lines": "34-42 (use at scan.rs:111-117)",
+  "severity": "low",
+  "confidence": "high",
+  "type": "heuristic-false-positive",
+  "summary": "In-startup and in-downloads are decided by any folder with that name in the path, not by the real Startup or Downloads folders; the app has two definitions of Downloads",
+  "evidence": "files.rs:34-42 substring checks; files.rs:14-18 default_downloads builds the real path but classify ignores it; scan.rs:111-117 +30 per flag, startup wins",
+  "failure_scenario": "D:\\\\dev\\\\startup\\\\target\\\\release\\\\app.exe gets in_startup=true; C:\\\\Users\\\\Startup\\\\Downloads\\\\setup.exe gets startup reason instead of downloads; relocated D:\\\\Загрузки\\\\setup.exe gets in_downloads=false. Hints only; nothing deleted.",
+  "status": "open"
+}

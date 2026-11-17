@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 10,
+  "files_reviewed": 11,
   "lines_total": 3277,
-  "lines_reviewed": 702,
-  "coverage_pct": 21.42,
+  "lines_reviewed": 801,
+  "coverage_pct": 24.44,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -129,12 +129,16 @@
       ]
     },
     "crates/platform/src/windows/files.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 99,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 99,
+      "functions_analyzed": 4,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0044",
+        "FND-0045",
+        "FND-0046"
+      ]
     },
     "crates/platform/src/windows/clamav.rs": {
       "status": "not-started",

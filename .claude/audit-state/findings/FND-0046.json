@@ -1,0 +1,12 @@
+{
+  "id": "FND-0046",
+  "file": "crates/platform/src/windows/files.rs",
+  "lines": "48-99",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Test helper names its temp directory by name length (collision risk) and does not clean up on panic; classifier false positives, mixed separators, directories and default_downloads are untested",
+  "evidence": "files.rs:48-99 temp dir from process id and name.len(); expect at line 64 before remove_dir_all; no tests for classify false positives or default_downloads",
+  "failure_scenario": "Two equal-length test names in one process share a directory; a failing assertion leaves temp directories behind; classifier regressions go unnoticed (CLAUDE.md: every function has tests).",
+  "status": "open"
+}
