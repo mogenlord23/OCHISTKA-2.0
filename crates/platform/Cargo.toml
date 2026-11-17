@@ -1,0 +1,9 @@
+[package]
+name = "ochistka-platform"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+ochistka-core = { path = "../ochistka-core" }
+sysinfo = "0.40.4"
