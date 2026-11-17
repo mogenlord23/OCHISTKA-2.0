@@ -1,0 +1,12 @@
+{
+  "id": "FND-0136",
+  "file": "apps/desktop/vite.config.ts",
+  "lines": "18-19",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "config-scope",
+  "summary": "resolve.conditions browser applies to dev, build and tests; array replaces Vite defaults, so development and production export conditions are dropped and esm-env falls back, possibly losing Svelte dev checks in tauri dev",
+  "evidence": "vite.config.ts:18-19; node.js:2760 arrays replaced; node.js:37477 defaults; esm-env dev-fallback.js. UNVERIFIED whether define rewriting masks the check",
+  "failure_scenario": "tauri dev: Svelte runtime DEV falsy, dev warnings lost while components compile in dev mode.",
+  "status": "open"
+}

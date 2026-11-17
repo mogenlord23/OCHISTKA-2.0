@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 32,
+  "files_reviewed": 33,
   "lines_total": 3277,
-  "lines_reviewed": 2573,
-  "coverage_pct": 78.52,
+  "lines_reviewed": 2597,
+  "coverage_pct": 79.25,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -465,12 +465,18 @@
       "finding_ids": []
     },
     "apps/desktop/vite.config.ts": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 24,
-      "inspected_lines": 0,
+      "inspected_lines": 24,
       "functions_analyzed": 0,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0136",
+        "FND-0137",
+        "FND-0138",
+        "FND-0139",
+        "FND-0140"
+      ]
     },
     "apps/desktop/svelte.config.js": {
       "status": "not-started",

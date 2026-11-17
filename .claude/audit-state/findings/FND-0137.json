@@ -1,0 +1,12 @@
+{
+  "id": "FND-0137",
+  "file": "apps/desktop/vite.config.ts",
+  "lines": "14, tauri.conf.json:9",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "config-mismatch",
+  "summary": "TAURI_DEV_HOST path: a non-loopback host makes the dev server unreachable from the hardcoded 127.0.0.1 devUrl; 0.0.0.0 gives HMR URL ws://0.0.0.0:1421; mobile-template code with no in-scope caller",
+  "evidence": "vite.config.ts:14 host || 127.0.0.1; tauri.conf.json:9 devUrl 127.0.0.1; client.mjs:939 HMR hostname",
+  "failure_scenario": "Windows: TAURI_DEV_HOST=192.168.1.10 npm run dev: WebView cannot reach server. UNVERIFIED Tauri CLI rewrite.",
+  "status": "open"
+}

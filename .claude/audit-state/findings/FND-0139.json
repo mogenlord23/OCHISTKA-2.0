@@ -1,0 +1,12 @@
+{
+  "id": "FND-0139",
+  "file": "apps/desktop/vite.config.ts",
+  "lines": "18",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Comment says Svelte in tests needs the browser build, but the setting applies to dev and production builds too",
+  "evidence": "vite.config.ts:18 comment; line 19 setting",
+  "failure_scenario": "Misleading scope for maintainers.",
+  "status": "open"
+}

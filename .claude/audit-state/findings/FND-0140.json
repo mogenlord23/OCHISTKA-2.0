@@ -1,0 +1,12 @@
+{
+  "id": "FND-0140",
+  "file": "apps/desktop/vite.config.ts",
+  "lines": "15",
+  "severity": "info",
+  "confidence": "high",
+  "type": "deprecated-api",
+  "summary": "server.hmr.protocol/host/port are deprecated in Vite 8 in favour of server.ws.*; no warning fires for this form",
+  "evidence": "vite.config.ts:15; node.js:2829 deprecation; node.js:2838 copy",
+  "failure_scenario": "Future Vite removal of the legacy keys breaks HMR silently.",
+  "status": "open"
+}
