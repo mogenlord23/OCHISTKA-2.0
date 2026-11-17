@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 40,
+  "files_reviewed": 41,
   "lines_total": 3277,
-  "lines_reviewed": 2694,
-  "coverage_pct": 82.21,
+  "lines_reviewed": 2715,
+  "coverage_pct": 82.85,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -448,12 +448,16 @@
       ]
     },
     "apps/desktop/src-tauri/Cargo.toml": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 21,
-      "inspected_lines": 0,
+      "inspected_lines": 21,
       "functions_analyzed": 0,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0160",
+        "FND-0161",
+        "FND-0162"
+      ]
     },
     "package.json": {
       "status": "complete",

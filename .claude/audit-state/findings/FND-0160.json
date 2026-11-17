@@ -1,0 +1,12 @@
+{
+  "id": "FND-0160",
+  "file": "apps/desktop/src-tauri/Cargo.toml",
+  "lines": "18",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "missing-config",
+  "summary": "tauri does not enable custom-protocol and the manifest has no [features] section, so a plain cargo build --release runs in dev mode and loads devUrl http://127.0.0.1:1420 instead of the bundled dist",
+  "evidence": "apps/desktop/src-tauri/Cargo.toml:18 features []; tauri-2.12.6/build.rs:252-255 dev = !custom_protocol; tauri.conf.json:9 devUrl; main.rs:1 console hidden in release; README.md:17-29 does not mark cargo release as unsupported",
+  "failure_scenario": "Release binary built with cargo build --release shows a connection error without Vite, or serves any process on 127.0.0.1:1420 to the app origin, where the unguarded commands scan_start and assess_file are reachable (FND-0030, FND-0033). Documented route npm run build relies on tauri-cli adding custom-protocol (UNVERIFIED).",
+  "status": "open"
+}

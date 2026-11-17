@@ -1,0 +1,12 @@
+{
+  "id": "FND-0162",
+  "file": "apps/desktop/src-tauri/Cargo.toml",
+  "lines": "10-12,18,21",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "The [[bin]] block repeats the default target Cargo would discover, and the empty features = [] entries on tauri and tauri-build are no-ops",
+  "evidence": "apps/desktop/src-tauri/Cargo.toml:10-12, 18, 21",
+  "failure_scenario": "None. Configuration noise matching the upstream template.",
+  "status": "open"
+}
