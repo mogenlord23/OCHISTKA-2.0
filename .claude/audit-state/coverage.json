@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 17,
+  "files_reviewed": 18,
   "lines_total": 3277,
-  "lines_reviewed": 1517,
-  "coverage_pct": 46.29,
+  "lines_reviewed": 1531,
+  "coverage_pct": 46.72,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -221,10 +221,10 @@
       ]
     },
     "crates/platform/src/macos/mod.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 14,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 14,
+      "functions_analyzed": 3,
       "resume_at": null,
       "finding_ids": []
     },
