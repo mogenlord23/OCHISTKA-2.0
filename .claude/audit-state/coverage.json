@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 9,
+  "files_reviewed": 10,
   "lines_total": 3277,
-  "lines_reviewed": 622,
-  "coverage_pct": 18.98,
+  "lines_reviewed": 702,
+  "coverage_pct": 21.42,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -113,12 +113,20 @@
       ]
     },
     "crates/platform/src/windows/mod.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 80,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 80,
+      "functions_analyzed": 5,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0037",
+        "FND-0038",
+        "FND-0039",
+        "FND-0040",
+        "FND-0041",
+        "FND-0042",
+        "FND-0043"
+      ]
     },
     "crates/platform/src/windows/files.rs": {
       "status": "not-started",

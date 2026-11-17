@@ -1,0 +1,12 @@
+{
+  "id": "FND-0043",
+  "file": "crates/platform/src/windows/mod.rs",
+  "lines": "1",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Module doc says read-only adapter, but the adapter directory also hosts clamav (runs a process) and files; compiled on every OS",
+  "evidence": "mod.rs:1; lib.rs:5 pub mod windows without cfg (FND-0003)",
+  "failure_scenario": "Reviewers misjudge the scope of this module.",
+  "status": "open"
+}

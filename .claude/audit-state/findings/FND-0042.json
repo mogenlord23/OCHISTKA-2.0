@@ -1,0 +1,12 @@
+{
+  "id": "FND-0042",
+  "file": "crates/platform/src/windows/mod.rs",
+  "lines": "54-56",
+  "severity": "info",
+  "confidence": "high",
+  "type": "dead-code",
+  "summary": "ok_or_else error branch is unreachable: the Option is filled or the function returned early",
+  "evidence": "windows/mod.rs:51-56",
+  "failure_scenario": "None; dead code only.",
+  "status": "open"
+}

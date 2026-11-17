@@ -1,0 +1,12 @@
+{
+  "id": "FND-0041",
+  "file": "crates/platform/src/windows/mod.rs",
+  "lines": "65 -> sysinfo disk.rs:317-319, 355-413",
+  "severity": "info",
+  "confidence": "high",
+  "type": "coverage-gap",
+  "summary": "Network, optical and RAM drives are not listed; a volume with several mount paths appears once per path, so totals may double-count",
+  "evidence": "sysinfo disk.rs:317-319 drive type filter; disk.rs:355-413 one entry per mount path",
+  "failure_scenario": "Volume mounted at D:\\ and C:\\mnt\\data\\ counted twice in totals.",
+  "status": "open"
+}

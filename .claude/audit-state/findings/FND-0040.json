@@ -1,0 +1,12 @@
+{
+  "id": "FND-0040",
+  "file": "crates/platform/src/windows/mod.rs",
+  "lines": "mod.rs:65 -> sysinfo disk.rs:215-216, 476-485",
+  "severity": "info",
+  "confidence": "low",
+  "type": "scope-unverified",
+  "summary": "Every poll issues IOCTL_DISK_PERFORMANCE on each volume; this may change kernel counter state, against the read-only claim",
+  "evidence": "mod.rs:1 says read-only; sysinfo disk.rs:215-216, 476-485. UNVERIFIED: Microsoft IOCTL semantics (no local docs).",
+  "failure_scenario": "If the IOCTL enables counters, the adapter is not strictly read-only. Needs verification on Windows.",
+  "status": "open"
+}
