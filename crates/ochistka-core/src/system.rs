@@ -98,6 +98,10 @@ pub enum CoreError {
     Unsupported { feature: String, os: String },
     #[error("ошибка чтения системных данных: {0}")]
     Probe(String),
+    #[error("движок недоступен: {0}")]
+    EngineMissing(String),
+    #[error("недопустимый путь проверки: {0}")]
+    InvalidTarget(String),
 }
 
 /// Порт системных сведений. Реализации живут в `crates/platform`.
