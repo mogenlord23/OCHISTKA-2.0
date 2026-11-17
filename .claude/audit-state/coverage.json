@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 29,
+  "files_reviewed": 30,
   "lines_total": 3277,
-  "lines_reviewed": 2483,
-  "coverage_pct": 75.77,
+  "lines_reviewed": 2495,
+  "coverage_pct": 76.14,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -276,12 +276,15 @@
       ]
     },
     "apps/desktop/src/components/Placeholder.svelte": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 12,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 12,
+      "functions_analyzed": 1,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0126",
+        "FND-0127"
+      ]
     },
     "apps/desktop/src/components/PlaceholderPage.svelte": {
       "status": "complete",

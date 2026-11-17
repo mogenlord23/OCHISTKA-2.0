@@ -1,0 +1,12 @@
+{
+  "id": "FND-0126",
+  "file": "apps/desktop/src/components/Placeholder.svelte",
+  "lines": "5",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "accessibility",
+  "summary": "Component renders its own h1, which would give a second level-1 heading inside any section page (App.svelte:54 already renders one); latent since nothing imports it",
+  "evidence": "Placeholder.svelte:5 h1; App.svelte:54 h1; no importer found",
+  "failure_scenario": "Future use in place of PlaceholderPage: two h1 with the same text in one section.",
+  "status": "open"
+}
