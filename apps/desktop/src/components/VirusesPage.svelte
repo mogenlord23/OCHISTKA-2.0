@@ -183,8 +183,8 @@
   .findings li {
     margin-bottom: 16px;
     padding: 16px;
-    border-radius: 12px;
-    background: #141414;
+    border-radius: var(--radius-md);
+    background: var(--surface);
   }
 
   .alert {
@@ -199,10 +199,10 @@
 
   input {
     padding: 10px;
-    border: 1px solid #343434;
-    border-radius: 8px;
-    background: #080808;
-    color: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--ink);
     font: inherit;
   }
 
@@ -214,10 +214,10 @@
 
   button {
     padding: 8px 14px;
-    border: 1px solid #343434;
-    border-radius: 8px;
-    background: #141414;
-    color: #d4d4d4;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-soft);
     font: inherit;
     cursor: pointer;
   }
@@ -230,7 +230,7 @@
   button.primary {
     border-color: var(--accent);
     background: var(--accent);
-    color: #080808;
+    color: var(--black);
     font-weight: 700;
   }
 
@@ -243,7 +243,7 @@
   .scanner p,
   .empty {
     margin: 0;
-    color: #d4d4d4;
+    color: var(--ink-soft);
   }
 
   .sweep {
@@ -287,7 +287,7 @@
   }
 
   .path {
-    color: #8b8b8b;
+    color: var(--muted);
     word-break: break-all;
   }
 
@@ -306,6 +306,6 @@
   }
 
   small {
-    color: #8b8b8b;
+    color: var(--muted);
   }
 </style>

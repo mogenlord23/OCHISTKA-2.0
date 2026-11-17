@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { SECTIONS } from './sections';
-import { BODY_FONT, HEADING_FONT, SECTION_COLORS, contrastRatio, textOn } from './tokens';
+import {
+  BODY_FONT,
+  HEADING_FONT,
+  NEUTRAL,
+  RADIUS,
+  SECTION_COLORS,
+  TYPE_SCALE,
+  contrastRatio,
+  textOn,
+} from './tokens';
 
 describe('SECTION_COLORS', () => {
   it('matches the design brief for each section', () => {
@@ -50,5 +59,35 @@ describe('font tokens', () => {
 
   it('uses the system UI font for body text', () => {
     expect(BODY_FONT).toContain('system-ui');
+  });
+});
+
+describe('neutral, radius and type tokens', () => {
+  it('defines the neutral colours used by the components', () => {
+    expect(NEUTRAL).toEqual({
+      black: '#080808',
+      ink: '#fafafa',
+      inkSoft: '#d4d4d4',
+      muted: '#8b8b8b',
+      surface: '#141414',
+      surfaceAlt: '#111111',
+      border: '#343434',
+    });
+  });
+
+  it('defines the radius scale', () => {
+    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '14px' });
+  });
+
+  it('defines the type scale', () => {
+    expect(TYPE_SCALE).toEqual({
+      caption: '11px',
+      small: '12px',
+      body: '13px',
+      lead: '14px',
+      title: '16px',
+      section: '26px',
+      display: '44px',
+    });
   });
 });

@@ -122,7 +122,7 @@
 <style>
   h2 {
     margin: 0 0 8px;
-    font-size: 16px;
+    font-size: var(--text-title);
   }
 
   p {
@@ -133,7 +133,7 @@
   .alert {
     margin-bottom: 16px;
     padding: 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: #161b22;
   }
 

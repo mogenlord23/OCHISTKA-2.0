@@ -20,16 +20,16 @@
 <style>
   .card {
     padding: 18px;
-    border-radius: 14px;
-    background: #111111;
+    border-radius: var(--radius-lg);
+    background: var(--surface-alt);
   }
 
   h2 {
     margin: 0 0 12px;
-    font-size: 13px;
+    font-size: var(--text-body);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #fafafa;
+    color: var(--ink);
   }
 
   .row {
@@ -40,19 +40,19 @@
   input {
     flex: 1;
     padding: 10px 12px;
-    border: 1px solid #343434;
-    border-radius: 8px;
-    background: #080808;
-    color: #8b8b8b;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--muted);
     font: inherit;
   }
 
   button {
     padding: 10px 18px;
     border: 0;
-    border-radius: 8px;
-    background: #fafafa;
-    color: #080808;
+    border-radius: var(--radius-sm);
+    background: var(--ink);
+    color: var(--black);
     font: inherit;
     font-weight: 800;
     opacity: 0.5;
@@ -61,6 +61,6 @@
 
   .note {
     margin: 12px 0 0;
-    color: #8b8b8b;
+    color: var(--muted);
   }
 </style>

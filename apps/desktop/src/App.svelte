@@ -7,7 +7,7 @@
   import ComputerPage from './components/ComputerPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
-  import { BODY_FONT, HEADING_FONT, textOn } from './lib/tokens';
+  import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
 
   const VERSION = '0.1.0';
 
@@ -29,6 +29,23 @@
   style:--page-text={textOn(section.accent)}
   style:--font-heading={HEADING_FONT}
   style:--font-body={BODY_FONT}
+  style:--ink={NEUTRAL.ink}
+  style:--ink-soft={NEUTRAL.inkSoft}
+  style:--black={NEUTRAL.black}
+  style:--muted={NEUTRAL.muted}
+  style:--surface={NEUTRAL.surface}
+  style:--surface-alt={NEUTRAL.surfaceAlt}
+  style:--border={NEUTRAL.border}
+  style:--radius-sm={RADIUS.sm}
+  style:--radius-md={RADIUS.md}
+  style:--radius-lg={RADIUS.lg}
+  style:--text-caption={TYPE_SCALE.caption}
+  style:--text-small={TYPE_SCALE.small}
+  style:--text-body={TYPE_SCALE.body}
+  style:--text-lead={TYPE_SCALE.lead}
+  style:--text-title={TYPE_SCALE.title}
+  style:--text-section={TYPE_SCALE.section}
+  style:--text-display={TYPE_SCALE.display}
 >
   <TitleBar />
 

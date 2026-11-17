@@ -42,3 +42,28 @@ export function textOn(background: string): string {
   const white = '#ffffff';
   return contrastRatio(black, background) >= contrastRatio(white, background) ? black : white;
 }
+
+/** Нейтральные цвета интерфейса. Значения совпадают с прежними литералами в компонентах. */
+export const NEUTRAL = {
+  black: '#080808',
+  ink: '#fafafa',
+  inkSoft: '#d4d4d4',
+  muted: '#8b8b8b',
+  surface: '#141414',
+  surfaceAlt: '#111111',
+  border: '#343434',
+} as const;
+
+/** Скругления: маленькое (кнопки), среднее (карточки), большое (панели). */
+export const RADIUS = { sm: '8px', md: '12px', lg: '14px' } as const;
+
+/** Размеры текста: подпись, мелкий, основной, ведущий, заголовок блока, раздел, дисплей. */
+export const TYPE_SCALE = {
+  caption: '11px',
+  small: '12px',
+  body: '13px',
+  lead: '14px',
+  title: '16px',
+  section: '26px',
+  display: '44px',
+} as const;

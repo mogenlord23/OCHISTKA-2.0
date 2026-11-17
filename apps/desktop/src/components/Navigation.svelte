@@ -47,7 +47,7 @@
     flex-direction: column;
     width: 124px;
     padding: 8px 8px 0;
-    background: #080808;
+    background: var(--black);
   }
 
   nav {
@@ -63,11 +63,11 @@
     gap: 6px;
     padding: 12px 4px;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: transparent;
-    color: #fafafa;
+    color: var(--ink);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--text-small);
     font-weight: 800;
     cursor: pointer;
   }
@@ -78,7 +78,7 @@
 
   .item.active {
     background: var(--accent);
-    color: #080808;
+    color: var(--black);
   }
 
   svg {

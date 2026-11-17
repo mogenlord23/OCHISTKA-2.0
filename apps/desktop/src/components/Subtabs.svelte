@@ -37,18 +37,18 @@
     min-height: 44px;
     padding: 10px 16px;
     border: 0;
-    border-radius: 8px;
-    background: #080808;
-    color: #fafafa;
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--ink);
     font: inherit;
     font-weight: 800;
     text-transform: uppercase;
-    font-size: 13px;
+    font-size: var(--text-body);
     cursor: pointer;
   }
 
   button.active {
-    background: #fafafa;
-    color: #080808;
+    background: var(--ink);
+    color: var(--black);
   }
 </style>

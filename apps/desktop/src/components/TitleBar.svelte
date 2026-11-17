@@ -32,15 +32,15 @@
   }
 
   strong {
-    font-size: 26px;
+    font-size: var(--text-section);
     font-weight: 900;
     letter-spacing: 0.02em;
-    color: #080808;
+    color: var(--black);
   }
 
   small {
-    font-size: 11px;
-    color: #080808;
+    font-size: var(--text-caption);
+    color: var(--black);
   }
 
   .controls {
@@ -53,10 +53,10 @@
     height: 44px;
     border: 0;
     border-radius: 10px;
-    background: #080808;
-    color: #fafafa;
+    background: var(--black);
+    color: var(--ink);
     font: inherit;
-    font-size: 16px;
+    font-size: var(--text-title);
     cursor: pointer;
   }
 
@@ -66,6 +66,6 @@
 
   button.close:hover {
     background: #ff009d;
-    color: #080808;
+    color: var(--black);
   }
 </style>
