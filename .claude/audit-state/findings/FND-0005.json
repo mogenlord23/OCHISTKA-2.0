@@ -1,0 +1,12 @@
+{
+  "id": "FND-0005",
+  "file": "crates/platform/src/windows/clamav.rs",
+  "lines": "79-87",
+  "severity": "high",
+  "confidence": "medium",
+  "type": "cross-file-mismatch",
+  "summary": "Exit code 2 from clamscan discards all parsed findings; the core error-counting branch never runs in production",
+  "evidence": "clamav.rs:79-87 match exit code: only 0 or 1 parse stdout; any other code returns Probe. scan.rs:43-44 counts \" ERROR\" lines.",
+  "failure_scenario": "Recursive scan with locked files (for example NTUSER.DAT) plus one infected file: an error is shown and the infected file is not reported. UNVERIFIED: that clamscan exits 2 with per-file errors and still prints FOUND lines; clamscan source is not in the repo.",
+  "status": "open"
+}

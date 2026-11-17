@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 2,
+  "files_reviewed": 3,
   "lines_total": 3277,
-  "lines_reviewed": 31,
-  "coverage_pct": 0.95,
+  "lines_reviewed": 33,
+  "coverage_pct": 1.01,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -27,10 +27,10 @@
       ]
     },
     "crates/ochistka-core/src/lib.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 2,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 2,
+      "functions_analyzed": 2,
       "resume_at": null,
       "finding_ids": []
     },

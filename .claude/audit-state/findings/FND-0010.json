@@ -1,0 +1,12 @@
+{
+  "id": "FND-0010",
+  "file": "crates/ochistka-core/src/scan.rs",
+  "lines": "92,122",
+  "severity": "info",
+  "confidence": "high",
+  "type": "false-positive",
+  "summary": "Crack-word match is a substring test, so benign names score",
+  "evidence": "scan.rs:92 CRACK_WORDS and scan.rs:122 name.contains(word).",
+  "failure_scenario": "dispatcher.exe contains \"patch\" and gets +20.",
+  "status": "open"
+}

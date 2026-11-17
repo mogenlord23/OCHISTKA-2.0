@@ -1,0 +1,12 @@
+{
+  "id": "FND-0007",
+  "file": "crates/ochistka-core/src/scan.rs",
+  "lines": "63",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "ssrf",
+  "summary": "validate_target accepts arbitrary UNC paths, so a scan or assessment can contact any SMB host",
+  "evidence": "scan.rs:63 absolute check accepts any \"\\\\\" prefix, including device paths such as \\\\.\\PhysicalDrive0.",
+  "failure_scenario": "Target \"\\\\attacker.example\\share\" passes validation, reaches clamscan and std::fs::metadata, and triggers SMB authentication. Reachable through scan_start and assess_file if the webview is compromised.",
+  "status": "open"
+}
