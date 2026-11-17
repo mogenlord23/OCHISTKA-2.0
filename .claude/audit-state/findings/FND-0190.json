@@ -1,0 +1,12 @@
+{
+  "id": "FND-0190",
+  "file": "apps/desktop/src/components/VpnPage.test.ts",
+  "lines": "6-17",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Neither test checks that the other branch is absent: the subscription test does not check the placeholder is missing, and the servers test does not check the card is missing",
+  "evidence": "VpnPage.test.ts:6-17; VpnPage.svelte:7 condition, 16-17 else branch",
+  "failure_scenario": "Rendering both branches together would pass both tests. Fixing this requires cleanup first (FND-0189).",
+  "status": "open"
+}
