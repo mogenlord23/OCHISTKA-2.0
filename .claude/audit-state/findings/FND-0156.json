@@ -1,0 +1,12 @@
+{
+  "id": "FND-0156",
+  "file": "Cargo.toml",
+  "lines": "1-8",
+  "severity": "info",
+  "confidence": "high",
+  "type": "consistency",
+  "summary": "No [workspace.dependencies]; shared dependencies are declared per member with differing requirements (serde \"1\" in ochistka-core, \"1.0.229\" in src-tauri) and the path dependency on ochistka-core is repeated with different relative paths",
+  "evidence": "crates/ochistka-core/Cargo.toml:8 serde \"1\"; apps/desktop/src-tauri/Cargo.toml:17 serde \"1.0.229\"; platform/Cargo.toml:8 and src-tauri/Cargo.toml:15 ochistka-core path; Cargo.lock:2807 serde 1.0.229",
+  "failure_scenario": "None at runtime today. Minimum versions can drift; a minimal-versions resolution could build core against an older serde than desktop.",
+  "status": "open"
+}

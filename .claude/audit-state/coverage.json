@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 37,
+  "files_reviewed": 38,
   "lines_total": 3277,
-  "lines_reviewed": 2665,
-  "coverage_pct": 81.32,
+  "lines_reviewed": 2673,
+  "coverage_pct": 81.57,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -417,12 +417,17 @@
       ]
     },
     "Cargo.toml": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 8,
-      "inspected_lines": 0,
+      "inspected_lines": 8,
       "functions_analyzed": 0,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0155",
+        "FND-0156",
+        "FND-0157",
+        "FND-0158"
+      ]
     },
     "crates/ochistka-core/Cargo.toml": {
       "status": "not-started",

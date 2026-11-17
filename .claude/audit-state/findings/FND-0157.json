@@ -1,0 +1,12 @@
+{
+  "id": "FND-0157",
+  "file": "Cargo.toml",
+  "lines": "1-3",
+  "severity": "info",
+  "confidence": "high",
+  "type": "missing-config",
+  "summary": "No [workspace.lints] table; the CLAUDE.md clippy rule (-D warnings) is enforced only by command-line flags in package.json and README, so plain cargo clippy or IDE runs do not deny warnings",
+  "evidence": "no [lints] in any Cargo.toml; no crate-level deny attributes in *.rs; package.json:14; README.md:27",
+  "failure_scenario": "Plain cargo clippy reports warnings without failing. Policy lives outside the manifest. No correctness impact.",
+  "status": "open"
+}
