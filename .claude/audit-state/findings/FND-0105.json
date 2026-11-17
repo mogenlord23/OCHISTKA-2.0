@@ -1,0 +1,12 @@
+{
+  "id": "FND-0105",
+  "file": "apps/desktop/src/components/Home.svelte",
+  "lines": "44-53",
+  "severity": "info",
+  "confidence": "high",
+  "type": "ux-state",
+  "summary": "One transient error replaces the whole overview with the alert until the next success; the last good snapshot is kept in state but hidden",
+  "evidence": "Home.svelte:44-53 error branch precedes overview branch",
+  "failure_scenario": "A single probe failure blanks CPU, RAM and disks for one interval.",
+  "status": "open"
+}

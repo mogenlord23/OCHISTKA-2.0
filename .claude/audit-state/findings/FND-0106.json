@@ -1,0 +1,12 @@
+{
+  "id": "FND-0106",
+  "file": "apps/desktop/src/components/Home.svelte",
+  "lines": "36 (api.ts:12 interval)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "Polling continues every 2 s after an unsupported error that cannot change on macOS and Linux; each tick sends a spawn_blocking call with no back-off",
+  "evidence": "Home.svelte:36 setInterval; commands.rs:51-62; unsupported is fixed per OS",
+  "failure_scenario": "Idle IPC and blocking-pool traffic on non-Windows builds.",
+  "status": "open"
+}
