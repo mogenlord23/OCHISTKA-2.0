@@ -1,4 +1,6 @@
-//! Адаптер Windows на sysinfo. Только чтение системных сведений.
+//! Адаптеры Windows: sysinfo (только чтение) и ClamAV (запуск clamscan по абсолютному пути).
+
+pub mod clamav;
 
 use std::sync::Mutex;
 
