@@ -5,6 +5,18 @@ use std::path::Path;
 use ochistka_core::scan::FileFacts;
 use ochistka_core::system::CoreError;
 
+/// Папка «Загрузки» пользователя по пути профиля. Только строка, диск не читается.
+pub fn downloads_from_profile(profile: &str) -> String {
+    format!("{}\\Downloads", profile.trim_end_matches(['\\', '/']))
+}
+
+/// Папка «Загрузки» текущего пользователя (из USERPROFILE), если переменная задана.
+pub fn default_downloads() -> Option<String> {
+    std::env::var("USERPROFILE")
+        .ok()
+        .map(|profile| downloads_from_profile(&profile))
+}
+
 /// Собирает признаки файла с диска. Читает только метаданные, содержимое не открывает.
 pub fn file_facts(path: &Path) -> Result<FileFacts, CoreError> {
     let metadata = std::fs::metadata(path)
@@ -72,5 +84,16 @@ mod tests {
             file_facts(Path::new("Z:/definitely/missing.exe")),
             Err(CoreError::Probe(_))
         ));
+    }
+    #[test]
+    fn downloads_folder_is_built_from_the_profile_path() {
+        assert_eq!(
+            downloads_from_profile("C:\\Users\\Slava\\"),
+            "C:\\Users\\Slava\\Downloads"
+        );
+        assert_eq!(
+            downloads_from_profile("C:\\Users\\Slava"),
+            "C:\\Users\\Slava\\Downloads"
+        );
     }
 }

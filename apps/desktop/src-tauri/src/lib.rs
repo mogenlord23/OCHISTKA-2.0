@@ -4,7 +4,9 @@ pub mod commands;
 
 use std::sync::Arc;
 
-use commands::{assess_file, clamav_status, get_system_overview, scan_start, AppState};
+use commands::{
+    assess_file, clamav_status, default_scan_target, get_system_overview, scan_start, AppState,
+};
 
 pub fn run() {
     tauri::Builder::default()
@@ -16,7 +18,8 @@ pub fn run() {
             get_system_overview,
             scan_start,
             clamav_status,
-            assess_file
+            assess_file,
+            default_scan_target
         ])
         .run(tauri::generate_context!())
         .expect("не удалось запустить OCHISTKA");

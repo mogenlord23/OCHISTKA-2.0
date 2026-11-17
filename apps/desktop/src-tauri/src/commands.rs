@@ -90,6 +90,11 @@ pub fn assess_file(path: String) -> Result<Suspicion, CommandError> {
 }
 
 #[tauri::command]
+pub fn default_scan_target() -> String {
+    ochistka_platform::windows::files::default_downloads().unwrap_or_default()
+}
+
+#[tauri::command]
 pub fn clamav_status(state: State<'_, AppState>) -> EngineStatus {
     state.scanner.engine_status()
 }
