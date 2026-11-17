@@ -13,9 +13,9 @@
 <style>
   .placeholder {
     padding: 24px;
-    border: 1px dashed #343434;
+    border: 1px dashed var(--page-text);
     border-radius: 12px;
-    color: #8b8b8b;
+    color: var(--page-text);
   }
 
   p {
