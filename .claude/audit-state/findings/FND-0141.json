@@ -1,0 +1,12 @@
+{
+  "id": "FND-0141",
+  "file": "apps/desktop/svelte.config.js",
+  "lines": "4",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "vitePreprocess() does not preprocess TypeScript in v7; TS is stripped by the Svelte compiler, which rejects enum, decorators, constructor parameter properties and namespaces, so the config looks like TS support but is not",
+  "evidence": "svelte.config.js:4; vite-plugin-svelte preprocess.js:30 script hook off without script:true; svelte remove_typescript_nodes.js:41,111,115,174",
+  "failure_scenario": "Adding enum to a lang=ts script fails the build with typescript_invalid_feature. Fix would be script:true when needed.",
+  "status": "open"
+}

@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 33,
+  "files_reviewed": 34,
   "lines_total": 3277,
-  "lines_reviewed": 2597,
-  "coverage_pct": 79.25,
+  "lines_reviewed": 2602,
+  "coverage_pct": 79.4,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -479,12 +479,17 @@
       ]
     },
     "apps/desktop/svelte.config.js": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 5,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 5,
+      "functions_analyzed": 1,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0141",
+        "FND-0142",
+        "FND-0143",
+        "FND-0144"
+      ]
     },
     "apps/desktop/tsconfig.json": {
       "status": "not-started",

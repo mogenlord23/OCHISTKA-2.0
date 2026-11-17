@@ -1,0 +1,12 @@
+{
+  "id": "FND-0143",
+  "file": "apps/desktop/svelte.config.js",
+  "lines": "3-5",
+  "severity": "info",
+  "confidence": "high",
+  "type": "weak-typing",
+  "summary": "Config object has no SvelteConfig type annotation and tsconfig includes no JS, so misspelled keys are never type-checked",
+  "evidence": "svelte.config.js:3-5; tsconfig.json:14 include excludes JS",
+  "failure_scenario": "compilerOption typo silently ignored. None today. Related FND-0088.",
+  "status": "open"
+}
