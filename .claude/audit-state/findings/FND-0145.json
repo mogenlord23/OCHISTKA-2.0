@@ -1,0 +1,12 @@
+{
+  "id": "FND-0145",
+  "file": "apps/desktop/tsconfig.json",
+  "lines": "6,12,14",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "config-scope",
+  "summary": "One TypeScript program mixes Node and browser globals: types [\"node\"] and lib DOM apply to every included file, so Node-only APIs such as process.env type-check inside WebView code that would fail at runtime",
+  "evidence": "apps/desktop/tsconfig.json:6 lib DOM; :12 types node; :14 include src/** and vite.config.ts; only vite.config.ts:6 needs Node types; no Node API usage in apps/desktop/src (Grep empty)",
+  "failure_scenario": "Adding const host = process.env.FOO in src/lib/api.ts passes npm run check and throws ReferenceError: process is not defined in the WebView. Latent today. Unverified: whether Vite define rewrites process.env.* in client builds.",
+  "status": "open"
+}
