@@ -1,0 +1,12 @@
+{
+  "id": "FND-0173",
+  "file": "apps/desktop/src/components/Home.test.ts",
+  "lines": "62-67",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Test named shows the disk mount point actually finds the displayName span; the mountPoint span is deliberately not rendered, and the test duplicates test 2 fixture",
+  "evidence": "Home.test.ts:62-67; Home.svelte:93-95",
+  "failure_scenario": "None. Misleading title.",
+  "status": "open"
+}

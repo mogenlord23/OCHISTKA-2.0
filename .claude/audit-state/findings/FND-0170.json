@@ -1,0 +1,12 @@
+{
+  "id": "FND-0170",
+  "file": "apps/desktop/src/components/Home.test.ts",
+  "lines": "81-100",
+  "severity": "medium",
+  "confidence": "high",
+  "type": "false-green",
+  "summary": "No test checks that polling happens or resumes; only toHaveBeenCalledTimes(1) is asserted after timer advances, so deleting the setInterval (Home.svelte:36) or the pending reset (Home.svelte:31) keeps all seven tests green",
+  "evidence": "apps/desktop/src/components/Home.test.ts:81-100 (lines 90, 99 only assert count 1); Home.svelte:31, 36",
+  "failure_scenario": "Removing pending = false in Home.svelte:31 means the Компьютер page fetches once and never refreshes; all tests pass. Same for changing the interval to POLL_INTERVAL_MS * 100.",
+  "status": "open"
+}

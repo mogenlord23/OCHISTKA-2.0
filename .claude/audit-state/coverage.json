@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 42,
+  "files_reviewed": 43,
   "lines_total": 3277,
-  "lines_reviewed": 2777,
-  "coverage_pct": 84.74,
+  "lines_reviewed": 2893,
+  "coverage_pct": 88.28,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -540,12 +540,19 @@
       ]
     },
     "apps/desktop/src/components/Home.test.ts": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 116,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 116,
+      "functions_analyzed": 9,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0170",
+        "FND-0171",
+        "FND-0172",
+        "FND-0173",
+        "FND-0174",
+        "FND-0175"
+      ]
     },
     "apps/desktop/src/components/TitleBar.test.ts": {
       "status": "not-started",

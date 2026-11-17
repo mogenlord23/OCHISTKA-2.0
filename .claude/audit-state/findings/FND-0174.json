@@ -1,0 +1,12 @@
+{
+  "id": "FND-0174",
+  "file": "apps/desktop/src/components/Home.test.ts",
+  "lines": "44-48",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Test titled shows loading until data arrives checks only the initial state; no test asserts the loading text disappears after data arrives",
+  "evidence": "Home.test.ts:44-48; Home.test.ts:50-60 does not check queryByText Загрузка is null",
+  "failure_scenario": "Loading text could stay visible after data and no test fails.",
+  "status": "open"
+}

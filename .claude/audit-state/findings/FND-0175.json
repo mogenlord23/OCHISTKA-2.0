@@ -1,0 +1,12 @@
+{
+  "id": "FND-0175",
+  "file": "apps/desktop/src/components/Home.test.ts",
+  "lines": "31-41,103-114",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-fragility",
+  "summary": "flush uses a magic count of five microtasks; fake-timer tests use synchronous advanceTimersByTime, so no microtasks run between interval callbacks (which is why FND-0170 mutation goes unnoticed; advanceTimersByTimeAsync would let responses settle); the console.error spy is restored inline and leaks if an assertion fails",
+  "evidence": "Home.test.ts:31-35, 90, 99, 114; api.ts:15-17",
+  "failure_scenario": "Too-small flush count gives a false red, not a false green. Spy leak has no effect today since the test is last.",
+  "status": "open"
+}
