@@ -1,0 +1,12 @@
+{
+  "id": "FND-0129",
+  "file": "apps/desktop/src/components/ComputerPage.svelte",
+  "lines": "8-12",
+  "severity": "low",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "No test for ComputerPage routing or App routing of the computer section; swapping branches or renaming the components id would pass all tests and hide the hardware overview",
+  "evidence": "no ComputerPage.test.ts; grep for computer/Компьютер in tests hits only data and colour tests (sections.test.ts, tokens.test.ts); App.test.ts never selects Компьютер",
+  "failure_scenario": "Change line 8 to settings: Комплектующие shows В разработке and the hardware overview is unreachable; all tests pass.",
+  "status": "open"
+}
