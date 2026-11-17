@@ -1,0 +1,12 @@
+{
+  "id": "FND-0050",
+  "file": "crates/platform/src/windows/clamav.rs",
+  "lines": "128-151",
+  "severity": "low",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Fake-engine test leaks its temp directory when scan fails (panic before cleanup) and does not verify the real argument vector or the exit-code branches",
+  "evidence": "clamav.rs:145 expect before remove_dir_all on line 146; fake script ignores $@; exit codes 0, 2 and empty-stderr branch untested",
+  "failure_scenario": "Failing run leaves $TMPDIR/ochistka-clamav-<pid>; argv or exit-code regressions go undetected.",
+  "status": "open"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "FND-0048",
+  "file": "crates/platform/src/windows/clamav.rs",
+  "lines": "83-86",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "error-reporting",
+  "summary": "Failure message uses stderr only and omits the exit code; with --stdout clamscan messages may be on stdout, leaving the message empty",
+  "evidence": "clamav.rs:17 --stdout; clamav.rs:83-86 message from stderr only; signal kill (code None) indistinguishable",
+  "failure_scenario": "Nonexistent target: message ends with an empty tail after the colon. UNVERIFIED: clamscan stdout/stderr routing.",
+  "status": "open"
+}

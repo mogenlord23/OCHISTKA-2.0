@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 11,
+  "files_reviewed": 12,
   "lines_total": 3277,
-  "lines_reviewed": 801,
-  "coverage_pct": 24.44,
+  "lines_reviewed": 953,
+  "coverage_pct": 29.08,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -141,12 +141,18 @@
       ]
     },
     "crates/platform/src/windows/clamav.rs": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 152,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 152,
+      "functions_analyzed": 11,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0047",
+        "FND-0048",
+        "FND-0049",
+        "FND-0050",
+        "FND-0051"
+      ]
     },
     "crates/ochistka-core/src/scan.rs": {
       "status": "not-started",
