@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 7,
+  "files_reviewed": 8,
   "lines_total": 3277,
-  "lines_reviewed": 577,
-  "coverage_pct": 17.61,
+  "lines_reviewed": 590,
+  "coverage_pct": 18.0,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -90,12 +90,15 @@
       ]
     },
     "apps/desktop/src-tauri/capabilities/default.json": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 13,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 13,
+      "functions_analyzed": 1,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0032",
+        "FND-0033"
+      ]
     },
     "apps/desktop/src-tauri/tauri.conf.json": {
       "status": "not-started",

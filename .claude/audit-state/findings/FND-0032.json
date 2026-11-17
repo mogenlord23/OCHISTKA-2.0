@@ -1,0 +1,12 @@
+{
+  "id": "FND-0032",
+  "file": "apps/desktop/src-tauri/capabilities/default.json",
+  "lines": "7",
+  "severity": "low",
+  "confidence": "high",
+  "type": "least-privilege",
+  "summary": "core:default grants tray, menu, image-from-path and event-emit commands the app never uses",
+  "evidence": "capabilities/default.json:7 core:default expands to core:tray/menu/image/event defaults (tauri build.rs:34-37,179,188-226); frontend imports only window API (TitleBar.svelte:2)",
+  "failure_scenario": "Script in the main window (blocked today by CSP) could create a tray icon or read any image file via image:from_path. Defensive gap; not reachable without script injection.",
+  "status": "open"
+}
