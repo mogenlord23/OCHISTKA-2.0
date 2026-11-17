@@ -1,0 +1,12 @@
+{
+  "id": "FND-0116",
+  "file": "apps/desktop/src/components/TitleBar.svelte",
+  "lines": "13-15",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "unhandled-promise-rejection",
+  "summary": "minimize, toggleMaximize and close return invoke promises that are dropped; a rejected permission or native failure gives no feedback",
+  "evidence": "TitleBar.svelte:13-15 arrow functions return promises not caught; window.js:999,1017,1091 invoke promises",
+  "failure_scenario": "Remove allow-close from capabilities: click the close button, nothing happens and an unhandledrejection appears in the console. Native failure modes UNVERIFIED on Windows.",
+  "status": "open"
+}

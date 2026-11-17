@@ -1,0 +1,12 @@
+{
+  "id": "FND-0118",
+  "file": "apps/desktop/src/components/TitleBar.svelte",
+  "lines": "63-70",
+  "severity": "info",
+  "confidence": "high",
+  "type": "visual-feedback",
+  "summary": "Close hover colour equals the VPN accent background (#ff009d), so on hover the button merges with the background; normal hover #1f1f1f against #080808 is about 1.2:1 and barely visible",
+  "evidence": "TitleBar.svelte:63-70; tokens.ts:5 VPN accent; App.svelte:113 shell background",
+  "failure_scenario": "Hovering close on the first screen: only the glyph remains visible.",
+  "status": "open"
+}

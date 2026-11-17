@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 27,
+  "files_reviewed": 28,
   "lines_total": 3277,
-  "lines_reviewed": 2388,
-  "coverage_pct": 72.87,
+  "lines_reviewed": 2459,
+  "coverage_pct": 75.04,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -304,12 +304,19 @@
       ]
     },
     "apps/desktop/src/components/TitleBar.svelte": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 71,
-      "inspected_lines": 0,
-      "functions_analyzed": 0,
+      "inspected_lines": 71,
+      "functions_analyzed": 4,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0115",
+        "FND-0116",
+        "FND-0117",
+        "FND-0118",
+        "FND-0119",
+        "FND-0120"
+      ]
     },
     "apps/desktop/src/components/VirusesPage.svelte": {
       "status": "complete",

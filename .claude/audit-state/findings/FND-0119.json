@@ -1,0 +1,12 @@
+{
+  "id": "FND-0119",
+  "file": "apps/desktop/src/components/TitleBar.svelte",
+  "lines": "12",
+  "severity": "info",
+  "confidence": "high",
+  "type": "inconsistency",
+  "summary": "8px gaps between title buttons are not a drag region; every other area of the bar drags",
+  "evidence": "TitleBar.svelte:12 controls div without attribute; drag.js:66 bare mode direct-click rule; data-tauri-drag-region=deep would cover it",
+  "failure_scenario": "Dragging from the gap between buttons does nothing.",
+  "status": "open"
+}

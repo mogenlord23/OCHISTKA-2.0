@@ -1,0 +1,12 @@
+{
+  "id": "FND-0120",
+  "file": "apps/desktop/src/components/TitleBar.svelte",
+  "lines": "13-15",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "accessibility",
+  "summary": "Glyphs (—, ▢, ✕) have no title tooltip for sighted users; rendering in Segoe UI may fall back for ▢ and ✕ (UNVERIFIED)",
+  "evidence": "TitleBar.svelte:13-15 glyph text; aria-labels present and correct",
+  "failure_scenario": "Sighted users cannot confirm what the icons mean without a tooltip.",
+  "status": "open"
+}
