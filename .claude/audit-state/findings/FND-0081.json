@@ -1,0 +1,12 @@
+{
+  "id": "FND-0081",
+  "file": "apps/desktop/src/lib/sections.ts",
+  "lines": "28-72 vs sections.test.ts:52-54",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "test-gap",
+  "summary": "Section ids are tested for uniqueness but subsection ids within a section are not; a duplicate would break keyed each in Subtabs and make two tabs active",
+  "evidence": "sections.test.ts:52-54 only section ids; Subtabs.svelte:16 keyed each; duplicate-key throw UNVERIFIED",
+  "failure_scenario": "Adding a second log subsection to viruses: duplicate key or two active tabs.",
+  "status": "open"
+}

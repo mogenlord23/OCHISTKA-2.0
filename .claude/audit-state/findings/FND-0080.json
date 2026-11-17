@@ -1,0 +1,12 @@
+{
+  "id": "FND-0080",
+  "file": "apps/desktop/src/lib/sections.ts",
+  "lines": "3-5",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Comment says union order follows the right panel, but the union lists viruses before vpn; real order comes from SECTIONS",
+  "evidence": "sections.ts:3-5 comment and union; sections.ts:24,35 order; sections.test.ts:5",
+  "failure_scenario": "Misleading comment only. Related to FND-0022 but a different drift.",
+  "status": "open"
+}
