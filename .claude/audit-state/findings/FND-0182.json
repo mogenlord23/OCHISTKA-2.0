@@ -1,0 +1,12 @@
+{
+  "id": "FND-0182",
+  "file": "apps/desktop/src/components/VirusesPage.test.ts",
+  "lines": "38",
+  "severity": "low",
+  "confidence": "high",
+  "type": "weak-assertion",
+  "summary": "Engine-missing test checks only the heading; the mocked reason string and the install hint are never asserted",
+  "evidence": "VirusesPage.test.ts:32, 38; VirusesPage.svelte:88-89",
+  "failure_scenario": "Deleting VirusesPage.svelte:88 leaves test 1 green; the user is not told why the engine is missing.",
+  "status": "open"
+}

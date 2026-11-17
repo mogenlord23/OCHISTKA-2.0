@@ -1,0 +1,12 @@
+{
+  "id": "FND-0184",
+  "file": "apps/desktop/src/components/VirusesPage.test.ts",
+  "lines": "73",
+  "severity": "low",
+  "confidence": "high",
+  "type": "tautological-assertion",
+  "summary": "The Удалить assertion checks a hard-coded disabled attribute with no state feeding it, so it can only fail if the button is enabled; it locks in a placeholder instead of quarantine behaviour",
+  "evidence": "VirusesPage.test.ts:73; VirusesPage.svelte:158 static disabled with title Карантин — следующий шаг; FND-0099",
+  "failure_scenario": "The change that implements quarantine selection would fail this test without protecting any behaviour.",
+  "status": "open"
+}
