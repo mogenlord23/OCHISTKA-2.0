@@ -90,6 +90,15 @@ describe('Home', () => {
     expect(getMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start a request while the previous one is still pending', async () => {
+    vi.useFakeTimers();
+    getMock.mockReturnValue(new Promise(() => {}));
+    render(Home);
+    await flush();
+    vi.advanceTimersByTime(POLL_INTERVAL_MS * 3);
+    expect(getMock).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a response that arrives after unmount', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     let resolveLate: (value: SystemOverview) => void = () => {};

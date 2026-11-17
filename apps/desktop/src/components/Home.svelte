@@ -9,8 +9,14 @@
   $effect(() => {
     // Ответ, пришедший после размонтирования, игнорируется.
     let active = true;
+    // Пока предыдущий запрос не завершился, новый не запускается: зависший опрос не накапливается.
+    let pending = false;
 
     const load = async () => {
+      if (pending) {
+        return;
+      }
+      pending = true;
       try {
         const next = await getSystemOverview();
         if (active) {
@@ -21,6 +27,8 @@
         if (active) {
           error = toCommandError(err);
         }
+      } finally {
+        pending = false;
       }
     };
 
