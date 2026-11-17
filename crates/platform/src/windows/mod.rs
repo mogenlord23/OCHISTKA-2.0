@@ -1,6 +1,7 @@
 //! Адаптеры Windows: sysinfo (только чтение) и ClamAV (запуск clamscan по абсолютному пути).
 
 pub mod clamav;
+pub mod files;
 
 use std::sync::Mutex;
 
