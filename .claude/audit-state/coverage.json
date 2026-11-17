@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 38,
+  "files_reviewed": 39,
   "lines_total": 3277,
-  "lines_reviewed": 2673,
-  "coverage_pct": 81.57,
+  "lines_reviewed": 2685,
+  "coverage_pct": 81.93,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -430,9 +430,9 @@
       ]
     },
     "crates/ochistka-core/Cargo.toml": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 12,
-      "inspected_lines": 0,
+      "inspected_lines": 12,
       "functions_analyzed": 0,
       "resume_at": null,
       "finding_ids": []
