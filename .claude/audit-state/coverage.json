@@ -1,9 +1,9 @@
 {
   "files_total": 50,
-  "files_reviewed": 21,
+  "files_reviewed": 22,
   "lines_total": 3277,
-  "lines_reviewed": 1696,
-  "coverage_pct": 51.75,
+  "lines_reviewed": 1703,
+  "coverage_pct": 51.97,
   "files": {
     "apps/desktop/src-tauri/src/main.rs": {
       "status": "complete",
@@ -351,12 +351,15 @@
       ]
     },
     "apps/desktop/src/vite-env.d.ts": {
-      "status": "not-started",
+      "status": "complete",
       "declared_lines": 7,
-      "inspected_lines": 0,
+      "inspected_lines": 7,
       "functions_analyzed": 0,
       "resume_at": null,
-      "finding_ids": []
+      "finding_ids": [
+        "FND-0088",
+        "FND-0089"
+      ]
     },
     "Cargo.toml": {
       "status": "not-started",

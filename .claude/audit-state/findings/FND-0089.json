@@ -1,0 +1,12 @@
+{
+  "id": "FND-0089",
+  "file": "apps/desktop/src/vite-env.d.ts",
+  "lines": "1",
+  "severity": "info",
+  "confidence": "high",
+  "type": "redundancy",
+  "summary": "vite/client is loaded twice: by the triple-slash reference here and by tsconfig types; harmless",
+  "evidence": "vite-env.d.ts:1; tsconfig.json:12 types list",
+  "failure_scenario": "None; redundant reference only.",
+  "status": "open"
+}
