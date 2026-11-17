@@ -1,0 +1,12 @@
+{
+  "id": "FND-0030",
+  "file": "apps/desktop/src-tauri/src/commands.rs",
+  "lines": "51-100 with build.rs:2 and capabilities/default.json",
+  "severity": "info",
+  "confidence": "medium",
+  "type": "missing-acl",
+  "summary": "App commands have no per-command allow-list; assess_file works as a file oracle for any absolute or UNC path",
+  "evidence": "build.rs uses default tauri_build::build() with no AppManifest; capabilities/default.json lists only core permissions. UNVERIFIED: Tauri default-allow behaviour for app commands.",
+  "failure_scenario": "If default-allow applies, any webview content can probe file existence and size outside the scan scope. Related to FND-0007.",
+  "status": "open"
+}

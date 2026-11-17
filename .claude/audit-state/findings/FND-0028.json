@@ -1,0 +1,12 @@
+{
+  "id": "FND-0028",
+  "file": "apps/desktop/src-tauri/src/commands.rs",
+  "lines": "92-95 (files.rs:14-18)",
+  "severity": "low",
+  "confidence": "high",
+  "type": "silent-failure",
+  "summary": "default_scan_target swallows a missing USERPROFILE as empty string, and does not handle a relocated Downloads folder",
+  "evidence": "commands.rs:92-95 unwrap_or_default; files.rs:14-18 no existence check, no Known Folder lookup",
+  "failure_scenario": "Downloads relocated to D:\\\\Загрузки: default C:\\\\Users\\\\u\\\\Downloads is wrong or missing; scan returns probe or scans the wrong folder.",
+  "status": "open"
+}

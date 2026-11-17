@@ -1,0 +1,12 @@
+{
+  "id": "FND-0031",
+  "file": "apps/desktop/src-tauri/src/commands.rs",
+  "lines": "102-230",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "Several functions have no tests, including all command wrappers and the JoinError mapping; one test is weak on Linux",
+  "evidence": "commands.rs wrappers at 51, 65, 87, 92, 97 untested; assess_reports_missing_file_as_probe (228) passes only because the relative path does not exist",
+  "failure_scenario": "Regressions in command wrappers or drive-letter handling go unnoticed (CLAUDE.md: every function has tests).",
+  "status": "open"
+}

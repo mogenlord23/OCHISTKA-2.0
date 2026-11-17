@@ -1,0 +1,12 @@
+{
+  "id": "FND-0027",
+  "file": "apps/desktop/src-tauri/src/commands.rs",
+  "lines": "80-85 (files.rs:21-42)",
+  "severity": "low",
+  "confidence": "high",
+  "type": "input-normalization",
+  "summary": "Path is not canonicalised: traversal, mixed separators, directories and symlinks distort the heuristic",
+  "evidence": "commands.rs:80-85; scan.rs:57-68 validates prefix only; files.rs:21-42 metadata follows symlinks, no is_file check, substring test on raw path",
+  "failure_scenario": "C:\\\\Users\\\\u\\\\Downloads\\\\..\\\\..\\\\Windows\\\\System32\\\\cmd.exe gets in_downloads=true. C:/Users/u/Downloads\\\\setup.exe gets in_downloads=false. Hints only; nothing deleted automatically.",
+  "status": "open"
+}

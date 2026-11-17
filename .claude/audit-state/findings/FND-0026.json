@@ -1,0 +1,12 @@
+{
+  "id": "FND-0026",
+  "file": "apps/desktop/src-tauri/src/commands.rs",
+  "lines": "65-77 (blocking call in clamav.rs:75-77)",
+  "severity": "medium",
+  "confidence": "high",
+  "type": "resource-lifecycle",
+  "summary": "No scan concurrency guard, cancellation or timeout; duplicate scans run in parallel and a hung clamscan is never stopped",
+  "evidence": "commands.rs:45-48 AppState has no in-progress flag; commands.rs:65-77 spawn per invoke; clamav.rs:68-88 Command::output() with no timeout or kill; lib.rs:17-23 no cancel command. Confirms the backend half of FND-0018.",
+  "failure_scenario": "scan_start(\"C:\\\\\") invoked twice (e.g. after section switch) runs two full-disk clamscan processes. On app exit the child may be orphaned (UNVERIFIED: job object).",
+  "status": "open"
+}
