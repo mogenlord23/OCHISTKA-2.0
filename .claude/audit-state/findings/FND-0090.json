@@ -1,0 +1,12 @@
+{
+  "id": "FND-0090",
+  "file": "apps/desktop/src/lib/types.ts",
+  "lines": "28 (with commands.rs:17, 24-27, 59, 74)",
+  "severity": "info",
+  "confidence": "high",
+  "type": "contract-drift-risk",
+  "summary": "ErrorKind is a closed hand-written union while Rust kind is a free String; adding a backend kind without updating the union turns it into probe with \"[object Object]\"",
+  "evidence": "types.ts:28; commands.rs:17 kind: String; commands.rs:24-27 literals; api.ts:49,59",
+  "failure_scenario": "Adding CoreError::Quarantine mapped to \"quarantine\": compiles and tests pass, UI loses the message. Maintenance trap; related FND-0057, FND-0058, FND-0060.",
+  "status": "open"
+}
