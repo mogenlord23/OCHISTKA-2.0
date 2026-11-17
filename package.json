@@ -9,7 +9,9 @@
     "dev": "npm run tauri -w apps/desktop -- dev",
     "build": "npm run tauri -w apps/desktop -- build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "npm test -w apps/desktop && cargo test --workspace",
+    "check": "npm run check -w apps/desktop && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings"
   },
   "devDependencies": {
     "prettier": "^3",
