@@ -1,0 +1,409 @@
+{
+  "files_total": 50,
+  "files_reviewed": 0,
+  "lines_total": 3277,
+  "lines_reviewed": 0,
+  "coverage_pct": 0.0,
+  "files": {
+    "apps/desktop/src-tauri/src/main.rs": {
+      "status": "not-started",
+      "declared_lines": 5,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/src/lib.rs": {
+      "status": "not-started",
+      "declared_lines": 26,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/ochistka-core/src/lib.rs": {
+      "status": "not-started",
+      "declared_lines": 2,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/lib.rs": {
+      "status": "not-started",
+      "declared_lines": 97,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/main.ts": {
+      "status": "not-started",
+      "declared_lines": 9,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/App.svelte": {
+      "status": "not-started",
+      "declared_lines": 208,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/src/commands.rs": {
+      "status": "not-started",
+      "declared_lines": 230,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/capabilities/default.json": {
+      "status": "not-started",
+      "declared_lines": 13,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/tauri.conf.json": {
+      "status": "not-started",
+      "declared_lines": 32,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/windows/mod.rs": {
+      "status": "not-started",
+      "declared_lines": 80,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/windows/files.rs": {
+      "status": "not-started",
+      "declared_lines": 99,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/windows/clamav.rs": {
+      "status": "not-started",
+      "declared_lines": 152,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/ochistka-core/src/scan.rs": {
+      "status": "not-started",
+      "declared_lines": 307,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/api.ts": {
+      "status": "not-started",
+      "declared_lines": 60,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/build.rs": {
+      "status": "not-started",
+      "declared_lines": 3,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/ochistka-core/src/system.rs": {
+      "status": "not-started",
+      "declared_lines": 180,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/linux/mod.rs": {
+      "status": "not-started",
+      "declared_lines": 14,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/src/macos/mod.rs": {
+      "status": "not-started",
+      "declared_lines": 14,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/types.ts": {
+      "status": "not-started",
+      "declared_lines": 57,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/ComputerPage.svelte": {
+      "status": "not-started",
+      "declared_lines": 12,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/Home.svelte": {
+      "status": "not-started",
+      "declared_lines": 165,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/Navigation.svelte": {
+      "status": "not-started",
+      "declared_lines": 98,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/Placeholder.svelte": {
+      "status": "not-started",
+      "declared_lines": 12,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/PlaceholderPage.svelte": {
+      "status": "not-started",
+      "declared_lines": 24,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/Subtabs.svelte": {
+      "status": "not-started",
+      "declared_lines": 54,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/TitleBar.svelte": {
+      "status": "not-started",
+      "declared_lines": 71,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/VirusesPage.svelte": {
+      "status": "not-started",
+      "declared_lines": 311,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/VpnPage.svelte": {
+      "status": "not-started",
+      "declared_lines": 66,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/format.ts": {
+      "status": "not-started",
+      "declared_lines": 20,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/sections.ts": {
+      "status": "not-started",
+      "declared_lines": 76,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/tokens.ts": {
+      "status": "not-started",
+      "declared_lines": 69,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/vite-env.d.ts": {
+      "status": "not-started",
+      "declared_lines": 7,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "Cargo.toml": {
+      "status": "not-started",
+      "declared_lines": 8,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/ochistka-core/Cargo.toml": {
+      "status": "not-started",
+      "declared_lines": 12,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "crates/platform/Cargo.toml": {
+      "status": "not-started",
+      "declared_lines": 9,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src-tauri/Cargo.toml": {
+      "status": "not-started",
+      "declared_lines": 21,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "package.json": {
+      "status": "not-started",
+      "declared_lines": 20,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/package.json": {
+      "status": "not-started",
+      "declared_lines": 28,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/vite.config.ts": {
+      "status": "not-started",
+      "declared_lines": 24,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/svelte.config.js": {
+      "status": "not-started",
+      "declared_lines": 5,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/tsconfig.json": {
+      "status": "not-started",
+      "declared_lines": 15,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/App.test.ts": {
+      "status": "not-started",
+      "declared_lines": 62,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/Home.test.ts": {
+      "status": "not-started",
+      "declared_lines": 116,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/TitleBar.test.ts": {
+      "status": "not-started",
+      "declared_lines": 38,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/VirusesPage.test.ts": {
+      "status": "not-started",
+      "declared_lines": 75,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/components/VpnPage.test.ts": {
+      "status": "not-started",
+      "declared_lines": 18,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/api.test.ts": {
+      "status": "not-started",
+      "declared_lines": 85,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/format.test.ts": {
+      "status": "not-started",
+      "declared_lines": 20,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/sections.test.ts": {
+      "status": "not-started",
+      "declared_lines": 55,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    },
+    "apps/desktop/src/lib/tokens.test.ts": {
+      "status": "not-started",
+      "declared_lines": 93,
+      "inspected_lines": 0,
+      "functions_analyzed": 0,
+      "resume_at": null,
+      "finding_ids": []
+    }
+  }
+}

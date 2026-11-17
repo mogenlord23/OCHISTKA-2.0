@@ -1,0 +1,456 @@
+{
+  "built_at": "2026-11-17T22:09:08.887139+00:00",
+  "notes": "Order: entry points, security-sensitive (Tauri commands/capabilities/conf, platform FS+ClamAV, scan, IPC api), core, utils, config, then tests last. Test files (*.test.ts) have role \"test\"; auditor decides per file. Line counts = newline count (wc -l equivalent).",
+  "files": [
+    {
+      "order": 1,
+      "path": "apps/desktop/src-tauri/src/main.rs",
+      "bytes": 114,
+      "lines": 5,
+      "language": "Rust",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 2,
+      "path": "apps/desktop/src-tauri/src/lib.rs",
+      "bytes": 791,
+      "lines": 26,
+      "language": "Rust",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 3,
+      "path": "crates/ochistka-core/src/lib.rs",
+      "bytes": 30,
+      "lines": 2,
+      "language": "Rust",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 4,
+      "path": "crates/platform/src/lib.rs",
+      "bytes": 3462,
+      "lines": 97,
+      "language": "Rust",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 5,
+      "path": "apps/desktop/src/main.ts",
+      "bytes": 223,
+      "lines": 9,
+      "language": "TypeScript",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 6,
+      "path": "apps/desktop/src/App.svelte",
+      "bytes": 5625,
+      "lines": 208,
+      "language": "Svelte",
+      "role": "entry-point",
+      "reason": "entry-point"
+    },
+    {
+      "order": 7,
+      "path": "apps/desktop/src-tauri/src/commands.rs",
+      "bytes": 7423,
+      "lines": 230,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 8,
+      "path": "apps/desktop/src-tauri/capabilities/default.json",
+      "bytes": 445,
+      "lines": 13,
+      "language": "JSON",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 9,
+      "path": "apps/desktop/src-tauri/tauri.conf.json",
+      "bytes": 795,
+      "lines": 32,
+      "language": "JSON",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 10,
+      "path": "crates/platform/src/windows/mod.rs",
+      "bytes": 2666,
+      "lines": 80,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 11,
+      "path": "crates/platform/src/windows/files.rs",
+      "bytes": 3702,
+      "lines": 99,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 12,
+      "path": "crates/platform/src/windows/clamav.rs",
+      "bytes": 5129,
+      "lines": 152,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 13,
+      "path": "crates/ochistka-core/src/scan.rs",
+      "bytes": 10781,
+      "lines": 307,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 14,
+      "path": "apps/desktop/src/lib/api.ts",
+      "bytes": 1703,
+      "lines": 60,
+      "language": "TypeScript",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 15,
+      "path": "apps/desktop/src-tauri/build.rs",
+      "bytes": 39,
+      "lines": 3,
+      "language": "Rust",
+      "role": "security-sensitive",
+      "reason": "security-sensitive"
+    },
+    {
+      "order": 16,
+      "path": "crates/ochistka-core/src/system.rs",
+      "bytes": 5543,
+      "lines": 180,
+      "language": "Rust",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 17,
+      "path": "crates/platform/src/linux/mod.rs",
+      "bytes": 469,
+      "lines": 14,
+      "language": "Rust",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 18,
+      "path": "crates/platform/src/macos/mod.rs",
+      "bytes": 469,
+      "lines": 14,
+      "language": "Rust",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 19,
+      "path": "apps/desktop/src/lib/types.ts",
+      "bytes": 1169,
+      "lines": 57,
+      "language": "TypeScript",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 20,
+      "path": "apps/desktop/src/components/ComputerPage.svelte",
+      "bytes": 263,
+      "lines": 12,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 21,
+      "path": "apps/desktop/src/components/Home.svelte",
+      "bytes": 4190,
+      "lines": 165,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 22,
+      "path": "apps/desktop/src/components/Navigation.svelte",
+      "bytes": 2370,
+      "lines": 98,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 23,
+      "path": "apps/desktop/src/components/Placeholder.svelte",
+      "bytes": 173,
+      "lines": 12,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 24,
+      "path": "apps/desktop/src/components/PlaceholderPage.svelte",
+      "bytes": 366,
+      "lines": 24,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 25,
+      "path": "apps/desktop/src/components/Subtabs.svelte",
+      "bytes": 1044,
+      "lines": 54,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 26,
+      "path": "apps/desktop/src/components/TitleBar.svelte",
+      "bytes": 1552,
+      "lines": 71,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 27,
+      "path": "apps/desktop/src/components/VirusesPage.svelte",
+      "bytes": 7297,
+      "lines": 311,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 28,
+      "path": "apps/desktop/src/components/VpnPage.svelte",
+      "bytes": 1471,
+      "lines": 66,
+      "language": "Svelte",
+      "role": "core",
+      "reason": "core"
+    },
+    {
+      "order": 29,
+      "path": "apps/desktop/src/lib/format.ts",
+      "bytes": 602,
+      "lines": 20,
+      "language": "TypeScript",
+      "role": "utils",
+      "reason": "utils"
+    },
+    {
+      "order": 30,
+      "path": "apps/desktop/src/lib/sections.ts",
+      "bytes": 2639,
+      "lines": 76,
+      "language": "TypeScript",
+      "role": "utils",
+      "reason": "utils"
+    },
+    {
+      "order": 31,
+      "path": "apps/desktop/src/lib/tokens.ts",
+      "bytes": 2522,
+      "lines": 69,
+      "language": "TypeScript",
+      "role": "utils",
+      "reason": "utils"
+    },
+    {
+      "order": 32,
+      "path": "apps/desktop/src/vite-env.d.ts",
+      "bytes": 195,
+      "lines": 7,
+      "language": "TypeScript",
+      "role": "utils",
+      "reason": "utils"
+    },
+    {
+      "order": 33,
+      "path": "Cargo.toml",
+      "bytes": 179,
+      "lines": 8,
+      "language": "TOML",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 34,
+      "path": "crates/ochistka-core/Cargo.toml",
+      "bytes": 226,
+      "lines": 12,
+      "language": "TOML",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 35,
+      "path": "crates/platform/Cargo.toml",
+      "bytes": 193,
+      "lines": 9,
+      "language": "TOML",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 36,
+      "path": "apps/desktop/src-tauri/Cargo.toml",
+      "bytes": 511,
+      "lines": 21,
+      "language": "TOML",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 37,
+      "path": "package.json",
+      "bytes": 590,
+      "lines": 20,
+      "language": "JSON",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 38,
+      "path": "apps/desktop/package.json",
+      "bytes": 672,
+      "lines": 28,
+      "language": "JSON",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 39,
+      "path": "apps/desktop/vite.config.ts",
+      "bytes": 723,
+      "lines": 24,
+      "language": "TypeScript",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 40,
+      "path": "apps/desktop/svelte.config.js",
+      "bytes": 116,
+      "lines": 5,
+      "language": "JavaScript",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 41,
+      "path": "apps/desktop/tsconfig.json",
+      "bytes": 393,
+      "lines": 15,
+      "language": "JSON",
+      "role": "config",
+      "reason": "config"
+    },
+    {
+      "order": 42,
+      "path": "apps/desktop/src/App.test.ts",
+      "bytes": 2684,
+      "lines": 62,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 43,
+      "path": "apps/desktop/src/components/Home.test.ts",
+      "bytes": 3914,
+      "lines": 116,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 44,
+      "path": "apps/desktop/src/components/TitleBar.test.ts",
+      "bytes": 1231,
+      "lines": 38,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 45,
+      "path": "apps/desktop/src/components/VirusesPage.test.ts",
+      "bytes": 3177,
+      "lines": 75,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 46,
+      "path": "apps/desktop/src/components/VpnPage.test.ts",
+      "bytes": 871,
+      "lines": 18,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 47,
+      "path": "apps/desktop/src/lib/api.test.ts",
+      "bytes": 3175,
+      "lines": 85,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 48,
+      "path": "apps/desktop/src/lib/format.test.ts",
+      "bytes": 585,
+      "lines": 20,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 49,
+      "path": "apps/desktop/src/lib/sections.test.ts",
+      "bytes": 1793,
+      "lines": 55,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    },
+    {
+      "order": 50,
+      "path": "apps/desktop/src/lib/tokens.test.ts",
+      "bytes": 2511,
+      "lines": 93,
+      "language": "TypeScript",
+      "role": "test",
+      "reason": "test"
+    }
+  ]
+}

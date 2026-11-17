@@ -1,0 +1,54 @@
+{
+  "created_at": "2026-11-17T22:09:08.887139+00:00",
+  "in_scope": [
+    "crates/ochistka-core/src",
+    "crates/platform/src",
+    "apps/desktop/src",
+    "apps/desktop/src-tauri/src",
+    "apps/desktop/src-tauri/build.rs",
+    "apps/desktop/src-tauri/tauri.conf.json",
+    "apps/desktop/src-tauri/capabilities",
+    "Cargo.toml",
+    "crates/*/Cargo.toml",
+    "apps/desktop/src-tauri/Cargo.toml",
+    "apps/desktop/vite.config.ts",
+    "apps/desktop/svelte.config.js",
+    "apps/desktop/tsconfig.json",
+    "apps/desktop/package.json",
+    "package.json"
+  ],
+  "out_of_scope": [
+    "node_modules",
+    "target",
+    "apps/desktop/dist",
+    "apps/desktop/src-tauri/gen",
+    "apps/desktop/src-tauri/icons",
+    "Cargo.lock",
+    "package-lock.json",
+    "docs/",
+    "README.md",
+    "CLAUDE.md",
+    ".superpowers/",
+    ".git/",
+    ".gitignore",
+    ".prettierignore",
+    ".prettierrc"
+  ],
+  "languages": [
+    "Rust",
+    "TypeScript",
+    "Svelte",
+    "JSON",
+    "TOML"
+  ],
+  "sensitive_paths": [
+    "**/auth/**",
+    "**/crypto/**",
+    "apps/desktop/src-tauri/src/commands.rs",
+    "apps/desktop/src-tauri/capabilities/**",
+    "apps/desktop/src-tauri/tauri.conf.json",
+    "crates/platform/src/windows/**",
+    "crates/ochistka-core/src/scan.rs"
+  ],
+  "notes": "Exclusions: node_modules/target/dist/gen = build or generated artifacts; icons = binary; lockfiles = generated; docs, README, CLAUDE.md, .superpowers = documentation/tooling not code; .git, .gitignore, .prettier* = VCS/formatting config. Owner approved. *.test.ts in scope with role \"test\". apps/desktop/index.html and svelte.config.js: index.html not listed in scope so excluded."
+}
