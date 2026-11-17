@@ -1,0 +1,12 @@
+{
+  "id": "FND-0109",
+  "file": "apps/desktop/src/components/Navigation.svelte",
+  "lines": "94-97",
+  "severity": "info",
+  "confidence": "low",
+  "type": "layout-unverified",
+  "summary": "Single-word labels in a fixed 100px box with no overflow rule; a wider fallback font could overflow the button",
+  "evidence": "Navigation.svelte:94-97 and content width estimate; not rendered",
+  "failure_scenario": "With a wider fallback font a long title overflows its button. UNVERIFIED.",
+  "status": "open"
+}

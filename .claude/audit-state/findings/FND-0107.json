@@ -1,0 +1,12 @@
+{
+  "id": "FND-0107",
+  "file": "apps/desktop/src/components/Navigation.svelte",
+  "lines": "45-73 (window limit tauri.conf.json:19)",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "layout-overflow",
+  "summary": "At the minimum window height (600px) the rail, bottom controls and title bar total about 733px, so the page scrolls and the frameless title bar leaves the screen",
+  "evidence": "Navigation.svelte:59-73 items not shrinkable; App.svelte:112 min-height only; App.svelte:164-207 bottom about 117px; TitleBar.svelte about 68px; tauri.conf.json:19 minHeight 600. Heights estimated, not rendered.",
+  "failure_scenario": "Resize to 960x600: window controls and drag area scroll out of view until the user scrolls back.",
+  "status": "open"
+}

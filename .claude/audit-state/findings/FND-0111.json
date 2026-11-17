@@ -1,0 +1,12 @@
+{
+  "id": "FND-0111",
+  "file": "apps/desktop/src/components/Navigation.svelte",
+  "lines": "App.test.ts:24-47 vs Navigation.svelte:32",
+  "severity": "info",
+  "confidence": "high",
+  "type": "test-gap",
+  "summary": "No test checks aria-current or the active class on rail items; removing either would not fail any test",
+  "evidence": "grep for Navigation|rail|icons|aria-current in test files finds only App.test.ts:24,41",
+  "failure_scenario": "Regression in active-section indication goes unnoticed.",
+  "status": "open"
+}
