@@ -15,7 +15,7 @@ path = "src/main.rs"
 ochistka-core = { path = "../../../crates/ochistka-core" }
 ochistka-platform = { path = "../../../crates/platform" }
 serde = { version = "1.0.229", features = ["derive"] }
-tauri = "2.12.6"
+tauri = { version = "2.12.6", features = [] }
 
 [build-dependencies]
-tauri-build = "2.7.5"
+tauri-build = { version = "2.7.5", features = [] }

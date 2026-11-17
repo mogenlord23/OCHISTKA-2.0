@@ -2,6 +2,15 @@
   "name": "ochistka",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run tauri -w apps/desktop -- dev",
+    "build": "npm run tauri -w apps/desktop -- build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
   "devDependencies": {
     "prettier": "^3",
     "prettier-plugin-svelte": "^3"
