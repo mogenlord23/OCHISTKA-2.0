@@ -102,7 +102,7 @@ export const SECTIONS: readonly Section[] = [
     title: 'Оформление',
     titleKey: 'section.design',
     accent: SECTION_COLORS.design,
-    lead: '',
+    lead: 'Пуск, обои, курсоры и акцентные цвета Windows.',
     subsections: [
       { id: 'wallpapers', title: 'Обои', titleKey: 'sub.design.wallpapers' },
       { id: 'cursors', title: 'Курсоры', titleKey: 'sub.design.cursors' },
