@@ -19,12 +19,25 @@ export interface InstalledProgram {
   /** Буква диска вида `C:`; `null`, если папка установки не указана. */
   diskLetter: string | null;
   kind: ProgramKind;
+  /** Стабильный ключ: по нему бэкенд находит программу при удалении. */
+  id: string;
+  /** Файл со значком (из DisplayIcon); `null` — рисуем букву. */
+  iconPath: string | null;
+  canUninstall: boolean;
+  /** Почему удалить нельзя; `null`, если можно. */
+  uninstallReason: string | null;
 }
 
 export interface StartupEntry {
   name: string;
   command: string | null;
   location: string;
+  /** Источник записи и имя значения: по ним бэкенд меняет флаг автозагрузки. */
+  source: string;
+  key: string;
+  enabled: boolean;
+  /** Состояние до отключения из OCHISTKA; `null`, если не менялось. */
+  previousEnabled: boolean | null;
 }
 
 export interface FolderMeasure {
@@ -40,13 +53,25 @@ export type ProgramsResponse =
   | { type: 'installed'; programs: InstalledProgram[] }
   | { type: 'startup'; entries: StartupEntry[] }
   | { type: 'folder'; report: FolderMeasure }
-  | { type: 'stopped' };
+  | { type: 'stopped' }
+  | { type: 'icon'; dataUrl: string | null }
+  | { type: 'uninstallStarted' }
+  | { type: 'startupChanged'; previousEnabled: boolean; enabled: boolean };
 
 type Request =
   | { action: 'listInstalled' }
   | { action: 'listStartup' }
   | { action: 'measureFolder'; path: string }
-  | { action: 'stopMeasure' };
+  | { action: 'stopMeasure' }
+  | { action: 'icon'; path: string }
+  | { action: 'uninstall'; id: string; confirmed: boolean }
+  | {
+      action: 'setStartupEnabled';
+      source: string;
+      key: string;
+      enabled: boolean;
+      confirmed: boolean;
+    };
 
 async function request(payload: Request): Promise<ProgramsResponse> {
   return invoke<ProgramsResponse>('programs_request', { request: payload });
@@ -89,4 +114,32 @@ export async function measureFolder(path: string): Promise<FolderMeasure> {
 
 export async function stopMeasure(): Promise<void> {
   expect(await request({ action: 'stopMeasure' }), 'stopped');
+}
+
+/** Значок файла как адрес PNG; `null`, если взять не удалось (или ОС не поддерживает). */
+export async function getIcon(path: string): Promise<string | null> {
+  return expect(await request({ action: 'icon', path }), 'icon').dataUrl;
+}
+
+/** Запускает штатное удаление. `confirmed` — только после диалога подтверждения. */
+export async function uninstallProgram(id: string, confirmed: boolean): Promise<void> {
+  expect(await request({ action: 'uninstall', id, confirmed }), 'uninstallStarted');
+}
+
+export async function setStartupEnabled(
+  entry: Pick<StartupEntry, 'source' | 'key'>,
+  enabled: boolean,
+  confirmed: boolean,
+): Promise<{ previousEnabled: boolean; enabled: boolean }> {
+  const { previousEnabled, enabled: now } = expect(
+    await request({
+      action: 'setStartupEnabled',
+      source: entry.source,
+      key: entry.key,
+      enabled,
+      confirmed,
+    }),
+    'startupChanged',
+  );
+  return { previousEnabled, enabled: now };
 }

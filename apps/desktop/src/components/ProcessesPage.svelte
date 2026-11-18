@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { formatBytes } from '../lib/format';
+  import AppIcon from './AppIcon.svelte';
   import {
     filterProcesses,
     formatCpu,
-    iconColor,
     isProtectedPid,
     REFRESH_MS,
+    sortProcesses,
+    type ProcessSortKey,
   } from '../lib/processes';
+  import { ariaSort, nextSort, type SortState } from '../lib/sortState';
+  import { formatMemory } from '../lib/units';
+  import { getIcon } from '../lib/programsApi';
   import {
     endTask,
     exePath,
@@ -39,7 +43,17 @@
   /** Защита от наложения опросов. Обычная переменная, а не $state: не должна влиять на эффект. */
   let listing = false;
 
-  const visible = $derived(filterProcesses(processes, query));
+  /** Сортировка по клику на заголовок. `null` — по имени, как в списке Windows. */
+  let sort = $state<SortState<ProcessSortKey> | null>(null);
+  const COLUMNS: Array<{ key: ProcessSortKey; label: string; cls: string; first: 'asc' | 'desc' }> =
+    [
+      { key: 'name', label: 'Процесс', cls: 'c-name', first: 'asc' },
+      { key: 'pid', label: 'PID', cls: 'c-pid', first: 'desc' },
+      { key: 'cpu', label: 'CPU', cls: 'c-cpu', first: 'desc' },
+      { key: 'memory', label: 'RAM / Память', cls: 'c-mem', first: 'desc' },
+    ];
+
+  const visible = $derived(sortProcesses(filterProcesses(processes, query), sort));
   const selected = $derived(processes.find((proc) => proc.pid === selectedPid) ?? null);
 
   async function refresh() {
@@ -92,6 +106,18 @@
     } catch (err) {
       actionError = toProcessesError(err);
     }
+  }
+
+  function sortBy(column: (typeof COLUMNS)[number]) {
+    sort = nextSort(sort, column.key, column.first);
+  }
+
+  /** Значок процесса: путь к exe берём у системы, потом его значок. Нет пути — буква. */
+  function iconSource(proc: ProcessInfo) {
+    return async () => {
+      const path = await exePath(proc.pid);
+      return path ? getIcon(path) : null;
+    };
   }
 
   function askEnd(proc: ProcessInfo) {
@@ -158,9 +184,6 @@
 {:else}
   <section class="page" aria-labelledby="processes-title">
     <h2 id="processes-title" class="sr-only">Процессы</h2>
-    <p class="lead">
-      CPU — доля всех ядер · память — рабочий набор процесса · правый клик по строке — выбрать
-    </p>
 
     <label class="field-label" for="proc-search">Поиск по названию или PID</label>
     <input
@@ -192,8 +215,8 @@
     </div>
 
     <p class="status-line">
-      Процессов: {processes.length}{updatedAt ? ` · обновлено ${updatedAt}` : ''} · обновление каждые
-      3 секунды
+      Процессов: {processes.length}{updatedAt ? ` · обновлено ${updatedAt}` : ''} · каждые 3 секунды ·
+      CPU — доля всех ядер, память — рабочий набор · клик по заголовку сортирует
     </p>
 
     {#if listError}
@@ -211,46 +234,74 @@
     {:else if visible.length === 0 && processes.length > 0}
       <p class="status-line">Ничего не найдено по запросу «{query}».</p>
     {:else}
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col" class="col-icon"><span class="sr-only">Значок</span></th>
-              <th scope="col">Процесс</th>
-              <th scope="col" class="num">PID</th>
-              <th scope="col" class="num">CPU</th>
-              <th scope="col" class="num">Память</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each visible as proc (proc.pid)}
-              <tr
-                class:is-selected={proc.pid === selectedPid}
-                oncontextmenu={(event) => {
-                  event.preventDefault();
-                  selectedPid = proc.pid;
-                }}
+      <div class="grid" role="table" aria-label="Процессы" aria-rowcount={visible.length + 1}>
+        <div class="grid-head" role="row">
+          <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
+          {#each COLUMNS as column (column.key)}
+            <span class={column.cls} role="columnheader" aria-sort={ariaSort(sort, column.key)}>
+              <button
+                type="button"
+                class="sort"
+                class:is-active={sort?.key === column.key}
+                onclick={() => sortBy(column)}
+                title="Сортировать: {column.label}"
               >
-                <td class="col-icon">
-                  <span class="icon" style:background={iconColor(proc.name)} aria-hidden="true"
-                    >{proc.name.charAt(0).toUpperCase()}</span
-                  >
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    class="row-btn"
-                    aria-pressed={proc.pid === selectedPid}
-                    onclick={() => (selectedPid = proc.pid)}>{proc.name}</button
-                  >
-                </td>
-                <td class="num">{proc.pid}</td>
-                <td class="num">{formatCpu(proc.cpuPercent)}</td>
-                <td class="num">{formatBytes(proc.memoryBytes)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+                {column.label}
+                <svg
+                  class="arrow"
+                  class:is-asc={sort?.key === column.key && sort.dir === 'asc'}
+                  viewBox="0 0 10 10"
+                  aria-hidden="true"><path d="M5 8.5 1.5 3h7z" fill="currentColor" /></svg
+                >
+              </button>
+            </span>
+          {/each}
+        </div>
+        <div class="grid-body" role="rowgroup">
+          {#each visible as proc (proc.pid)}
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+            <!-- Клик по строке — удобство для мыши; с клавиатуры строку выбирает кнопка с названием. -->
+            <div
+              class="row"
+              role="row"
+              class:is-selected={proc.pid === selectedPid}
+              onclick={() => (selectedPid = proc.pid)}
+              oncontextmenu={(event) => {
+                event.preventDefault();
+                selectedPid = proc.pid;
+              }}
+            >
+              <span class="c-icon" role="cell">
+                <AppIcon
+                  name={proc.name}
+                  cacheKey={proc.name}
+                  resolve={iconSource(proc)}
+                  size={30}
+                />
+              </span>
+              <span class="c-name" role="cell">
+                <button
+                  type="button"
+                  class="row-btn"
+                  aria-pressed={proc.pid === selectedPid}
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    selectedPid = proc.pid;
+                  }}>{proc.name}</button
+                >
+              </span>
+              <span class="c-pid" role="cell"><span class="pid">{proc.pid}</span></span>
+              <span class="c-cpu" role="cell"
+                ><span class="cpu">{formatCpu(proc.cpuPercent)}</span></span
+              >
+              <span class="c-mem" role="cell"
+                ><span class="mem" class:is-empty={proc.memoryBytes <= 0}
+                  >{formatMemory(proc.memoryBytes)}</span
+                ></span
+              >
+            </div>
+          {/each}
+        </div>
       </div>
     {/if}
 
@@ -364,23 +415,21 @@
     background: #9b1c1c;
   }
   .row-btn {
+    max-width: 100%;
     padding: 0;
     border: 0;
     background: none;
     color: var(--ink);
     text-align: left;
-    font-weight: 500;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 5px;
-    color: #080808;
-    font-size: 11px;
-    font-weight: 800;
+  .row-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
   }
   .path {
     font-family: ui-monospace, Consolas, monospace;
@@ -440,20 +489,150 @@
     font-weight: 700;
     text-transform: uppercase;
   }
-  .col-icon {
-    width: 22px;
-    padding-right: 0;
+  /* Список процессов: сетка из div с ролями таблицы (выделение — скруглённая рамка). */
+  .grid {
+    max-height: calc(100vh - 468px);
+    min-height: 180px;
+    overflow: auto;
+    border-radius: 16px;
+    background: #111;
+    color: var(--ink);
+    font-size: var(--text-small);
   }
-  .num {
-    width: 90px;
-    text-align: left;
-    font-variant-numeric: tabular-nums;
+  .grid-head,
+  .row {
+    display: grid;
+    grid-template-columns: 56px minmax(140px, 1fr) 120px 96px 132px;
+    align-items: center;
+    column-gap: 8px;
   }
-  tbody tr:hover {
+  .grid-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 44px;
+    padding: 0 18px 0 8px;
+    background: #050505;
+  }
+  .c-pid {
+    justify-self: start;
+  }
+  .c-cpu,
+  .c-mem {
+    justify-self: end;
+    text-align: right;
+  }
+  .c-icon {
+    display: flex;
+    justify-content: center;
+  }
+  .sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transition: background 120ms ease;
+  }
+  .sort:hover {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: transparent;
+  }
+  .sort:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .arrow {
+    width: 9px;
+    height: 9px;
+    opacity: 0;
+    transform: translateY(2px) rotate(0deg);
+    transition:
+      opacity 140ms ease,
+      transform 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .is-active .arrow {
+    opacity: 1;
+    transform: none;
+  }
+  .is-active .arrow.is-asc {
+    transform: rotate(180deg);
+  }
+  .grid-body {
+    padding: 4px 6px 6px;
+  }
+  .row {
+    position: relative;
+    height: 52px;
+    padding: 0 12px 0 2px;
+    border-radius: 12px;
+    cursor: default;
+    transition: background 120ms ease;
+  }
+  .row::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    bottom: 0;
+    left: 12px;
+    height: 1px;
+    background: #262626;
+  }
+  .row:hover {
     background: #181818;
   }
-  tr.is-selected {
-    background: #222;
+  .row:hover :global(.icon) {
+    transform: scale(1.07);
+  }
+  .row :global(.icon) {
+    transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .row.is-selected {
+    background: color-mix(in srgb, var(--accent) 13%, #111);
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  .row.is-selected::after {
+    display: none;
+  }
+  .c-name {
+    min-width: 0;
+  }
+  .pid {
+    display: inline-block;
+    min-width: 62px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: #2a0f1e;
+    color: #ff2e93;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .cpu {
+    color: #b4ff00;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .mem {
+    color: var(--accent);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .row,
+    .row :global(.icon),
+    .sort,
+    .arrow {
+      transition: none;
+    }
   }
   .backdrop {
     position: fixed;

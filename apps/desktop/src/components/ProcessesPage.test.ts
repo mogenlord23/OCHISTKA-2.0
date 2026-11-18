@@ -39,10 +39,46 @@ async function mountProcesses() {
 describe('ProcessesPage list', () => {
   it('shows name, PID, CPU and formatted memory', async () => {
     await mountProcesses();
-    const row = screen.getByText('chrome.exe').closest('tr') as HTMLElement;
+    const row = screen.getByText('chrome.exe').closest('[role="row"]') as HTMLElement;
     expect(within(row).getByText('100')).toBeTruthy();
-    expect(within(row).getByText('3.3%')).toBeTruthy();
-    expect(within(row).getByText('2.0 КБ')).toBeTruthy();
+    expect(within(row).getByText('3,25%')).toBeTruthy();
+    expect(within(row).getByText('2,0 КБ')).toBeTruthy();
+  });
+
+  it('shows «Нет данных» when the system gives no memory figure', async () => {
+    await mountProcesses();
+    const row = screen.getByText('System').closest('[role="row"]') as HTMLElement;
+    expect(within(row).getByText('Нет данных')).toBeTruthy();
+  });
+
+  it('sorts by a clicked header: largest first, then smallest, with aria-sort', async () => {
+    await mountProcesses();
+    const names = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('button')[0].textContent?.trim());
+    expect(names()).toEqual(['chrome.exe', 'explorer.exe', 'System']);
+
+    await fireEvent.click(screen.getByRole('button', { name: /^PID/ }));
+    expect(names()).toEqual(['explorer.exe', 'chrome.exe', 'System']);
+    expect(screen.getByRole('columnheader', { name: /^PID/ }).getAttribute('aria-sort')).toBe(
+      'descending',
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: /^PID/ }));
+    expect(names()).toEqual(['System', 'chrome.exe', 'explorer.exe']);
+    expect(screen.getByRole('columnheader', { name: /^PID/ }).getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: /^CPU/ }));
+    expect(names()).toEqual(['chrome.exe', 'explorer.exe', 'System']);
+
+    await fireEvent.click(screen.getByRole('button', { name: /^RAM/ }));
+    expect(names()).toEqual(['chrome.exe', 'explorer.exe', 'System']);
+    await fireEvent.click(screen.getByRole('button', { name: /^RAM/ }));
+    expect(names()).toEqual(['explorer.exe', 'chrome.exe', 'System']);
   });
 
   it('refreshes every 3 seconds while the processes subsection is open', async () => {

@@ -1,5 +1,7 @@
 import { SECTION_COLORS } from './tokens';
 import type { ProcessInfo } from './processesApi';
+import { sortList, type SortState } from './sortState';
+import { formatCpuPercent } from './units';
 
 /** Интервал обновления списка процессов. */
 export const REFRESH_MS = 3000;
@@ -34,7 +36,30 @@ export function isProtectedPid(pid: number): boolean {
   return pid === 0 || pid === 4;
 }
 
-/** ЦП в процентах с одним знаком после запятой. */
-export function formatCpu(percent: number): string {
-  return `${percent.toFixed(1)}%`;
+/** ЦП в процентах до сотых: «3,97%». */
+export const formatCpu = formatCpuPercent;
+
+export type ProcessSortKey = 'name' | 'pid' | 'cpu' | 'memory';
+
+/** Значение процесса для сортировки по столбцу. Память 0 — «нет данных», уходит в конец. */
+export function processSortValue(proc: ProcessInfo, key: ProcessSortKey): number | string | null {
+  switch (key) {
+    case 'name':
+      return proc.name;
+    case 'pid':
+      return proc.pid;
+    case 'cpu':
+      return proc.cpuPercent;
+    case 'memory':
+      return proc.memoryBytes > 0 ? proc.memoryBytes : null;
+  }
+}
+
+/** Список процессов в порядке выбранной сортировки. Без сортировки — по имени. */
+export function sortProcesses(
+  list: readonly ProcessInfo[],
+  state: SortState<ProcessSortKey> | null,
+): ProcessInfo[] {
+  const { key, dir } = state ?? { key: 'name' as const, dir: 'asc' as const };
+  return sortList(list, (proc) => processSortValue(proc, key), dir);
 }
