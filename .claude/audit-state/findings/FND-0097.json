@@ -8,5 +8,8 @@
   "summary": "Disabled buttons carry their reason only in title: removed from tab order, not visible as text; the start button has no reason at all when disabled",
   "evidence": "VirusesPage.svelte:111 Остановить title; 158 Удалить title; 107 start disabled with no reason",
   "failure_scenario": "Keyboard user cannot reach the reason for Остановить or Удалить; CLAUDE.md requires a visible reason for unavailable functions.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:52:58Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

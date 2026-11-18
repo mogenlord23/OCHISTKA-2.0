@@ -11,7 +11,10 @@
 
   let { subsection }: { subsection: string } = $props();
 
+  let nextRunId = 0;
+
   interface Run {
+    id: number;
     startedAt: string;
     target: string;
     scanned: number;
@@ -25,6 +28,20 @@
   let error = $state<CommandError | null>(null);
   let suspicions = $state<Record<string, Suspicion>>({});
   let runs = $state<Run[]>([]);
+  let assessFailures = $state<{ count: number; firstMessage: string }>({
+    count: 0,
+    firstMessage: '',
+  });
+
+  const startBlockReason = $derived(
+    scanning
+      ? ''
+      : !engine?.available
+        ? 'Сначала проверьте движок'
+        : target.trim() === ''
+          ? 'Укажите папку для проверки'
+          : '',
+  );
 
   onMount(async () => {
     try {
@@ -48,11 +65,13 @@
     error = null;
     report = null;
     suspicions = {};
+    assessFailures = { count: 0, firstMessage: '' };
     try {
       const result = await scanStart(path);
       report = result;
       runs = [
         {
+          id: nextRunId++,
           startedAt: new Date().toLocaleTimeString('ru-RU'),
           target: path,
           scanned: result.scannedFiles,
@@ -60,12 +79,22 @@
         },
         ...runs,
       ];
+      let failureCount = 0;
+      let firstFailure = '';
       const scores = await Promise.all(
         result.findings.map(async (finding) => {
-          const score = await assessFile(finding.path).catch(() => null);
-          return [finding.path, score] as const;
+          try {
+            return [finding.path, await assessFile(finding.path)] as const;
+          } catch (err) {
+            failureCount += 1;
+            if (firstFailure === '') {
+              firstFailure = toCommandError(err).message;
+            }
+            return [finding.path, null] as const;
+          }
         }),
       );
+      assessFailures = { count: failureCount, firstMessage: firstFailure };
       const next: Record<string, Suspicion> = {};
       for (const [findingPath, score] of scores) {
         if (score) {
@@ -108,6 +137,9 @@
       >
         Начать проверку
       </button>
+      {#if startBlockReason}
+        <span class="reason">{startBlockReason}</span>
+      {/if}
       <button type="button" disabled title="Отмена появится в следующей версии">
         Остановить
       </button>
@@ -132,6 +164,11 @@
   {:else if report.findings.length === 0}
     <p class="empty">Угроз не найдено.</p>
   {:else}
+    {#if assessFailures.count > 0}
+      <p class="empty" role="status">
+        Не удалось оценить файлов: {assessFailures.count}. Причина: {assessFailures.firstMessage}
+      </p>
+    {/if}
     <ul class="findings">
       {#each report.findings as finding (finding.path)}
         {@const score = suspicions[finding.path]}
@@ -167,7 +204,7 @@
     <p class="empty">Проверок в этой сессии пока не было.</p>
   {:else}
     <ul class="log">
-      {#each runs as run (run.startedAt + run.target)}
+      {#each runs as run (run.id)}
         <li>
           {run.startedAt} · {run.target} · проверено {run.scanned}, находок {run.infected}
         </li>
@@ -225,6 +262,11 @@
   button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  .reason {
+    align-self: center;
+    color: var(--muted);
   }
 
   button.primary {

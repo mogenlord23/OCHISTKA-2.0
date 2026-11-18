@@ -8,5 +8,8 @@
   "summary": "assessFile errors are swallowed by .catch(() => null); a finding without a hint shows nothing and no reason",
   "evidence": "VirusesPage.svelte:63-68, 71-74, 143",
   "failure_scenario": "File deleted between scan and assessment: no hint, no reason. Related FND-0025, FND-0047.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:52:58Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

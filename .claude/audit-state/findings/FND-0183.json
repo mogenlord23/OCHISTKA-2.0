@@ -8,5 +8,8 @@
   "summary": "Re-entry and empty-target guards are untested: no test checks the start button or input is disabled while scanning, clicks a second time, or uses an empty or whitespace target",
   "evidence": "VirusesPage.svelte:44 guard; VirusesPage.svelte:100 disabled={scanning}; VirusesPage.svelte:107",
   "failure_scenario": "Removing scanning || from VirusesPage.svelte:44 and 107 lets a second click call scanStart twice; test 2 still passes.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:55:18Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

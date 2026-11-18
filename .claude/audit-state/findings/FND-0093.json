@@ -8,5 +8,8 @@
   "summary": "Journal key is startedAt (HH:MM:SS without date) plus target; two runs in the same second or at the same clock time on different days collide",
   "evidence": "VirusesPage.svelte:54-58 toLocaleTimeString(\"ru-RU\"); line 170 key",
   "failure_scenario": "Two runs of the same target at the same clock time on different days in one long session: Журнал throws duplicate key. Date rollover is the more plausible case.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:52:58Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

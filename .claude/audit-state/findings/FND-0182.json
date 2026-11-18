@@ -8,5 +8,8 @@
   "summary": "Engine-missing test checks only the heading; the mocked reason string and the install hint are never asserted",
   "evidence": "VirusesPage.test.ts:32, 38; VirusesPage.svelte:88-89",
   "failure_scenario": "Deleting VirusesPage.svelte:88 leaves test 1 green; the user is not told why the engine is missing.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:55:18Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

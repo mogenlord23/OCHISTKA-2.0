@@ -8,5 +8,8 @@
   "summary": "No error path is tested: no mock rejects or throws, so the error handling at VirusesPage.svelte:33, 39, 48, 65, 71, 77 and the alert at 93-95 never runs",
   "evidence": "VirusesPage.test.ts mocks never reject; VirusesPage.svelte:32-39, 48, 65, 71, 76-77, 93-95; FND-0094, FND-0095 cross-reference",
   "failure_scenario": "Replacing VirusesPage.svelte:77 with an empty catch leaves all tests green; a broken error display also ships.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:55:18Z",
+  "resolution_note": "Re-verifier CONFIRM; 5 mutations killed in VirusesPage.test.ts; production behaviour verified by re-trace.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }
