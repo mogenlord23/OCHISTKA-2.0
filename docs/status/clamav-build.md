@@ -11,3 +11,11 @@
 - Исходники ClamAV 1.4.6 доступны через зеркало Debian (`deb.debian.org`), не через GitHub. Скачивание и проверка SHA-256 — `tools/clamav-build/fetch.sh`.
 - Конфигурация CMake на Linux остановилась на обязательных зависимостях `libxml2` и `pcre2`. Установка системных пакетов в этой среде заблокирована политикой; сборка не выполнена.
 - Чтобы закрыть пункт: установить `libxml2-dev` и `libpcre2-dev` (Linux) или подготовить vcpkg (Windows), затем по `tools/clamav-build/README.md`.
+
+## Итог сборки на Linux (2026-11-18)
+
+- libclamav 1.4.6 собран статически (`clamav_static`, `libclamav_static.a`) на Linux. Для этого по разрешению владельца установлены системные пакеты: libxml2, pcre2, json-c, libcurl, libmspack.
+- Из исходников Debian удалены компоненты unrar и mspack (лицензии); конфигурация: `ENABLE_UNRAR=OFF`, `ENABLE_EXTERNAL_MSPACK=ON`.
+- Экспорт: `cl_init`, `cl_engine_new`, `cl_load`, `cl_engine_compile`, `cl_scanfile`, `cl_engine_free`, `cl_retver`, `cl_strerror` найдены в библиотеке. Сигнатуры в `crates/platform/src/windows/clamav_ffi.rs` совпадают с `libclamav/clamav.h` (сверено по исходникам).
+- Не проверено: сборка под Windows (MSVC), линковка Rust-модуля с библиотекой, загрузка сигнатур (нужны базы: freshclam), сканирование EICAR с реальной базой.
+- Фича `libclamav` в `crates/platform` остаётся выключенной по умолчанию.
