@@ -4,9 +4,14 @@
   import {
     appearanceErrorMessage,
     appearanceStatus,
+    applyCursorScheme,
+    applyWallpaperTile,
+    downloadOriginals,
     isCancelled,
     pickAndApplyWallpaper,
+    restoreAccent,
     restoreAppearance,
+    restoreCursorScheme,
     restoreWallpaper,
     setAccent,
     setFillTaskbar,
@@ -15,15 +20,8 @@
     setTransparency,
     type AppearanceStatus,
   } from '../lib/appearanceApi';
-  import {
-    applyAppCursor,
-    applyReduceMotion,
-    loadChoice,
-    loadSettings,
-    saveChoice,
-    saveSettings,
-    type AppearanceChoice,
-  } from '../lib/appearanceStore';
+  import { applyReduceMotion, loadSettings, saveSettings } from '../lib/appearanceStore';
+  import { thumbBase64 } from '../lib/appearanceWallpapers';
   import { i18n } from '../lib/i18n.svelte';
 
   let { subsection }: { subsection: string } = $props();
@@ -45,15 +43,15 @@
   const HEADINGS: Record<AppearanceKind, { title: string; hint: string }> = {
     wallpaper: {
       title: 'Обои',
-      hint: 'Нажми на картинку, чтобы выбрать фон приложения. «Добавить свои обои…» ставит твою картинку обоями Windows.',
+      hint: 'Нажми на картинку, и она станет обоями рабочего стола Windows. Ещё один клик по выбранной вернёт прежние обои.',
     },
     cursor: {
       title: 'Курсоры',
-      hint: 'Выбранная схема становится указателем мыши в этом приложении. Курсор Windows не меняется.',
+      hint: 'Выбранная схема становится курсором Windows. Ещё один клик по выбранной вернёт прежний курсор.',
     },
     color: {
       title: 'Акцентный цвет Windows',
-      hint: 'Выбирай акценты без заливки всей панели задач. Прозрачность и светлый или тёмный режим настраиваются отдельно. Прежнее оформление сохраняется, его можно вернуть.',
+      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и светлый или тёмный режим настраиваются отдельно.',
     },
   };
 
@@ -65,31 +63,74 @@
     run: () => Promise<AppearanceStatus>;
   }
 
-  let choice = $state<AppearanceChoice>(loadChoice());
+  let busy = false;
   let reduceMotion = $state(loadSettings().reduceMotion);
   let visible = $state(PAGE_SIZE);
   let sentinel = $state<HTMLElement | null>(null);
   let status = $state<AppearanceStatus | null>(null);
   let pending = $state<Pending | null>(null);
-  let message = $state<{ kind: 'error' | 'ok'; text: string } | null>(null);
+  let message = $state<{ kind: 'error'; text: string } | null>(null);
   let cancelButton = $state<HTMLButtonElement | null>(null);
   let dialogReturnFocus: HTMLElement | null = null;
 
   const isSettings = $derived(subsection === 'settings');
   const kind = $derived<AppearanceKind>(KIND_BY_SUBSECTION[subsection] ?? 'wallpaper');
   const tiles = $derived(tilesFor(kind));
-  const selectedId = $derived(choice[kind]);
-  const selectedTile = $derived(tiles.find((tile) => tile.id === selectedId));
+  /** Выбор читается из Windows: поставленные из OCHISTKA обои, схема курсора и акцент. */
+  const selectedId = $derived(
+    kind === 'wallpaper'
+      ? status?.wallpaperTile
+      : kind === 'cursor'
+        ? status?.cursorScheme
+        : tiles.find((tile) => tile.preview.toUpperCase() === status?.accentTile)?.id,
+  );
   const shown = $derived(kind === 'wallpaper' ? tiles.slice(0, visible) : tiles);
   const cursorById = new Map(CURSOR_DEFS.map((def) => [def.id, def.cursor]));
 
-  function pick(id: string) {
-    saveChoice(kind, id);
-    choice = { ...choice, [kind]: id };
-    if (kind === 'cursor') applyAppCursor(id);
-    if (kind === 'color') {
-      const tile = tiles.find((item) => item.id === id);
-      if (tile) askAccent(tile.preview, id);
+  /** Клик по плитке ставит значение в Windows, повторный клик по выбранной возвращает прежнее. */
+  async function pick(id: string) {
+    if (busy) return;
+    const tile = tiles.find((item) => item.id === id);
+    if (!tile) return;
+    const selected = id === selectedId;
+    busy = true;
+    message = null;
+    try {
+      if (kind === 'wallpaper') {
+        status = selected
+          ? await restoreWallpaper()
+          : await applyWallpaperTile(
+              id,
+              tile.thumb ? undefined : tile.preview,
+              tile.thumb ? await thumbBase64(tile.thumb) : undefined,
+            );
+      } else if (kind === 'cursor') {
+        const def = cursorById.get(id);
+        if (!def) return;
+        status = selected
+          ? await restoreCursorScheme()
+          : await applyCursorScheme(id, def.color, def.secondary, def.pattern);
+      } else {
+        status = selected ? await restoreAccent() : await setAccent(tile.preview);
+      }
+    } catch (err) {
+      if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Действия без вопросов: сам клик по кнопке и есть действие, всё обратимо. */
+  async function act(run: () => Promise<AppearanceStatus>) {
+    if (busy) return;
+    busy = true;
+    message = null;
+    try {
+      status = await run();
+    } catch (err) {
+      if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
+    } finally {
+      busy = false;
     }
   }
 
@@ -101,7 +142,7 @@
 
   async function refreshStatus() {
     try {
-      status = await appearanceStatus();
+      status = await appearanceStatus(tilesFor('wallpaper').find((t) => t.thumb)?.id);
     } catch {
       status = null;
     }
@@ -124,7 +165,6 @@
     closeDialog();
     try {
       status = await item.run();
-      message = { kind: 'ok', text: 'Готово.' };
     } catch (err) {
       if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
     }
@@ -132,15 +172,6 @@
 
   const KEEP =
     'Прежнее значение сохранится, его можно вернуть кнопкой «Вернуть оформление Windows».';
-
-  function askAccent(hex: string, _id: string) {
-    ask({
-      title: 'Сменить акцентный цвет Windows?',
-      text: `Изменится цвет акцента Windows. ${KEEP}`,
-      confirm: 'Сменить',
-      run: () => setAccent(hex),
-    });
-  }
 
   function askTransparency(event: Event) {
     const enabled = !(status?.transparency ?? true);
@@ -201,31 +232,6 @@
         text: 'Цвета, прозрачность и тема вернутся к значениям, которые были до первого изменения из OCHISTKA.',
         confirm: 'Вернуть',
         run: restoreAppearance,
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askAddWallpaper(event: Event) {
-    ask(
-      {
-        title: 'Поставить свои обои?',
-        text: 'Откроется окно выбора картинки. Выбранная картинка станет обоями рабочего стола Windows; прежний фон запомнится.',
-        confirm: 'Выбрать файл',
-        run: pickAndApplyWallpaper,
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askRestoreWallpaper(event: Event) {
-    if (!status?.hasPreviousWallpaper) return;
-    ask(
-      {
-        title: 'Вернуть прежний фон?',
-        text: 'Обои рабочего стола Windows вернутся к тем, что были до первой смены из OCHISTKA.',
-        confirm: 'Вернуть',
-        run: restoreWallpaper,
       },
       event.currentTarget,
     );
@@ -314,31 +320,26 @@
         <p class="hint">{HEADINGS[kind].hint}</p>
 
         {#if message}
-          <p class="msg" class:error={message.kind === 'error'} role="status">{message.text}</p>
+          <p class="msg error" role="status">{message.text}</p>
         {/if}
 
         {#if kind === 'wallpaper'}
-          <div class="top">
-            <div class="actions column">
-              <button type="button" onclick={askAddWallpaper}>Добавить свои обои…</button>
-              <button
-                type="button"
-                aria-disabled={!status?.hasPreviousWallpaper}
-                class:disabled={!status?.hasPreviousWallpaper}
-                onclick={askRestoreWallpaper}>Вернуть прежний фон</button
+          <div class="actions">
+            <button type="button" onclick={() => void act(pickAndApplyWallpaper)}
+              >Добавить свои обои…</button
+            >
+            <button
+              type="button"
+              aria-disabled={!status?.hasPreviousWallpaper}
+              class:disabled={!status?.hasPreviousWallpaper}
+              onclick={() => {
+                if (status?.hasPreviousWallpaper) void act(restoreWallpaper);
+              }}>Вернуть прежний фон</button
+            >
+            {#if status?.originalsMissing}
+              <button type="button" onclick={() => void act(downloadOriginals)}
+                >Скачать оригиналы</button
               >
-            </div>
-            {#if selectedTile}
-              <div
-                class="preview"
-                role="img"
-                aria-label="Предпросмотр выбранных обоев"
-                style:background-color={selectedTile.thumb ? '#161616' : selectedTile.preview}
-              >
-                {#if selectedTile.thumb}
-                  <img src={selectedTile.thumb} alt="" width="288" height="162" />
-                {/if}
-              </div>
             {/if}
           </div>
         {:else if kind === 'color'}
@@ -367,7 +368,7 @@
                 aria-label="{ACCESSIBLE_NAME[kind]} {index + 1}"
                 style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
-                onclick={() => pick(tile.id)}
+                onclick={() => void pick(tile.id)}
               >
                 {#if tile.thumb}
                   <img
@@ -380,7 +381,9 @@
                   />
                 {:else if cursor}
                   <!-- eslint-disable-next-line svelte/no-at-html-tags -- собственные данные, не ввод -->
-                  <span class="cursor" aria-hidden="true">{@html cursorSvg(cursor, tile.id)}</span>
+                  <span class="cursor" aria-hidden="true"
+                    >{@html cursorSvg(cursor, tile.id, 64)}</span
+                  >
                 {/if}
               </button>
             </li>
@@ -542,66 +545,45 @@
     background: var(--accent, #f83c5c);
   }
 
-  .top {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 14px;
-  }
-
-  .top .actions {
-    margin: 0;
-  }
-
-  .actions.column {
-    flex-direction: column;
-  }
-
-  .preview {
-    width: 240px;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    border-radius: 14px;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
-  }
-
-  .preview img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  /* Плитки фиксированного размера: на любом экране одинаковые, сетка добавляет колонки. */
+  /* Плитки фиксированного размера: на любом экране одинаковые. Сетка добавляет колонки и
+     стоит по центру общей области раздела. */
   .grid {
     display: grid;
     gap: 12px;
     margin: 0;
     padding: 0;
     list-style: none;
-    justify-content: start;
+    justify-content: center;
   }
 
   .grid-wallpaper {
     grid-template-columns: repeat(auto-fill, 176px);
+    grid-auto-rows: 99px;
   }
 
   .grid-cursor {
     grid-template-columns: repeat(auto-fill, 128px);
+    grid-auto-rows: 94px;
   }
 
   .grid-color {
     grid-template-columns: repeat(auto-fill, 96px);
+    grid-auto-rows: 64px;
+  }
+
+  .grid li {
+    display: flex;
+    min-width: 0;
   }
 
   .tile {
     position: relative;
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 100%;
     padding: 0;
     overflow: hidden;
     border: 0;
@@ -617,11 +599,9 @@
 
   .grid-cursor .tile {
     background-color: #161616 !important;
-    aspect-ratio: 140 / 102;
   }
 
   .grid-color .tile {
-    aspect-ratio: 3 / 2;
     border-radius: 12px;
     box-shadow: inset 0 0 0 3px #111;
   }
@@ -662,8 +642,9 @@
   }
 
   .cursor :global(svg) {
-    width: 62%;
-    height: 78%;
+    display: block;
+    width: 64px;
+    height: 64px;
   }
 
   .setting {

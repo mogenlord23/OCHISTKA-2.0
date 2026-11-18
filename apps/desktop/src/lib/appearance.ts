@@ -2,7 +2,7 @@ import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 /**
  * Варианты оформления: фото владельца (превью), сплошные цвета, SVG-курсоры и цвета.
- * Данные портированы из старого приложения. Применение к Windows не подключено.
+ * Данные портированы из старого приложения. Выбор плитки применяется к Windows через команды ядра.
  */
 
 export const APPEARANCE_KINDS = ['wallpaper', 'cursor', 'color'] as const;
@@ -83,7 +83,7 @@ export const WALLPAPERS: readonly AppearanceTile[] = [
 
 export type CursorPattern = 'plain' | 'stripes' | 'dots' | 'checker' | 'cross';
 
-/** Описание курсора: цвета и узор заливки. Рисуется как SVG-стрелка, файлов нет. */
+/** Описание курсора: цвета и узор заливки. Тот же рисунок Rust превращает в `.cur`. */
 export interface CursorDef {
   color: string;
   secondary: string;
@@ -140,31 +140,55 @@ export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = 
 
 export const CURSORS: readonly AppearanceTile[] = CURSOR_DEFS;
 
-const ARROW_PATH =
-  'M12,7 Q10,6 10,10 L10,48 Q10,51 13,49 L23,40 L31,57 Q33,60 36,58 L41,55 Q43,54 41,51 L32,35 L46,34 Q50,34 47,31 L14,8 Q13,7 12,7 Z';
+/** Контур стрелки в сетке 32×32: те же точки и центровка, что в `appearance_cursor.rs`. */
+const ARROW_BASE: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0, 16.5],
+  [3.8, 12.8],
+  [6.6, 19.4],
+  [9.2, 18.3],
+  [6.4, 11.8],
+  [11.6, 11.8],
+];
 
-/** SVG-стрелка с белой обводкой. `uid` делает id узора уникальным на странице. Данные только свои. */
+/** Контур по центру холста 32×32; остриё (первая точка) — горячая точка курсора. */
+export const ARROW_POINTS: readonly (readonly [number, number])[] = (() => {
+  const scaled = ARROW_BASE.map(([x, y]) => [x * 1.15, y * 1.15] as const);
+  const xs = scaled.map((p) => p[0]);
+  const ys = scaled.map((p) => p[1]);
+  const dx = (32 - (Math.max(...xs) - Math.min(...xs))) / 2 - Math.min(...xs);
+  const dy = (32 - (Math.max(...ys) - Math.min(...ys))) / 2 - Math.min(...ys);
+  return scaled.map(([x, y]) => [x + dx, y + dy] as const);
+})();
+
+/**
+ * SVG-стрелка 32×32: белая внешняя линия, чёрная тонкая линия, заливка с узором. Это тот же
+ * рисунок, что Rust кладёт в `.cur`. `uid` делает id узора уникальным на странице.
+ */
 export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
   const { color, secondary, pattern } = def;
+  const points = ARROW_POINTS.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
   const fill = pattern === 'plain' ? color : `url(#p-${uid})`;
   let defs = '';
   if (pattern !== 'plain') {
-    let body = `<rect width="16" height="16" fill="${color}"/>`;
+    let body = `<rect width="8" height="8" fill="${color}"/>`;
+    let transform = '';
     if (pattern === 'stripes') {
-      body += `<path d="M-4,16 L16,-4 M4,20 L20,4" stroke="${secondary}" stroke-width="6"/>`;
+      transform = ' patternTransform="rotate(-45)"';
+      body += `<rect width="8" height="3" fill="${secondary}"/>`;
     } else if (pattern === 'dots') {
-      body += `<circle cx="4" cy="4" r="3" fill="${secondary}"/><circle cx="12" cy="12" r="2" fill="#fff"/>`;
+      body += `<circle cx="2" cy="2" r="1.5" fill="${secondary}"/><circle cx="6" cy="6" r="1" fill="#fff"/>`;
     } else if (pattern === 'checker') {
-      body += `<rect width="8" height="8" fill="${secondary}"/><rect x="8" y="8" width="8" height="8" fill="${secondary}"/>`;
+      body += `<rect width="4" height="4" fill="${secondary}"/><rect x="4" y="4" width="4" height="4" fill="${secondary}"/>`;
     } else {
-      body += `<path d="M0,8 H16" stroke="${secondary}" stroke-width="5"/><path d="M8,0 V16" stroke="#fff" stroke-width="2"/>`;
+      body += `<rect y="2.75" width="8" height="2.5" fill="${secondary}"/><rect x="3.5" width="1" height="8" fill="#fff"/>`;
     }
-    defs = `<defs><pattern id="p-${uid}" width="16" height="16" patternUnits="userSpaceOnUse">${body}</pattern></defs>`;
+    defs = `<defs><pattern id="p-${uid}" width="8" height="8" patternUnits="userSpaceOnUse"${transform}>${body}</pattern></defs>`;
   }
   return (
-    `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false">${defs}` +
-    `<path d="${ARROW_PATH}" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
-    `<path d="${ARROW_PATH}" fill="${fill}" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>`
+    `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true" focusable="false">${defs}` +
+    `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>` +
+    `<polygon points="${points}" fill="${fill}" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>`
   );
 }
 
@@ -246,21 +270,4 @@ export function tilesFor(kind: AppearanceKind): readonly AppearanceTile[] {
 /** Первый вариант списка считается выбранным по умолчанию. */
 export function defaultTileId(kind: AppearanceKind): string {
   return kind === 'cursor' ? 'cursor-white' : tilesFor(kind)[0].id;
-}
-
-/** Размер курсора приложения и «горячая точка» (кончик стрелки в системе координат 64×64). */
-const APP_CURSOR_SIZE = 32;
-
-/**
- * Значение CSS `cursor` для схемы: тот же SVG, что на плитке, в виде data-адреса.
- * Запасной вариант `auto` срабатывает, если браузер не принял картинку.
- */
-export function cursorCss(def: CursorDef, uid: string): string {
-  const svg = cursorSvg(def, uid, APP_CURSOR_SIZE).replace(
-    '<svg ',
-    '<svg xmlns="http://www.w3.org/2000/svg" ',
-  );
-  const hot = Math.round((11 * APP_CURSOR_SIZE) / 64);
-  const hotY = Math.round((7 * APP_CURSOR_SIZE) / 64);
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hot} ${hotY}, auto`;
 }

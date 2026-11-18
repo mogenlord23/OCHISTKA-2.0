@@ -1,14 +1,8 @@
 import { mount } from 'svelte';
 import App from './App.svelte';
-import {
-  applyAppCursor,
-  applyReduceMotion,
-  loadSettings,
-  storedCursorId,
-} from './lib/appearanceStore';
+import { applyReduceMotion, loadSettings } from './lib/appearanceStore';
 
 applyReduceMotion(loadSettings().reduceMotion);
-applyAppCursor(storedCursorId());
 
 const target = document.getElementById('app');
 if (!target) {

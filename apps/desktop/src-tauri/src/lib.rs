@@ -46,7 +46,8 @@ pub fn run() {
         ))
         .manage({
             let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
-            appearance::AppearanceState::new(registry, wallpaper)
+            let (files, refresh) = ochistka_platform::current_appearance_system_ports();
+            appearance::AppearanceState::new(registry, wallpaper, files, refresh)
         })
         .invoke_handler(tauri::generate_handler![
             appearance::appearance_request,

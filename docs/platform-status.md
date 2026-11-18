@@ -58,7 +58,10 @@
 | Оформление / Обои, Курсоры, Цвета   | Применение к системе                                           | `planned` (не подключено)                                            | `planned` (не подключено)                                        | `planned` (не подключено)                                   |
 | Не распределено                     | Оптимизация, Сеть, Виджеты, Настройки                          | `planned` (место в разделах уточняется)                              | `planned` (та же причина)                                        | `planned` (та же причина)                                   |
 | Оформление: акцент, прозрачность, тема, обои Windows (HKCU, откат) | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
-| Оформление: курсор и фон предпросмотра в приложении | все | implemented (проверено в браузере, Playwright) | |
+| Оформление: обои плиткой на рабочий стол Windows (оригиналы из %LOCALAPPDATA%\OCHISTKA\Wallpapers, иначе превью), возврат повторным кликом | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
+| Оформление: схема курсора Windows (.cur 32x32 PNG, HKCU\Control Panel\Cursors, резерв, rundll32 UpdatePerUserSystemParameters); роли Arrow и IBeam | Windows | implemented (не проверено на Windows) | остальные роли (Hand, Wait и др.) и анимированные .ani: planned |
+| Оформление: возврат акцента повторным кликом по цвету | Windows | implemented (не проверено на Windows) | |
+| Оформление: «Скачать оригиналы» обоев | Windows | planned (заглушка пишет причину) | |
 
 ## Примечания
 

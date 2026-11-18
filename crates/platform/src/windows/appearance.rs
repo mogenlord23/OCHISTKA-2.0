@@ -3,10 +3,16 @@
 //! `cfg(windows)` и только после подтверждения (проверяется в ядре); в тестах не выполняются.
 //! На других ОС адаптеры возвращают `Unsupported`.
 
-use ochistka_core::appearance::{AppearanceError, RegValue, RegistryPort, WallpaperPort};
+use ochistka_core::appearance::{
+    AppearanceError, CursorRefreshPort, FilePort, RegValue, RegistryPort, WallpaperPort,
+};
 
 pub struct WindowsAppearanceRegistry;
 pub struct WindowsWallpaper;
+/// Папка `%LOCALAPPDATA%\OCHISTKA` и запись файлов в неё.
+pub struct WindowsAppFiles;
+/// Обновление курсоров через `%SystemRoot%\System32\rundll32.exe` (полный путь, без PATH).
+pub struct WindowsCursorRefresh;
 
 #[cfg(windows)]
 mod imp {
@@ -64,6 +70,44 @@ mod imp {
             wallpaper::set_from_path(path).map_err(|e| AppearanceError::Wallpaper(e.to_string()))
         }
     }
+    impl FilePort for WindowsAppFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            let base = std::env::var("LOCALAPPDATA")
+                .map_err(|_| AppearanceError::Registry("нет папки LOCALAPPDATA".into()))?;
+            Ok(format!("{base}\\OCHISTKA"))
+        }
+
+        fn exists(&self, path: &str) -> bool {
+            std::path::Path::new(path).is_file()
+        }
+
+        fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError> {
+            let p = std::path::Path::new(path);
+            let io = |e: std::io::Error| AppearanceError::Wallpaper(e.to_string());
+            if let Some(parent) = p.parent() {
+                std::fs::create_dir_all(parent).map_err(io)?;
+            }
+            std::fs::write(p, bytes).map_err(io)
+        }
+    }
+
+    impl CursorRefreshPort for WindowsCursorRefresh {
+        fn refresh(&self) -> Result<(), AppearanceError> {
+            let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
+            let exe = format!("{root}\\System32\\rundll32.exe");
+            let status = std::process::Command::new(exe)
+                .args(["user32.dll,UpdatePerUserSystemParameters"])
+                .status()
+                .map_err(|e| AppearanceError::Registry(e.to_string()))?;
+            if status.success() {
+                Ok(())
+            } else {
+                Err(AppearanceError::Registry(
+                    "rundll32 завершился с ошибкой".into(),
+                ))
+            }
+        }
+    }
 }
 
 #[cfg(not(windows))]
@@ -87,6 +131,23 @@ mod imp {
             Err(AppearanceError::Unsupported)
         }
         fn set(&self, _: &str) -> Result<(), AppearanceError> {
+            Err(AppearanceError::Unsupported)
+        }
+    }
+    impl FilePort for WindowsAppFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            Err(AppearanceError::Unsupported)
+        }
+        fn exists(&self, _: &str) -> bool {
+            false
+        }
+        fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
+            Err(AppearanceError::Unsupported)
+        }
+    }
+
+    impl CursorRefreshPort for WindowsCursorRefresh {
+        fn refresh(&self) -> Result<(), AppearanceError> {
             Err(AppearanceError::Unsupported)
         }
     }

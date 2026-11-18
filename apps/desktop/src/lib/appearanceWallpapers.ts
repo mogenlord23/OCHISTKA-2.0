@@ -28,3 +28,17 @@ export const WALLPAPER_PHOTOS: readonly WallpaperPhoto[] = (
   width: item.width,
   height: item.height,
 }));
+
+/** Превью как base64: если оригинала нет, ядро кладёт его файлом и ставит обоями. */
+export async function thumbBase64(url: string): Promise<string | undefined> {
+  try {
+    const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+  } catch {
+    return undefined;
+  }
+}

@@ -133,6 +133,17 @@ pub fn current_appearance_ports() -> (
     )
 }
 
+/// Файлы оформления (`%LOCALAPPDATA%\OCHISTKA`) и обновление курсоров Windows.
+pub fn current_appearance_system_ports() -> (
+    std::sync::Arc<dyn ochistka_core::appearance::FilePort>,
+    std::sync::Arc<dyn ochistka_core::appearance::CursorRefreshPort>,
+) {
+    (
+        std::sync::Arc::new(windows::appearance::WindowsAppFiles),
+        std::sync::Arc::new(windows::appearance::WindowsCursorRefresh),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

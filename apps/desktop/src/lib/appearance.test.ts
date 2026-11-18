@@ -4,9 +4,9 @@ import {
   COLOR_SCHEMES,
   CURSORS,
   CURSOR_DEFS,
-  cursorCss,
   cursorSvg,
   ACCENT_COLORS,
+  ARROW_POINTS,
   WALLPAPERS,
   defaultTileId,
   tilesFor,
@@ -40,6 +40,7 @@ describe('appearance tiles', () => {
     const svg = cursorSvg(CURSOR_DEFS[20].cursor, 'x');
     expect(svg).toContain('<pattern id="p-x"');
     expect(svg).toContain('stroke="#fff"');
+    expect(svg).toContain('viewBox="0 0 32 32"');
     expect(cursorSvg(CURSOR_DEFS[0].cursor, 'y')).not.toContain('<pattern');
   });
 
@@ -49,11 +50,13 @@ describe('appearance tiles', () => {
     for (const tile of COLOR_SCHEMES) expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
   });
 
-  it('builds a CSS cursor from the same SVG with a fallback', () => {
-    const css = cursorCss(CURSOR_DEFS[20].cursor, 'app');
-    expect(css).toMatch(/^url\("data:image\/svg\+xml,/);
-    expect(decodeURIComponent(css)).toContain('xmlns="http://www.w3.org/2000/svg"');
-    expect(css.endsWith(', auto')).toBe(true);
+  it('centres the arrow in 32×32 with the tip as the first point', () => {
+    const xs = ARROW_POINTS.map((p) => p[0]);
+    const ys = ARROW_POINTS.map((p) => p[1]);
+    expect(Math.min(...xs) + Math.max(...xs)).toBeCloseTo(32, 5);
+    expect(Math.min(...ys) + Math.max(...ys)).toBeCloseTo(32, 5);
+    expect(ARROW_POINTS[0][0]).toBe(Math.min(...xs));
+    expect(ARROW_POINTS[0][1]).toBe(Math.min(...ys));
   });
 
   it('defaults to the first tile of each kind', () => {

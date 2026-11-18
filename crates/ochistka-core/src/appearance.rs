@@ -40,6 +40,19 @@ pub trait RegistryPort: Send + Sync {
     fn delete(&self, key: &str, name: &str) -> Result<(), AppearanceError>;
 }
 
+/// Файлы приложения в `%LOCALAPPDATA%\OCHISTKA`: курсоры, обои. Пути полные, с обратной косой чертой.
+pub trait FilePort: Send + Sync {
+    fn data_dir(&self) -> Result<String, AppearanceError>;
+    fn exists(&self, path: &str) -> bool;
+    /// Пишет файл, создавая папки. Существующий файл заменяется.
+    fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError>;
+}
+
+/// Просит Windows перечитать курсоры: `%SystemRoot%\System32\rundll32.exe user32.dll,UpdatePerUserSystemParameters`.
+pub trait CursorRefreshPort: Send + Sync {
+    fn refresh(&self) -> Result<(), AppearanceError>;
+}
+
 /// Обои рабочего стола Windows.
 pub trait WallpaperPort: Send + Sync {
     fn current(&self) -> Result<Option<String>, AppearanceError>;
@@ -53,6 +66,12 @@ const ACCENT: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent
 pub const BACKUP_KEY: &str = r"Software\OCHISTKA\Backup\Appearance";
 const BACKUP_DONE: &str = "Created";
 const BACKUP_WALLPAPER: &str = "PreviousWallpaper";
+/// Какая плитка обоев сейчас поставлена (`custom` — свой файл).
+const APPLIED_WALLPAPER: &str = "AppliedWallpaper";
+/// Акцентный цвет `#RRGGBB`, поставленный плиткой.
+const APPLIED_ACCENT: &str = "AppliedAccent";
+/// Идентификаторы четырёх значений акцента внутри `TARGETS`.
+const ACCENT_IDS: [&str; 4] = ["dwmAccent", "dwmColorization", "accentMenu", "accentStart"];
 
 struct Target {
     id: &'static str,
@@ -129,6 +148,21 @@ pub struct AppearanceStatus {
     pub has_backup: bool,
     /// Есть сохранённый прежний фон рабочего стола.
     pub has_previous_wallpaper: bool,
+    /// Плитка обоев, поставленная из OCHISTKA (`custom` — свой файл).
+    pub wallpaper_tile: Option<String>,
+    /// Акцент, поставленный плиткой (`#RRGGBB`).
+    pub accent_tile: Option<String>,
+    /// Схема курсора, поставленная из OCHISTKA.
+    pub cursor_scheme: Option<String>,
+    /// Оригиналов обоев в `%LOCALAPPDATA%\OCHISTKA\Wallpapers` ещё нет.
+    pub originals_missing: bool,
+}
+
+fn text(reg: &dyn RegistryPort, key: &str, name: &str) -> Result<Option<String>, AppearanceError> {
+    Ok(match reg.read(key, name)? {
+        Some(RegValue::Text(t)) if !t.is_empty() => Some(t),
+        _ => None,
+    })
 }
 
 /// `#RRGGBB` -> (r, g, b). Принимает только строго шесть шестнадцатеричных цифр.
@@ -186,6 +220,10 @@ pub fn status(reg: &dyn RegistryPort) -> Result<AppearanceStatus, AppearanceErro
         fill_taskbar: dword(reg, "prevalence")?.map(|v| v != 0),
         has_backup: has_backup(reg)?,
         has_previous_wallpaper: reg.read(BACKUP_KEY, BACKUP_WALLPAPER)?.is_some(),
+        wallpaper_tile: text(reg, BACKUP_KEY, APPLIED_WALLPAPER)?,
+        accent_tile: text(reg, BACKUP_KEY, APPLIED_ACCENT)?,
+        cursor_scheme: text(reg, CURSOR_BACKUP_KEY, APPLIED_SCHEME)?,
+        originals_missing: false,
     })
 }
 
@@ -224,7 +262,28 @@ pub fn set_accent(
     write_dword(reg, "dwmAccent", abgr(r, g, b))?;
     write_dword(reg, "dwmColorization", argb(r, g, b))?;
     write_dword(reg, "accentMenu", abgr(r, g, b))?;
-    write_dword(reg, "accentStart", abgr(r, g, b))
+    write_dword(reg, "accentStart", abgr(r, g, b))?;
+    reg.write(
+        BACKUP_KEY,
+        APPLIED_ACCENT,
+        &RegValue::Text(format!("#{r:02X}{g:02X}{b:02X}")),
+    )
+}
+
+/// Возвращает прежний акцент (повторный клик по выбранному цвету). Без поставленного
+/// акцента ничего не делает.
+pub fn restore_accent(reg: &dyn RegistryPort, confirmed: bool) -> Result<(), AppearanceError> {
+    need_confirm(confirmed)?;
+    if reg.read(BACKUP_KEY, APPLIED_ACCENT)?.is_none() {
+        return Ok(());
+    }
+    for t in TARGETS.iter().filter(|t| ACCENT_IDS.contains(&t.id)) {
+        match reg.read(BACKUP_KEY, t.id)? {
+            Some(value) => reg.write(t.key, t.name, &value)?,
+            None => reg.delete(t.key, t.name)?,
+        }
+    }
+    reg.delete(BACKUP_KEY, APPLIED_ACCENT)
 }
 
 pub fn set_transparency(
@@ -289,7 +348,7 @@ pub fn restore(reg: &dyn RegistryPort, confirmed: bool) -> Result<(), Appearance
             None => reg.delete(t.key, t.name)?,
         }
     }
-    Ok(())
+    reg.delete(BACKUP_KEY, APPLIED_ACCENT)
 }
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp"];
@@ -326,16 +385,29 @@ pub fn apply_wallpaper(
     path: &str,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
+    apply_wallpaper_as(reg, wallpaper, path, "custom", confirmed)
+}
+
+/// То же, но с запоминанием плитки, из которой взята картинка.
+pub fn apply_wallpaper_as(
+    reg: &dyn RegistryPort,
+    wallpaper: &dyn WallpaperPort,
+    path: &str,
+    tile: &str,
+    confirmed: bool,
+) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
     validate_image_path(path)?;
     if reg.read(BACKUP_KEY, BACKUP_WALLPAPER)?.is_none() {
         let previous = wallpaper.current()?.unwrap_or_default();
         reg.write(BACKUP_KEY, BACKUP_WALLPAPER, &RegValue::Text(previous))?;
     }
-    wallpaper.set(path)
+    wallpaper.set(path)?;
+    reg.write(BACKUP_KEY, APPLIED_WALLPAPER, &RegValue::Text(tile.into()))
 }
 
-/// Возвращает прежний фон. Запись о нём удаляется: следующая смена запомнит новый.
+/// Возвращает прежний фон. Записи о нём удаляются: следующая смена запомнит новый.
+/// Если вернуть нечего, ничего не делает.
 pub fn restore_wallpaper(
     reg: &dyn RegistryPort,
     wallpaper: &dyn WallpaperPort,
@@ -343,12 +415,233 @@ pub fn restore_wallpaper(
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
     let Some(RegValue::Text(previous)) = reg.read(BACKUP_KEY, BACKUP_WALLPAPER)? else {
-        return Err(AppearanceError::NoBackup);
+        return Ok(());
     };
     if !previous.is_empty() {
         wallpaper.set(&previous)?;
     }
-    reg.delete(BACKUP_KEY, BACKUP_WALLPAPER)
+    reg.delete(BACKUP_KEY, BACKUP_WALLPAPER)?;
+    reg.delete(BACKUP_KEY, APPLIED_WALLPAPER)
+}
+
+fn is_safe_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 48
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Папка оригиналов обоев (набор «Offline» владельца), в неё интерфейс ничего не пишет.
+pub fn wallpapers_dir(files: &dyn FilePort) -> Result<String, AppearanceError> {
+    Ok(format!("{}\\Wallpapers", files.data_dir()?))
+}
+
+fn original_path(files: &dyn FilePort, id: &str) -> Result<Option<String>, AppearanceError> {
+    let dir = wallpapers_dir(files)?;
+    Ok(["jpg", "jpeg", "png", "bmp"]
+        .iter()
+        .map(|ext| format!("{dir}\\{id}.{ext}"))
+        .find(|path| files.exists(path)))
+}
+
+/// Есть ли в папке оригиналов хотя бы один файл из галереи (проверяется по `sample_id`).
+pub fn originals_missing(files: &dyn FilePort, sample_id: &str) -> bool {
+    match original_path(files, sample_id) {
+        Ok(found) => found.is_none(),
+        Err(_) => true,
+    }
+}
+
+/// Откуда взята картинка для плитки обоев.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WallpaperSource {
+    Original(String),
+    /// Оригинала нет, взято превью: в журнал, не в интерфейс.
+    Thumbnail(String),
+}
+
+/// Плитка обоев: оригинал из `%LOCALAPPDATA%\OCHISTKA\Wallpapers`, а если его нет, превью
+/// (`thumb_base64`), записанное рядом. Сплошные цвета (`solid-…`) рисуются как PNG 64×64.
+pub fn apply_wallpaper_tile(
+    reg: &dyn RegistryPort,
+    wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
+    id: &str,
+    solid_color: Option<&str>,
+    thumb_base64: Option<&str>,
+    confirmed: bool,
+) -> Result<WallpaperSource, AppearanceError> {
+    need_confirm(confirmed)?;
+    if !is_safe_id(id) {
+        return Err(AppearanceError::Invalid("недопустимое имя обоев".into()));
+    }
+    let dir = wallpapers_dir(files)?;
+    let source = if let Some(hex) = solid_color {
+        let (r, g, b) = parse_hex(hex)?;
+        let rgba: Vec<u8> = (0..64 * 64).flat_map(|_| [r, g, b, 255]).collect();
+        let path = format!("{dir}\\solid\\{id}.png");
+        files.write(&path, &crate::appearance_cursor::encode_png(&rgba, 64))?;
+        WallpaperSource::Original(path)
+    } else if let Some(path) = original_path(files, id)? {
+        WallpaperSource::Original(path)
+    } else {
+        let bytes = decode_base64(thumb_base64.unwrap_or(""))
+            .filter(|b| !b.is_empty())
+            .ok_or_else(|| AppearanceError::Invalid("нет ни оригинала, ни превью обоев".into()))?;
+        let path = format!("{dir}\\thumbs\\{id}.jpg");
+        files.write(&path, &bytes)?;
+        WallpaperSource::Thumbnail(path)
+    };
+    let (WallpaperSource::Original(path) | WallpaperSource::Thumbnail(path)) = &source;
+    apply_wallpaper_as(reg, wallpaper, path, id, true)?;
+    Ok(source)
+}
+
+/// Заглушка кнопки «Скачать оригиналы»: загрузка ещё не подключена, причина пишется в файл
+/// рядом с папкой оригиналов. Возвращает путь к файлу с причиной.
+pub fn note_originals_download(files: &dyn FilePort) -> Result<String, AppearanceError> {
+    let path = format!("{}\\Wallpapers\\ORIGINALS.txt", files.data_dir()?);
+    let reason = "Скачивание оригиналов обоев пока не подключено: набор Offline (около 105 МБ) \
+        не лежит в репозитории, а сервер раздачи ещё не выбран. Положите файлы вида photo-<id>.jpg \
+        в эту папку вручную; установщик положит их сюда сам. См. docs/status/decisions.md.\n";
+    files.write(&path, reason.as_bytes())?;
+    Ok(path)
+}
+
+fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let (mut buf, mut bits) = (0u32, 0u32);
+    for c in input.bytes() {
+        let v = match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' | b'\n' | b'\r' => continue,
+            _ => return None,
+        };
+        buf = (buf << 6) | u32::from(v);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buf >> bits) as u8);
+            buf &= (1 << bits) - 1;
+        }
+    }
+    Some(out)
+}
+
+// ---------- Курсоры ----------
+
+const CURSORS_KEY: &str = r"Control Panel\Cursors";
+/// Резервная ветка курсоров: прежняя схема до первого изменения.
+pub const CURSOR_BACKUP_KEY: &str = r"Software\OCHISTKA\Backup\Cursors";
+const APPLIED_SCHEME: &str = "AppliedScheme";
+
+/// Значения `Control Panel\Cursors`, которые трогает схема: (id в резерве, имя значения).
+fn cursor_targets() -> Vec<(String, &'static str)> {
+    let mut list: Vec<(String, &'static str)> = crate::appearance_cursor::Role::ALL
+        .iter()
+        .map(|r| (r.registry_name().to_string(), r.registry_name()))
+        .collect();
+    list.push(("SchemeName".into(), ""));
+    list.push(("SchemeSource".into(), "Scheme Source"));
+    list
+}
+
+fn ensure_cursor_backup(reg: &dyn RegistryPort) -> Result<(), AppearanceError> {
+    if reg.read(CURSOR_BACKUP_KEY, BACKUP_DONE)?.is_some() {
+        return Ok(());
+    }
+    for (id, name) in cursor_targets() {
+        match reg.read(CURSORS_KEY, name)? {
+            Some(value) => reg.write(CURSOR_BACKUP_KEY, &id, &value)?,
+            None => reg.write(
+                CURSOR_BACKUP_KEY,
+                &format!("{id}.absent"),
+                &RegValue::Dword(1),
+            )?,
+        }
+    }
+    reg.write(CURSOR_BACKUP_KEY, BACKUP_DONE, &RegValue::Dword(1))
+}
+
+/// Описание схемы, пришедшее из таблицы интерфейса (проверяется здесь).
+pub struct CursorSpec<'a> {
+    pub id: &'a str,
+    pub color: &'a str,
+    pub secondary: &'a str,
+    pub pattern: &'a str,
+}
+
+/// Ставит схему курсора Windows: рисует `.cur`, пишет `HKCU\Control Panel\Cursors`, обновляет.
+/// Анимированные схемы (`.ani`) не поддерживаются: в таблице таких пока нет.
+pub fn apply_cursor_scheme(
+    reg: &dyn RegistryPort,
+    files: &dyn FilePort,
+    refresh: &dyn CursorRefreshPort,
+    spec: &CursorSpec,
+    confirmed: bool,
+) -> Result<(), AppearanceError> {
+    need_confirm(confirmed)?;
+    if !is_safe_id(spec.id) {
+        return Err(AppearanceError::Invalid("недопустимое имя схемы".into()));
+    }
+    let pattern = crate::appearance_cursor::Pattern::parse(spec.pattern)?;
+    // Сначала рисуем всё: ошибка в данных не должна оставить реестр наполовину изменённым.
+    let mut cursors = Vec::new();
+    for role in crate::appearance_cursor::Role::ALL {
+        let bytes = crate::appearance_cursor::build_cur(role, pattern, spec.color, spec.secondary)?;
+        cursors.push((role, bytes));
+    }
+    let dir = format!("{}\\Cursors\\{}", files.data_dir()?, spec.id);
+    let mut paths = Vec::new();
+    for (role, bytes) in &cursors {
+        let path = format!("{dir}\\{}.cur", role.registry_name());
+        files.write(&path, bytes)?;
+        paths.push((role.registry_name(), path));
+    }
+    ensure_cursor_backup(reg)?;
+    for (name, path) in paths {
+        reg.write(CURSORS_KEY, name, &RegValue::Text(path))?;
+    }
+    reg.write(
+        CURSORS_KEY,
+        "",
+        &RegValue::Text(format!("OCHISTKA {}", spec.id)),
+    )?;
+    reg.write(CURSORS_KEY, "Scheme Source", &RegValue::Dword(1))?;
+    reg.write(
+        CURSOR_BACKUP_KEY,
+        APPLIED_SCHEME,
+        &RegValue::Text(spec.id.into()),
+    )?;
+    refresh.refresh()
+}
+
+/// Возвращает прежнюю схему курсоров. Без поставленной схемы ничего не делает.
+pub fn restore_cursor_scheme(
+    reg: &dyn RegistryPort,
+    refresh: &dyn CursorRefreshPort,
+    confirmed: bool,
+) -> Result<(), AppearanceError> {
+    need_confirm(confirmed)?;
+    if reg.read(CURSOR_BACKUP_KEY, BACKUP_DONE)?.is_none() {
+        return Ok(());
+    }
+    for (id, name) in cursor_targets() {
+        match reg.read(CURSOR_BACKUP_KEY, &id)? {
+            Some(value) => reg.write(CURSORS_KEY, name, &value)?,
+            None => reg.delete(CURSORS_KEY, name)?,
+        }
+        reg.delete(CURSOR_BACKUP_KEY, &id)?;
+        reg.delete(CURSOR_BACKUP_KEY, &format!("{id}.absent"))?;
+    }
+    reg.delete(CURSOR_BACKUP_KEY, APPLIED_SCHEME)?;
+    reg.delete(CURSOR_BACKUP_KEY, BACKUP_DONE)?;
+    refresh.refresh()
 }
 
 #[cfg(test)]
@@ -584,9 +877,210 @@ mod tests {
         restore_wallpaper(&reg, &wp, true).unwrap();
         assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\old.png"));
         assert!(!status(&reg).unwrap().has_previous_wallpaper);
+        // Повторное возвращение ничего не меняет.
+        wp.set(r"C:\other.png").unwrap();
+        restore_wallpaper(&reg, &wp, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\other.png"));
+    }
+
+    #[derive(Default)]
+    struct FakeFiles {
+        files: Mutex<HashMap<String, Vec<u8>>>,
+    }
+
+    impl FilePort for FakeFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            Ok(r"C:\Data\OCHISTKA".into())
+        }
+        fn exists(&self, path: &str) -> bool {
+            self.files.lock().unwrap().contains_key(path)
+        }
+        fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError> {
+            self.files
+                .lock()
+                .unwrap()
+                .insert(path.into(), bytes.to_vec());
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeRefresh(Mutex<u32>);
+
+    impl CursorRefreshPort for FakeRefresh {
+        fn refresh(&self) -> Result<(), AppearanceError> {
+            *self.0.lock().unwrap() += 1;
+            Ok(())
+        }
+    }
+
+    const CUR: &str = r"Control Panel\Cursors";
+
+    fn spec(id: &str) -> CursorSpec<'_> {
+        CursorSpec {
+            id,
+            color: "#FF0000",
+            secondary: "#00FF00",
+            pattern: "stripes",
+        }
+    }
+
+    #[test]
+    fn cursor_scheme_apply_restore_and_restore_again() {
+        let reg = FakeReg::with(&[
+            (CUR, "Arrow", RegValue::Text(r"C:\old\arrow.cur".into())),
+            (CUR, "", RegValue::Text("Windows Default".into())),
+        ]);
+        let (files, refresh) = (FakeFiles::default(), FakeRefresh::default());
         assert_eq!(
-            restore_wallpaper(&reg, &wp, true),
-            Err(AppearanceError::NoBackup)
+            apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-red"), false),
+            Err(AppearanceError::NotConfirmed)
         );
+        assert!(reg.writes.lock().unwrap().is_empty());
+        apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-red"), true).unwrap();
+        assert_eq!(
+            reg.get(CUR, "Arrow"),
+            Some(RegValue::Text(
+                r"C:\Data\OCHISTKA\Cursors\cursor-red\Arrow.cur".into()
+            ))
+        );
+        assert!(files.exists(r"C:\Data\OCHISTKA\Cursors\cursor-red\IBeam.cur"));
+        assert_eq!(
+            status(&reg).unwrap().cursor_scheme.as_deref(),
+            Some("cursor-red")
+        );
+        // Вторая схема не перезаписывает резерв.
+        apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-blue"), true).unwrap();
+        assert_eq!(
+            reg.get(CURSOR_BACKUP_KEY, "Arrow"),
+            Some(RegValue::Text(r"C:\old\arrow.cur".into()))
+        );
+        restore_cursor_scheme(&reg, &refresh, true).unwrap();
+        assert_eq!(
+            reg.get(CUR, "Arrow"),
+            Some(RegValue::Text(r"C:\old\arrow.cur".into()))
+        );
+        assert_eq!(reg.get(CUR, "IBeam"), None, "добавленное значение убрано");
+        assert_eq!(
+            reg.get(CUR, ""),
+            Some(RegValue::Text("Windows Default".into()))
+        );
+        assert_eq!(status(&reg).unwrap().cursor_scheme, None);
+        let refreshed = *refresh.0.lock().unwrap();
+        assert_eq!(refreshed, 3);
+        // Повторное возвращение: ничего не пишет и не обновляет.
+        let before = reg.writes.lock().unwrap().len();
+        restore_cursor_scheme(&reg, &refresh, true).unwrap();
+        assert_eq!(reg.writes.lock().unwrap().len(), before);
+        assert_eq!(*refresh.0.lock().unwrap(), refreshed);
+    }
+
+    #[test]
+    fn bad_cursor_data_leaves_registry_untouched() {
+        let reg = FakeReg::default();
+        let (files, refresh) = (FakeFiles::default(), FakeRefresh::default());
+        let mut bad = spec("cursor-red");
+        bad.color = "red";
+        assert!(apply_cursor_scheme(&reg, &files, &refresh, &bad, true).is_err());
+        assert!(apply_cursor_scheme(&reg, &files, &refresh, &spec("..\\x"), true).is_err());
+        assert!(reg.writes.lock().unwrap().is_empty());
+    }
+
+    const THUMB: &str = "/9j/4A=="; // несколько байт JPEG-заголовка
+
+    #[test]
+    fn wallpaper_tile_uses_original_when_present_else_thumbnail() {
+        let reg = FakeReg::default();
+        let wp = FakeWallpaper::default();
+        let files = FakeFiles::default();
+        let first =
+            apply_wallpaper_tile(&reg, &wp, &files, "photo-1", None, Some(THUMB), true).unwrap();
+        assert_eq!(
+            first,
+            WallpaperSource::Thumbnail(r"C:\Data\OCHISTKA\Wallpapers\thumbs\photo-1.jpg".into())
+        );
+        files
+            .write(r"C:\Data\OCHISTKA\Wallpapers\photo-1.jpg", b"x")
+            .unwrap();
+        let second = apply_wallpaper_tile(&reg, &wp, &files, "photo-1", None, None, true).unwrap();
+        assert_eq!(
+            second,
+            WallpaperSource::Original(r"C:\Data\OCHISTKA\Wallpapers\photo-1.jpg".into())
+        );
+        assert_eq!(
+            status(&reg).unwrap().wallpaper_tile.as_deref(),
+            Some("photo-1")
+        );
+        assert!(apply_wallpaper_tile(&reg, &wp, &files, "photo-9", None, None, true).is_err());
+        assert!(apply_wallpaper_tile(&reg, &wp, &files, "..\\a", None, Some(THUMB), true).is_err());
+    }
+
+    #[test]
+    fn solid_wallpaper_is_generated_and_previous_backup_written_once() {
+        let reg = FakeReg::default();
+        let wp = FakeWallpaper::default();
+        let files = FakeFiles::default();
+        wp.set(r"C:\old.jpg").unwrap();
+        apply_wallpaper_tile(
+            &reg,
+            &wp,
+            &files,
+            "solid-black",
+            Some("#080808"),
+            None,
+            true,
+        )
+        .unwrap();
+        apply_wallpaper_tile(
+            &reg,
+            &wp,
+            &files,
+            "solid-white",
+            Some("#FFFFFF"),
+            None,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            reg.get(BACKUP_KEY, BACKUP_WALLPAPER),
+            Some(RegValue::Text(r"C:\old.jpg".into()))
+        );
+        restore_wallpaper(&reg, &wp, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\old.jpg"));
+        assert_eq!(status(&reg).unwrap().wallpaper_tile, None);
+    }
+
+    #[test]
+    fn accent_twice_restores_previous_accent_and_again_is_noop() {
+        let reg = FakeReg::with(&[(DWM, "AccentColor", RegValue::Dword(0xFF11_2233))]);
+        set_accent(&reg, "#087FFF", true).unwrap();
+        assert_eq!(
+            status(&reg).unwrap().accent_tile.as_deref(),
+            Some("#087FFF")
+        );
+        set_accent(&reg, "#FF009D", true).unwrap();
+        restore_accent(&reg, true).unwrap();
+        assert_eq!(
+            reg.get(DWM, "AccentColor"),
+            Some(RegValue::Dword(0xFF11_2233))
+        );
+        assert_eq!(status(&reg).unwrap().accent_tile, None);
+        let before = reg.writes.lock().unwrap().len();
+        restore_accent(&reg, true).unwrap();
+        assert_eq!(reg.writes.lock().unwrap().len(), before);
+    }
+
+    #[test]
+    fn download_originals_is_a_documented_stub() {
+        let files = FakeFiles::default();
+        let path = note_originals_download(&files).unwrap();
+        assert!(files.exists(&path));
+        assert!(originals_missing(&files, "photo-1"));
+    }
+
+    #[test]
+    fn base64_decoder_works() {
+        assert_eq!(decode_base64("aGVsbG8="), Some(b"hello".to_vec()));
+        assert_eq!(decode_base64("a$b"), None);
     }
 }

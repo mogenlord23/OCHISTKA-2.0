@@ -5,7 +5,8 @@
 use std::sync::Arc;
 
 use ochistka_core::appearance::{
-    self, AppearanceError, AppearanceStatus, RegistryPort, WallpaperPort,
+    self, AppearanceError, AppearanceStatus, CursorRefreshPort, CursorSpec, FilePort, RegistryPort,
+    WallpaperPort, WallpaperSource,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -41,7 +42,11 @@ impl From<AppearanceError> for AppearanceErrorInfo {
     rename_all_fields = "camelCase"
 )]
 pub enum AppearanceRequest {
-    Status,
+    Status {
+        /// Id любых обоев из галереи: по нему видно, есть ли оригиналы.
+        #[serde(default)]
+        sample_id: Option<String>,
+    },
     SetAccent {
         color: String,
         confirmed: bool,
@@ -75,6 +80,32 @@ pub enum AppearanceRequest {
     RestoreWallpaper {
         confirmed: bool,
     },
+    /// Плитка обоев: оригинал из папки приложения или превью, если оригинала нет.
+    ApplyWallpaperTile {
+        id: String,
+        solid_color: Option<String>,
+        thumb_base64: Option<String>,
+        confirmed: bool,
+    },
+    /// Повторный клик по выбранному цвету: вернуть прежний акцент.
+    RestoreAccent {
+        confirmed: bool,
+    },
+    /// Схема курсора Windows из таблицы плиток.
+    ApplyCursorScheme {
+        id: String,
+        color: String,
+        secondary: String,
+        pattern: String,
+        confirmed: bool,
+    },
+    RestoreCursorScheme {
+        confirmed: bool,
+    },
+    /// Заглушка «Скачать оригиналы»: пишет причину, ничего не скачивает.
+    DownloadOriginals {
+        confirmed: bool,
+    },
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -86,15 +117,32 @@ pub enum AppearanceResponse {
 pub struct AppearanceState {
     registry: Arc<dyn RegistryPort>,
     wallpaper: Arc<dyn WallpaperPort>,
+    files: Arc<dyn FilePort>,
+    refresh: Arc<dyn CursorRefreshPort>,
 }
 
 impl AppearanceState {
-    pub fn new(registry: Arc<dyn RegistryPort>, wallpaper: Arc<dyn WallpaperPort>) -> Self {
+    pub fn new(
+        registry: Arc<dyn RegistryPort>,
+        wallpaper: Arc<dyn WallpaperPort>,
+        files: Arc<dyn FilePort>,
+        refresh: Arc<dyn CursorRefreshPort>,
+    ) -> Self {
         Self {
             registry,
             wallpaper,
+            files,
+            refresh,
         }
     }
+}
+
+/// Порты, с которыми работает `run`.
+pub struct Ports<'a> {
+    pub reg: &'a dyn RegistryPort,
+    pub wallpaper: &'a dyn WallpaperPort,
+    pub files: &'a dyn FilePort,
+    pub refresh: &'a dyn CursorRefreshPort,
 }
 
 /// Окно выбора картинки. Вне Windows окна нет: `Unsupported`.
@@ -115,14 +163,20 @@ fn pick_image() -> Result<String, AppearanceError> {
 
 /// Выполняет запрос. Отдельная функция: проверяется без окна Tauri.
 pub fn run(
-    reg: &dyn RegistryPort,
-    wallpaper: &dyn WallpaperPort,
+    ports: &Ports,
     pick: &dyn Fn() -> Result<String, AppearanceError>,
     request: AppearanceRequest,
 ) -> Result<AppearanceResponse, AppearanceErrorInfo> {
     use AppearanceRequest as R;
+    let Ports {
+        reg,
+        wallpaper,
+        files,
+        refresh,
+    } = *ports;
+    let mut sample = None;
     match request {
-        R::Status => {}
+        R::Status { sample_id } => sample = sample_id,
         R::SetAccent { color, confirmed } => appearance::set_accent(reg, &color, confirmed)?,
         R::SetTransparency { enabled, confirmed } => {
             appearance::set_transparency(reg, enabled, confirmed)?
@@ -149,10 +203,61 @@ pub fn run(
         R::RestoreWallpaper { confirmed } => {
             appearance::restore_wallpaper(reg, wallpaper, confirmed)?
         }
+        R::ApplyWallpaperTile {
+            id,
+            solid_color,
+            thumb_base64,
+            confirmed,
+        } => {
+            let source = appearance::apply_wallpaper_tile(
+                reg,
+                wallpaper,
+                files,
+                &id,
+                solid_color.as_deref(),
+                thumb_base64.as_deref(),
+                confirmed,
+            )?;
+            if let WallpaperSource::Thumbnail(path) = source {
+                // Оригинала нет: для пользователя это не ошибка, только запись в журнал.
+                eprintln!("обои {id}: оригинала нет, поставлено превью {path}");
+            }
+        }
+        R::RestoreAccent { confirmed } => appearance::restore_accent(reg, confirmed)?,
+        R::ApplyCursorScheme {
+            id,
+            color,
+            secondary,
+            pattern,
+            confirmed,
+        } => appearance::apply_cursor_scheme(
+            reg,
+            files,
+            refresh,
+            &CursorSpec {
+                id: &id,
+                color: &color,
+                secondary: &secondary,
+                pattern: &pattern,
+            },
+            confirmed,
+        )?,
+        R::RestoreCursorScheme { confirmed } => {
+            appearance::restore_cursor_scheme(reg, refresh, confirmed)?
+        }
+        R::DownloadOriginals { confirmed } => {
+            if !confirmed {
+                return Err(AppearanceError::NotConfirmed.into());
+            }
+            let path = appearance::note_originals_download(files)?;
+            eprintln!("скачивание оригиналов обоев не подключено, причина записана в {path}");
+        }
     }
-    Ok(AppearanceResponse::Status {
-        status: appearance::status(reg)?,
-    })
+    let mut status = appearance::status(reg)?;
+    if let Some(id) = sample {
+        status.originals_missing = appearance::originals_missing(files, &id);
+    }
+    Ok(AppearanceResponse::Status { status })
 }
 
 /// Запросы раздела «Оформление». Работа с реестром и окном выбора идёт в фоновом потоке.
@@ -163,12 +268,22 @@ pub async fn appearance_request(
 ) -> Result<AppearanceResponse, AppearanceErrorInfo> {
     let reg = Arc::clone(&state.registry);
     let wallpaper = Arc::clone(&state.wallpaper);
-    tauri::async_runtime::spawn_blocking(move || run(&*reg, &*wallpaper, &pick_image, request))
-        .await
-        .map_err(|_| AppearanceErrorInfo {
-            kind: "internal".into(),
-            message: "внутренняя ошибка при работе с оформлением".into(),
-        })?
+    let files = Arc::clone(&state.files);
+    let refresh = Arc::clone(&state.refresh);
+    tauri::async_runtime::spawn_blocking(move || {
+        let ports = Ports {
+            reg: &*reg,
+            wallpaper: &*wallpaper,
+            files: &*files,
+            refresh: &*refresh,
+        };
+        run(&ports, &pick_image, request)
+    })
+    .await
+    .map_err(|_| AppearanceErrorInfo {
+        kind: "internal".into(),
+        message: "внутренняя ошибка при работе с оформлением".into(),
+    })?
 }
 
 #[cfg(test)]
@@ -211,6 +326,40 @@ mod tests {
         }
     }
 
+    struct NoFiles;
+    impl FilePort for NoFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            Ok(r"C:\D".into())
+        }
+        fn exists(&self, _: &str) -> bool {
+            false
+        }
+        fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
+            Ok(())
+        }
+    }
+    struct NoRefresh;
+    impl CursorRefreshPort for NoRefresh {
+        fn refresh(&self) -> Result<(), AppearanceError> {
+            Ok(())
+        }
+    }
+
+    fn go(
+        reg: &Reg,
+        wall: &Wall,
+        pick: &dyn Fn() -> Result<String, AppearanceError>,
+        request: AppearanceRequest,
+    ) -> Result<AppearanceResponse, AppearanceErrorInfo> {
+        let ports = Ports {
+            reg,
+            wallpaper: wall,
+            files: &NoFiles,
+            refresh: &NoRefresh,
+        };
+        run(&ports, pick, request)
+    }
+
     fn no_pick() -> Result<String, AppearanceError> {
         panic!("окно выбора не должно открываться")
     }
@@ -226,7 +375,7 @@ mod tests {
             AppearanceRequest::PickAndApplyWallpaper { confirmed: false },
             AppearanceRequest::RestoreAppearance { confirmed: false },
         ] {
-            let err = run(&reg, &wall, &no_pick, request).unwrap_err();
+            let err = go(&reg, &wall, &no_pick, request).unwrap_err();
             assert_eq!(err.kind, "notConfirmed");
         }
         assert!(reg.0.lock().unwrap().is_empty());
@@ -239,7 +388,7 @@ mod tests {
             color: "#087FFF".into(),
             confirmed: true,
         };
-        let AppearanceResponse::Status { status } = run(&reg, &wall, &no_pick, req).unwrap();
+        let AppearanceResponse::Status { status } = go(&reg, &wall, &no_pick, req).unwrap();
         assert_eq!(status.accent.as_deref(), Some("#087FFF"));
         assert!(status.has_backup);
     }
@@ -249,11 +398,24 @@ mod tests {
         let (reg, wall) = (Reg::default(), Wall::default());
         let pick_ok = || Ok(r"C:\img\a.png".to_string());
         let req = AppearanceRequest::PickAndApplyWallpaper { confirmed: true };
-        run(&reg, &wall, &pick_ok, req.clone()).unwrap();
+        go(&reg, &wall, &pick_ok, req.clone()).unwrap();
         assert_eq!(wall.current().unwrap().as_deref(), Some(r"C:\img\a.png"));
         let cancel = || Err(AppearanceError::Cancelled);
-        let err = run(&reg, &wall, &cancel, req).unwrap_err();
+        let err = go(&reg, &wall, &cancel, req).unwrap_err();
         assert_eq!(err.kind, "cancelled");
+    }
+
+    #[test]
+    fn status_request_works_without_fields_and_cursor_request_parses() {
+        let r: AppearanceRequest = serde_json::from_str(r#"{"action":"status"}"#).unwrap();
+        assert_eq!(r, AppearanceRequest::Status { sample_id: None });
+        let r: AppearanceRequest = serde_json::from_str(
+            r##"{"action":"applyCursorScheme","id":"cursor-red","color":"#FF0000","secondary":"#FF0000","pattern":"plain","confirmed":true}"##,
+        )
+        .unwrap();
+        let (reg, wall) = (Reg::default(), Wall::default());
+        let AppearanceResponse::Status { status } = go(&reg, &wall, &no_pick, r).unwrap();
+        assert_eq!(status.cursor_scheme.as_deref(), Some("cursor-red"));
     }
 
     #[test]
