@@ -9,6 +9,7 @@ pub mod windows;
 #[path = "windows/cleanup.rs"]
 pub mod windows_cleanup;
 
+use ochistka_core::hardware::HardwarePort;
 use ochistka_core::layout::CleanupEnvPort;
 use ochistka_core::programs::ProgramsPort;
 use ochistka_core::scan::VirusScanPort;
@@ -41,7 +42,12 @@ pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
     Box::new(windows_cleanup::WindowsCleanupEnv::new())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
+    Box::new(macos::cleanup::UnsupportedCleanupEnv)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
     Box::new(linux::cleanup::UnsupportedCleanupEnv)
 }
@@ -52,9 +58,30 @@ pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> 
     Box::new(windows::processes::WindowsProcessPort::new())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> {
+    Box::new(macos::processes::UnsupportedProcessPort)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> {
     Box::new(linux::processes::UnsupportedProcessPort)
+}
+
+/// Комплектующие (видеокарты, плата): Windows — sysinfo, остальные ОС — заглушка `Unsupported`.
+#[cfg(target_os = "windows")]
+pub fn current_hardware_port() -> Box<dyn HardwarePort> {
+    Box::new(windows::hardware::WindowsHardware::new())
+}
+
+#[cfg(target_os = "macos")]
+pub fn current_hardware_port() -> Box<dyn HardwarePort> {
+    Box::new(macos::hardware::UnsupportedHardware)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn current_hardware_port() -> Box<dyn HardwarePort> {
+    Box::new(linux::hardware::UnsupportedHardware)
 }
 
 /// Реестр и автозагрузка для раздела «Программы»: Windows — адаптер реестра (только чтение), остальные — заглушка.
@@ -63,7 +90,12 @@ pub fn current_programs_port() -> Box<dyn ProgramsPort> {
     Box::new(windows::programs::WindowsPrograms::new())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+pub fn current_programs_port() -> Box<dyn ProgramsPort> {
+    Box::new(macos::programs::UnsupportedPrograms)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn current_programs_port() -> Box<dyn ProgramsPort> {
     Box::new(linux::programs::UnsupportedPrograms)
 }

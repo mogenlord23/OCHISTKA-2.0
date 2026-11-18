@@ -1,15 +1,11 @@
-//! Адаптер процессов на sysinfo (только чтение и завершение по PID). Служб пока нет:
-//! список служб требует Service Control Manager, а без нового крейта и FFI его не прочитать.
+//! Адаптер процессов на sysinfo (чтение и завершение по PID). Службы читаются из реестра
+//! (см. `services.rs`).
 
 use std::sync::Mutex;
 
 use ochistka_core::processes::{ProcessError, ProcessInfo, ProcessPort, ServiceInfo};
 use ochistka_core::system::clamp_percent;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
-
-/// Причина, которую видит пользователь на подразделе «Службы».
-pub const SERVICES_REASON: &str = "Список служб пока не подключён: нужен Service Control Manager, \
-     а его вызовы требуют FFI-обёртки, которой в проекте пока нет";
 
 pub struct WindowsProcessPort {
     system: Mutex<Option<System>>,
@@ -115,7 +111,7 @@ impl ProcessPort for WindowsProcessPort {
     }
 
     fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError> {
-        Err(ProcessError::NotConnected(SERVICES_REASON.into()))
+        super::services::list()
     }
 }
 
@@ -153,14 +149,13 @@ mod tests {
         assert_eq!(port.kill(u32::MAX), Ok(false));
     }
 
+    #[cfg(not(windows))]
     #[test]
-    fn services_are_a_placeholder_with_reason() {
+    fn services_report_unsupported_outside_windows() {
         let port = WindowsProcessPort::new();
-        match port.services() {
-            Err(ProcessError::NotConnected(msg)) => {
-                assert!(msg.starts_with("Список служб пока не подключён"));
-            }
-            other => panic!("expected placeholder, got {other:?}"),
-        }
+        assert!(matches!(
+            port.services(),
+            Err(ProcessError::Unsupported { .. })
+        ));
     }
 }

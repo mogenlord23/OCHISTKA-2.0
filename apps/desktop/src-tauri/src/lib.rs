@@ -2,6 +2,7 @@
 
 pub mod commands;
 pub mod disks;
+pub mod hardware;
 pub mod processes;
 pub mod programs;
 
@@ -49,7 +50,8 @@ pub fn run() {
             default_scan_target,
             disks::disks_request,
             processes::processes_request,
-            programs::programs_request
+            programs::programs_request,
+            hardware::get_hardware
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

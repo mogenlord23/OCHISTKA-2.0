@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { t } from '../lib/i18n.svelte';
 
   const win = getCurrentWindow();
 </script>
@@ -10,9 +11,11 @@
     <small data-tauri-drag-region>Create: Slava Lavs</small>
   </div>
   <div class="controls">
-    <button type="button" aria-label="Свернуть" onclick={() => win.minimize()}>—</button>
-    <button type="button" aria-label="Развернуть" onclick={() => win.toggleMaximize()}>▢</button>
-    <button type="button" class="close" aria-label="Закрыть" onclick={() => win.close()}>✕</button>
+    <button type="button" aria-label={t('minimize')} onclick={() => win.minimize()}>—</button>
+    <button type="button" aria-label={t('maximize')} onclick={() => win.toggleMaximize()}>▢</button>
+    <button type="button" class="close" aria-label={t('close')} onclick={() => win.close()}
+      >✕</button
+    >
   </div>
 </header>
 

@@ -497,6 +497,50 @@ mod tests {
     }
 
     #[test]
+    fn restore_to_an_alternative_outside_the_whitelist_is_refused_and_keeps_the_entry() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        q.move_many(&fs, std::slice::from_ref(&source), "тест", 5)
+            .unwrap();
+        let entry = q.list(&fs).unwrap()[0].clone();
+
+        let outside = "C:\\Users\\Slava\\Documents\\a.tmp";
+        assert!(matches!(
+            q.restore(&fs, &entry.id, Some(outside)),
+            Err(CleanupError::Refused(_))
+        ));
+        assert!(
+            !fs.exists(outside),
+            "nothing may be written outside the whitelist"
+        );
+        assert_eq!(q.list(&fs).unwrap(), vec![entry.clone()]);
+        assert!(fs.exists(&format!("{QROOT}\\{}\\a.tmp", entry.id)));
+    }
+
+    #[test]
+    fn restore_to_an_occupied_alternative_keeps_the_file_in_quarantine() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        q.move_many(&fs, std::slice::from_ref(&source), "тест", 5)
+            .unwrap();
+        let entry = q.list(&fs).unwrap()[0].clone();
+        let alt = format!("{TEMP}\\b.tmp");
+        fs.file(&alt, b"other", 0);
+
+        assert!(matches!(
+            q.restore(&fs, &entry.id, Some(&alt)),
+            Err(CleanupError::Occupied(_))
+        ));
+        assert_eq!(fs.bytes_of(&alt).unwrap(), b"other");
+        assert_eq!(q.list(&fs).unwrap(), vec![entry.clone()]);
+        assert!(fs.exists(&format!("{QROOT}\\{}\\a.tmp", entry.id)));
+    }
+
+    #[test]
     fn restore_refuses_a_file_changed_after_the_move() {
         let fs = FakeFs::new();
         let source = format!("{TEMP}\\a.tmp");

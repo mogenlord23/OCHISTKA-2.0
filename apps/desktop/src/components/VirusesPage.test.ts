@@ -57,6 +57,7 @@ function report(findings: ScanReport['findings'] = []): ScanReport {
     infectedFiles: findings.length,
     errors: 0,
     skippedFiles: 0,
+    incomplete: false,
     findings,
   };
 }
@@ -95,6 +96,25 @@ describe('VirusesPage scan', () => {
     expect(start.disabled).toBe(true);
   });
 
+  it('warns that the check is incomplete when the entry limit was reached', async () => {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue({ ...report(), incomplete: true });
+
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(await screen.findByText('Проверка неполная: достигнут лимит обхода.')).toBeTruthy();
+  });
+
+  it('does not show the incomplete warning for a full check', async () => {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue(report());
+
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
+    expect(screen.queryByText(/Проверка неполная/)).toBeNull();
+  });
+
   it('shows the sweep while scanning, then the result and suspicion score', async () => {
     engineOk();
     let finish: (report: ScanReport) => void = () => {};
@@ -113,6 +133,7 @@ describe('VirusesPage scan', () => {
       infectedFiles: 1,
       errors: 0,
       skippedFiles: 0,
+      incomplete: false,
       findings: [{ path: 'C:\\Users\\Slava\\Downloads\\invoice.pdf.exe', signature: 'Win.Test.X' }],
     });
     expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();

@@ -1,13 +1,17 @@
 //! Адаптер «Программ» Windows: ключи Uninstall и Run реестра и папки «Автозагрузка». Только чтение.
 //! Реестр читает `winreg` (безопасная обёртка) только под `cfg(windows)`; на других ОС методы
 //! возвращают `Unsupported`. Папки читает `std::fs`, поэтому их разбор проверяется и на Linux.
-//! Реестр пакетов Microsoft Store пока не читается (см. docs/platform-status.md).
+//! Реестр пакетов Microsoft Store читается только на чтение: пакеты пользователя (HKCU) и
+//! общий список (HKLM). Разбор имени пакета и записей вынесен в чистые функции.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
-use ochistka_core::programs::{ProgramsPort, RawProgramRecord, RawStartup, StartupSource};
+use ochistka_core::programs::{
+    ProgramsPort, RawProgramRecord, RawSource, RawStartup, RawValue, StartupSource,
+};
 use ochistka_core::system::CoreError;
 
 #[cfg(windows)]
@@ -18,6 +22,13 @@ const RUN_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const USER_STARTUP_SUFFIX: &str = r"Microsoft\Windows\Start Menu\Programs\Startup";
 #[cfg(windows)]
 const COMMON_STARTUP_SUFFIX: &str = r"Microsoft\Windows\Start Menu\Programs\StartUp";
+/// Пакеты Store текущего пользователя: читается без прав администратора.
+#[cfg(windows)]
+const STORE_USER_PACKAGES: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+/// Общий список пакетов Store (все пользователи).
+#[cfg(windows)]
+const STORE_ALL_PACKAGES: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Appx\PackageRepository\Packages";
 
 /// Адаптер реестра и автозагрузки Windows. Ничего не записывает и не меняет.
 #[derive(Debug, Default, Clone, Copy)]
@@ -62,6 +73,62 @@ pub fn startup_folder_records(dir: &Path, source: StartupSource) -> Vec<RawStart
         .collect()
 }
 
+/// Имя пакета Store вида `Имя_Версия_Архитектура__ИдентификаторИздателя`: имя и версия.
+/// `None`, если имени нет.
+pub fn parse_package_full_name(full_name: &str) -> Option<(String, Option<String>)> {
+    let mut parts = full_name.split('_');
+    let name = parts
+        .next()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())?;
+    let version = parts
+        .next()
+        .map(str::trim)
+        .filter(|version| !version.is_empty())
+        .map(str::to_string);
+    Some((name.to_string(), version))
+}
+
+/// Запись пакета Store в виде записи программы. `None` — фреймворки, ресурсные пакеты
+/// и записи без имени: их в списке программ не показываем.
+/// Отображаемое имя из реестра бывает ссылкой (`ms-resource:`, `@...`), тогда берём имя пакета.
+pub fn store_record(
+    package_full_name: &str,
+    values: &BTreeMap<String, RawValue>,
+) -> Option<RawProgramRecord> {
+    if matches!(values.get("IsFramework"), Some(RawValue::Number(1)))
+        || matches!(values.get("IsResourcePackage"), Some(RawValue::Number(1)))
+    {
+        return None;
+    }
+    let (package_name, version) = parse_package_full_name(package_full_name)?;
+    let display = match values.get("DisplayName") {
+        Some(RawValue::Text(text))
+            if !text.trim().is_empty()
+                && !text.trim_start().starts_with("ms-resource:")
+                && !text.trim_start().starts_with('@') =>
+        {
+            text.trim().to_string()
+        }
+        _ => package_name,
+    };
+    let mut out = BTreeMap::new();
+    out.insert("DisplayName".to_string(), RawValue::Text(display));
+    if let Some(version) = version {
+        out.insert("DisplayVersion".to_string(), RawValue::Text(version));
+    }
+    for location in ["PackageRootFolder", "Path"] {
+        if let Some(RawValue::Text(path)) = values.get(location) {
+            out.insert("InstallLocation".to_string(), RawValue::Text(path.clone()));
+            break;
+        }
+    }
+    Some(RawProgramRecord {
+        source: RawSource::Store,
+        values: out,
+    })
+}
+
 /// Папки автозагрузки: профиль пользователя и общая для всех. Пути из переменных окружения.
 #[cfg(windows)]
 fn startup_folders() -> Vec<(PathBuf, StartupSource)> {
@@ -94,7 +161,7 @@ mod registry {
     use winreg::types::FromRegValue;
     use winreg::RegKey;
 
-    use super::{RUN_PATH, UNINSTALL_PATH};
+    use super::{store_record, RUN_PATH, STORE_ALL_PACKAGES, STORE_USER_PACKAGES, UNINSTALL_PATH};
 
     /// Значения ключа: текст и DWORD. Прочие типы не нужны и пропускаются.
     fn read_values(key: &RegKey) -> BTreeMap<String, RawValue> {
@@ -137,6 +204,7 @@ mod registry {
         let mut records = uninstall_from(&local, KEY_WOW64_64KEY);
         records.extend(uninstall_from(&local, KEY_WOW64_32KEY));
         records.extend(uninstall_from(&user, 0));
+        records.extend(store());
         records
     }
 
@@ -155,6 +223,30 @@ mod registry {
                 RawValue::Number(_) => None,
             })
             .collect()
+    }
+
+    /// Пакеты Store из одного корня реестра. Недоступный список даёт пустой результат.
+    fn store_from(root: &RegKey, path: &str) -> Vec<RawProgramRecord> {
+        let Ok(packages) = root.open_subkey_with_flags(path, KEY_READ) else {
+            return Vec::new();
+        };
+        packages
+            .enum_keys()
+            .flatten()
+            .filter_map(|name| {
+                let sub = packages.open_subkey_with_flags(&name, KEY_READ).ok()?;
+                store_record(&name, &read_values(&sub))
+            })
+            .collect()
+    }
+
+    pub fn store() -> Vec<RawProgramRecord> {
+        let mut records = store_from(&RegKey::predef(HKEY_CURRENT_USER), STORE_USER_PACKAGES);
+        records.extend(store_from(
+            &RegKey::predef(HKEY_LOCAL_MACHINE),
+            STORE_ALL_PACKAGES,
+        ));
+        records
     }
 
     pub fn run_entries() -> Vec<RawStartup> {
@@ -204,6 +296,7 @@ fn unsupported() -> CoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ochistka_core::programs::{parse_program, ProgramKind, RawSource, RawValue};
     use std::path::PathBuf;
 
     fn temp_dir(name: &str) -> PathBuf {
@@ -313,5 +406,71 @@ mod tests {
             WindowsPrograms::new().startup_records(),
             Err(CoreError::Unsupported { .. })
         ));
+    }
+
+    fn store_values(pairs: &[(&str, RawValue)]) -> BTreeMap<String, RawValue> {
+        pairs
+            .iter()
+            .map(|(name, value)| ((*name).to_string(), value.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn package_full_name_gives_name_and_version() {
+        assert_eq!(
+            parse_package_full_name("Microsoft.WindowsCalculator_11.2301.0.0_x64__8wekyb3d8bbwe"),
+            Some((
+                "Microsoft.WindowsCalculator".to_string(),
+                Some("11.2301.0.0".to_string())
+            ))
+        );
+        assert_eq!(
+            parse_package_full_name("Plain"),
+            Some(("Plain".to_string(), None))
+        );
+        assert_eq!(parse_package_full_name("_1.0"), None);
+    }
+
+    #[test]
+    fn store_package_becomes_a_store_program_with_its_location() {
+        let values = store_values(&[
+            ("DisplayName", RawValue::Text("Калькулятор".into())),
+            (
+                "PackageRootFolder",
+                RawValue::Text("C:\\Program Files\\WindowsApps\\Calc".into()),
+            ),
+        ]);
+        let record = store_record("Microsoft.Calc_1.2.3.4_x64__8wekyb", &values).expect("record");
+        assert_eq!(record.source, RawSource::Store);
+        let program = parse_program(&record).expect("program");
+        assert_eq!(program.name, "Калькулятор");
+        assert_eq!(program.version.as_deref(), Some("1.2.3.4"));
+        assert_eq!(program.kind, ProgramKind::Store);
+        assert_eq!(program.disk_letter.as_deref(), Some("C:"));
+    }
+
+    #[test]
+    fn store_name_falls_back_to_package_name_for_resource_links() {
+        let values = store_values(&[("DisplayName", RawValue::Text("ms-resource:AppName".into()))]);
+        let record = store_record("Contoso.App_2.0_x64__abc", &values).expect("record");
+        let program = parse_program(&record).expect("program");
+        assert_eq!(program.name, "Contoso.App");
+        assert_eq!(program.install_location, None);
+    }
+
+    #[test]
+    fn store_frameworks_and_resource_packages_are_skipped() {
+        let framework = store_values(&[("IsFramework", RawValue::Number(1))]);
+        let resource = store_values(&[("IsResourcePackage", RawValue::Number(1))]);
+        assert!(store_record("Microsoft.VCLibs_14.0_x64__abc", &framework).is_none());
+        assert!(store_record("Microsoft.Res_1.0_x64__abc", &resource).is_none());
+    }
+
+    #[test]
+    fn store_uses_path_value_when_root_folder_is_missing() {
+        let values = store_values(&[("Path", RawValue::Text("D:\\Apps\\Game".into()))]);
+        let record = store_record("Game.Thing_1.0_x64__abc", &values).expect("record");
+        let program = parse_program(&record).expect("program");
+        assert_eq!(program.disk_letter.as_deref(), Some("D:"));
     }
 }

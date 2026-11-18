@@ -2,19 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Home from './Home.svelte';
-import { getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
-import type { SystemOverview } from '../lib/types';
+import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
+import type { HardwareOverview, SystemOverview } from '../lib/types';
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/api')>();
   return {
     ...actual,
     getSystemOverview: vi.fn(),
+    getHardware: vi.fn(),
     toCommandError: vi.fn(actual.toCommandError),
   };
 });
 const getMock = vi.mocked(getSystemOverview);
 const toErrorMock = vi.mocked(toCommandError);
+const hardwareMock = vi.mocked(getHardware);
 
 const GB = 1024 ** 3;
 const sample: SystemOverview = {
@@ -42,6 +44,19 @@ const sample: SystemOverview = {
   osVersion: '24H2',
 };
 
+const hardwareSample: HardwareOverview = {
+  gpus: [
+    {
+      vendor: 'NVIDIA',
+      model: 'GeForce RTX 4070',
+      usagePercent: 37,
+      totalMemoryBytes: 12 * GB,
+      usedMemoryBytes: 3 * GB,
+    },
+  ],
+  motherboard: { vendor: 'ASUS', name: 'ROG STRIX B650', version: 'Rev 1.xx' },
+};
+
 /** Даёт эффектам Svelte и продолжениям промисов выполниться (требует фейковых таймеров). */
 async function flush(): Promise<void> {
   await tick();
@@ -54,12 +69,14 @@ const consoleError = vi.spyOn(console, 'error');
 beforeEach(() => {
   vi.useFakeTimers();
   consoleError.mockImplementation(() => {});
+  hardwareMock.mockResolvedValue(hardwareSample);
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   getMock.mockReset();
+  hardwareMock.mockReset();
   toErrorMock.mockClear();
   consoleError.mockReset();
 });
@@ -81,6 +98,27 @@ describe('Home', () => {
     expect(screen.getByText('50 %')).toBeTruthy();
     expect(screen.getByText('Локальный диск (C:)')).toBeTruthy();
     expect(screen.getByText('C:\\')).toBeTruthy();
+  });
+
+  it('shows GPU and motherboard tiles from the hardware port', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByText('GeForce RTX 4070')).toBeTruthy();
+    expect(screen.getByText('Загрузка: 37 %')).toBeTruthy();
+    expect(screen.getByText('ROG STRIX B650')).toBeTruthy();
+  });
+
+  it('shows the hardware reason in the tiles when the platform cannot read it', async () => {
+    getMock.mockResolvedValue(sample);
+    hardwareMock.mockRejectedValue({
+      kind: 'unsupported',
+      message: 'Чтение комплектующих недоступно на Linux',
+    });
+    render(Home);
+    await flush();
+    expect(screen.getAllByText('Чтение комплектующих недоступно на Linux').length).toBe(2);
+    expect(screen.getByText('Локальный диск (C:)')).toBeTruthy();
   });
 
   it('shows the disk mount point when the disk has no other name', async () => {
@@ -237,7 +275,7 @@ describe('Home', () => {
 });
 
 describe('Home tiles and graphs', () => {
-  it('shows a tile for each component with the GPU and motherboard reasons', async () => {
+  it('shows a tile for each component', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
@@ -247,8 +285,6 @@ describe('Home tiles and graphs', () => {
     expect(screen.getByRole('button', { name: /Материнская плата/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /SSD \/ HDD/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Система/ })).toBeTruthy();
-    expect(screen.getByText('Чтение GPU ещё не реализовано')).toBeTruthy();
-    expect(screen.getByText('Нет данных: чтение платы не реализовано')).toBeTruthy();
   });
 
   it('shows the OS name and version on the system tile', async () => {

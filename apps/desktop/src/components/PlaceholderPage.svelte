@@ -1,13 +1,14 @@
 <script lang="ts">
+  import { t } from '../lib/i18n.svelte';
   let {
-    note = 'В разработке',
+    note,
   }: {
     note?: string;
   } = $props();
 </script>
 
 <section class="placeholder">
-  <p>{note}</p>
+  <p>{note ?? t('inDevelopment')}</p>
 </section>
 
 <style>

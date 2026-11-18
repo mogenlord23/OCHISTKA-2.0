@@ -55,7 +55,7 @@
 
   <div class="body">
     <main>
-      <h1>{section.title}</h1>
+      <h1>{t(section.titleKey)}</h1>
       {#if section.lead}<p class="lead">{section.lead}</p>{/if}
 
       {#if section.subsections.length > 0}
@@ -81,7 +81,7 @@
       {:else if activeId === 'design'}
         <AppearancePage subsection={activeSub} />
       {:else if section.subsections.length === 0}
-        <PlaceholderPage note="Подразделы уточняются" />
+        <PlaceholderPage note={t('subsectionsPending')} />
       {:else}
         <PlaceholderPage />
       {/if}

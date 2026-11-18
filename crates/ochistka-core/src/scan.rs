@@ -31,6 +31,8 @@ pub struct ScanReport {
     pub errors: u32,
     // Файлы больше `MAX_FILE_BYTES`: не проверялись, но учтены в отчёте.
     pub skipped_files: u32,
+    // Обход остановлен лимитом записей (`Limits::max_entries`): часть папки не проверена.
+    pub incomplete: bool,
     pub findings: Vec<Finding>,
 }
 
@@ -118,7 +120,7 @@ pub fn sweep(
 
     let mut files: Vec<(String, u64)> = Vec::new();
     let mut budget = Budget::new(limits.max_entries);
-    walk(
+    let complete = walk(
         fs,
         target,
         cancel,
@@ -132,7 +134,12 @@ pub fn sweep(
     )
     .map_err(into_core)?;
 
-    let mut report = ScanReport::default();
+    // `walk` возвращает `false` и для лимита глубины, и для недоступных подпапок; флаг нужен только
+    // для исчерпанного бюджета записей, поэтому проверяем и остаток бюджета.
+    let mut report = ScanReport {
+        incomplete: !complete && budget.remaining == 0,
+        ..ScanReport::default()
+    };
     for (path, size) in files {
         if is_cancelled(cancel) {
             return Err(CoreError::Cancelled);
@@ -242,6 +249,35 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report, ScanReport::default());
+    }
+
+    #[test]
+    fn entry_limit_hit_marks_the_report_incomplete() {
+        let fs = FakeFs::new();
+        for name in ["a.txt", "b.txt", "c.txt", "d.txt", "e.txt"] {
+            fs.file(&format!("{ROOT}\\{name}"), b"x", 0);
+        }
+        let limits = Limits {
+            max_entries: 2,
+            max_depth: 24,
+        };
+        let report = sweep(&fs, &FakeEngine::ready(), ROOT, &no_cancel(), limits).unwrap();
+        assert!(report.incomplete);
+        assert_eq!(report.scanned_files, 2);
+    }
+
+    #[test]
+    fn walk_that_fits_the_entry_limit_exactly_is_complete() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\a.txt"), b"x", 0);
+        fs.file(&format!("{ROOT}\\b.txt"), b"x", 0);
+        let limits = Limits {
+            max_entries: 2,
+            max_depth: 24,
+        };
+        let report = sweep(&fs, &FakeEngine::ready(), ROOT, &no_cancel(), limits).unwrap();
+        assert!(!report.incomplete);
+        assert_eq!(report.scanned_files, 2);
     }
 
     #[test]

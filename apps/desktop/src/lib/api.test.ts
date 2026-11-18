@@ -36,6 +36,7 @@ const report: ScanReport = {
   infectedFiles: 0,
   errors: 0,
   skippedFiles: 0,
+  incomplete: false,
   findings: [],
 };
 
@@ -159,6 +160,7 @@ describe('runtime shape checks', () => {
       infectedFiles: 1,
       errors: 0,
       skippedFiles: 0,
+      incomplete: false,
       findings: [finding],
     };
     invokeMock.mockResolvedValue(withFindings);

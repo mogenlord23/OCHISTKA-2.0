@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use ochistka_core::assess::Suspicion;
+use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ts_rs::{Config, TS};
@@ -42,6 +43,9 @@ fn export_all_into(dir: &Path) {
     Finding::export_all(&cfg).unwrap();
     EngineStatus::export_all(&cfg).unwrap();
     Suspicion::export_all(&cfg).unwrap();
+    GpuInfo::export_all(&cfg).unwrap();
+    MotherboardInfo::export_all(&cfg).unwrap();
+    HardwareOverview::export_all(&cfg).unwrap();
 }
 
 #[test]

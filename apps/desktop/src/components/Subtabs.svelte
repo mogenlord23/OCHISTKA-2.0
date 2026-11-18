@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Subsection } from '../lib/sections';
+  import { t } from '../lib/i18n.svelte';
 
   let {
     items,
@@ -12,7 +13,7 @@
   } = $props();
 </script>
 
-<nav class="subtabs" aria-label="Подразделы">
+<nav class="subtabs" aria-label={t('subnavLabel')}>
   {#each items as item (item.id)}
     <button
       type="button"
@@ -20,7 +21,7 @@
       aria-current={active === item.id ? 'page' : undefined}
       onclick={() => onSelect(item.id)}
     >
-      {item.title}
+      {t(item.titleKey)}
     </button>
   {/each}
 </nav>

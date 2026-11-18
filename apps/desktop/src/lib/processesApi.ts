@@ -9,10 +9,11 @@ export interface ProcessInfo {
   startTimeUnix: number;
 }
 
+/** Служба только для чтения. `startType` — режим запуска из реестра (подпись). */
 export interface ServiceInfo {
   name: string;
   displayName: string;
-  state: string;
+  startType: string;
 }
 
 /** Ошибка раздела «Процессы». `message` уже на русском. */

@@ -93,11 +93,39 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.queryByText(/GoodbyeDPI/i)).toBeNull();
   });
 
-  it('turning a switch on shows the network reason and leaves it off', async () => {
+  it('clicking a switch opens a confirmation dialog and changes nothing yet', async () => {
     render(VpnPage, { props: { subsection: 'routes' } });
     const zapret = screen.getByRole('switch', { name: 'Zapret' });
     await fireEvent.click(zapret);
-    expect(screen.getByText(NETWORK_CHANGE_REASON)).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Включить Zapret?' });
+    expect(dialog).toBeTruthy();
+    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
     expect(zapret.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('confirming runs the stub: shows the network reason and leaves the switch off', async () => {
+    render(VpnPage, { props: { subsection: 'routes' } });
+    const xbox = screen.getByRole('switch', { name: 'Xbox DNS' });
+    await fireEvent.click(xbox);
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText(NETWORK_CHANGE_REASON)).toBeTruthy();
+    expect(xbox.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('cancelling closes the dialog and shows no network reason', async () => {
+    render(VpnPage, { props: { subsection: 'routes' } });
+    await fireEvent.click(screen.getByRole('switch', { name: 'Zapret' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
+  });
+
+  it('Escape closes the dialog without any change', async () => {
+    render(VpnPage, { props: { subsection: 'routes' } });
+    await fireEvent.click(screen.getByRole('switch', { name: 'Zapret' }));
+    await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
   });
 });

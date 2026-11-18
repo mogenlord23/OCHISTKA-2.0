@@ -1,6 +1,13 @@
-//! Заглушка для macOS: сведения о системе пока не реализованы.
+//! Заглушка для macOS: адаптеры возвращают `Unsupported`, пока функции не реализованы.
+//! Причина для интерфейса: «Недоступно на macOS в этой версии».
+
+pub mod hardware;
 
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
+
+pub mod cleanup;
+pub mod processes;
+pub mod programs;
 
 pub struct MacosSystemInfo;
 

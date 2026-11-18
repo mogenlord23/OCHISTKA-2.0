@@ -177,6 +177,9 @@
       <p>{scan.notice}</p>
     {:else if scan.report}
       <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
+      {#if scan.report.incomplete}
+        <p class="alert" role="status">Проверка неполная: достигнут лимит обхода.</p>
+      {/if}
     {:else}
       <p>Готово к проверке.</p>
     {/if}

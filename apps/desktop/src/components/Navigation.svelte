@@ -1,5 +1,6 @@
 <script lang="ts">
   import { SECTIONS, type SectionId } from '../lib/sections';
+  import { t } from '../lib/i18n.svelte';
 
   let {
     active,
@@ -21,20 +22,20 @@
   };
 </script>
 
-<nav class="rail" aria-label="Навигация">
+<nav class="rail" aria-label={t('navLabel')}>
   {#each SECTIONS as section (section.id)}
     <button
       type="button"
       class="item"
       class:active={active === section.id}
-      aria-label={section.title}
+      aria-label={t(section.titleKey)}
       aria-current={active === section.id ? 'page' : undefined}
       onclick={() => onSelect(section.id)}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d={icons[section.id]} />
       </svg>
-      <span class="label">{section.title}</span>
+      <span class="label">{t(section.titleKey)}</span>
     </button>
   {/each}
 </nav>

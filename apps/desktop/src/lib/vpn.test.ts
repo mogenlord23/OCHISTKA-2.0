@@ -2,12 +2,23 @@ import { describe, expect, it } from 'vitest';
 import {
   NETWORK_CHANGE_REASON,
   VPN_CONNECT_REASON,
+  decodeBase64Utf8,
+  decodeSubscriptionBody,
   formatElapsed,
   parseSubscription,
   requestNetworkChange,
   requestVpnConnect,
   validateSubscriptionUrl,
+  vmessName,
 } from './vpn';
+
+/** base64 в UTF-8 без зависимости от Buffer (в браузере Buffer нет). */
+function b64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  return btoa(String.fromCharCode(...bytes));
+}
+
+const VMESS_JSON = JSON.stringify({ v: '2', ps: 'Сервер «Берлин»', add: 'h', port: '443' });
 
 describe('validateSubscriptionUrl', () => {
   it('accepts an https link and returns it trimmed', () => {
@@ -99,6 +110,80 @@ describe('parseSubscription', () => {
 
   it('returns no servers for empty text', () => {
     expect(parseSubscription('')).toEqual({ servers: [], unknownCount: 0 });
+  });
+});
+
+describe('decodeBase64Utf8', () => {
+  it('decodes standard and url-safe base64, with or without padding', () => {
+    expect(decodeBase64Utf8(b64('hello'))).toBe('hello');
+    expect(decodeBase64Utf8(b64('hello').replace(/=+$/, ''))).toBe('hello');
+    expect(decodeBase64Utf8(b64('??>>').replace(/\+/g, '-').replace(/\//g, '_'))).toBe('??>>');
+  });
+
+  it('returns null for input that is not base64 or not UTF-8', () => {
+    expect(decodeBase64Utf8('')).toBeNull();
+    expect(decodeBase64Utf8('not base64!')).toBeNull();
+    expect(decodeBase64Utf8('a')).toBeNull();
+    expect(decodeBase64Utf8(btoa(String.fromCharCode(0xff, 0xfe)))).toBeNull();
+  });
+});
+
+describe('decodeSubscriptionBody', () => {
+  const links = 'vless://id@host:443#One\ntrojan://pw@host:443#Two';
+
+  it('decodes a base64 body into the links it hides', () => {
+    expect(decodeSubscriptionBody(b64(links))).toBe(links);
+  });
+
+  it('accepts base64 wrapped over several lines', () => {
+    const encoded = b64(links);
+    const wrapped = encoded.match(/.{1,16}/g)?.join('\r\n') ?? '';
+    expect(decodeSubscriptionBody(wrapped)).toBe(links);
+  });
+
+  it('leaves a plain list of links untouched', () => {
+    expect(decodeSubscriptionBody(links)).toBe(links);
+  });
+
+  it('leaves base64 that does not hide links untouched', () => {
+    const plain = b64('just some words');
+    expect(decodeSubscriptionBody(plain)).toBe(plain);
+  });
+
+  it('parseSubscription reads servers from a base64 body', () => {
+    const result = parseSubscription(b64(links));
+    expect(result.servers).toEqual([
+      { scheme: 'vless', name: 'One' },
+      { scheme: 'trojan', name: 'Two' },
+    ]);
+  });
+});
+
+describe('vmessName', () => {
+  it('takes the name from the ps field of the base64 JSON', () => {
+    expect(vmessName(`vmess://${b64(VMESS_JSON)}`)).toBe('Сервер «Берлин»');
+  });
+
+  it('returns null when ps is missing, empty or not a value', () => {
+    expect(vmessName(`vmess://${b64(JSON.stringify({ add: 'h' }))}`)).toBeNull();
+    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: '  ' }))}`)).toBeNull();
+    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: { x: 1 } }))}`)).toBeNull();
+  });
+
+  it('returns null for broken JSON or a broken payload', () => {
+    expect(vmessName(`vmess://${b64('{not json')}`)).toBeNull();
+    expect(vmessName('vmess://***')).toBeNull();
+  });
+
+  it('accepts a numeric ps value', () => {
+    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: 7 }))}`)).toBe('7');
+  });
+
+  it('parseSubscription prefers the ps name for vmess and falls back to the fragment', () => {
+    const result = parseSubscription(
+      [`vmess://${b64(VMESS_JSON)}#ignored`, `vmess://${b64('{"add":"h"}')}#Fallback`].join('\n'),
+    );
+    expect(result.servers.map((server) => server.name)).toEqual(['Сервер «Берлин»', 'Fallback']);
   });
 });
 

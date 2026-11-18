@@ -7,6 +7,7 @@ import {
   listDrives,
   listQuarantine,
   purgeItem,
+  restoreItem,
   stopAnalysis,
 } from '../lib/disksApi';
 import type { QuarantineEntry } from '../lib/disksApi';
@@ -105,5 +106,24 @@ describe('DisksPage deep cleanup', () => {
     const dialog = within(screen.getByRole('alertdialog'));
     await fireEvent.click(dialog.getByRole('button', { name: 'Удалить навсегда' }));
     await waitFor(() => expect(purgeItem).toHaveBeenCalledWith(ENTRY.id, ENTRY.purgeToken));
+  });
+
+  it('offers an alternative path when the original is occupied and restores there', async () => {
+    vi.mocked(listQuarantine).mockResolvedValue([ENTRY]);
+    vi.mocked(listDrives).mockResolvedValue([]);
+    vi.mocked(restoreItem)
+      .mockRejectedValueOnce({ kind: 'occupied', message: 'место занято' })
+      .mockResolvedValueOnce(ENTRY);
+    render(DisksPage, { subsection: 'cleanup' });
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Восстановить' }));
+    await waitFor(() => expect(screen.getByLabelText(/Другой путь/)).toBeTruthy());
+    expect(restoreItem).toHaveBeenLastCalledWith(ENTRY.id, null);
+
+    const alt = 'C:\\Users\\Slava\\AppData\\Local\\Temp\\b.tmp';
+    await fireEvent.input(screen.getByLabelText(/Другой путь/), { target: { value: alt } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Восстановить' }));
+    await waitFor(() => expect(restoreItem).toHaveBeenLastCalledWith(ENTRY.id, alt));
+    await waitFor(() => expect(screen.queryByLabelText(/Другой путь/)).toBeNull());
   });
 });

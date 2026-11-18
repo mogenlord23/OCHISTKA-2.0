@@ -23,13 +23,14 @@ pub struct ProcessInfo {
     pub start_time_unix: u64,
 }
 
-/// Служба Windows. Пока не заполняется: см. `ProcessError::NotConnected`.
+/// Служба Windows только для чтения. `start_type` — подпись режима запуска из реестра
+/// (Автоматически, Вручную, Отключена и т. д.); состояние «работает/остановлена» не читается.
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceInfo {
     pub name: String,
     pub display_name: String,
-    pub state: String,
+    pub start_type: String,
 }
 
 /// Ошибки раздела «Процессы». Текст сообщения уже на русском.
@@ -67,7 +68,7 @@ pub trait ProcessPort: Send + Sync {
     fn start_time(&self, pid: u32) -> Result<Option<u64>, ProcessError>;
     /// Завершает процесс. `Ok(false)`, если ОС отказала.
     fn kill(&self, pid: u32) -> Result<bool, ProcessError>;
-    /// Список служб. Пока заглушка с причиной.
+    /// Список служб (только чтение). На не-Windows — `Unsupported`.
     fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError>;
 }
 

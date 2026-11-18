@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SECTIONS } from './sections';
+import { DICTS } from './i18n.svelte';
 
 describe('SECTIONS', () => {
   it('lists seven sections with viruses first and VPN second', () => {
@@ -63,9 +64,9 @@ describe('SECTIONS', () => {
   it('gives the design section its wallpapers, cursors and colours subsections in order', () => {
     const design = SECTIONS.find((section) => section.id === 'design');
     expect(design?.subsections).toEqual([
-      { id: 'wallpapers', title: 'Обои' },
-      { id: 'cursors', title: 'Курсоры' },
-      { id: 'colors', title: 'Цвета' },
+      { id: 'wallpapers', title: 'Обои', titleKey: 'sub.design.wallpapers' },
+      { id: 'cursors', title: 'Курсоры', titleKey: 'sub.design.cursors' },
+      { id: 'colors', title: 'Цвета', titleKey: 'sub.design.colors' },
     ]);
   });
 
@@ -78,5 +79,16 @@ describe('SECTIONS', () => {
 
   it('has unique section ids', () => {
     expect(new Set(SECTIONS.map((section) => section.id)).size).toBe(SECTIONS.length);
+  });
+
+  it('gives every section and subsection a translation key present in Russian and English', () => {
+    for (const section of SECTIONS) {
+      expect(DICTS.ru[section.titleKey]).toBeTruthy();
+      expect(DICTS.en[section.titleKey]).toBeTruthy();
+      for (const sub of section.subsections) {
+        expect(DICTS.ru[sub.titleKey]).toBeTruthy();
+        expect(DICTS.en[sub.titleKey]).toBeTruthy();
+      }
+    }
   });
 });

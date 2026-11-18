@@ -4,8 +4,10 @@ pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;
 pub mod files;
+pub mod hardware;
 pub mod processes;
 pub mod programs;
+pub mod services;
 
 use std::sync::{Mutex, OnceLock};
 

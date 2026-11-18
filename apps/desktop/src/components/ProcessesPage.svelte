@@ -133,14 +133,14 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Имя</th><th>Отображаемое имя</th><th>Состояние</th></tr>
+            <tr><th>Имя</th><th>Отображаемое имя</th><th>Запуск</th></tr>
           </thead>
           <tbody>
             {#each services as service (service.name)}
               <tr>
                 <td>{service.name}</td>
                 <td>{service.displayName}</td>
-                <td>{service.state}</td>
+                <td>{service.startType}</td>
               </tr>
             {/each}
           </tbody>

@@ -6,6 +6,9 @@ import type {
   EngineStatus,
   ErrorKind,
   Finding,
+  GpuInfo,
+  HardwareOverview,
+  MotherboardInfo,
   ScanReport,
   Suspicion,
   SystemOverview,
@@ -65,6 +68,36 @@ export function isSystemOverview(value: unknown): value is SystemOverview {
   );
 }
 
+function isGpu(value: unknown): value is GpuInfo {
+  return (
+    isObj(value) &&
+    (value.vendor === null || isStr(value.vendor)) &&
+    (value.model === null || isStr(value.model)) &&
+    (value.usagePercent === null || isNum(value.usagePercent)) &&
+    (value.totalMemoryBytes === null || isNum(value.totalMemoryBytes)) &&
+    (value.usedMemoryBytes === null || isNum(value.usedMemoryBytes))
+  );
+}
+
+function isBoard(value: unknown): value is MotherboardInfo {
+  return (
+    isObj(value) &&
+    (value.vendor === null || isStr(value.vendor)) &&
+    (value.name === null || isStr(value.name)) &&
+    (value.version === null || isStr(value.version))
+  );
+}
+
+/** Проверка формы ответа `get_hardware` во время выполнения. */
+export function isHardwareOverview(value: unknown): value is HardwareOverview {
+  return (
+    isObj(value) &&
+    Array.isArray(value.gpus) &&
+    value.gpus.every(isGpu) &&
+    isBoard(value.motherboard)
+  );
+}
+
 /** Проверка формы ответа `scan_start` во время выполнения. */
 export function isScanReport(value: unknown): value is ScanReport {
   return (
@@ -73,6 +106,7 @@ export function isScanReport(value: unknown): value is ScanReport {
     isNum(value.infectedFiles) &&
     isNum(value.errors) &&
     isNum(value.skippedFiles) &&
+    typeof value.incomplete === 'boolean' &&
     Array.isArray(value.findings) &&
     value.findings.every(isFinding)
   );
@@ -103,6 +137,11 @@ async function invokeChecked<T>(
 /** Единственная точка вызова бэкенда из интерфейса. */
 export function getSystemOverview(): Promise<SystemOverview> {
   return invokeChecked(isSystemOverview, 'get_system_overview');
+}
+
+/** Видеокарты и материнская плата (только чтение). Вне Windows бэкенд отвечает `unsupported`. */
+export function getHardware(): Promise<HardwareOverview> {
+  return invokeChecked(isHardwareOverview, 'get_hardware');
 }
 
 export function scanStart(target: string): Promise<ScanReport> {

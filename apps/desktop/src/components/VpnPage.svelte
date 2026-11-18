@@ -29,6 +29,27 @@
   let elapsedSeconds = $state(0);
 
   let networkMessages = $state<Record<string, string | null>>({});
+  /** Переключатель, для которого ждём подтверждения (id из ADVANCED). */
+  let pendingNetwork = $state<(typeof ADVANCED)[number] | null>(null);
+
+  function askNetworkToggle(item: (typeof ADVANCED)[number]) {
+    pendingNetwork = item;
+  }
+
+  function cancelNetworkToggle() {
+    pendingNetwork = null;
+  }
+
+  function confirmNetworkToggle() {
+    const target = pendingNetwork;
+    if (!target) return;
+    pendingNetwork = null;
+    networkMessages = { ...networkMessages, [target.id]: requestNetworkChange().reason };
+  }
+
+  function onDialogKey(event: KeyboardEvent) {
+    if (event.key === 'Escape') cancelNetworkToggle();
+  }
 
   function onImport() {
     const result = validateSubscriptionUrl(urlInput);
@@ -41,10 +62,6 @@
 
   function onConnect() {
     connectMessage = requestVpnConnect().reason;
-  }
-
-  function onNetworkToggle(id: string) {
-    networkMessages = { ...networkMessages, [id]: requestNetworkChange().reason };
   }
 </script>
 
@@ -132,7 +149,7 @@
           role="switch"
           aria-checked="false"
           aria-label={item.label}
-          onclick={() => onNetworkToggle(item.id)}
+          onclick={() => askNetworkToggle(item)}
         >
           <span class="knob"></span>
         </button>
@@ -141,6 +158,29 @@
         {/if}
       </div>
     {/each}
+    {#if pendingNetwork}
+      <div class="backdrop">
+        <div
+          class="dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="network-title"
+          aria-describedby="network-text"
+          tabindex="-1"
+          onkeydown={onDialogKey}
+        >
+          <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
+          <p id="network-text">
+            {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока это
+            заглушка: ничего не изменится.
+          </p>
+          <div class="dialog-actions">
+            <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
+            <button type="button" onclick={confirmNetworkToggle}>Включить</button>
+          </div>
+        </div>
+      </div>
+    {/if}
   </section>
   <PlaceholderPage />
 {:else}
@@ -319,5 +359,33 @@
   .note {
     margin: 8px 0 0;
     color: var(--muted);
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .dialog {
+    width: min(420px, calc(100vw - 32px));
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .dialog h3 {
+    margin: 0 0 8px;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
   }
 </style>

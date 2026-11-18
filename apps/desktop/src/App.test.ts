@@ -105,4 +105,21 @@ describe('FND-0020: sound control is disabled with a visible reason', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
     expect(footer()).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
   });
+
+  it('shows English section and subsection titles after switching to ENG', async () => {
+    render(App);
+    await fireEvent.click(screen.getByRole('button', { name: 'ENG' }));
+    expect(screen.getByRole('navigation', { name: 'Navigation' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Viruses' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Appearance' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Viruses' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Viruses');
+    const tabs = screen.getByRole('navigation', { name: 'Subsections' });
+    expect(within(tabs).getByRole('button', { name: 'Scan' })).toBeTruthy();
+    expect(within(tabs).getByRole('button', { name: 'Scan log' })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Вирусы');
+  });
 });

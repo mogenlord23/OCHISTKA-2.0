@@ -60,17 +60,63 @@ function fragmentName(line: string): string {
   }
 }
 
-/** Разбирает текст подписки: одна ссылка на строку. Распознаёт схему и имя из фрагмента. */
+/** Декодирует base64 (обычный или url-safe, с паддингом или без) в UTF-8. `null`, если не получилось. */
+export function decodeBase64Utf8(value: string): string | null {
+  const body = value.replace(/=+$/, '');
+  if (body === '' || !/^[A-Za-z0-9+/_-]+$/.test(body) || body.length % 4 === 1) {
+    return null;
+  }
+  const padded = body
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(body.length / 4) * 4, '=');
+  try {
+    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Тело подписки часто приходит base64 одной строкой. Если после декодирования видны ссылки
+ * (`scheme://`), возвращаем декодированный текст; иначе — исходный.
+ */
+export function decodeSubscriptionBody(text: string): string {
+  const compact = text.replace(/\s+/g, '');
+  const decoded = decodeBase64Utf8(compact);
+  return decoded !== null && /[a-z][a-z0-9+.-]*:\/\//i.test(decoded) ? decoded : text;
+}
+
+/** Имя сервера vmess: поле `ps` в JSON, которым кодируется ссылка. `null`, если поля нет или JSON не читается. */
+export function vmessName(line: string): string | null {
+  const payload = line.trim().replace(/^vmess:\/\//i, '');
+  const decoded = decodeBase64Utf8(payload.split('#')[0] ?? '');
+  if (decoded === null) return null;
+  try {
+    const value: unknown = JSON.parse(decoded);
+    if (typeof value !== 'object' || value === null || !('ps' in value)) return null;
+    const ps = (value as { ps: unknown }).ps;
+    const name = typeof ps === 'string' || typeof ps === 'number' ? String(ps).trim() : '';
+    return name === '' ? null : name;
+  } catch {
+    return null;
+  }
+}
+
+/** Разбирает текст подписки: одна ссылка на строку (тело может быть base64). Распознаёт схему и имя. */
 export function parseSubscription(text: string): ParsedSubscription {
   const servers: ServerEntry[] = [];
   let unknownCount = 0;
-  for (const rawLine of text.split(/\r?\n/)) {
+  for (const rawLine of decodeSubscriptionBody(text).split(/\r?\n/)) {
     const line = rawLine.trim();
     if (line === '') continue;
     const match = /^([a-z][a-z0-9+.-]*):\/\//i.exec(line);
     const scheme = match?.[1]?.toLowerCase() as ServerScheme | undefined;
     if (scheme && SUPPORTED_SCHEMES.includes(scheme)) {
-      servers.push({ scheme, name: fragmentName(line) });
+      const name =
+        scheme === 'vmess' ? (vmessName(line) ?? fragmentName(line)) : fragmentName(line);
+      servers.push({ scheme, name });
     } else {
       unknownCount += 1;
     }

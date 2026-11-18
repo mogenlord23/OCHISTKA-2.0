@@ -1,10 +1,16 @@
 <script lang="ts">
-  import { getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
-  import { BOARD_REASON, GPU_REASON } from '../lib/computer';
+  import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
+  import {
+    boardName,
+    gpuMemoryLine,
+    gpuName,
+    gpuUsageLine,
+    HARDWARE_LOADING,
+  } from '../lib/computer';
   import { formatBytes, formatPercent } from '../lib/format';
   import { HISTORY_LIMIT, pushSample } from '../lib/history';
   import { SECTION_COLORS } from '../lib/tokens';
-  import type { CommandError, DiskKind, SystemOverview } from '../lib/types';
+  import type { CommandError, DiskKind, HardwareOverview, SystemOverview } from '../lib/types';
   import LineGraph from './LineGraph.svelte';
 
   /** Через сколько запрос считается зависшим. */
@@ -30,6 +36,8 @@
 
   let overview = $state<SystemOverview | null>(null);
   let error = $state<CommandError | null>(null);
+  let hardware = $state<HardwareOverview | null>(null);
+  let hardwareError = $state<CommandError | null>(null);
   let cpuHistory = $state<number[]>([]);
   let ramHistory = $state<number[]>([]);
   let selected = $state<TileId>('cpu');
@@ -61,10 +69,15 @@
             REQUEST_TIMEOUT_MS,
           );
         });
-        const next = await Promise.race([getSystemOverview(), timeout]);
+        const [next, hw] = await Promise.race([
+          Promise.all([getSystemOverview(), readHardware()]),
+          timeout,
+        ]);
         if (active) {
           overview = next;
           error = null;
+          hardware = hw.data;
+          hardwareError = hw.error;
           // История за 90 секунд: по одному замеру CPU и RAM на каждый опрос.
           cpuHistory = pushSample(cpuHistory, next.cpu.usagePercent, HISTORY_LIMIT);
           ramHistory = pushSample(ramHistory, next.memory.usagePercent, HISTORY_LIMIT);
@@ -72,6 +85,8 @@
       } catch (err) {
         if (active) {
           error = toCommandError(err);
+          hardware = null;
+          hardwareError = null;
         }
       } finally {
         clearTimeout(timeoutId);
@@ -86,6 +101,18 @@
       clearInterval(timer);
     };
   });
+
+  /** Комплектующие читаются вместе с опросом; их ошибка не скрывает загрузку и диски. */
+  async function readHardware(): Promise<{
+    data: HardwareOverview | null;
+    error: CommandError | null;
+  }> {
+    try {
+      return { data: await getHardware(), error: null };
+    } catch (err) {
+      return { data: null, error: toCommandError(err) };
+    }
+  }
 
   function title(id: TileId): string {
     return TILES.find((tile) => tile.id === id)?.title ?? '';
@@ -125,11 +152,30 @@
             )}</span
           >
         {:else if tile.id === 'gpu'}
-          <span class="tile-value">—</span>
-          <span class="tile-sub">{GPU_REASON}</span>
+          {#if hardwareError}
+            <span class="tile-value">—</span>
+            <span class="tile-sub">{hardwareError.message}</span>
+          {:else if hardware}
+            {@const gpu = hardware.gpus[0]}
+            <span class="tile-value">{gpu ? gpuName(gpu) : '—'}</span>
+            <span class="tile-sub">
+              {#if gpu}{gpuUsageLine(gpu) ?? 'Загрузка не отдаётся ОС'}{:else}Видеокарты не найдены.{/if}
+            </span>
+          {:else}
+            <span class="tile-value">—</span>
+            <span class="tile-sub">{HARDWARE_LOADING}</span>
+          {/if}
         {:else if tile.id === 'board'}
-          <span class="tile-value">—</span>
-          <span class="tile-sub">{BOARD_REASON}</span>
+          {#if hardwareError}
+            <span class="tile-value">—</span>
+            <span class="tile-sub">{hardwareError.message}</span>
+          {:else if hardware}
+            <span class="tile-value">{boardName(hardware.motherboard)}</span>
+            <span class="tile-sub">{hardware.motherboard.vendor ?? 'Производитель не указан'}</span>
+          {:else}
+            <span class="tile-value">—</span>
+            <span class="tile-sub">{HARDWARE_LOADING}</span>
+          {/if}
         {:else if tile.id === 'disks'}
           <span class="tile-value">{overview.disks.length} шт.</span>
           {#each overview.disks as disk (disk.mountPoint)}
@@ -194,10 +240,32 @@
       />
     {:else if selected === 'gpu'}
       <h2>Видеокарта (GPU)</h2>
-      <p>{GPU_REASON}</p>
+      {#if hardwareError}
+        <p>{hardwareError.message}</p>
+      {:else if hardware}
+        {#each hardware.gpus as gpu, index (index)}
+          <div class="disk">
+            <p>{gpuName(gpu)}{gpu.vendor && gpu.model ? ` · ${gpu.vendor}` : ''}</p>
+            {#if gpuUsageLine(gpu)}<p>{gpuUsageLine(gpu)}</p>{/if}
+            {#if gpuMemoryLine(gpu)}<p>{gpuMemoryLine(gpu)}</p>{/if}
+          </div>
+        {:else}
+          <p>Видеокарты не найдены.</p>
+        {/each}
+      {:else}
+        <p>{HARDWARE_LOADING}</p>
+      {/if}
     {:else if selected === 'board'}
       <h2>Материнская плата</h2>
-      <p>{BOARD_REASON}</p>
+      {#if hardwareError}
+        <p>{hardwareError.message}</p>
+      {:else if hardware}
+        <p>Производитель: {hardware.motherboard.vendor ?? '—'}</p>
+        <p>Модель: {hardware.motherboard.name ?? '—'}</p>
+        <p>Версия: {hardware.motherboard.version ?? '—'}</p>
+      {:else}
+        <p>{HARDWARE_LOADING}</p>
+      {/if}
     {:else if selected === 'disks'}
       <h2>SSD / HDD</h2>
       {#each overview.disks as disk (disk.mountPoint)}
