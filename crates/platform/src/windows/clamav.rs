@@ -1,192 +1,107 @@
-//! Адаптер ClamAV: вызывает clamscan.exe из папки установки по абсолютному пути.
+//! Движок ClamAV (libclamav, встроенный в приложение по ADR 0004). Снаружи — только `VirusScanPort`.
+//! Без фичи `libclamav` движка нет: порт отвечает причиной «движок не собран», приложение не падает.
 
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-
-use ochistka_core::scan::{parse_clamscan_output, EngineStatus, ScanReport, VirusScanPort};
+use ochistka_core::scan::{check_signatures_dir, EngineStatus, FileVerdict, VirusScanPort};
 use ochistka_core::system::CoreError;
 
-/// Путь к clamscan внутри папки установки. Поиска по PATH нет.
-pub fn clamscan_path(install_dir: &Path) -> PathBuf {
-    install_dir.join("clamav").join("clamscan.exe")
-}
+#[cfg(feature = "libclamav")]
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
-/// Предел времени одного запуска clamscan: 10 минут (в миллисекундах).
-pub const MAX_SCAN_TIME_MS: u64 = 10 * 60 * 1000;
+#[cfg(feature = "libclamav")]
+use super::clamav_ffi::Engine;
 
-/// Предел размера одного файла: 200 МБ (в байтах). Более крупные файлы clamscan пропускает.
-pub const MAX_FILE_SIZE_BYTES: u64 = 200 * 1024 * 1024;
+/// Причина для интерфейса, пока libclamav не собран (статус: docs/status/clamav-build.md).
+pub const NOT_BUILT_REASON: &str =
+    "движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md";
 
-/// Как часто проверяется состояние дочернего процесса.
-const POLL_INTERVAL: Duration = Duration::from_millis(50);
+/// Причина, пока собран движок, но сигнатуры не загружены.
+#[cfg(feature = "libclamav")]
+const NO_SIGNATURES_REASON: &str = "сигнатуры не загружены: движок ещё не получил базу";
 
-/// Аргументы: только заражённые файлы, рекурсивно, с пределами времени и размера.
-/// Путь — последним отдельным аргументом.
-pub fn scan_args(target: &str) -> Vec<String> {
-    vec![
-        "--stdout".to_string(),
-        "--infected".to_string(),
-        "--recursive".to_string(),
-        format!("--max-scantime={MAX_SCAN_TIME_MS}"),
-        format!("--max-filesize={MAX_FILE_SIZE_BYTES}"),
-        target.to_string(),
-    ]
-}
-
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
-/// Запущенный clamscan и признак отмены. Одновременно идёт не больше одной проверки
-/// (это гарантирует защита в `scan_start`), поэтому состояние общее на процесс.
-struct RunState {
-    child: Option<Child>,
-    cancelled: bool,
-}
-
-static RUNNING: Mutex<RunState> = Mutex::new(RunState {
-    child: None,
-    cancelled: false,
-});
-
-fn lock_running() -> std::sync::MutexGuard<'static, RunState> {
-    RUNNING
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-/// Останавливает идущий clamscan. Возвращает `true`, если было что останавливать.
-pub fn cancel_running_scan() -> bool {
-    let mut state = lock_running();
-    let Some(child) = state.child.as_mut() else {
-        return false;
-    };
-    let _ = child.kill();
-    state.cancelled = true;
-    true
-}
-
-fn drain<R: Read + Send + 'static>(stream: Option<R>) -> std::thread::JoinHandle<Vec<u8>> {
-    std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(mut stream) = stream {
-            let _ = stream.read_to_end(&mut buf);
-        }
-        buf
-    })
-}
-
-pub struct ClamAvScanner {
-    clamscan: Option<PathBuf>,
+pub struct ClamAvEngine {
     reason: String,
+    #[cfg(feature = "libclamav")]
+    native: Mutex<Option<Engine>>,
 }
 
-impl ClamAvScanner {
-    pub fn from_install_dir(install_dir: &Path) -> Self {
-        let path = clamscan_path(install_dir);
-        if path.is_file() {
+impl ClamAvEngine {
+    /// Движок для текущей сборки: с фичей — без сигнатур до загрузки, без фичи — заглушка.
+    pub fn build() -> Self {
+        #[cfg(feature = "libclamav")]
+        {
             Self {
-                clamscan: Some(path),
-                reason: String::new(),
+                reason: NO_SIGNATURES_REASON.to_string(),
+                native: Mutex::new(None),
             }
-        } else {
-            Self {
-                clamscan: None,
-                reason: format!("{} не найден", path.display()),
-            }
+        }
+        #[cfg(not(feature = "libclamav"))]
+        {
+            Self::not_built()
         }
     }
 
-    pub fn unavailable(reason: &str) -> Self {
+    /// Заглушка: движок в эту сборку не вошёл. Всегда недоступна, с причиной.
+    pub fn not_built() -> Self {
         Self {
-            clamscan: None,
-            reason: reason.to_string(),
+            reason: NOT_BUILT_REASON.to_string(),
+            #[cfg(feature = "libclamav")]
+            native: Mutex::new(None),
         }
+    }
+
+    #[cfg(feature = "libclamav")]
+    fn lock_native(&self) -> MutexGuard<'_, Option<Engine>> {
+        self.native.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
-impl VirusScanPort for ClamAvScanner {
+impl VirusScanPort for ClamAvEngine {
     fn engine_status(&self) -> EngineStatus {
+        #[cfg(feature = "libclamav")]
+        let loaded = self.lock_native().is_some();
+        #[cfg(not(feature = "libclamav"))]
+        let loaded = false;
         EngineStatus {
-            available: self.clamscan.is_some(),
-            reason: self.reason.clone(),
+            available: loaded,
+            reason: if loaded {
+                String::new()
+            } else {
+                self.reason.clone()
+            },
         }
     }
 
-    fn scan(&self, target: &str) -> Result<ScanReport, CoreError> {
-        let Some(clamscan) = &self.clamscan else {
-            return Err(CoreError::EngineMissing(self.reason.clone()));
-        };
-        let mut command = Command::new(clamscan);
-        command.args(scan_args(target));
-        #[cfg(windows)]
+    fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {
+        #[cfg(feature = "libclamav")]
         {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(CREATE_NO_WINDOW);
+            let guard = self.lock_native();
+            let engine = guard
+                .as_ref()
+                .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
+            engine
+                .scan(path)
+                .map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
         }
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = command
-            .spawn()
-            .map_err(|err| CoreError::Probe(format!("не удалось запустить clamscan: {err}")))?;
-        let stdout = drain(child.stdout.take());
-        let stderr = drain(child.stderr.take());
+        #[cfg(not(feature = "libclamav"))]
         {
-            let mut state = lock_running();
-            state.cancelled = false;
-            state.child = Some(child);
+            let _ = path;
+            Err(CoreError::EngineMissing(self.reason.clone()))
         }
-        let deadline = Instant::now() + Duration::from_millis(MAX_SCAN_TIME_MS);
-        let mut timed_out = false;
-        let (status, cancelled) = loop {
-            {
-                let mut state = lock_running();
-                let waited = match state.child.as_mut() {
-                    Some(child) => child.try_wait(),
-                    None => break (None, state.cancelled),
-                };
-                match waited {
-                    Ok(Some(status)) => {
-                        state.child = None;
-                        break (Some(status), state.cancelled);
-                    }
-                    Ok(None) => {
-                        if !timed_out && Instant::now() >= deadline {
-                            timed_out = true;
-                            if let Some(child) = state.child.as_mut() {
-                                let _ = child.kill();
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        state.child = None;
-                        return Err(CoreError::Probe(format!(
-                            "не удалось дождаться clamscan: {err}"
-                        )));
-                    }
-                }
-            }
-            std::thread::sleep(POLL_INTERVAL);
-        };
-        let stdout = stdout.join().unwrap_or_default();
-        let stderr = stderr.join().unwrap_or_default();
-        if cancelled {
-            return Err(CoreError::Probe("проверка отменена".to_string()));
+    }
+
+    fn load_signatures(&self, dir: &str) -> Result<(), CoreError> {
+        // Сначала папка: отсутствие сигнатур — отдельная понятная причина, не «движок не собран».
+        check_signatures_dir(&crate::windows_cleanup::WindowsFs, dir)?;
+        #[cfg(feature = "libclamav")]
+        {
+            let engine = Engine::load(dir)
+                .map_err(|err| CoreError::Probe(format!("сигнатуры не загружены: {err}")))?;
+            *self.lock_native() = Some(engine);
+            Ok(())
         }
-        if timed_out {
-            return Err(CoreError::Probe("превышено время проверки".to_string()));
-        }
-        // Коды clamscan: 0 — заражений нет, 1 — найдены, 2 — ошибка.
-        match status.and_then(|s| s.code()) {
-            Some(0) | Some(1) => Ok(parse_clamscan_output(&String::from_utf8_lossy(&stdout))),
-            _ => Err(CoreError::Probe(format!(
-                "clamscan завершился с ошибкой: {}",
-                String::from_utf8_lossy(&stderr).trim()
-            ))),
+        #[cfg(not(feature = "libclamav"))]
+        {
+            Err(CoreError::EngineMissing(NOT_BUILT_REASON.to_string()))
         }
     }
 }
@@ -195,111 +110,51 @@ impl VirusScanPort for ClamAvScanner {
 mod tests {
     use super::*;
 
-    /// Состояние запущенного процесса общее, поэтому тесты с запуском идут по очереди.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
-    #[test]
-    fn clamscan_path_is_inside_clamav_folder() {
-        let path = clamscan_path(Path::new("C:/app"));
-        assert!(path.ends_with(Path::new("clamav").join("clamscan.exe")));
-    }
-
-    #[test]
-    fn scan_args_pass_target_as_last_argument() {
-        let args = scan_args("C:\\Users\\Slava\\Downloads");
-        assert!(args.contains(&"--infected".to_string()));
-        assert_eq!(
-            args.last().map(String::as_str),
-            Some("C:\\Users\\Slava\\Downloads")
-        );
-    }
-
-    #[test]
-    fn scan_args_set_time_and_file_size_limits_before_target() {
-        let args = scan_args("C:\\Users");
-        assert!(args.contains(&"--max-scantime=600000".to_string()));
-        assert!(args.contains(&"--max-filesize=209715200".to_string()));
-        assert_eq!(args.last().map(String::as_str), Some("C:\\Users"));
-    }
-
-    #[test]
-    fn cancel_without_running_scan_returns_false() {
-        let _serial = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        assert!(!cancel_running_scan());
-    }
-
-    #[test]
-    fn missing_engine_reports_unavailable_with_reason() {
-        let scanner = ClamAvScanner::from_install_dir(Path::new("Z:/definitely/missing"));
-        let status = scanner.engine_status();
-        assert!(!status.available);
-        assert!(status.reason.contains("clamscan.exe"));
-    }
-
-    #[test]
-    fn scan_without_engine_returns_engine_missing() {
-        let scanner = ClamAvScanner::from_install_dir(Path::new("Z:/definitely/missing"));
-        assert!(matches!(
-            scanner.scan("C:\\Users"),
-            Err(CoreError::EngineMissing(_))
-        ));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn scan_runs_engine_and_parses_its_output() {
-        use std::os::unix::fs::PermissionsExt;
-        let _serial = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-
-        let root = std::env::temp_dir().join(format!("ochistka-clamav-{}", std::process::id()));
-        let engine_dir = root.join("clamav");
-        std::fs::create_dir_all(&engine_dir).unwrap();
-        let engine = engine_dir.join("clamscan.exe");
-        std::fs::write(
-            &engine,
-            "#!/bin/sh\necho '/data/invoice.pdf.exe: Win.Test.EICAR_HDB-1 FOUND'\necho 'Scanned files: 4'\necho 'Infected files: 1'\nexit 1\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&engine, std::fs::Permissions::from_mode(0o755)).unwrap();
-
-        let scanner = ClamAvScanner::from_install_dir(&root);
-        let report = scanner.scan("/data").expect("fake engine should run");
-        std::fs::remove_dir_all(&root).ok();
-
-        assert_eq!(report.scanned_files, 4);
-        assert_eq!(report.infected_files, 1);
-        assert_eq!(report.findings[0].signature, "Win.Test.EICAR_HDB-1");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn cancel_kills_running_engine_and_scan_reports_cancelled() {
-        use std::os::unix::fs::PermissionsExt;
-        let _serial = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-
+    fn temp_root(name: &str) -> std::path::PathBuf {
         let root =
-            std::env::temp_dir().join(format!("ochistka-clamav-cancel-{}", std::process::id()));
-        let engine_dir = root.join("clamav");
-        std::fs::create_dir_all(&engine_dir).unwrap();
-        let engine = engine_dir.join("clamscan.exe");
-        std::fs::write(&engine, "#!/bin/sh\nexec sleep 30\n").unwrap();
-        std::fs::set_permissions(&engine, std::fs::Permissions::from_mode(0o755)).unwrap();
+            std::env::temp_dir().join(format!("ochistka-clamav-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
 
-        let scanner = ClamAvScanner::from_install_dir(&root);
-        let worker = std::thread::spawn(move || scanner.scan("/data"));
-        let started = Instant::now();
-        while !cancel_running_scan() {
-            assert!(
-                started.elapsed() < Duration::from_secs(10),
-                "scan never started"
-            );
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        let result = worker.join().unwrap();
+    #[test]
+    fn not_built_engine_reports_reason_with_status_doc() {
+        let status = ClamAvEngine::not_built().engine_status();
+        assert!(!status.available);
+        assert!(status.reason.contains("движок не собран"));
+        assert!(status.reason.contains("docs/status/clamav-build.md"));
+    }
+
+    #[test]
+    fn not_built_engine_refuses_to_scan_with_the_same_reason() {
+        let err = ClamAvEngine::not_built()
+            .scan_file("C:\\Users\\Slava\\Downloads\\a.exe")
+            .unwrap_err();
+        assert!(matches!(err, CoreError::EngineMissing(ref m) if m.contains("движок не собран")));
+    }
+
+    #[test]
+    fn signatures_folder_missing_is_reported_before_engine_state() {
+        let root = temp_root("missing");
+        let missing = root.join("signatures");
+        let err = ClamAvEngine::not_built()
+            .load_signatures(&missing.to_string_lossy())
+            .unwrap_err();
+        assert!(matches!(err, CoreError::Probe(ref m) if m.contains("папка сигнатур не найдена")));
         std::fs::remove_dir_all(&root).ok();
+    }
 
-        assert!(started.elapsed() < Duration::from_secs(10));
-        assert!(matches!(result, Err(CoreError::Probe(ref m)) if m == "проверка отменена"));
-        assert!(!cancel_running_scan());
+    #[test]
+    fn signatures_folder_present_but_not_built_reports_not_built() {
+        let root = temp_root("present");
+        let signatures = root.join("signatures");
+        std::fs::create_dir_all(&signatures).unwrap();
+        std::fs::write(signatures.join("main.cvd"), b"placeholder").unwrap();
+        let err = ClamAvEngine::not_built()
+            .load_signatures(&signatures.to_string_lossy())
+            .unwrap_err();
+        assert!(matches!(err, CoreError::EngineMissing(ref m) if m.contains("движок не собран")));
+        std::fs::remove_dir_all(&root).ok();
     }
 }

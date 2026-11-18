@@ -72,6 +72,7 @@ export function isScanReport(value: unknown): value is ScanReport {
     isNum(value.scannedFiles) &&
     isNum(value.infectedFiles) &&
     isNum(value.errors) &&
+    isNum(value.skippedFiles) &&
     Array.isArray(value.findings) &&
     value.findings.every(isFinding)
   );
@@ -125,6 +126,7 @@ const ERROR_KINDS: readonly ErrorKind[] = [
   'probe',
   'engineMissing',
   'invalidTarget',
+  'cancelled',
 ];
 
 function isCommandError(err: unknown): err is CommandError {

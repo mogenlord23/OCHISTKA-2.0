@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+# libclamav встраивается только при сборке с этой фичей (нужны заголовки и библиотека ClamAV).
+[features]
+default = []
+libclamav = []
+
 [dependencies]
 ochistka-core = { path = "../ochistka-core" }
 sysinfo = "0.40.4"

@@ -6,7 +6,8 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use ochistka_core::scan::{EngineStatus, Finding, ScanReport, Suspicion};
+use ochistka_core::assess::Suspicion;
+use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ts_rs::{Config, TS};
 

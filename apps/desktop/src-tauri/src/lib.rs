@@ -5,7 +5,6 @@ pub mod disks;
 pub mod processes;
 pub mod programs;
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use commands::{
@@ -45,11 +44,11 @@ fn show_startup_error() {
 
 pub fn run() {
     let result = tauri::Builder::default()
-        .manage(AppState {
-            system: Arc::from(ochistka_platform::current_system_info()),
-            scanner: Arc::from(ochistka_platform::current_virus_scanner()),
-            scan_running: Arc::new(AtomicBool::new(false)),
-        })
+        .manage(AppState::new(
+            ochistka_platform::current_system_info(),
+            ochistka_platform::current_virus_scanner(),
+            Arc::new(ochistka_platform::windows_cleanup::WindowsFs),
+        ))
         .manage(disks::DisksState::new(
             ochistka_platform::current_cleanup_env(),
         ))

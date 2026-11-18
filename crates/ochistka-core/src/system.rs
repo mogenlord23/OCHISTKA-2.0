@@ -123,7 +123,7 @@ pub struct SystemOverview {
     pub os_version: String,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CoreError {
     #[error("{feature} недоступно на {os}")]
     Unsupported { feature: String, os: String },
@@ -133,6 +133,8 @@ pub enum CoreError {
     EngineMissing(String),
     #[error("недопустимый путь проверки: {0}")]
     InvalidTarget(String),
+    #[error("проверка отменена")]
+    Cancelled,
 }
 
 /// Порт системных сведений. Реализации живут в `crates/platform`.

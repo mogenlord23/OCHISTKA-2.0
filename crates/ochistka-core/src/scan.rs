@@ -1,9 +1,17 @@
-//! Проверка на вирусы: разбор вывода ClamAV, эвристика и порт сканера. Без кода ОС.
+//! Проверка папки: обход, вызов движка по файлу через порт и сбор находок. Без кода ОС.
+//! Движок видит только один файл за раз (`VirusScanPort::scan_file`); обход, лимит размера и
+//! отмену делает ядро.
+
+use std::sync::atomic::AtomicBool;
 
 use serde::Serialize;
 use ts_rs::TS;
 
+use crate::fs::{walk, Budget, CleanupError, FsPort, Limits};
 use crate::system::CoreError;
+
+/// Файлы больше этого размера движок не читает: они попадают в `skipped_files`.
+pub const MAX_FILE_BYTES: u64 = 200 * 1024 * 1024;
 
 #[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +27,10 @@ pub struct Finding {
 pub struct ScanReport {
     pub scanned_files: u32,
     pub infected_files: u32,
+    // Файлы, которые движок не смог проверить (повреждённые, занятые и т. п.).
     pub errors: u32,
+    // Файлы больше `MAX_FILE_BYTES`: не проверялись, но учтены в отчёте.
+    pub skipped_files: u32,
     pub findings: Vec<Finding>,
 }
 
@@ -31,29 +42,20 @@ pub struct EngineStatus {
     pub reason: String,
 }
 
-/// Разбирает стандартный вывод clamscan: строки «путь: сигнатура FOUND», строки «ERROR» и сводку.
-pub fn parse_clamscan_output(output: &str) -> ScanReport {
-    let mut report = ScanReport::default();
-    let mut summary_infected: Option<u32> = None;
-    for line in output.lines() {
-        let line = line.trim_end();
-        if let Some(rest) = line.strip_suffix(" FOUND") {
-            if let Some((path, signature)) = rest.rsplit_once(": ") {
-                report.findings.push(Finding {
-                    path: path.to_string(),
-                    signature: signature.to_string(),
-                });
-            }
-        } else if line.ends_with(" ERROR") {
-            report.errors += 1;
-        } else if let Some(value) = line.strip_prefix("Scanned files: ") {
-            report.scanned_files = value.trim().parse().unwrap_or(0);
-        } else if let Some(value) = line.strip_prefix("Infected files: ") {
-            summary_infected = value.trim().parse().ok();
-        }
-    }
-    report.infected_files = summary_infected.unwrap_or(report.findings.len() as u32);
-    report
+/// Результат движка по одному файлу.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FileVerdict {
+    Clean,
+    Found { signature: String },
+}
+
+/// Порт движка. Реализации живут в `crates/platform`; без `unsafe` снаружи FFI-модуля.
+pub trait VirusScanPort: Send + Sync {
+    fn engine_status(&self) -> EngineStatus;
+    /// Проверяет один файл. Вызывается только при доступном движке.
+    fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError>;
+    /// Загружает и компилирует сигнатуры из папки. Без встроенного движка возвращает ошибку.
+    fn load_signatures(&self, dir: &str) -> Result<(), CoreError>;
 }
 
 /// Путь проверки должен быть абсолютным и без управляющих символов, чтобы его нельзя было
@@ -71,137 +73,308 @@ pub fn validate_target(target: &str) -> Result<(), CoreError> {
     Ok(())
 }
 
-/// Признаки файла для эвристической оценки. Заполняет адаптер платформы.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FileFacts {
-    pub file_name: String,
-    pub size_bytes: u64,
-    pub in_downloads: bool,
-    pub in_startup: bool,
+/// Проверяет папку с сигнатурами: она должна существовать и содержать файлы.
+/// Возвращает число файлов. Ошибка объясняет причину для интерфейса.
+pub fn check_signatures_dir(fs: &dyn FsPort, dir: &str) -> Result<u32, CoreError> {
+    let meta = fs
+        .metadata(dir)
+        .map_err(|_| CoreError::Probe(format!("папка сигнатур не найдена: {dir}")))?;
+    if !meta.is_dir {
+        return Err(CoreError::Probe(format!(
+            "папка сигнатур не найдена: {dir}"
+        )));
+    }
+    let entries = fs
+        .read_dir(dir)
+        .map_err(|err| CoreError::Probe(format!("папка сигнатур не читается: {err}")))?;
+    let files = entries.iter().filter(|entry| !entry.meta.is_dir).count();
+    if files == 0 {
+        return Err(CoreError::Probe(format!("папка сигнатур пуста: {dir}")));
+    }
+    u32::try_from(files).map_err(|_| CoreError::Probe("слишком много файлов сигнатур".into()))
 }
 
-#[derive(Serialize, TS, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-#[ts(export, export_to = "Suspicion.ts")]
-pub struct Suspicion {
-    pub score: u8,
-    pub reasons: Vec<String>,
-}
-
-const EXECUTABLE_EXTENSIONS: [&str; 10] = [
-    "exe", "scr", "bat", "cmd", "ps1", "vbs", "js", "msi", "com", "pif",
-];
-const DOCUMENT_EXTENSIONS: [&str; 9] = [
-    "pdf", "doc", "docx", "xls", "xlsx", "txt", "jpg", "jpeg", "png",
-];
-const CRACK_WORDS: [&str; 3] = ["crack", "keygen", "patch"];
-
-/// Эвристическая подсказка. Не вердикт: файл решает пользователь.
-pub fn score_suspicion(facts: &FileFacts) -> Suspicion {
-    let name = facts.file_name.to_lowercase();
-    let parts: Vec<&str> = name.split('.').collect();
-    let extension = if parts.len() >= 2 {
-        parts[parts.len() - 1]
-    } else {
-        ""
-    };
-    let is_executable = EXECUTABLE_EXTENSIONS.contains(&extension);
-
-    let mut score: u32 = 0;
-    let mut reasons = Vec::new();
-    if is_executable && parts.len() >= 3 && DOCUMENT_EXTENSIONS.contains(&parts[parts.len() - 2]) {
-        score += 40;
-        reasons.push("двойное расширение: документ, замаскированный под программу".to_string());
-    }
-    if is_executable && facts.in_startup {
-        score += 30;
-        reasons.push("исполняемый файл в автозагрузке".to_string());
-    } else if is_executable && facts.in_downloads {
-        score += 30;
-        reasons.push("исполняемый файл в загрузках".to_string());
-    }
-    if is_executable && facts.size_bytes < 1024 {
-        score += 10;
-        reasons.push("очень маленький исполняемый файл".to_string());
-    }
-    if is_executable && CRACK_WORDS.iter().any(|word| name.contains(word)) {
-        score += 20;
-        reasons.push("имя похоже на взломщик".to_string());
-    }
-    Suspicion {
-        score: score.min(100) as u8,
-        reasons,
-    }
-}
-
-/// Порт сканера. Реализации живут в `crates/platform`.
-pub trait VirusScanPort: Send + Sync {
-    fn engine_status(&self) -> EngineStatus;
-    fn scan(&self, target: &str) -> Result<ScanReport, CoreError>;
-}
-
-/// Проверяет путь до обращения к движку.
-pub fn run_scan(port: &dyn VirusScanPort, target: &str) -> Result<ScanReport, CoreError> {
+/// Проверяет папку `target`. Движок недоступен — ошибка `EngineMissing` до обхода.
+/// Ошибка одного файла считается в `errors` и не останавливает проверку.
+/// `cancel` останавливает проверку ошибкой `Cancelled`.
+pub fn sweep(
+    fs: &dyn FsPort,
+    port: &dyn VirusScanPort,
+    target: &str,
+    cancel: &AtomicBool,
+    limits: Limits,
+) -> Result<ScanReport, CoreError> {
     validate_target(target)?;
-    port.scan(target)
+    let status = port.engine_status();
+    if !status.available {
+        return Err(CoreError::EngineMissing(status.reason));
+    }
+    let meta = fs
+        .metadata(target)
+        .map_err(|_| CoreError::Probe(format!("папка недоступна: {target}")))?;
+    if !meta.is_dir {
+        return Err(CoreError::Probe(format!("не папка: {target}")));
+    }
+
+    let mut files: Vec<(String, u64)> = Vec::new();
+    let mut budget = Budget::new(limits.max_entries);
+    walk(
+        fs,
+        target,
+        cancel,
+        &mut budget,
+        limits.max_depth,
+        &mut |entry| {
+            if !entry.meta.is_dir {
+                files.push((entry.path.clone(), entry.meta.size));
+            }
+        },
+    )
+    .map_err(into_core)?;
+
+    let mut report = ScanReport::default();
+    for (path, size) in files {
+        if is_cancelled(cancel) {
+            return Err(CoreError::Cancelled);
+        }
+        if size > MAX_FILE_BYTES {
+            report.skipped_files += 1;
+            continue;
+        }
+        match port.scan_file(&path) {
+            Ok(verdict) => {
+                report.scanned_files += 1;
+                if let FileVerdict::Found { signature } = verdict {
+                    report.infected_files += 1;
+                    report.findings.push(Finding { path, signature });
+                }
+            }
+            Err(CoreError::Cancelled) => return Err(CoreError::Cancelled),
+            Err(_) => report.errors += 1,
+        }
+    }
+    Ok(report)
+}
+
+fn is_cancelled(cancel: &AtomicBool) -> bool {
+    cancel.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+fn into_core(err: CleanupError) -> CoreError {
+    match err {
+        CleanupError::Cancelled => CoreError::Cancelled,
+        other => CoreError::Probe(other.to_string()),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fake_fs::FakeFs;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
-    const FOUND_OUTPUT: &str =
-        "C:\\Users\\Slava\\Downloads\\invoice.pdf.exe: Win.Test.EICAR_HDB-1 FOUND\n\
-\n\
------------ SCAN SUMMARY -----------\n\
-Known viruses: 8650000\n\
-Scanned directories: 1\n\
-Scanned files: 12\n\
-Infected files: 1\n";
+    const ROOT: &str = "C:\\Users\\Slava\\Downloads";
+
+    /// Движок в памяти: заражён файл, если его имя в `infected`; в `broken` — ошибка чтения.
+    struct FakeEngine {
+        available: bool,
+        infected: Vec<&'static str>,
+        broken: Vec<&'static str>,
+        calls: AtomicU32,
+    }
+
+    impl FakeEngine {
+        fn ready() -> Self {
+            Self {
+                available: true,
+                infected: vec!["eicar.com"],
+                broken: vec!["broken.zip"],
+                calls: AtomicU32::new(0),
+            }
+        }
+    }
+
+    impl VirusScanPort for FakeEngine {
+        fn engine_status(&self) -> EngineStatus {
+            EngineStatus {
+                available: self.available,
+                reason: if self.available {
+                    String::new()
+                } else {
+                    "движок не собран: тест".into()
+                },
+            }
+        }
+
+        fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            let name = path.rsplit('\\').next().unwrap_or("");
+            if self.broken.contains(&name) {
+                return Err(CoreError::Probe("файл повреждён".into()));
+            }
+            if self.infected.contains(&name) {
+                return Ok(FileVerdict::Found {
+                    signature: "Test.Signature".into(),
+                });
+            }
+            Ok(FileVerdict::Clean)
+        }
+
+        fn load_signatures(&self, _dir: &str) -> Result<(), CoreError> {
+            Ok(())
+        }
+    }
+
+    fn no_cancel() -> AtomicBool {
+        AtomicBool::new(false)
+    }
 
     #[test]
-    fn parses_findings_and_summary() {
-        let report = parse_clamscan_output(FOUND_OUTPUT);
-        assert_eq!(report.scanned_files, 12);
+    fn empty_folder_reports_nothing_scanned() {
+        let fs = FakeFs::new();
+        fs.dir(ROOT);
+        let report = sweep(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(report, ScanReport::default());
+    }
+
+    #[test]
+    fn finding_is_reported_with_signature_and_counted() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\eicar.com"), b"x", 0);
+        fs.file(&format!("{ROOT}\\notes.txt"), b"y", 0);
+        let report = sweep(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(report.scanned_files, 2);
         assert_eq!(report.infected_files, 1);
         assert_eq!(report.findings.len(), 1);
-        assert_eq!(
-            report.findings[0].path,
-            "C:\\Users\\Slava\\Downloads\\invoice.pdf.exe"
-        );
-        assert_eq!(report.findings[0].signature, "Win.Test.EICAR_HDB-1");
+        assert_eq!(report.findings[0].signature, "Test.Signature");
     }
 
     #[test]
-    fn windows_path_with_colons_is_kept_whole() {
-        let output = "C:\\Data\\a: b.exe: Win.Test.X FOUND\n";
-        let report = parse_clamscan_output(output);
-        assert_eq!(report.findings[0].path, "C:\\Data\\a: b.exe");
-        assert_eq!(report.findings[0].signature, "Win.Test.X");
-    }
-
-    #[test]
-    fn counts_error_lines() {
-        let output = "C:\\locked.sys: lstat() failed: ERROR\n";
-        let report = parse_clamscan_output(output);
+    fn damaged_file_is_counted_as_error_and_sweep_continues() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\broken.zip"), b"PK", 0);
+        fs.file(&format!("{ROOT}\\eicar.com"), b"x", 0);
+        let report = sweep(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+        )
+        .unwrap();
         assert_eq!(report.errors, 1);
+        assert_eq!(report.infected_files, 1);
+    }
+
+    #[test]
+    fn zero_byte_file_is_scanned_as_clean() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\empty.bin"), b"", 0);
+        let report = sweep(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+        )
+        .unwrap();
+        assert_eq!(report.scanned_files, 1);
+        assert_eq!(report.errors, 0);
         assert!(report.findings.is_empty());
     }
 
     #[test]
-    fn clean_output_has_no_findings() {
-        let output = "----------- SCAN SUMMARY -----------\nScanned files: 3\nInfected files: 0\n";
-        let report = parse_clamscan_output(output);
-        assert_eq!(report.scanned_files, 3);
-        assert_eq!(report.infected_files, 0);
-        assert!(report.findings.is_empty());
+    fn engine_not_built_stops_before_walking() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\eicar.com"), b"x", 0);
+        let engine = FakeEngine {
+            available: false,
+            ..FakeEngine::ready()
+        };
+        let err = sweep(&fs, &engine, ROOT, &no_cancel(), Limits::default()).unwrap_err();
+        assert_eq!(
+            err,
+            CoreError::EngineMissing("движок не собран: тест".into())
+        );
+        assert_eq!(engine.calls.load(Ordering::SeqCst), 0);
     }
 
     #[test]
-    fn infected_count_falls_back_to_findings_without_summary() {
-        let output = "C:\\a.exe: Win.Test.X FOUND\nC:\\b.exe: Win.Test.Y FOUND\n";
-        let report = parse_clamscan_output(output);
-        assert_eq!(report.infected_files, 2);
+    fn invalid_target_is_refused_before_engine_is_used() {
+        let fs = FakeFs::new();
+        let engine = FakeEngine::ready();
+        assert!(matches!(
+            sweep(&fs, &engine, "Downloads", &no_cancel(), Limits::default()),
+            Err(CoreError::InvalidTarget(_))
+        ));
+        assert_eq!(engine.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn cancel_before_scan_returns_cancelled_without_engine_calls() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\eicar.com"), b"x", 0);
+        let engine = FakeEngine::ready();
+        let cancel = AtomicBool::new(true);
+        let err = sweep(&fs, &engine, ROOT, &cancel, Limits::default()).unwrap_err();
+        assert_eq!(err, CoreError::Cancelled);
+        assert_eq!(engine.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn missing_folder_is_a_probe_error_with_reason() {
+        let fs = FakeFs::new();
+        let err = sweep(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, CoreError::Probe(ref m) if m.contains("недоступна")));
+    }
+
+    #[test]
+    fn signatures_folder_missing_reports_reason() {
+        let fs = FakeFs::new();
+        let err = check_signatures_dir(&fs, "C:\\app\\signatures").unwrap_err();
+        assert_eq!(
+            err,
+            CoreError::Probe("папка сигнатур не найдена: C:\\app\\signatures".into())
+        );
+    }
+
+    #[test]
+    fn signatures_folder_empty_reports_reason() {
+        let fs = FakeFs::new();
+        fs.dir("C:\\app\\signatures");
+        let err = check_signatures_dir(&fs, "C:\\app\\signatures").unwrap_err();
+        assert_eq!(
+            err,
+            CoreError::Probe("папка сигнатур пуста: C:\\app\\signatures".into())
+        );
+    }
+
+    #[test]
+    fn signatures_folder_with_files_is_accepted() {
+        let fs = FakeFs::new();
+        fs.file("C:\\app\\signatures\\main.cvd", b"x", 0);
+        assert_eq!(check_signatures_dir(&fs, "C:\\app\\signatures"), Ok(1));
     }
 
     #[test]
@@ -216,97 +389,8 @@ Infected files: 1\n";
     }
 
     #[test]
-    fn plain_document_is_not_flagged() {
-        let facts = FileFacts {
-            file_name: "report.pdf".into(),
-            size_bytes: 50_000,
-            in_downloads: false,
-            in_startup: false,
-        };
-        let suspicion = score_suspicion(&facts);
-        assert_eq!(suspicion.score, 0);
-        assert!(suspicion.reasons.is_empty());
-    }
-
-    #[test]
-    fn double_extension_is_flagged() {
-        let facts = FileFacts {
-            file_name: "invoice.pdf.exe".into(),
-            size_bytes: 5_000,
-            in_downloads: false,
-            in_startup: false,
-        };
-        let suspicion = score_suspicion(&facts);
-        assert!(suspicion.score >= 40);
-        assert!(suspicion.reasons[0].starts_with("двойное расширение"));
-    }
-
-    #[test]
-    fn executable_in_downloads_is_flagged() {
-        let facts = FileFacts {
-            file_name: "setup.exe".into(),
-            size_bytes: 5_000,
-            in_downloads: true,
-            in_startup: false,
-        };
-        let suspicion = score_suspicion(&facts);
-        assert_eq!(suspicion.score, 30);
-        assert_eq!(
-            suspicion.reasons,
-            vec!["исполняемый файл в загрузках".to_string()]
-        );
-    }
-
-    #[test]
-    fn all_signals_together_reach_one_hundred() {
-        let facts = FileFacts {
-            file_name: "crack.doc.exe".into(),
-            size_bytes: 10,
-            in_downloads: false,
-            in_startup: true,
-        };
-        assert_eq!(score_suspicion(&facts).score, 100);
-    }
-
-    struct FakeScanner {
-        scans: std::sync::atomic::AtomicU32,
-    }
-
-    impl VirusScanPort for FakeScanner {
-        fn engine_status(&self) -> EngineStatus {
-            EngineStatus {
-                available: true,
-                reason: String::new(),
-            }
-        }
-
-        fn scan(&self, _target: &str) -> Result<ScanReport, CoreError> {
-            self.scans.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok(ScanReport::default())
-        }
-    }
-
-    #[test]
-    fn run_scan_rejects_invalid_target_without_calling_engine() {
-        let scanner = FakeScanner {
-            scans: std::sync::atomic::AtomicU32::new(0),
-        };
-        assert!(run_scan(&scanner, "Downloads").is_err());
-        assert_eq!(scanner.scans.load(std::sync::atomic::Ordering::SeqCst), 0);
-    }
-
-    #[test]
-    fn run_scan_passes_valid_target_to_engine() {
-        let scanner = FakeScanner {
-            scans: std::sync::atomic::AtomicU32::new(0),
-        };
-        assert!(run_scan(&scanner, "C:\\Users\\Slava\\Downloads").is_ok());
-        assert_eq!(scanner.scans.load(std::sync::atomic::Ordering::SeqCst), 1);
-    }
-
-    #[test]
     fn engine_missing_message_is_russian() {
-        let err = CoreError::EngineMissing("clamscan.exe не найден".into());
-        assert_eq!(err.to_string(), "движок недоступен: clamscan.exe не найден");
+        let err = CoreError::EngineMissing("движок не собран".into());
+        assert_eq!(err.to_string(), "движок недоступен: движок не собран");
     }
 }

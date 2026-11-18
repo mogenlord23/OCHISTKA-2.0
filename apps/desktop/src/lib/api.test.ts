@@ -31,7 +31,13 @@ const finding: Finding = {
   signature: 'Win.Test.X',
 };
 
-const report: ScanReport = { scannedFiles: 3, infectedFiles: 0, errors: 0, findings: [] };
+const report: ScanReport = {
+  scannedFiles: 3,
+  infectedFiles: 0,
+  errors: 0,
+  skippedFiles: 0,
+  findings: [],
+};
 
 describe('getSystemOverview', () => {
   it('invokes get_system_overview and returns the snapshot', async () => {
@@ -62,10 +68,10 @@ describe('scan commands', () => {
 
   it('reads the ClamAV engine status', async () => {
     invokeMock.mockReset();
-    invokeMock.mockResolvedValue({ available: false, reason: 'clamscan.exe не найден' });
+    invokeMock.mockResolvedValue({ available: false, reason: 'движок не собран' });
     await expect(clamavStatus()).resolves.toEqual({
       available: false,
-      reason: 'clamscan.exe не найден',
+      reason: 'движок не собран',
     });
     expect(invokeMock).toHaveBeenCalledWith('clamav_status');
   });
@@ -152,6 +158,7 @@ describe('runtime shape checks', () => {
       scannedFiles: 5,
       infectedFiles: 1,
       errors: 0,
+      skippedFiles: 0,
       findings: [finding],
     };
     invokeMock.mockResolvedValue(withFindings);

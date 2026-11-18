@@ -71,7 +71,23 @@ pub enum DisksRequest {
     },
     PrivacyReport,
     ListDrives,
+    /// Находки «Вирусов» в карантин. Пути проверяет белый список (папка «Загрузки»).
+    QuarantineFindings {
+        items: Vec<FindingItem>,
+    },
 }
+
+/// Одна находка для карантина: путь и короткая причина (сигнатура или оценка).
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct FindingItem {
+    pub path: String,
+    pub reason: String,
+}
+
+/// Больше находок за один запрос не переносим: интерфейс отправляет выбранное, а не весь список.
+const MAX_FINDINGS_PER_REQUEST: usize = 500;
+/// Причина в манифесте карантина короче этого предела.
+const MAX_REASON_CHARS: usize = 300;
 
 impl DisksRequest {
     /// Анализы идут под общим флагом «занято» и останавливаются кнопкой «Стоп».
@@ -170,9 +186,17 @@ fn policy_for(locations: &[CleanupLocation]) -> Result<PathPolicy, CleanupError>
     PathPolicy::new(&roots)
 }
 
+/// Карантин и восстановление: белый список очистки плюс папка «Загрузки», откуда берутся находки.
 fn quarantine_for(layout: &Layout) -> Result<Quarantine, CleanupError> {
-    let policy = policy_for(&usable_locations(layout))?;
-    Quarantine::new(&layout.quarantine_root, policy)
+    let mut roots: Vec<String> = usable_locations(layout)
+        .into_iter()
+        .map(|location| location.root)
+        .collect();
+    if validate_root(&layout.downloads).is_ok() {
+        roots.push(layout.downloads.clone());
+    }
+    let refs: Vec<&str> = roots.iter().map(String::as_str).collect();
+    Quarantine::new(&layout.quarantine_root, PathPolicy::new(&refs)?)
 }
 
 /// Выполняет запрос. Отдельная функция: её можно проверить без окна Tauri.
@@ -248,6 +272,31 @@ pub fn run(
             Ok(DisksResponse::Drives {
                 drives: layout.drives,
             })
+        }
+        DisksRequest::QuarantineFindings { items } => {
+            if items.len() > MAX_FINDINGS_PER_REQUEST {
+                return Err(CleanupError::Refused(format!(
+                    "за один раз не больше {MAX_FINDINGS_PER_REQUEST} находок"
+                )));
+            }
+            let layout = env.layout()?;
+            let fs = env.fs()?;
+            let quarantine = quarantine_for(&layout)?;
+            let mut outcome = MoveOutcome::default();
+            for item in items {
+                let reason: String = format!("проверка «Вирусы»: {}", item.reason)
+                    .chars()
+                    .take(MAX_REASON_CHARS)
+                    .collect();
+                let one = quarantine.move_many(
+                    fs,
+                    std::slice::from_ref(&item.path),
+                    &reason,
+                    now_unix(),
+                )?;
+                outcome.merge(one);
+            }
+            Ok(DisksResponse::Cleaned { outcome })
         }
     }
 }
@@ -358,5 +407,77 @@ mod tests {
                 ..
             }
         ));
+    }
+}
+
+#[cfg(test)]
+mod findings_tests {
+    use super::*;
+    use ochistka_core::fs::FsPort;
+    use ochistka_platform::windows_cleanup::WindowsFs;
+
+    /// Среда с раскладкой из строк: файловые операции — реальный адаптер, но пути вне белого списка.
+    struct TestEnv {
+        fs: WindowsFs,
+    }
+
+    impl CleanupEnvPort for TestEnv {
+        fn layout(&self) -> Result<Layout, CleanupError> {
+            Ok(Layout {
+                cleanup: vec![],
+                downloads: "C:\\Users\\Slava\\Downloads".into(),
+                privacy: vec![],
+                quarantine_root: "C:\\Users\\Slava\\AppData\\Local\\OCHISTKA\\Quarantine".into(),
+                drives: vec![],
+            })
+        }
+
+        fn fs(&self) -> Result<&dyn FsPort, CleanupError> {
+            Ok(&self.fs)
+        }
+    }
+
+    fn quarantine_request(paths: &[&str]) -> DisksRequest {
+        DisksRequest::QuarantineFindings {
+            items: paths
+                .iter()
+                .map(|path| FindingItem {
+                    path: (*path).to_string(),
+                    reason: "Win.Test.X".into(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn findings_outside_the_whitelist_are_refused_without_io() {
+        let env = TestEnv { fs: WindowsFs };
+        let plan = Mutex::new(None);
+        let cancel = AtomicBool::new(false);
+        let response = run(
+            &env,
+            &cancel,
+            &plan,
+            quarantine_request(&["C:\\Windows\\System32\\evil.exe"]),
+        )
+        .unwrap();
+        let DisksResponse::Cleaned { outcome } = response else {
+            panic!("expected cleaned response");
+        };
+        assert_eq!(outcome.moved, 0);
+        assert_eq!(outcome.failed, 1);
+    }
+
+    #[test]
+    fn too_many_findings_in_one_request_are_refused() {
+        let env = TestEnv { fs: WindowsFs };
+        let plan = Mutex::new(None);
+        let cancel = AtomicBool::new(false);
+        let paths: Vec<String> = (0..=MAX_FINDINGS_PER_REQUEST)
+            .map(|i| format!("C:\\Users\\Slava\\Downloads\\f{i}.exe"))
+            .collect();
+        let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+        let err = run(&env, &cancel, &plan, quarantine_request(&refs)).unwrap_err();
+        assert_eq!(DisksError::from(err).kind, "refused");
     }
 }

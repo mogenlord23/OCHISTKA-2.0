@@ -16,9 +16,9 @@
 | Компьютер: материнская плата                                                                     | `planned`         | `planned`               | `planned`               |
 | Компьютер: Настройки и Boost (заглушки с причиной)                                               | `planned`         | `planned`               | `planned`               |
 | Компьютер: Драйверы (список Windows)                                                             | `planned`         | `planned`               | `planned`               |
-| Вирусы: проверка через ClamAV                                                                    | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
-| Вирусы: эвристическая подсказка по файлу                                                         | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
-| Вирусы: карантин и удаление                                                                      | `planned`         | `planned`               | `planned`               |
+| Вирусы: проверка через libclamav (движок не собран, заглушка с причиной)                         | `planned`         | `planned` (Unsupported) | `planned` (Unsupported) |
+| Вирусы: инвентаризация, эвристика, ИИ-заглушка и итоговая оценка                                 | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Вирусы: находки в карантин, восстановление, окончательное удаление по токену                     | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
 | Диски: глубокая очистка (анализ, «Стоп», карантин)                                               | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
 | Диски: очистка файлов, анализ пространства, приватность (чтение)                                 | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
 | Диски: карантин (манифест, восстановление, удаление по токену)                                   | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
@@ -38,6 +38,7 @@
 
 - Код Windows собирается и проходит `clippy -D warnings` под целевую платформу `x86_64-pc-windows-msvc` (проверено с Linux, 2026-11-17). Это проверка компиляции.
 - `cargo test --workspace` прошёл на Windows 10/11 на этапе скелета (до добавления ClamAV и эвристики). Тесты ClamAV и эвристики на Windows ещё не запускались. Сверка значений с Диспетчером задач не сделана, поэтому статус остаётся `implemented`.
-- ClamAV на Linux проверен фейковым `clamscan` (shell-скрипт, код 1); настоящий `clamscan.exe` на Windows ещё не запускался.
+- Вирусы (2026-11-18): libclamav не собран (см. `docs/status/clamav-build.md`), движок — заглушка «движок не собран». Проверка по сигнатурам идёт через `VirusScanPort` и проверена фейковым движком в тестах на Linux; на Windows ещё не запускалась. Статус по Windows — `planned` до сборки и проверки.
+- Оценка файла (инвентаризация, эвристика, заглушка ИИ) и карантин находок проверены юнит-тестами на Linux; на Windows тесты не запускались (карантин в тестах с реальным диском — только под `cfg(windows)`).
 - На macOS и Linux команды возвращают `kind: "unsupported"` или `"engineMissing"` с причиной.
 - Процессы на Windows: sysinfo, проценты CPU делятся на число ядер. Завершение и путь к exe не проверены на реальной Windows (с Linux проверена только компиляция и тесты чтения своего процесса), поэтому статус `implemented`. Службы не читаются: нужен Service Control Manager и FFI.

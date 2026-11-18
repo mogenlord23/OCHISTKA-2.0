@@ -28,6 +28,7 @@ impl From<CoreError> for ProgramsError {
             CoreError::Probe(_) => "probe",
             CoreError::EngineMissing(_) => "engineMissing",
             CoreError::InvalidTarget(_) => "refused",
+            CoreError::Cancelled => "cancelled",
         };
         Self {
             kind: kind.to_string(),

@@ -11,7 +11,7 @@ export type { Suspicion } from './generated/Suspicion';
 export type { SystemOverview } from './generated/SystemOverview';
 
 // Типы только фронтенда.
-export type ErrorKind = 'unsupported' | 'probe' | 'engineMissing' | 'invalidTarget';
+export type ErrorKind = 'unsupported' | 'probe' | 'engineMissing' | 'invalidTarget' | 'cancelled';
 
 /** Ошибка команды. `message` уже на русском. */
 export interface CommandError {

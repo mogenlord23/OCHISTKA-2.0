@@ -1,17 +1,34 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
-  import { cancelScan, scan, startScan } from '../lib/scanState.svelte';
+  import {
+    listQuarantine,
+    purgeItem,
+    restoreItem,
+    toDisksError,
+    type QuarantineEntry,
+  } from '../lib/disksApi';
+  import { cancelScan, quarantineSelected, scan, startScan } from '../lib/scanState.svelte';
   import type { CommandError, EngineStatus } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
 
+  /** Причина, по которой карантин помечает находки этой страницы (см. quarantineSelected). */
+  const SCAN_REASON_PREFIX = 'проверка «Вирусы»';
+
   let engine = $state<EngineStatus | null>(null);
   let engineError = $state<CommandError | null>(null);
+  let picked = $state<Record<number, boolean>>({});
+  let moving = $state(false);
+  let journalEntries = $state<QuarantineEntry[]>([]);
+  let journalNotice = $state('');
+  let confirmPurgeId = $state<string | null>(null);
 
   // Идёт либо сама проверка, либо оценка находок: новую начинать нельзя.
   const busy = $derived(scan.phase !== 'idle');
   const error = $derived(scan.error ?? engineError);
+  const findings = $derived(scan.report?.findings ?? []);
+  const pickedCount = $derived(findings.filter((_, index) => picked[index]).length);
 
   const startBlockReason = $derived(
     busy
@@ -22,6 +39,12 @@
           ? 'Укажите папку для проверки'
           : '',
   );
+
+  // Выбор относится к конкретному отчёту: новый отчёт или перенос сбрасывают отметки.
+  $effect(() => {
+    void scan.report;
+    picked = {};
+  });
 
   onMount(async () => {
     try {
@@ -39,8 +62,72 @@
     }
   });
 
+  async function refreshJournal(): Promise<void> {
+    try {
+      journalEntries = (await listQuarantine()).filter((entry) =>
+        entry.reason.startsWith(SCAN_REASON_PREFIX),
+      );
+    } catch (err) {
+      journalNotice = toDisksError(err).message;
+    }
+  }
+
+  $effect(() => {
+    if (subsection === 'log') {
+      void refreshJournal();
+    }
+  });
+
   function start() {
     void startScan(scan.target.trim());
+  }
+
+  async function moveSelected(): Promise<void> {
+    const chosen = findings.filter((_, index) => picked[index]);
+    moving = true;
+    try {
+      await quarantineSelected(chosen);
+    } catch (err) {
+      scan.notice = toDisksError(err).message;
+    } finally {
+      moving = false;
+    }
+  }
+
+  async function restore(entry: QuarantineEntry): Promise<void> {
+    try {
+      await restoreItem(entry.id, null);
+      journalNotice = `Возвращено: ${entry.originalPath}`;
+    } catch (err) {
+      const info = toDisksError(err);
+      journalNotice =
+        info.kind === 'occupied'
+          ? `Место занято, файл остаётся в карантине: ${entry.originalPath}`
+          : info.message;
+    }
+    await refreshJournal();
+  }
+
+  async function purge(entry: QuarantineEntry): Promise<void> {
+    confirmPurgeId = null;
+    try {
+      await purgeItem(entry.id, entry.purgeToken);
+      journalNotice = `Удалено окончательно: ${entry.originalPath}`;
+    } catch (err) {
+      journalNotice = toDisksError(err).message;
+    }
+    await refreshJournal();
+  }
+
+  function runSummary(run: (typeof scan.runs)[number]): string {
+    if (run.status === 'failed') {
+      return `ошибка: ${run.message}`;
+    }
+    if (run.status === 'cancelled') {
+      return 'отменена';
+    }
+    const skipped = run.skipped > 0 ? `, пропущено ${run.skipped} (больше 200 МБ)` : '';
+    return `проверено ${run.scanned}, находок ${run.infected}${skipped}`;
   }
 </script>
 
@@ -49,7 +136,7 @@
     <div class="alert" role="alert">
       <strong>Движок ClamAV не найден</strong>
       <p>{engine.reason}</p>
-      <p>Положите ClamAV в папку «clamav» рядом с приложением.</p>
+      <p>Сборка libclamav не выполнена: статус и причина в docs/status/clamav-build.md.</p>
     </div>
   {/if}
 
@@ -82,7 +169,7 @@
 
   <section class="scanner" class:active={busy} aria-live="polite">
     {#if scan.phase === 'scanning'}
-      <div class="sweep" data-testid="scan-sweep"></div>
+      <div class="sweep" data-testid="scan-sweep" aria-hidden="true"></div>
       <p>Проверяем файлы…</p>
     {:else if scan.phase === 'assessing'}
       <p>Оцениваем находки…</p>
@@ -99,23 +186,41 @@
 {#if subsection === 'findings'}
   {#if !scan.report}
     <p class="empty">Здесь появятся находки после проверки.</p>
-  {:else if scan.report.findings.length === 0}
+  {:else if findings.length === 0}
     <p class="empty">Угроз не найдено.</p>
   {:else}
+    {#if scan.notice}
+      <p class="empty" role="status">{scan.notice}</p>
+    {/if}
     {#if scan.assessFailures.count > 0}
       <p class="empty" role="status">
         Не удалось оценить файлов: {scan.assessFailures.count}. Причина: {scan.assessFailures
           .firstMessage}
       </p>
     {/if}
+    <div class="actions bar">
+      <span class="reason">Выбрано: {pickedCount}</span>
+      <button
+        type="button"
+        disabled={pickedCount === 0 || moving || busy}
+        title="Файлы переносятся в карантин; окончательное удаление — только в журнале"
+        onclick={() => void moveSelected()}
+      >
+        Удалить
+      </button>
+    </div>
     <ul class="findings">
-      {#each scan.report.findings as finding, index (`${finding.path}#${index}`)}
+      {#each findings as finding, index (`${finding.path}#${index}`)}
         {@const score = scan.suspicions[finding.path]}
         <li>
-          <div class="head">
-            <strong>{finding.signature}</strong>
-            <span class="path">{finding.path}</span>
-          </div>
+          <label class="pick">
+            <input type="checkbox" bind:checked={picked[index]} />
+            <span class="head">
+              <strong>{finding.signature}</strong>
+              <span class="path">{finding.path}</span>
+            </span>
+          </label>
+          <small>Причина: сигнатура {finding.signature}</small>
           {#if score}
             <div
               class="meter"
@@ -131,7 +236,6 @@
               Подсказка: {score.score}/100 — {score.reasons.join('; ') || 'признаков не найдено'}
             </small>
           {/if}
-          <button type="button" disabled title="Карантин — следующий шаг">Удалить</button>
         </li>
       {/each}
     </ul>
@@ -145,11 +249,44 @@
     <ul class="log">
       {#each scan.runs as run (run.id)}
         <li>
-          {run.startedAt} · {run.target} · проверено {run.scanned}, находок {run.infected}
+          {run.startedAt} · {run.target} · {runSummary(run)}
         </li>
       {/each}
     </ul>
   {/if}
+
+  <section class="quarantine-block">
+    <h3>Карантин от проверок</h3>
+    {#if journalNotice}
+      <p class="empty" role="status">{journalNotice}</p>
+    {/if}
+    {#if journalEntries.length === 0}
+      <p class="empty">В карантине от проверок пусто.</p>
+    {:else}
+      <ul class="quarantine-list">
+        {#each journalEntries as entry (entry.id)}
+          <li>
+            <span class="path">{entry.originalPath}</span>
+            <small>{entry.reason}</small>
+            <div class="actions">
+              <button type="button" onclick={() => void restore(entry)}>Вернуть</button>
+              {#if confirmPurgeId === entry.id}
+                <span class="reason">Удалить навсегда? Отменить нельзя.</span>
+                <button type="button" class="danger" onclick={() => void purge(entry)}>
+                  Подтвердить удаление
+                </button>
+                <button type="button" onclick={() => (confirmPurgeId = null)}>Отмена</button>
+              {:else}
+                <button type="button" onclick={() => (confirmPurgeId = entry.id)}>
+                  Удалить окончательно
+                </button>
+              {/if}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 {/if}
 
 <style>

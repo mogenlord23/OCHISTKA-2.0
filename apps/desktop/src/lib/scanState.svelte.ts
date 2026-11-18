@@ -1,13 +1,19 @@
 import { assessFile, scanStart, toCommandError } from './api';
+import { quarantineFindings } from './disksApi';
 import { scanCancel } from './scanControl';
-import type { CommandError, ScanReport, Suspicion } from './types';
+import type { CommandError, Finding, ScanReport, Suspicion } from './types';
 
+/** Одна попытка проверки: успешная, отменённая или с ошибкой (журнал показывает все). */
 export interface Run {
   id: number;
   startedAt: string;
   target: string;
+  status: 'done' | 'cancelled' | 'failed';
   scanned: number;
   infected: number;
+  skipped: number;
+  /** Причина для отменённой или неудачной попытки. */
+  message: string;
 }
 
 export type ScanPhase = 'idle' | 'scanning' | 'assessing';
@@ -44,6 +50,14 @@ export function resetScanState(): void {
   cancelRequested = false;
 }
 
+function now(): string {
+  return new Date().toLocaleTimeString('ru-RU');
+}
+
+function addRun(run: Omit<Run, 'id' | 'startedAt'>): void {
+  scan.runs = [{ id: nextRunId++, startedAt: now(), ...run }, ...scan.runs];
+}
+
 export async function startScan(path: string): Promise<void> {
   if (scan.phase !== 'idle' || path === '') {
     return;
@@ -59,25 +73,40 @@ export async function startScan(path: string): Promise<void> {
   try {
     result = await scanStart(path);
   } catch (err) {
-    if (cancelRequested) {
+    const command = toCommandError(err);
+    if (cancelRequested || command.kind === 'cancelled') {
       scan.notice = 'Проверка отменена';
+      addRun({
+        target: path,
+        status: 'cancelled',
+        scanned: 0,
+        infected: 0,
+        skipped: 0,
+        message: 'отменена пользователем',
+      });
     } else {
-      scan.error = toCommandError(err);
+      scan.error = command;
+      addRun({
+        target: path,
+        status: 'failed',
+        scanned: 0,
+        infected: 0,
+        skipped: 0,
+        message: command.message,
+      });
     }
     scan.phase = 'idle';
     return;
   }
   scan.report = result;
-  scan.runs = [
-    {
-      id: nextRunId++,
-      startedAt: new Date().toLocaleTimeString('ru-RU'),
-      target: path,
-      scanned: result.scannedFiles,
-      infected: result.infectedFiles,
-    },
-    ...scan.runs,
-  ];
+  addRun({
+    target: path,
+    status: 'done',
+    scanned: result.scannedFiles,
+    infected: result.infectedFiles,
+    skipped: result.skippedFiles,
+    message: '',
+  });
   // Сама проверка закончилась; дальше только оценка находок.
   scan.phase = 'assessing';
   try {
@@ -109,7 +138,7 @@ export async function startScan(path: string): Promise<void> {
   }
 }
 
-/** Просит бэкенд остановить clamscan; сама проверка завершится ошибкой, которую мы покажем как отмену. */
+/** Просит бэкенд остановить проверку; сама проверка завершится ошибкой, которую мы покажем как отмену. */
 export async function cancelScan(): Promise<void> {
   if (scan.phase !== 'scanning') {
     return;
@@ -121,4 +150,33 @@ export async function cancelScan(): Promise<void> {
     cancelRequested = false;
     scan.error = toCommandError(err);
   }
+}
+
+/**
+ * Переносит выбранные находки в карантин. Удаления нет: файлы попадают в карантин по ADR 0005.
+ * Из отчёта убираются только те находки, которые реально перенесены.
+ */
+export async function quarantineSelected(selected: Finding[]): Promise<number> {
+  if (selected.length === 0) {
+    return 0;
+  }
+  const items = selected.map((finding) => {
+    const reasons = scan.suspicions[finding.path]?.reasons ?? [];
+    const reason = [`сигнатура ${finding.signature}`, ...reasons].join('; ');
+    return { path: finding.path, reason };
+  });
+  const outcome = await quarantineFindings(items);
+  const failed = new Set(outcome.failures.map((failure) => failure.path));
+  const moved = new Set(selected.filter((finding) => !failed.has(finding.path)));
+  if (scan.report) {
+    scan.report = {
+      ...scan.report,
+      findings: scan.report.findings.filter((finding) => !moved.has(finding)),
+    };
+  }
+  scan.notice =
+    outcome.failed > 0
+      ? `В карантин: ${outcome.moved}. Не перенесено: ${outcome.failed}. Причина: ${outcome.failures[0]?.message ?? ''}`
+      : `В карантин: ${outcome.moved}.`;
+  return outcome.moved;
 }

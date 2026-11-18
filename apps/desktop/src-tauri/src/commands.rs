@@ -5,9 +5,10 @@ use std::sync::Arc;
 
 use std::path::Path;
 
-use ochistka_core::scan::{
-    run_scan, score_suspicion, validate_target, EngineStatus, ScanReport, Suspicion, VirusScanPort,
-};
+use ochistka_core::assess::{assess_path, NoModel, SuspicionModel};
+use ochistka_core::fs::{FsPort, Limits};
+use ochistka_core::heuristic::FileFacts;
+use ochistka_core::scan::{sweep, EngineStatus, ScanReport, VirusScanPort};
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
 use tauri::State;
@@ -26,6 +27,7 @@ impl From<CoreError> for CommandError {
             CoreError::Probe(_) => "probe",
             CoreError::EngineMissing(_) => "engineMissing",
             CoreError::InvalidTarget(_) => "invalidTarget",
+            CoreError::Cancelled => "cancelled",
         };
         Self {
             kind: kind.to_string(),
@@ -38,16 +40,44 @@ pub fn load_overview(port: &dyn SystemInfoPort) -> Result<SystemOverview, Comman
     port.overview().map_err(CommandError::from)
 }
 
-pub fn scan_with(port: &dyn VirusScanPort, target: &str) -> Result<ScanReport, CommandError> {
-    run_scan(port, target).map_err(CommandError::from)
+/// Проверка папки через порт движка; обход и отмена — в ядре.
+pub fn scan_with(
+    fs: &dyn FsPort,
+    port: &dyn VirusScanPort,
+    cancel: &AtomicBool,
+    target: &str,
+) -> Result<ScanReport, CommandError> {
+    sweep(fs, port, target, cancel, Limits::default()).map_err(CommandError::from)
 }
 
-/// Состояние приложения: адаптеры системных сведений и сканера.
+/// Состояние приложения: адаптеры системных сведений, движка и файлов, модель и флаги проверки.
 pub struct AppState {
     pub system: Arc<dyn SystemInfoPort>,
     pub scanner: Arc<dyn VirusScanPort>,
+    pub files: Arc<dyn FsPort>,
+    /// ИИ-слой оценки. Пока заглушка `NoModel`; локальная ONNX-модель подключится сюда.
+    pub model: Arc<dyn SuspicionModel>,
     /// Признак идущей проверки: одновременно допускается только одна.
     pub scan_running: Arc<AtomicBool>,
+    /// Запрос отмены текущей проверки; сбрасывается в начале каждой проверки.
+    pub scan_cancel: Arc<AtomicBool>,
+}
+
+impl AppState {
+    pub fn new(
+        system: Box<dyn SystemInfoPort>,
+        scanner: Box<dyn VirusScanPort>,
+        files: Arc<dyn FsPort>,
+    ) -> Self {
+        Self {
+            system: Arc::from(system),
+            scanner: Arc::from(scanner),
+            files,
+            model: Arc::new(NoModel),
+            scan_running: Arc::new(AtomicBool::new(false)),
+            scan_cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
 }
 
 /// Занимает право на проверку и освобождает его при выходе (в том числе при панике).
@@ -87,17 +117,20 @@ pub async fn get_system_overview(
         })?
 }
 
-/// Проверка идёт в фоне: окно остаётся отзывчивым, пока работает clamscan.
+/// Проверка идёт в фоне: окно остаётся отзывчивым. Отмена — через `scan_cancel`.
 #[tauri::command]
 pub async fn scan_start(
     state: State<'_, AppState>,
     target: String,
 ) -> Result<ScanReport, CommandError> {
     let guard = try_begin_scan(&state.scan_running)?;
+    state.scan_cancel.store(false, Ordering::SeqCst);
     let scanner = Arc::clone(&state.scanner);
+    let files = Arc::clone(&state.files);
+    let cancel = Arc::clone(&state.scan_cancel);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        scan_with(scanner.as_ref(), &target)
+        scan_with(files.as_ref(), scanner.as_ref(), &cancel, &target)
     })
     .await
     .map_err(|err| CommandError {
@@ -106,29 +139,44 @@ pub async fn scan_start(
     })?
 }
 
-/// Останавливает идущий clamscan. Если проверки нет, ничего не делает.
+/// Просит остановить идущую проверку. Возвращает `true`, если проверка шла.
 #[tauri::command]
-pub fn scan_cancel() -> bool {
-    ochistka_platform::windows::clamav::cancel_running_scan()
+pub fn scan_cancel(state: State<'_, AppState>) -> bool {
+    let running = state.scan_running.load(Ordering::SeqCst);
+    if running {
+        state.scan_cancel.store(true, Ordering::SeqCst);
+    }
+    running
 }
 
-/// Оценка одного файла: проверка пути, сбор признаков и эвристика. Не вердикт.
-pub fn assess_path(path: &str) -> Result<Suspicion, CommandError> {
-    validate_target(path).map_err(CommandError::from)?;
-    let facts = ochistka_platform::windows::files::file_facts(Path::new(path))
+/// Оценка одного файла: проверка пути, сбор признаков, инвентаризация и эвристика. Не вердикт.
+pub fn assess_file_with(
+    fs: &dyn FsPort,
+    model: &dyn SuspicionModel,
+    path: &str,
+) -> Result<ochistka_core::assess::Suspicion, CommandError> {
+    ochistka_core::scan::validate_target(path).map_err(CommandError::from)?;
+    let facts: FileFacts = ochistka_platform::windows::files::file_facts(Path::new(path))
         .map_err(CommandError::from)?;
-    Ok(score_suspicion(&facts))
+    assess_path(fs, path, &facts, model).map_err(CommandError::from)
 }
 
 /// Чтение файла идёт в фоновом потоке: недоступный сетевой диск не блокирует окно.
 #[tauri::command]
-pub async fn assess_file(path: String) -> Result<Suspicion, CommandError> {
-    tauri::async_runtime::spawn_blocking(move || assess_path(&path))
-        .await
-        .map_err(|err| CommandError {
-            kind: "probe".into(),
-            message: err.to_string(),
-        })?
+pub async fn assess_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<ochistka_core::assess::Suspicion, CommandError> {
+    let files = Arc::clone(&state.files);
+    let model = Arc::clone(&state.model);
+    tauri::async_runtime::spawn_blocking(move || {
+        assess_file_with(files.as_ref(), model.as_ref(), &path)
+    })
+    .await
+    .map_err(|err| CommandError {
+        kind: "probe".into(),
+        message: err.to_string(),
+    })?
 }
 
 #[tauri::command]
@@ -144,8 +192,10 @@ pub fn clamav_status(state: State<'_, AppState>) -> EngineStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ochistka_core::scan::Finding;
+    use ochistka_core::scan::{EngineStatus, FileVerdict};
     use ochistka_core::system::{CpuStatus, MemoryStatus};
+    use ochistka_platform::windows::clamav::ClamAvEngine;
+    use ochistka_platform::windows_cleanup::WindowsFs;
 
     enum Outcome {
         Ok,
@@ -208,56 +258,84 @@ mod tests {
         assert_eq!(err.message, "ошибка чтения системных данных: x");
     }
 
-    struct FakeScanner {
-        engine_ok: bool,
-    }
+    /// Движок, который считает любой файл заражённым (проверяем проводку, не сигнатуры).
+    struct AlwaysInfected;
 
-    impl VirusScanPort for FakeScanner {
+    impl VirusScanPort for AlwaysInfected {
         fn engine_status(&self) -> EngineStatus {
             EngineStatus {
-                available: self.engine_ok,
-                reason: if self.engine_ok {
-                    String::new()
-                } else {
-                    "clamscan.exe не найден".into()
-                },
+                available: true,
+                reason: String::new(),
             }
         }
 
-        fn scan(&self, _target: &str) -> Result<ScanReport, CoreError> {
-            if !self.engine_ok {
-                return Err(CoreError::EngineMissing("clamscan.exe не найден".into()));
-            }
-            Ok(ScanReport {
-                scanned_files: 2,
-                infected_files: 1,
-                errors: 0,
-                findings: vec![Finding {
-                    path: "C:\\a.exe".into(),
-                    signature: "Win.Test.X".into(),
-                }],
+        fn scan_file(&self, _path: &str) -> Result<FileVerdict, CoreError> {
+            Ok(FileVerdict::Found {
+                signature: "Win.Test.X".into(),
             })
         }
+
+        fn load_signatures(&self, _dir: &str) -> Result<(), CoreError> {
+            Ok(())
+        }
+    }
+
+    fn temp_folder_with_one_file(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!("ochistka-cmd-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.exe"), b"x").unwrap();
+        root
     }
 
     #[test]
     fn scan_returns_engine_report() {
-        let report = scan_with(&FakeScanner { engine_ok: true }, "C:\\Users").unwrap();
+        let root = temp_folder_with_one_file("report");
+        let cancel = AtomicBool::new(false);
+        let report = scan_with(
+            &WindowsFs,
+            &AlwaysInfected,
+            &cancel,
+            &root.to_string_lossy(),
+        );
+        std::fs::remove_dir_all(&root).ok();
+        let report = report.unwrap();
         assert_eq!(report.infected_files, 1);
         assert_eq!(report.findings[0].signature, "Win.Test.X");
     }
 
     #[test]
-    fn scan_maps_missing_engine_to_kind_engine_missing() {
-        let err = scan_with(&FakeScanner { engine_ok: false }, "C:\\Users").unwrap_err();
+    fn stub_engine_reports_engine_not_built_as_engine_missing() {
+        let cancel = AtomicBool::new(false);
+        let err =
+            scan_with(&WindowsFs, &ClamAvEngine::not_built(), &cancel, "C:\\Users").unwrap_err();
         assert_eq!(err.kind, "engineMissing");
-        assert_eq!(err.message, "движок недоступен: clamscan.exe не найден");
+        assert!(err
+            .message
+            .starts_with("движок недоступен: движок не собран"));
     }
 
     #[test]
     fn scan_maps_invalid_target_to_kind_invalid_target() {
-        let err = scan_with(&FakeScanner { engine_ok: true }, "Downloads").unwrap_err();
+        let cancel = AtomicBool::new(false);
+        let err = scan_with(&WindowsFs, &AlwaysInfected, &cancel, "Downloads").unwrap_err();
         assert_eq!(err.kind, "invalidTarget");
+    }
+
+    #[test]
+    fn cancelled_scan_maps_to_kind_cancelled() {
+        let root = temp_folder_with_one_file("cancel");
+        let cancel = AtomicBool::new(true);
+        let err = scan_with(
+            &WindowsFs,
+            &AlwaysInfected,
+            &cancel,
+            &root.to_string_lossy(),
+        )
+        .unwrap_err();
+        std::fs::remove_dir_all(&root).ok();
+        assert_eq!(err.kind, "cancelled");
+        assert_eq!(err.message, "проверка отменена");
     }
 
     #[test]
@@ -273,14 +351,13 @@ mod tests {
 
     #[test]
     fn assess_rejects_relative_path() {
-        assert_eq!(
-            assess_path("invoice.exe").unwrap_err().kind,
-            "invalidTarget"
-        );
+        let err = assess_file_with(&WindowsFs, &NoModel, "invoice.exe").unwrap_err();
+        assert_eq!(err.kind, "invalidTarget");
     }
 
     #[test]
     fn assess_reports_missing_file_as_probe() {
-        assert_eq!(assess_path("Z:\\missing\\x.exe").unwrap_err().kind, "probe");
+        let err = assess_file_with(&WindowsFs, &NoModel, "Z:\\missing\\x.exe").unwrap_err();
+        assert_eq!(err.kind, "probe");
     }
 }

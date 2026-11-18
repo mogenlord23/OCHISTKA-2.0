@@ -1,5 +1,8 @@
+pub mod assess;
 pub mod cleanup;
 pub mod fs;
+pub mod heuristic;
+pub mod inventory;
 pub mod layout;
 pub mod policy;
 pub mod processes;

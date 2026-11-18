@@ -1,6 +1,8 @@
-//! Адаптеры Windows: sysinfo (только чтение) и ClamAV (запуск clamscan по абсолютному пути).
+//! Адаптеры Windows: sysinfo (только чтение), реестр и движок ClamAV (libclamav, см. ADR 0004).
 
 pub mod clamav;
+#[cfg(feature = "libclamav")]
+pub mod clamav_ffi;
 pub mod files;
 pub mod processes;
 pub mod programs;

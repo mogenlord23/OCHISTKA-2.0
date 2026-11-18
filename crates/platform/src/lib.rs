@@ -30,27 +30,9 @@ pub fn current_system_info() -> Box<dyn SystemInfoPort> {
     Box::new(linux::LinuxSystemInfo)
 }
 
-/// Сканер ClamAV: на Windows — clamscan.exe из папки установки, на других ОС — заглушка с причиной.
-#[cfg(target_os = "windows")]
+/// Движок ClamAV. Без фичи `libclamav` — заглушка с причиной «движок не собран» на любой ОС.
 pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
-    use std::path::{Path, PathBuf};
-
-    let install_dir: Option<PathBuf> = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(Path::to_path_buf));
-    match install_dir {
-        Some(dir) => Box::new(windows::clamav::ClamAvScanner::from_install_dir(&dir)),
-        None => Box::new(windows::clamav::ClamAvScanner::unavailable(
-            "не удалось определить папку установки",
-        )),
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
-    Box::new(windows::clamav::ClamAvScanner::unavailable(
-        "проверка ClamAV доступна только в Windows",
-    ))
+    Box::new(windows::clamav::ClamAvEngine::build())
 }
 
 /// Раскладка и файловые операции очистки для текущей ОС: Windows — адаптер, остальные — заглушка.

@@ -1,12 +1,27 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VirusesPage from './VirusesPage.svelte';
 import { assessFile, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
+import {
+  listQuarantine,
+  purgeItem,
+  quarantineFindings,
+  restoreItem,
+  type QuarantineEntry,
+} from '../lib/disksApi';
 import { scanCancel } from '../lib/scanControl';
 import { resetScanState } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
 
 vi.mock('../lib/scanControl', () => ({ scanCancel: vi.fn() }));
+
+vi.mock('../lib/disksApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/disksApi')>()),
+  listQuarantine: vi.fn(),
+  quarantineFindings: vi.fn(),
+  purgeItem: vi.fn(),
+  restoreItem: vi.fn(),
+}));
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
@@ -18,6 +33,10 @@ vi.mock('../lib/api', async (importOriginal) => ({
 
 const DOWNLOADS = 'C:\\Users\\Slava\\Downloads';
 const START = 'Начать проверку';
+
+beforeEach(() => {
+  vi.mocked(listQuarantine).mockResolvedValue([]);
+});
 
 afterEach(() => {
   cleanup();
@@ -37,6 +56,7 @@ function report(findings: ScanReport['findings'] = []): ScanReport {
     scannedFiles: 5,
     infectedFiles: findings.length,
     errors: 0,
+    skippedFiles: 0,
     findings,
   };
 }
@@ -54,14 +74,23 @@ describe('VirusesPage scan', () => {
   it('FND-0182: blocks scanning and shows the engine reason and install hint', async () => {
     vi.mocked(clamavStatus).mockResolvedValue({
       available: false,
-      reason: 'C:\\app\\clamav\\clamscan.exe не найден',
+      reason:
+        'движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md',
     });
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
     render(VirusesPage, { props: { subsection: 'scan' } });
 
     expect(await screen.findByText('Движок ClamAV не найден')).toBeTruthy();
-    expect(screen.getByText('C:\\app\\clamav\\clamscan.exe не найден')).toBeTruthy();
-    expect(screen.getByText('Положите ClamAV в папку «clamav» рядом с приложением.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Сборка libclamav не выполнена: статус и причина в docs/status/clamav-build.md.',
+      ),
+    ).toBeTruthy();
     const start = screen.getByRole('button', { name: START }) as HTMLButtonElement;
     expect(start.disabled).toBe(true);
   });
@@ -83,6 +112,7 @@ describe('VirusesPage scan', () => {
       scannedFiles: 5,
       infectedFiles: 1,
       errors: 0,
+      skippedFiles: 0,
       findings: [{ path: 'C:\\Users\\Slava\\Downloads\\invoice.pdf.exe', signature: 'Win.Test.X' }],
     });
     expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();
@@ -111,13 +141,13 @@ describe('VirusesPage scan', () => {
     engineOk();
     vi.mocked(scanStart).mockRejectedValue({
       kind: 'invalidTarget',
-      message: 'clamscan завершился с ошибкой',
+      message: 'движок не проверил файл',
     });
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('clamscan завершился с ошибкой');
+    expect(alert.textContent).toContain('движок не проверил файл');
     expect(screen.queryByTestId('scan-sweep')).toBeNull();
     // Кнопка снова доступна после ошибки.
     await waitFor(() =>
@@ -198,7 +228,7 @@ describe('VirusesPage scan', () => {
   });
 
   it('FND-0097: shows the visible reason when the engine is unavailable', async () => {
-    vi.mocked(clamavStatus).mockResolvedValue({ available: false, reason: 'нет clamscan' });
+    vi.mocked(clamavStatus).mockResolvedValue({ available: false, reason: 'нет движка' });
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
     render(VirusesPage, { props: { subsection: 'scan' } });
 
@@ -417,5 +447,87 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
         false,
       ),
     );
+  });
+});
+
+describe('VirusesPage findings: selection and quarantine', () => {
+  it('moves only the selected findings to quarantine and drops them from the list', async () => {
+    engineOk();
+    const a = `${DOWNLOADS}\\a.exe`;
+    const b = `${DOWNLOADS}\\b.exe`;
+    vi.mocked(scanStart).mockResolvedValue(
+      report([
+        { path: a, signature: 'Win.A.Test' },
+        { path: b, signature: 'Win.B.Test' },
+      ]),
+    );
+    vi.mocked(assessFile).mockResolvedValue({
+      score: 30,
+      reasons: ['исполняемый файл в загрузках'],
+    });
+    vi.mocked(quarantineFindings).mockResolvedValue({
+      moved: 1,
+      bytes: 1,
+      failed: 0,
+      failures: [],
+    });
+
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+    await view.rerender({ subsection: 'findings' });
+    await screen.findAllByText(/Подсказка: 30\/100/);
+
+    const move = screen.getByRole('button', { name: 'Удалить' }) as HTMLButtonElement;
+    expect(move.disabled).toBe(true);
+    await fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    expect(move.disabled).toBe(false);
+    await fireEvent.click(move);
+
+    await waitFor(() =>
+      expect(quarantineFindings).toHaveBeenCalledWith([
+        { path: a, reason: 'сигнатура Win.A.Test; исполняемый файл в загрузках' },
+      ]),
+    );
+    expect(await screen.findByText('В карантин: 1.')).toBeTruthy();
+    expect(screen.queryByText('Win.A.Test')).toBeNull();
+    expect(screen.getByText('Win.B.Test')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.B.Test')).toBeTruthy();
+  });
+
+  it('shows failed attempts in the journal', async () => {
+    engineOk();
+    vi.mocked(scanStart).mockRejectedValue({ kind: 'probe', message: 'файл недоступен' });
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByRole('alert');
+
+    const view = render(VirusesPage, { props: { subsection: 'log' } });
+    const items = await screen.findAllByRole('listitem');
+    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toContain('ошибка: файл недоступен');
+    view.unmount();
+  });
+
+  it('permanent deletion needs a second confirmation and then uses the entry token', async () => {
+    const entry = {
+      id: '0123456789abcdef',
+      originalPath: `${DOWNLOADS}\\x.exe`,
+      size: 1,
+      sha256: '',
+      movedAtUnix: 1,
+      reason: 'проверка «Вирусы»: сигнатура Win.X',
+      purgeToken: 'purge:0123456789abcdef',
+    } as QuarantineEntry;
+    vi.mocked(listQuarantine).mockResolvedValue([entry]);
+    vi.mocked(purgeItem).mockResolvedValue(entry);
+    vi.mocked(restoreItem).mockResolvedValue(entry);
+
+    render(VirusesPage, { props: { subsection: 'log' } });
+    await fireEvent.click(await screen.findByRole('button', { name: 'Удалить окончательно' }));
+    expect(purgeItem).not.toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Подтвердить удаление' }));
+    await waitFor(() => expect(purgeItem).toHaveBeenCalledWith(entry.id, entry.purgeToken));
   });
 });

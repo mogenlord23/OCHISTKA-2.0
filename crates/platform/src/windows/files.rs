@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use ochistka_core::scan::FileFacts;
+use ochistka_core::heuristic::FileFacts;
 use ochistka_core::system::CoreError;
 
 /// Папка «Загрузки» пользователя по пути профиля. Только строка, диск не читается.

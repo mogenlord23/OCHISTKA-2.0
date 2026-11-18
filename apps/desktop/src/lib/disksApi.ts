@@ -97,7 +97,8 @@ type Request =
   | { action: 'largeFiles' }
   | { action: 'spaceReport'; drive: string }
   | { action: 'privacyReport' }
-  | { action: 'listDrives' };
+  | { action: 'listDrives' }
+  | { action: 'quarantineFindings'; items: { path: string; reason: string }[] };
 
 async function request(payload: Request): Promise<DisksResponse> {
   return invoke<DisksResponse>('disks_request', { request: payload });
@@ -160,6 +161,13 @@ export async function spaceReport(drive: string): Promise<SpaceReport> {
 
 export async function privacyReport(): Promise<PrivacyItem[]> {
   return expect(await request({ action: 'privacyReport' }), 'privacy').items;
+}
+
+/** Находки проверки в карантин (через ту же раскладку и белый список, что и очистка). */
+export async function quarantineFindings(
+  items: { path: string; reason: string }[],
+): Promise<MoveOutcome> {
+  return expect(await request({ action: 'quarantineFindings', items }), 'cleaned').outcome;
 }
 
 export async function listDrives(): Promise<string[]> {
