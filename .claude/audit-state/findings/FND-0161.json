@@ -8,5 +8,8 @@
   "summary": "The package inherits version, edition and publish from the workspace but declares no license or description, although the project bundles GPL-2.0 ClamAV per ADR 0002",
   "evidence": "apps/desktop/src-tauri/Cargo.toml:1-5; root Cargo.toml:5-8 defines neither",
   "failure_scenario": "No build failure. Package metadata states no license; whether the installer reads Cargo description is UNVERIFIED.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

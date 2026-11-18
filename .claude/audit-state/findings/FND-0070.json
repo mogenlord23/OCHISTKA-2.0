@@ -8,5 +8,8 @@
   "summary": "Probe message prefix \"ошибка чтения системных данных\" is reused for clamscan launch, exit-code and file-access failures; CoreError also carries scan-domain variants inside the system module",
   "evidence": "system.rs:99-100; clamav.rs:77,83; files.rs:23; system.rs:1 module doc says system data only",
   "failure_scenario": "A clamscan launch failure shows \"ошибка чтения системных данных\" to the user.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

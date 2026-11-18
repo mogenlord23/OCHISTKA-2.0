@@ -8,5 +8,8 @@
   "summary": "The lead-string test asserts only typeof string, which the TypeScript type already guarantees, and it passes for empty strings; three sections ship with an empty lead and the test does not notice",
   "evidence": "sections.test.ts:45-50; sections.ts:18 lead string type; sections.ts:59, 62, 75 lead empty; App.svelte:55 renders lead only when truthy",
   "failure_scenario": "Setting the VPN or Вирусы lead to an empty string at sections.ts:27 removes the subtitle with every test still green.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

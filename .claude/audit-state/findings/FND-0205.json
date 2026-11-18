@@ -8,5 +8,8 @@
   "summary": "Test titled black text on every section colour, the purple one included (4.86:1) asserts only the computer colour at 4.5 and hard-codes #080808 instead of NEUTRAL.black (FND-0084 drift risk)",
   "evidence": "tokens.test.ts:48-51; tokens.test.ts:44 loop already covers computer",
   "failure_scenario": "Changing processes to #0000ff makes textOn return white; lines 44 and 48-51 still pass although the title promises black text.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

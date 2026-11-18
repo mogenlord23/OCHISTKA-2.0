@@ -8,5 +8,8 @@
   "summary": "defaultScanTarget result overwrites target after the user may have typed a path; input is enabled during mount",
   "evidence": "VirusesPage.svelte:35-36 assignment; 100 input not disabled during mount",
   "failure_scenario": "User types D:\\Work before the second IPC response: the input is overwritten with the default folder. Window is short; UNVERIFIED.",
-  "status": "deferred"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

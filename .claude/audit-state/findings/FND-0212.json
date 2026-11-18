@@ -1,0 +1,20 @@
+{
+  "id": "FND-0212",
+  "file": "apps/desktop/src/lib/api.ts",
+  "lines": "assessFile, defaultScanTarget",
+  "severity": "low",
+  "confidence": "high",
+  "type": "unchecked-contract",
+  "summary": "assessFile (Suspicion) and defaultScanTarget still rely on invoke<T> casts; the runtime shape guard added for the other three commands does not cover them",
+  "evidence": "apps/desktop/src/lib/api.ts (assessFile, defaultScanTarget); re-verifier FND-0060 report",
+  "failure_scenario": "A backend contract change to Suspicion or the default path reaches the UI as undefined fields without an error.",
+  "status": "wontfix",
+  "detected_by": "re-verifier",
+  "linked": [
+    "FND-0060",
+    "FND-0191"
+  ],
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
+}

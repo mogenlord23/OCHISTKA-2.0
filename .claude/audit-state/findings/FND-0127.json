@@ -8,5 +8,8 @@
   "summary": "Placeholder.svelte is an orphan duplicate of PlaceholderPage.svelte: no importer, not in the bundle graph, no tests; checked by grep across the repo and build config",
   "evidence": "grep Placeholder excluding node_modules/target/.claude: only PlaceholderPage imports; vite.config.ts no aliases or globs; tsconfig includes it only for svelte-check",
   "failure_scenario": "Dead code that drifts from the component actually used. Recommend deletion after owner confirmation.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

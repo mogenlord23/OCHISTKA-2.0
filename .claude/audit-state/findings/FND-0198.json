@@ -8,5 +8,8 @@
   "summary": "Boundary comparison and loop cap are not pinned: changing < 1024 to <= 1024 or removing the unit cap passes all tests; only КБ and ГБ are asserted, МБ and ТБ never",
   "evidence": "format.test.ts:5-13; format.ts:5 bytes < 1024; format.ts:10 unit < UNITS.length - 1; FND-0073, FND-0075 cross-references",
   "failure_scenario": "formatBytes(1024) becomes 1024 Б under <=; formatBytes(1024**5) becomes 1.0 undefined without the cap; disks over 1 TiB are realistic on the Home disks card.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

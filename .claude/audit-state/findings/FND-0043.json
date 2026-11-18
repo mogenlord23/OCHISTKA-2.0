@@ -8,5 +8,8 @@
   "summary": "Module doc says read-only adapter, but the adapter directory also hosts clamav (runs a process) and files; compiled on every OS",
   "evidence": "mod.rs:1; lib.rs:5 pub mod windows without cfg (FND-0003)",
   "failure_scenario": "Reviewers misjudge the scope of this module.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

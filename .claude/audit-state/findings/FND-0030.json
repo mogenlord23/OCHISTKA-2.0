@@ -8,5 +8,8 @@
   "summary": "App commands have no per-command allow-list; assess_file works as a file oracle for any absolute or UNC path",
   "evidence": "build.rs uses default tauri_build::build() with no AppManifest; capabilities/default.json lists only core permissions. UNVERIFIED: Tauri default-allow behaviour for app commands. VERIFIED (capabilities audit, tauri-2.12.6 src/webview/mod.rs:2076-2084): the ACL check is skipped for non-plugin commands from local pages when the app has no permission manifest, so capability entries cannot restrict the five app commands.",
   "failure_scenario": "If default-allow applies, any webview content can probe file existence and size outside the scan scope. Related to FND-0007.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

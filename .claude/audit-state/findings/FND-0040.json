@@ -8,5 +8,8 @@
   "summary": "Every poll issues IOCTL_DISK_PERFORMANCE on each volume; this may change kernel counter state, against the read-only claim",
   "evidence": "mod.rs:1 says read-only; sysinfo disk.rs:215-216, 476-485. UNVERIFIED: Microsoft IOCTL semantics (no local docs).",
   "failure_scenario": "If the IOCTL enables counters, the adapter is not strictly read-only. Needs verification on Windows.",
-  "status": "deferred"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

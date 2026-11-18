@@ -8,5 +8,8 @@
   "summary": "No test checks aria-current or the active class on rail items; removing either would not fail any test",
   "evidence": "grep for Navigation|rail|icons|aria-current in test files finds only App.test.ts:24,41",
   "failure_scenario": "Regression in active-section indication goes unnoticed.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "AA assertions for textOn use contrastRatio as their only oracle, and contrastRatio is pinned only at 21:1 (black and white endpoints); a wrong luminance exponent passes every check while a mid-tone colour that fails AA is accepted",
   "evidence": "tokens.test.ts:36-37, 42-51; tokens.ts:19 exponent 2.4, :43 textOn; App.svelte:29 --page-text from textOn; FND-0087, FND-0083",
   "failure_scenario": "Changing the exponent at tokens.ts:19 from 2.4 to 2.2 keeps all tests green; a #777777 page colour would be accepted with black text at 5.005:1 while true sRGB best is white at 4.478:1, below AA.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

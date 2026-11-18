@@ -8,5 +8,8 @@
   "summary": "aria-label repeats the visible title text; the two can drift apart",
   "evidence": "Navigation.svelte:31 aria-label; 38 span text",
   "failure_scenario": "Future label edit in one place only.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

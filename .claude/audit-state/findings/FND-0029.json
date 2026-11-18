@@ -8,5 +8,8 @@
   "summary": "JoinError from a panic is reported as kind probe with an untranslated tokio message, which the doc says is Russian; panics are indistinguishable from probe errors",
   "evidence": "commands.rs:14 doc says Russian message; commands.rs:58-61,73-76 err.to_string(); tauri error.rs:72-73 transparent. UNVERIFIED: exact tokio text.",
   "failure_scenario": "A panic in overview or scan shows an English message under the probe kind.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "formatBytes shows 1024.0 of the smaller unit for values just under a unit boundary instead of 1.0 of the next unit",
   "evidence": "format.ts:10-14 loop tests exact value, toFixed(1) rounds afterwards; 1048575 -> \"1024.0 КБ\"",
   "failure_scenario": "Disk with about 1023.97 ГБ used shows \"1024.0 ГБ\" instead of \"1.0 ТБ\". Display only. Tests do not cover the boundary.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

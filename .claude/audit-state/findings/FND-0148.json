@@ -8,5 +8,8 @@
   "summary": "npm run check and npm test do not run Prettier; formatting is checked only by the separate format:check script, although CLAUDE.md lists Prettier among the six checks",
   "evidence": "package.json:13-14 test and check chains; package.json:12 format:check; README.md:25 lists format:check as its own step",
   "failure_scenario": "npm run check && npm test passes with unformatted files. Mitigated by the README step.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "Test fixtures use a path containing what looks like a real username; a neutral placeholder would avoid this, as VirusesPage.svelte:100 already does",
   "evidence": "VirusesPage.test.ts:34, 45, 62 C:\\Users\\Slava\\Downloads",
   "failure_scenario": "No behavioural impact; privacy and style observation.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

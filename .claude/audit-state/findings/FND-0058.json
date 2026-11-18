@@ -8,5 +8,8 @@
   "summary": "types.ts says message is already Russian, but non-CommandError rejections pass through as raw text labelled probe, and the UI titles them as data-read failures",
   "evidence": "api.ts:59; types.ts:30; Home.svelte:47-51 heading for probe",
   "failure_scenario": "toCommandError(\"invalid args ...\") -> {kind:\"probe\", message:\"invalid args ...\"}. UNVERIFIED exact Tauri rejection strings.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

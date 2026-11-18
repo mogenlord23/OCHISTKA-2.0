@@ -8,5 +8,8 @@
   "summary": "With TAURI_DEV_HOST set to a LAN or 0.0.0.0 address, ports 1420 and undocumented 1421 listen on that interface and sources (fs.allow = repo root) are served; port 1421 failure is only logged; development only",
   "evidence": "vite.config.ts:14-15; node.js:24545,24674 bind to host; node.js:24598 non-strict ws port; node.js:25121 localhost CORS; node.js:25158 fs.allow root; no documentation of 1421",
   "failure_scenario": "Developer on a shared network sets TAURI_DEV_HOST=0.0.0.0: repo files outside fs.deny readable by LAN peers during dev.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

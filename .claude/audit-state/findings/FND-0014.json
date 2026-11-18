@@ -8,5 +8,8 @@
   "summary": "windows_adapter_reads_live_system_overview has no cfg, so a green Linux run says nothing about Windows",
   "evidence": "lib.rs:76-80 no #[cfg(target_os=\"windows\")]; docs/platform-status.md keeps status implemented",
   "failure_scenario": "Green cargo test on Linux is misread as Windows coverage. Status is not mislabelled today.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "The file never calls cleanup and sets no globals or setupFiles, so the DOM from the subscription test persists into the servers test, making results order-dependent",
   "evidence": "VpnPage.test.ts:1-18 no afterEach or cleanup; vite.config.ts:20-23 no globals or setupFiles; @testing-library/svelte index.js:14 registers cleanup only if afterEach exists; other test files call cleanup (App.test.ts:21, VirusesPage.test.ts:24, TitleBar.test.ts:16, Home.test.ts:38)",
   "failure_scenario": "Adding a routes test that renders the placeholder before the servers test makes getByText В разработке find multiple elements, a false red. The servers test outcome depends on test 1 leftovers.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

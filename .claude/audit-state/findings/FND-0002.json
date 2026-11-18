@@ -8,5 +8,8 @@
   "summary": "Virus scanner availability is read once at startup and never refreshed",
   "evidence": "lib.rs:15 Arc::from(current_virus_scanner()); clamav.rs:33-46 from_install_dir checks is_file() once; commands.rs:97-100 clamav_status returns the cached flag",
   "failure_scenario": "clamscan.exe installed after launch: status stays unavailable until restart. clamscan.exe removed after launch: status says available but scan fails with probe instead of engineMissing.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

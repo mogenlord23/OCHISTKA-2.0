@@ -8,5 +8,8 @@
   "summary": "CLAUDE.md promises selection of findings and a quarantine delete button; code has no selection and Удалить is hard-disabled. Also, the unused class:active on the scanner",
   "evidence": "VirusesPage.svelte:135-160; 117 class:active with no matching style rule; CLAUDE.md antivirus section",
   "failure_scenario": "Documented feature appears present but is not. Dead class directive.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

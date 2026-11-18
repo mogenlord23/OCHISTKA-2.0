@@ -8,5 +8,8 @@
   "summary": "Components use literals outside the token scales: hover colours, 10px radius, a separate GitHub-style palette (#161b22, #8b949e, #21262d, #1f6feb, #da3633) and 4px radius, so cards differ in colour and muted text",
   "evidence": "listed files and lines; NEUTRAL.surface #141414 vs #161b22; NEUTRAL.muted #8b8b8b vs #8b949e; --text-lead and --text-display unused (see FND-0023)",
   "failure_scenario": "Computer cards and Viruses panels look subtly different and drift further as tokens change.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

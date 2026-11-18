@@ -8,5 +8,8 @@
   "summary": "Bare build() watches only paths that exist at build time; a later permissions/ manifest, tauri.windows.conf.json or icon change is ignored until a forced rebuild",
   "evidence": "acl.rs:304-310 rerun-if-changed=permissions only if it exists; parse.rs:183-186 platform config only if it exists; lib.rs:810-876 icon without rerun line",
   "failure_scenario": "Developer adds permissions/default.toml for app commands (the FND-0030 fix): cached OUT_DIR keeps has_app_manifest=false until cargo clean. Same for platform config overrides and icon replacement. Fix belongs in build.rs.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

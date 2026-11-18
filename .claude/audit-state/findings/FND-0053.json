@@ -8,5 +8,8 @@
   "summary": "Trailing dot or space after the last extension zeroes the heuristic: invoice.pdf.exe. scores 0 instead of 70 because the extension becomes an empty or non-listed string; Windows resolves the file anyway",
   "evidence": "scan.rs:96-103 split on \".\" and take last part; Win32 path normalisation strips trailing dot and space (UNVERIFIED in this source)",
   "failure_scenario": "assess_file(\"C:\\\\Users\\\\u\\\\Downloads\\\\invoice.pdf.exe.\") returns score 0. Hint only. Related to FND-0008 but a different cause.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

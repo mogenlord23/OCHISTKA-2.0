@@ -8,5 +8,8 @@
   "summary": "No contrast test for neutral text pairs or the 3:1 UI rule; NEUTRAL test only compares values, so the muted caption on surfaceAlt can drop below 4.5:1 with every test green; extends FND-0019",
   "evidence": "tokens.test.ts:66-76; docs/design/accessibility-2026-11-18.md:16-17 (5.54:1 and 19.19:1); FND-0019, FND-0086",
   "failure_scenario": "Changing NEUTRAL.muted to #6b6b6b (captions drop to 3.54:1 on surfaceAlt) passes all tests.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

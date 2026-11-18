@@ -8,5 +8,8 @@
   "summary": "The capability file reads as the full list of what the webview may call, but the five app commands are not governed by it",
   "evidence": "webview/mod.rs:2080 skips the check for non-plugin commands; build.rs:2 has no app permission manifest; commands registered at src-tauri/src/lib.rs:17-23",
   "failure_scenario": "A reviewer concludes scan_start and assess_file are not reachable. If an app manifest is added later, all five commands get rejected until listed here.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

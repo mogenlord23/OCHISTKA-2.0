@@ -8,5 +8,8 @@
   "summary": "Tests cover only 0, 500, 1536, 1 GiB and 12.4; missing 1023/1024, 1048575 boundary, ТБ and the cap, .5 rounding, non-finite inputs",
   "evidence": "format.test.ts:4-20",
   "failure_scenario": "Regressions in FND-0073 and rounding go unnoticed.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

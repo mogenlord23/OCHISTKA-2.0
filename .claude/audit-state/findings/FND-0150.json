@@ -8,5 +8,8 @@
   "summary": "The && chains stop at the first failure, so a svelte-check failure hides fmt and clippy results and a vitest failure hides cargo test results",
   "evidence": "package.json:13 test chain; package.json:14 check chain",
   "failure_scenario": "Only one layer of problems is reported per run; exit status remains non-zero.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

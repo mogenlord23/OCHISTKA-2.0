@@ -1,0 +1,20 @@
+{
+  "id": "FND-0211",
+  "file": "apps/desktop/src/components/Home.svelte",
+  "lines": "7-36",
+  "severity": "low",
+  "confidence": "medium",
+  "type": "residual-risk",
+  "summary": "Disk enumeration has no backend cancel or singleflight: during a persistent hung drive, the 10 s client timeout abandons one backend call per 10 s and each remount adds more, so blocked threads accumulate in parallel",
+  "evidence": "crates/platform/src/windows/mod.rs (lock narrowed, disks outside lock); Home.svelte REQUEST_TIMEOUT_MS; re-verifier FND-0103 report",
+  "failure_scenario": "A hung removable drive during a long session leaves a growing number of blocked worker threads. Blocking duration UNVERIFIED on Windows. Fix belongs in the backend (cache or singleflight for the disk list, or a per-call timeout).",
+  "status": "wontfix",
+  "detected_by": "re-verifier",
+  "linked": [
+    "FND-0103",
+    "FND-0102"
+  ],
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
+}

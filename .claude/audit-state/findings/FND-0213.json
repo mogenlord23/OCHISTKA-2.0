@@ -1,0 +1,19 @@
+{
+  "id": "FND-0213",
+  "file": "crates/ochistka-core/tests/generated_types.rs",
+  "lines": "export_all_into list",
+  "severity": "low",
+  "confidence": "high",
+  "type": "drift-gap",
+  "summary": "The drift test compares a hand-written list of exported types; a new #[ts(export)] DTO missing from that list is not generated into apps/desktop/src/lib/generated and the test stays green",
+  "evidence": "crates/ochistka-core/tests/generated_types.rs export_all_into (8 calls); re-verifier FND-0191 report",
+  "failure_scenario": "A new DTO is added to Rust, not added to the list, and the frontend keeps a hand-written copy or lacks the type with no test failure.",
+  "status": "wontfix",
+  "detected_by": "re-verifier",
+  "linked": [
+    "FND-0191"
+  ],
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
+}

@@ -8,5 +8,8 @@
   "summary": "Network, optical and RAM drives are not listed; a volume with several mount paths appears once per path, so totals may double-count",
   "evidence": "sysinfo disk.rs:317-319 drive type filter; disk.rs:355-413 one entry per mount path",
   "failure_scenario": "Volume mounted at D:\\ and C:\\mnt\\data\\ counted twice in totals.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

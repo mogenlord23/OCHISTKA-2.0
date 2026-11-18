@@ -8,5 +8,8 @@
   "summary": "No test clicks a subtab, checks aria-current, or checks that onSelect receives the id; onSelect(items[0].id) would pass all tests",
   "evidence": "grep of test files: only App.test.ts:36,45 check that buttons exist; no Subtabs.test.ts; CLAUDE.md requires tests for every function",
   "failure_scenario": "Regression in tab selection goes unnoticed.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

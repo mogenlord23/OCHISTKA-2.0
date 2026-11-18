@@ -8,5 +8,8 @@
   "summary": "Single-word labels in a fixed 100px box with no overflow rule; a wider fallback font could overflow the button",
   "evidence": "Navigation.svelte:94-97 and content width estimate; not rendered",
   "failure_scenario": "With a wider fallback font a long title overflows its button. UNVERIFIED.",
-  "status": "deferred"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

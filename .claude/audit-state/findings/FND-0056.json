@@ -8,5 +8,8 @@
   "summary": "Weak assertions and gaps: unchecked findings[0] length, score >= 40 instead of exact, no coverage of most validate_target forms, CRLF, unparseable summary or FOUND without \": \"; one test checks system.rs Display, not this file",
   "evidence": "scan.rs:171-176, 196-200, 203-211, 235, 303-306",
   "failure_scenario": "Spurious extra findings or added score points pass unnoticed; validation regressions on \"/\", \"C:\", U+202E go undetected.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

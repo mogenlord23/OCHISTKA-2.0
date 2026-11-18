@@ -8,5 +8,8 @@
   "summary": "prettier and prettier-plugin-svelte use major-only ranges; format:check results depend on the committed lockfile and can change on any install or update",
   "evidence": "package.json:17-18; lock:2133 prettier 3.10.1; lock:2149 plugin 3.5.2",
   "failure_scenario": "npm update moves Prettier minor version and format:check output changes without code changes.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

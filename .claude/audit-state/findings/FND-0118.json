@@ -8,5 +8,8 @@
   "summary": "Close hover colour equals the VPN accent background (#ff009d), so on hover the button merges with the background; normal hover #1f1f1f against #080808 is about 1.2:1 and barely visible",
   "evidence": "TitleBar.svelte:63-70; tokens.ts:5 VPN accent; App.svelte:113 shell background",
   "failure_scenario": "Hovering close on the first screen: only the glyph remains visible.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "Without RC env or Windows Kits, the build runs a bare rc.exe or windres from PATH; a failing RC panics via unwrap, bypassing the contextual error",
   "evidence": "embed-resource windows_msvc.rs:34-36 unwrap_or(Path::new(\"rc.exe\")); tauri-winres lib.rs:541-543 unwrap",
   "failure_scenario": "Build host with a rogue rc.exe on PATH runs it at build time. Build-host trust dependency, undocumented in the project.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "No [profile.*] section; the release binary uses Cargo defaults (opt-level 3, lto off, codegen-units 16, panic=unwind)",
   "evidence": "no [profile] in any Cargo.toml; profiles apply only at workspace root",
   "failure_scenario": "Release binary larger and slower than size-optimized profiles. Design choice, not a defect. Tauri recommendation not checked locally.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

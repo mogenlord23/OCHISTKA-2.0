@@ -8,5 +8,8 @@
   "summary": "In-startup and in-downloads are decided by any folder with that name in the path, not by the real Startup or Downloads folders; the app has two definitions of Downloads",
   "evidence": "files.rs:34-42 substring checks; files.rs:14-18 default_downloads builds the real path but classify ignores it; scan.rs:111-117 +30 per flag, startup wins",
   "failure_scenario": "D:\\\\dev\\\\startup\\\\target\\\\release\\\\app.exe gets in_startup=true; C:\\\\Users\\\\Startup\\\\Downloads\\\\setup.exe gets startup reason instead of downloads; relocated D:\\\\Загрузки\\\\setup.exe gets in_downloads=false. Hints only; nothing deleted.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

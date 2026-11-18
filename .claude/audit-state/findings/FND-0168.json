@@ -8,5 +8,8 @@
   "summary": "Mocks are never reset (no clearAllMocks or restoreMocks in this file or vite.config.ts), and onMount promises in the Вирусы test are not awaited before cleanup",
   "evidence": "App.test.ts:14-21; vite.config.ts:20-23; VirusesPage.svelte:29-40",
   "failure_scenario": "A future toHaveBeenCalledTimes assertion would see counts accumulate across tests. Harmless today.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

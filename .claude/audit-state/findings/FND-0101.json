@@ -8,5 +8,8 @@
   "summary": "Journal records only successful scans; failed attempts (invalid target, missing engine, clamscan error) are not listed",
   "evidence": "VirusesPage.svelte:54-62 runs only after scanStart resolves; catch at 76-77 does not record",
   "failure_scenario": "User cannot see that a scan was attempted and failed.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

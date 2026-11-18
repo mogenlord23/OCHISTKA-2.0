@@ -8,5 +8,8 @@
   "summary": "Note override path untested; no test file for PlaceholderPage; only default text checked (App.test.ts:53, VpnPage.test.ts:16)",
   "evidence": "grep for Подразделы уточняются finds only App.svelte:72 and no test; no PlaceholderPage.test.ts",
   "failure_scenario": "Regression in note prop goes unnoticed (CLAUDE.md: every feature has tests).",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

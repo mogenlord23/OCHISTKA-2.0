@@ -8,5 +8,8 @@
   "summary": "Subsection id is a plain string; page components match hand-typed literals with no shared type, so a rename silently removes a page",
   "evidence": "sections.ts:7-10 id: string; VirusesPage.svelte 84/129/165; VpnPage.svelte:7; ComputerPage.svelte:8; App.svelte:15 duplicates the first id instead of reading it",
   "failure_scenario": "Renaming scan to check in sections.ts: compiles, tests pass, the Проверка tab matches no branch and the scan UI disappears silently. Same for subscription at startup.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

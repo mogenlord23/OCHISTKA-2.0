@@ -8,5 +8,8 @@
   "summary": "getCurrentWindow() at component start throws outside Tauri (no __TAURI_INTERNALS__), so the whole App fails to mount in a plain browser or dev preview; tests mock the module and cannot catch it",
   "evidence": "TitleBar.svelte:4; App.svelte:50 renders it; tests mock getCurrentWindow (TitleBar.test.ts:11-13, App.test.ts:6-12); window.js:110 reads metadata",
   "failure_scenario": "Open http://127.0.0.1:1420 in a normal browser: blank page with TypeError reading metadata. Release is inside Tauri so unaffected.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

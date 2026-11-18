@@ -8,5 +8,8 @@
   "summary": "Component renders its own h1, which would give a second level-1 heading inside any section page (App.svelte:54 already renders one); latent since nothing imports it",
   "evidence": "Placeholder.svelte:5 h1; App.svelte:54 h1; no importer found",
   "failure_scenario": "Future use in place of PlaceholderPage: two h1 with the same text in one section.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

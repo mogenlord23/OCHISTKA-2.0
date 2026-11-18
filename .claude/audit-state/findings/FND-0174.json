@@ -8,5 +8,8 @@
   "summary": "Test titled shows loading until data arrives checks only the initial state; no test asserts the loading text disappears after data arrives",
   "evidence": "Home.test.ts:44-48; Home.test.ts:50-60 does not check queryByText Загрузка is null",
   "failure_scenario": "Loading text could stay visible after data and no test fails.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

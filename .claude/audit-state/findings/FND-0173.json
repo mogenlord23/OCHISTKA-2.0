@@ -8,5 +8,8 @@
   "summary": "Test named shows the disk mount point actually finds the displayName span; the mountPoint span is deliberately not rendered, and the test duplicates test 2 fixture",
   "evidence": "Home.test.ts:62-67; Home.svelte:93-95",
   "failure_scenario": "None. Misleading title.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

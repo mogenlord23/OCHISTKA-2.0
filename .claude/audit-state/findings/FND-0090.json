@@ -8,5 +8,8 @@
   "summary": "ErrorKind is a closed hand-written union while Rust kind is a free String; adding a backend kind without updating the union turns it into probe with \"[object Object]\"",
   "evidence": "types.ts:28; commands.rs:17 kind: String; commands.rs:24-27 literals; api.ts:49,59",
   "failure_scenario": "Adding CoreError::Quarantine mapped to \"quarantine\": compiles and tests pass, UI loses the message. Maintenance trap; related FND-0057, FND-0058, FND-0060.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

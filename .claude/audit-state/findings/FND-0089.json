@@ -8,5 +8,8 @@
   "summary": "vite/client is loaded twice: by the triple-slash reference here and by tsconfig types; harmless",
   "evidence": "vite-env.d.ts:1; tsconfig.json:12 types list",
   "failure_scenario": "None; redundant reference only.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

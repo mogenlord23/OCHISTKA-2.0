@@ -8,5 +8,8 @@
   "summary": "Placeholder has no accessible name, heading or live region; switching between placeholder subsections leaves identical unlabelled text, so screen-reader users cannot tell them apart",
   "evidence": "PlaceholderPage.svelte:9-11; VpnPage.svelte:16-17 and ComputerPage.svelte:11 reuse the same mounted placeholder for several subsections; related FND-0114",
   "failure_scenario": "VPN: Серверы then Маршруты: DOM unchanged, same В разработке text, no announcement.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "Crack-word match is a substring test, so benign names score",
   "evidence": "scan.rs:92 CRACK_WORDS and scan.rs:122 name.contains(word).",
   "failure_scenario": "dispatcher.exe contains \"patch\" and gets +20.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

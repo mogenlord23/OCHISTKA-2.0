@@ -8,5 +8,8 @@
   "summary": "contrastRatio tested only at black and white; malformed hex, mid-tone luminance and the AA-unreachable band are untested; a swapped channel weight would pass",
   "evidence": "tokens.test.ts:34-39",
   "failure_scenario": "Regressions in luminance weights or hex parsing go unnoticed.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "luminance assumes #rrggbb and never checks; malformed input becomes a wrong colour via bitwise coercion, e.g. #fff reads as #000fff and a 1:1 white-on-white result",
   "evidence": "tokens.ts:23-29 parseInt(hex.slice(1),16) with bit masks; no format check; no test for malformed input",
   "failure_scenario": "textOn(\"#fff\") returns white, giving 1:1 white text on white. Latent: runtime only passes valid SECTION_COLORS today, but contrastRatio and textOn are public and hex may come from screenshots.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

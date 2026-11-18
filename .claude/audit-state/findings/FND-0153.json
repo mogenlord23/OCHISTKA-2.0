@@ -8,5 +8,8 @@
   "summary": "format and format:check run prettier over . which includes .claude/audit-state and docs/superpowers/plans, not excluded by .prettierignore",
   "evidence": "package.json:11-12; .prettierignore:1-7 excludes .superpowers but not .claude",
   "failure_scenario": "format:check pass or fail depends on agent-generated audit files. UNVERIFIED whether they are Prettier-clean.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

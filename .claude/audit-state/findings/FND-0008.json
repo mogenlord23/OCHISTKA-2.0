@@ -8,5 +8,8 @@
   "summary": "Suspicion heuristic misses common disguises and startup file types",
   "evidence": "scan.rs:86-110 EXECUTABLE_EXTENSIONS has no lnk, hta, wsf, jar, cpl, scf; double-extension check does not trim spaces.",
   "failure_scenario": "\"invoice.pdf .exe\" gets no double-extension points; .lnk in the Startup folder scores 0 although in_startup is true. Hint only, so the cost is false negatives in the UI.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

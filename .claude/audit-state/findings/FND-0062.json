@@ -8,5 +8,8 @@
   "summary": "Build reads STATIC_VCRUNTIME, RC, RC_<target> and MINGW_CHOST without rerun-if-env-changed; changes have no effect until forced rebuild",
   "evidence": "tauri-build lib.rs:950-956; embed-resource lib.rs:641-645; no cargo:rerun-if-env-changed emitted",
   "failure_scenario": "Build once with static CRT, then STATIC_VCRUNTIME=false cargo build: cached output stays static. RC change likewise. Upstream behaviour inherited by bare build(); UNVERIFIED on Windows.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

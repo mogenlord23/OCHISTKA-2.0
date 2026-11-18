@@ -8,5 +8,8 @@
   "summary": "CLAUDE.md contradicts itself on which section is first; code opens VPN first",
   "evidence": "App.svelte:14 activeId vpn; sections.ts:24 VPN first; CLAUDE.md antivirus section still says Вирусы first in navigation",
   "failure_scenario": "Future readers follow the wrong ordering rule.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

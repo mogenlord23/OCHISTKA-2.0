@@ -8,5 +8,8 @@
   "summary": "Real failures come back as zeros, so the Probe error path never triggers on Windows; CPU, memory and disk faults show fabricated 0% readings",
   "evidence": "windows/mod.rs:39 System::new and :65 Disks::new return Ok on Windows; sysinfo cpu.rs:247-249 keeps default percent; system.rs:171 ignores GlobalMemoryStatusEx result; disk.rs:283-301 zero on failure",
   "failure_scenario": "Corrupted performance-counter registry: CPU shows 0% on every poll with no probe error.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

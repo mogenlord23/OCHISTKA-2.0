@@ -8,5 +8,8 @@
   "summary": "Default В разработке is the same for seven subsections and does not use CLAUDE.md status terms or give the reason, against the rule to show unavailable features disabled with a reason",
   "evidence": "PlaceholderPage.svelte:3; CLAUDE.md status rule; FND-0097",
   "failure_scenario": "User cannot tell why each subsection is empty.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

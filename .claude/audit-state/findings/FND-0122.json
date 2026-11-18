@@ -8,5 +8,8 @@
   "summary": "Placeholder text over the decorative 7% pattern on Компьютер drops to about 4.27:1 (below AA for normal text) in dev builds; shared root cause with lead and footer text",
   "evidence": "PlaceholderPage.svelte:16-18; App.svelte:114 pattern; contrast 4.86 plain, about 4.27 over pattern (sRGB blend assumption); FND-0035 CSP blocks pattern in release",
   "failure_scenario": "Компьютер, Настройки in dev build: placeholder text over a pattern shape below 4.5:1. Caveats: dev only, blend assumption.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

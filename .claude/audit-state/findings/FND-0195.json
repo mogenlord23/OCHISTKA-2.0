@@ -8,5 +8,8 @@
   "summary": "POLL_INTERVAL_MS is not imported or asserted in this file",
   "evidence": "api.test.ts:3-10; api.ts:12; FND-0170 cross-reference",
   "failure_scenario": "The polling period can change without any failure in this file.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

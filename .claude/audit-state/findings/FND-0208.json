@@ -8,5 +8,8 @@
   "summary": "NEUTRAL, RADIUS and TYPE_SCALE tests restate tokens.ts literally and check no rules (scale monotonicity, valid formats, neutral contrast); they catch only accidental edits",
   "evidence": "tokens.test.ts:66-92; tokens.ts:47-69; App.svelte:32-48; FND-0086, FND-0023 (unused --text-lead and --text-display)",
   "failure_scenario": "None; low-value tests.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

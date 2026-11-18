@@ -8,5 +8,8 @@
   "summary": "note accepts empty string and renders an empty 48px dashed box; no current consumer passes empty",
   "evidence": "PlaceholderPage.svelte:2-6; no consumer passes empty note",
   "failure_scenario": "Future caller passes empty note: empty box. Not reachable today.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "VERSION is a hand-kept copy of package.json and tauri.conf.json versions",
   "evidence": "App.svelte:12 const VERSION = '0.1.0'; package.json:3; tauri.conf.json:4",
   "failure_scenario": "Versions drift apart silently after a bump.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

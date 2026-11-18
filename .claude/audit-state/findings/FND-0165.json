@@ -8,5 +8,8 @@
   "summary": "No test covers the sound toggle (aria-pressed and ВКЛ/ВЫКЛ text), the RU pill, the disabled ENG pill, or the Subtabs onSelect wiring",
   "evidence": "App.svelte:83-93, 61, 184; grep for ЗВУК|aria-pressed|ENG hits only App.svelte",
   "failure_scenario": "Breaking the sound toggle state passes all tests. Related FND-0020 and FND-0113.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

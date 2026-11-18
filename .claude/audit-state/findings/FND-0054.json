@@ -8,5 +8,8 @@
   "summary": "Doc promises no control characters, but char::is_control covers only category Cc: format and separator characters (RLO U+202E, U+2028, U+FEFF, U+200B) pass and can spoof displayed paths; rejected input is echoed verbatim to the UI",
   "evidence": "scan.rs:55-56 doc; scan.rs:64 is_control; system.rs:103-104 and commands.rs:31 echo target into CommandError.message",
   "failure_scenario": "\"C:\\\\x\\\\\\u{202E}exe.fdp\" accepted and displayed reversed. Does not enable option injection.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "accepted_low_severity",
+  "resolution_note": "Accepted per owner rule 2026-11-18: low and info findings are not fixed in this round; recorded in docs/status/audit.md.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }
