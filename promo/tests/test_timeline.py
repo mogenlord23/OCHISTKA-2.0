@@ -7,7 +7,7 @@ PATH = os.path.join(os.path.dirname(__file__), "..", "timeline.json")
 
 def test_timeline_covers_30s_without_gaps():
     s = load_timeline(PATH)
-    assert len(s) == 7
+    assert len(s) == 6
     assert s[0]["start"] == 0
     assert s[-1]["end"] == 30.0
     for a, b in zip(s, s[1:]):

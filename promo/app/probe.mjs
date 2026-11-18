@@ -1,0 +1,15 @@
+import { createRequire } from 'node:module';
+const { chromium } = createRequire(import.meta.url)('playwright');
+import fs from 'node:fs';
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: +process.argv[3] || 820, height: +process.argv[4] || 1150 }, deviceScaleFactor: 1 });
+const p = await ctx.newPage();
+p.on('console', (m) => m.type() === 'error' && console.log('ERR', m.text()));
+p.on('pageerror', (e) => console.log('PAGEERR', String(e)));
+await p.addInitScript(fs.readFileSync(new URL('./mock.js', import.meta.url), 'utf8'));
+await p.goto('http://127.0.0.1:1420/');
+await p.waitForTimeout(1500);
+await p.screenshot({ path: process.argv[2] + '/home.png' });
+const navs = await p.locator('nav button, nav a, [role=tab]').evaluateAll((e) => e.map((x) => x.getAttribute('aria-label') || x.textContent.trim()));
+console.log(navs);
+await b.close();

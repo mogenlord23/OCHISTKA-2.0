@@ -37,7 +37,7 @@ def test_elevenlabs_path_uses_key_and_never_leaks_it():
 
     out = os.path.join(tempfile.mkdtemp(), "v.wav")
     rep = make_voice(SC, out, api_key="sk_secret_123", http_post=fake_post)
-    assert rep["engine"] == "elevenlabs" and len(calls) == 7
+    assert rep["engine"] == "elevenlabs" and len(calls) == len(SC)
     assert calls[0][1]["xi-api-key"] == "sk_secret_123"
     assert "pcm_44100" in calls[0][0]
     assert "sk_secret_123" not in repr(rep)
