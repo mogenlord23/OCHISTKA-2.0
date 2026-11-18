@@ -21,47 +21,43 @@
   };
 </script>
 
-<aside class="rail" aria-label="Разделы приложения">
-  <nav aria-label="Навигация">
-    {#each SECTIONS as section (section.id)}
-      <button
-        type="button"
-        class="item"
-        class:active={active === section.id}
-        aria-label={section.title}
-        aria-current={active === section.id ? 'page' : undefined}
-        onclick={() => onSelect(section.id)}
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d={icons[section.id]} />
-        </svg>
-        <span class="label">{section.title}</span>
-      </button>
-    {/each}
-  </nav>
-</aside>
+<nav class="rail" aria-label="Навигация">
+  {#each SECTIONS as section (section.id)}
+    <button
+      type="button"
+      class="item"
+      class:active={active === section.id}
+      aria-label={section.title}
+      aria-current={active === section.id ? 'page' : undefined}
+      onclick={() => onSelect(section.id)}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d={icons[section.id]} />
+      </svg>
+      <span class="label">{section.title}</span>
+    </button>
+  {/each}
+</nav>
 
 <style>
   .rail {
     display: flex;
     flex-direction: column;
     width: 124px;
+    gap: 4px;
+    min-height: 0;
+    overflow-y: auto;
     padding: 8px 8px 0;
     background: var(--black);
-  }
-
-  nav {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
 
   .item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 12px 4px;
+    flex-shrink: 0;
+    gap: 2px;
+    padding: 6px 4px;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
@@ -82,8 +78,8 @@
   }
 
   svg {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;

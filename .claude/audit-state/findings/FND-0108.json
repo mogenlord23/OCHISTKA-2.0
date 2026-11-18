@@ -8,5 +8,8 @@
   "summary": "Main navigation sits inside an aside (complementary landmark), so the nav landmark is nested under a complementary one with a redundant name",
   "evidence": "Navigation.svelte:24 aside aria-label Разделы приложения; line 25 nav aria-label Навигация; App.test.ts:26 looks up Навигация",
   "failure_scenario": "Screen reader lists a complementary landmark containing navigation: noisier landmark structure.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:53:13.068255+00:00",
+  "resolution_note": "Re-verifier CONFIRM by code trace: single nav landmark with name Навигация, no wrapping aside; App.test.ts queries it.",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }
