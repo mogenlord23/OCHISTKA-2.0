@@ -65,129 +65,182 @@
   }
 </script>
 
-{#if subsection === 'subscription'}
-  <section class="card">
-    <h2>Ссылка подписки / импорта</h2>
-    <div class="row">
-      <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
-      <button type="button" onclick={onImport}>Импорт</button>
-    </div>
-    {#if importMessage}
-      <p class="note" role="status">{importMessage}</p>
-    {/if}
-
-    <label class="field-label" for="vpn-paste">Текст подписки (вставь вручную)</label>
-    <textarea
-      id="vpn-paste"
-      bind:value={pasteText}
-      rows="5"
-      aria-label="Текст подписки"
-      placeholder="vless://…&#10;trojan://…"
-    ></textarea>
-    <div class="row">
-      <button type="button" onclick={onParse}>Разобрать</button>
-    </div>
-    {#if parsed}
-      <p class="note" role="status">
-        Серверов: {parsed.servers.length}. Не распознано строк: {parsed.unknownCount}.
-      </p>
-    {/if}
-  </section>
-{:else if subsection === 'servers'}
-  <section class="card">
-    <div class="power-area">
-      <button type="button" class="power" aria-pressed="false" onclick={onConnect}>
-        Подключить
-      </button>
-      <p class="timer" aria-label="Время подключения">{formatElapsed(elapsedSeconds)}</p>
-      {#if connectMessage}
-        <p class="note" role="status">{connectMessage}</p>
-      {/if}
-    </div>
-
-    <fieldset class="modes">
-      <legend>Режим</legend>
-      <label class="mode">
-        <input
-          type="radio"
-          name="vpn-mode"
-          value="tun"
-          disabled
-          aria-describedby="vpn-tun-reason"
-        />
-        TUN
-      </label>
-      <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
-    </fieldset>
-
-    <h2>Серверы</h2>
-    {#if parsed && parsed.servers.length > 0}
-      <ul class="servers">
-        {#each parsed.servers as server, index (index)}
-          <li>
-            <span class="scheme">{server.scheme}</span>
-            <span>{server.name}</span>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <p class="note">Серверов пока нет. Вставь текст подписки на странице «Подписка и импорт».</p>
-    {/if}
-  </section>
-{:else if subsection === 'routes'}
-  <section class="card">
-    <h2>Дополнительно</h2>
-    {#each ADVANCED as item (item.id)}
-      <div class="switch-row">
-        <div>
-          <span class="switch-title">{item.label}</span>
-          <span class="note">{item.description}</span>
-          <span class="status">{NETWORK_STATUS_OFF}</span>
+<div class="vpn">
+  <aside class="poster" aria-hidden="true">
+    <span class="poster-caption">Место для картинки</span>
+  </aside>
+  <div class="column">
+    {#if subsection === 'subscription'}
+      <section class="card">
+        <h2>Ссылка подписки / импорта</h2>
+        <div class="row">
+          <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
+          <button type="button" onclick={onImport}>Импорт</button>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked="false"
-          aria-label={item.label}
-          onclick={() => askNetworkToggle(item)}
-        >
-          <span class="knob"></span>
-        </button>
-        {#if networkMessages[item.id]}
-          <p class="note" role="status">{networkMessages[item.id]}</p>
+        {#if importMessage}
+          <p class="note" role="status">{importMessage}</p>
         {/if}
-      </div>
-    {/each}
-    {#if pendingNetwork}
-      <div class="backdrop">
-        <div
-          class="dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="network-title"
-          aria-describedby="network-text"
-          tabindex="-1"
-          onkeydown={onDialogKey}
-        >
-          <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
-          <p id="network-text">
-            {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока это
-            заглушка: ничего не изменится.
-          </p>
-          <div class="dialog-actions">
-            <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
-            <button type="button" onclick={confirmNetworkToggle}>Включить</button>
-          </div>
+
+        <label class="field-label" for="vpn-paste">Текст подписки (вставь вручную)</label>
+        <textarea
+          id="vpn-paste"
+          bind:value={pasteText}
+          rows="5"
+          aria-label="Текст подписки"
+          placeholder="vless://…&#10;trojan://…"
+        ></textarea>
+        <div class="row">
+          <button type="button" onclick={onParse}>Разобрать</button>
         </div>
-      </div>
+        {#if parsed}
+          <p class="note" role="status">
+            Серверов: {parsed.servers.length}. Не распознано строк: {parsed.unknownCount}.
+          </p>
+        {/if}
+      </section>
+    {:else if subsection === 'servers'}
+      <section class="card">
+        <div class="power-area">
+          <button type="button" class="power" aria-pressed="false" onclick={onConnect}>
+            <span class="power-label">Подключить</span>
+            <span class="power-knob" aria-hidden="true"></span>
+          </button>
+          <p class="timer" aria-label="Время подключения">{formatElapsed(elapsedSeconds)}</p>
+          {#if connectMessage}
+            <p class="note" role="status">{connectMessage}</p>
+          {/if}
+        </div>
+
+        <fieldset class="modes">
+          <legend>Режим</legend>
+          <label class="mode">
+            <input
+              type="radio"
+              name="vpn-mode"
+              value="tun"
+              disabled
+              aria-describedby="vpn-tun-reason"
+            />
+            TUN
+          </label>
+          <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
+        </fieldset>
+
+        <h2>Серверы</h2>
+        {#if parsed && parsed.servers.length > 0}
+          <ul class="servers">
+            {#each parsed.servers as server, index (index)}
+              <li>
+                <span class="scheme">{server.scheme}</span>
+                <span>{server.name}</span>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="note">
+            Серверов пока нет. Вставь текст подписки на странице «Подписка и импорт».
+          </p>
+        {/if}
+      </section>
+    {:else if subsection === 'routes'}
+      <section class="card">
+        <h2>Дополнительно</h2>
+        {#each ADVANCED as item (item.id)}
+          <div class="switch-row">
+            <div>
+              <span class="switch-title">{item.label}</span>
+              <span class="note">{item.description}</span>
+              <span class="status">{NETWORK_STATUS_OFF}</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked="false"
+              aria-label={item.label}
+              onclick={() => askNetworkToggle(item)}
+            >
+              <span class="knob"></span>
+            </button>
+            {#if networkMessages[item.id]}
+              <p class="note" role="status">{networkMessages[item.id]}</p>
+            {/if}
+          </div>
+        {/each}
+        {#if pendingNetwork}
+          <div class="backdrop">
+            <div
+              class="dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="network-title"
+              aria-describedby="network-text"
+              tabindex="-1"
+              onkeydown={onDialogKey}
+            >
+              <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
+              <p id="network-text">
+                {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока
+                это заглушка: ничего не изменится.
+              </p>
+              <div class="dialog-actions">
+                <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
+                <button type="button" onclick={confirmNetworkToggle}>Включить</button>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </section>
+      <PlaceholderPage />
+    {:else}
+      <PlaceholderPage />
     {/if}
-  </section>
-  <PlaceholderPage />
-{:else}
-  <PlaceholderPage />
-{/if}
+  </div>
+</div>
 
 <style>
+  /* Левая колонка — нейтральный плейсхолдер вместо постера; на узком экране скрыта. */
+  .vpn {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .poster {
+    display: flex;
+    align-items: flex-end;
+    min-height: 360px;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(170deg, #2a2a2a 0%, #0c0c0c 60%, #050505 100%);
+    box-shadow: inset 0 0 0 1px #1f1f1f;
+  }
+
+  .poster-caption {
+    font-size: var(--text-caption);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  @media (max-width: 760px) {
+    .vpn {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .poster {
+      display: none;
+    }
+  }
+
   .card {
     padding: 18px;
     border-radius: var(--radius-lg);
@@ -251,21 +304,43 @@
   .power-area {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    align-items: stretch;
+    gap: 10px;
     margin-bottom: 16px;
   }
 
+  /* Большой переключатель: цветная пилюля с белой ручкой справа, как на эталоне. */
   .power {
-    min-width: 220px;
-    min-height: 88px;
-    font-size: var(--text-body);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: min(100%, 360px);
+    min-height: 72px;
+    padding: 8px 8px 8px 26px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--black);
+    font-size: var(--text-title);
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .power-knob {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 0 0 2px var(--black);
   }
 
   .timer {
     margin: 0;
+    text-align: center;
     font-variant-numeric: tabular-nums;
-    font-size: 1.5rem;
+    font-size: 2.6rem;
+    font-weight: 900;
     color: var(--ink);
   }
 
