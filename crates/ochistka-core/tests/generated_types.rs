@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport, Suspicion};
-use ochistka_core::system::{CpuStatus, DiskStatus, MemoryStatus, SystemOverview};
+use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ts_rs::{Config, TS};
 
 fn committed_dir() -> PathBuf {
@@ -35,6 +35,7 @@ fn export_all_into(dir: &Path) {
     SystemOverview::export_all(&cfg).unwrap();
     CpuStatus::export_all(&cfg).unwrap();
     MemoryStatus::export_all(&cfg).unwrap();
+    DiskKind::export_all(&cfg).unwrap();
     DiskStatus::export_all(&cfg).unwrap();
     ScanReport::export_all(&cfg).unwrap();
     Finding::export_all(&cfg).unwrap();

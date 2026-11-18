@@ -22,6 +22,8 @@ const overview: SystemOverview = {
   cpu: { usagePercent: 12, logicalCores: 8 },
   memory: { totalBytes: 100, usedBytes: 50, usagePercent: 50 },
   disks: [],
+  osName: 'Windows 11',
+  osVersion: '24H2',
 };
 
 const finding: Finding = {
@@ -101,6 +103,25 @@ describe('runtime shape checks', () => {
     expect(isEngineStatus({ available: true, reason: '' })).toBe(true);
   });
 
+  it('rejects a disk without a known kind or an overview without the OS fields', () => {
+    expect(
+      isSystemOverview({
+        ...overview,
+        disks: [
+          {
+            displayName: 'C:',
+            mountPoint: 'C:\\',
+            totalBytes: 1,
+            usedBytes: 1,
+            usagePercent: 1,
+            kind: 'nvme',
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(isSystemOverview({ ...overview, osName: undefined })).toBe(false);
+  });
+
   it('rejects snake_case or missing fields', () => {
     expect(isSystemOverview({ ...overview, cpu: { usage_percent: 1, logical_cores: 2 } })).toBe(
       false,
@@ -142,7 +163,7 @@ describe('runtime shape checks', () => {
 function generatedKeys(typeName: string): string[] {
   const text = readFileSync(join(process.cwd(), 'src/lib/generated', `${typeName}.ts`), 'utf8');
   const body = text.slice(text.indexOf('= {') + 3, text.lastIndexOf('}'));
-  return [...body.matchAll(/(?:^|,)\s*(\w+):/g)].map((m) => m[1]).sort();
+  return [...body.matchAll(/(?:^|,|\n)\s*(\w+):/g)].map((m) => m[1]).sort();
 }
 
 describe('fixtures match the Rust-generated types', () => {
@@ -161,7 +182,10 @@ describe('fixtures match the Rust-generated types', () => {
       totalBytes: 1,
       usedBytes: 1,
       usagePercent: 100,
+      kind: 'ssd',
     };
     expect(Object.keys(disk).sort()).toEqual(generatedKeys('DiskStatus'));
+    expect(Object.keys(overview).sort()).toContain('osName');
+    expect(Object.keys(overview).sort()).toContain('osVersion');
   });
 });

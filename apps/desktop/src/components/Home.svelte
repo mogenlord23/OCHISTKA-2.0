@@ -1,13 +1,38 @@
 <script lang="ts">
   import { getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
+  import { BOARD_REASON, GPU_REASON } from '../lib/computer';
   import { formatBytes, formatPercent } from '../lib/format';
-  import type { CommandError, SystemOverview } from '../lib/types';
+  import { HISTORY_LIMIT, pushSample } from '../lib/history';
+  import { SECTION_COLORS } from '../lib/tokens';
+  import type { CommandError, DiskKind, SystemOverview } from '../lib/types';
+  import LineGraph from './LineGraph.svelte';
 
   /** Через сколько запрос считается зависшим. */
   const REQUEST_TIMEOUT_MS = 10_000;
 
+  type TileId = 'cpu' | 'gpu' | 'ram' | 'board' | 'disks' | 'system';
+
+  /** Цвета плиток — из палитры токенов: lime, pink, blue, yellow. */
+  const TILES: readonly { id: TileId; title: string; color: string }[] = [
+    { id: 'cpu', title: 'Процессор (CPU)', color: SECTION_COLORS.viruses },
+    { id: 'gpu', title: 'Видеокарта (GPU)', color: SECTION_COLORS.vpn },
+    { id: 'ram', title: 'Оперативная память', color: SECTION_COLORS.processes },
+    { id: 'board', title: 'Материнская плата', color: SECTION_COLORS.disks },
+    { id: 'disks', title: 'SSD / HDD', color: SECTION_COLORS.viruses },
+    { id: 'system', title: 'Система', color: SECTION_COLORS.vpn },
+  ];
+
+  const KIND_LABELS: Record<DiskKind, string> = {
+    ssd: 'SSD',
+    hdd: 'HDD',
+    unknown: 'тип не определён',
+  };
+
   let overview = $state<SystemOverview | null>(null);
   let error = $state<CommandError | null>(null);
+  let cpuHistory = $state<number[]>([]);
+  let ramHistory = $state<number[]>([]);
+  let selected = $state<TileId>('cpu');
 
   $effect(() => {
     // Ответ, пришедший после размонтирования, игнорируется.
@@ -40,6 +65,9 @@
         if (active) {
           overview = next;
           error = null;
+          // История за 90 секунд: по одному замеру CPU и RAM на каждый опрос.
+          cpuHistory = pushSample(cpuHistory, next.cpu.usagePercent, HISTORY_LIMIT);
+          ramHistory = pushSample(ramHistory, next.memory.usagePercent, HISTORY_LIMIT);
         }
       } catch (err) {
         if (active) {
@@ -58,6 +86,10 @@
       clearInterval(timer);
     };
   });
+
+  function title(id: TileId): string {
+    return TILES.find((tile) => tile.id === id)?.title ?? '';
+  }
 </script>
 
 {#if error}
@@ -70,69 +102,134 @@
     <p>{error.message}</p>
   </section>
 {:else if overview}
-  <section class="card">
-    <h2>Процессор</h2>
-    <p>Загрузка: {formatPercent(overview.cpu.usagePercent)}</p>
-    <p>Логических ядер: {overview.cpu.logicalCores}</p>
-    <div
-      class="bar"
-      role="progressbar"
-      aria-label="Загрузка процессора"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-valuenow={Math.round(overview.cpu.usagePercent)}
-    >
-      <div class="fill" style:width="{overview.cpu.usagePercent}%"></div>
-    </div>
-  </section>
+  <div class="tiles" role="group" aria-label="Комплектующие">
+    {#each TILES as tile (tile.id)}
+      <button
+        type="button"
+        class="tile"
+        class:selected={selected === tile.id}
+        aria-pressed={selected === tile.id}
+        onclick={() => (selected = tile.id)}
+      >
+        <span class="swatch" style:background={tile.color} aria-hidden="true"></span>
+        <span class="tile-title">{tile.title}</span>
 
-  <section class="card">
-    <h2>Оперативная память</h2>
-    <p>
-      {formatBytes(overview.memory.usedBytes)} из {formatBytes(overview.memory.totalBytes)}
-    </p>
-    <p>{formatPercent(overview.memory.usagePercent)}</p>
-    <div
-      class="bar"
-      role="progressbar"
-      aria-label="Использование памяти"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-valuenow={Math.round(overview.memory.usagePercent)}
-    >
-      <div class="fill" style:width="{overview.memory.usagePercent}%"></div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Диски</h2>
-    {#each overview.disks as disk (disk.mountPoint)}
-      <div class="disk">
-        <p>
-          <span>{disk.displayName}</span>
-          {#if disk.displayName !== disk.mountPoint}
-            <span class="muted">{disk.mountPoint}</span>
-          {/if}
-        </p>
-        <p>
-          {formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)} · {formatPercent(
-            disk.usagePercent,
-          )}
-        </p>
-        <div
-          class="bar"
-          role="progressbar"
-          aria-label={`Заполнение диска ${disk.displayName}`}
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow={Math.round(disk.usagePercent)}
-        >
-          <div class="fill" style:width="{disk.usagePercent}%"></div>
-        </div>
-      </div>
-    {:else}
-      <p>Диски не найдены.</p>
+        {#if tile.id === 'cpu'}
+          <span class="tile-value">{formatPercent(overview.cpu.usagePercent)}</span>
+          <span class="tile-sub">{overview.cpu.logicalCores} логических ядер</span>
+        {:else if tile.id === 'ram'}
+          <span class="tile-value">{formatPercent(overview.memory.usagePercent)}</span>
+          <span class="tile-sub"
+            >{formatBytes(overview.memory.usedBytes)} из {formatBytes(
+              overview.memory.totalBytes,
+            )}</span
+          >
+        {:else if tile.id === 'gpu'}
+          <span class="tile-value">—</span>
+          <span class="tile-sub">{GPU_REASON}</span>
+        {:else if tile.id === 'board'}
+          <span class="tile-value">—</span>
+          <span class="tile-sub">{BOARD_REASON}</span>
+        {:else if tile.id === 'disks'}
+          <span class="tile-value">{overview.disks.length} шт.</span>
+          {#each overview.disks as disk (disk.mountPoint)}
+            <span class="tile-sub disk-row">
+              <span>{disk.displayName}</span>
+              {#if disk.displayName !== disk.mountPoint}
+                <span class="muted">{disk.mountPoint}</span>
+              {/if}
+              <span class="muted">{KIND_LABELS[disk.kind]}</span>
+            </span>
+          {:else}
+            <span class="tile-sub">Диски не найдены.</span>
+          {/each}
+        {:else if tile.id === 'system'}
+          <span class="tile-value">{overview.osName || '—'}</span>
+          <span class="tile-sub">Версия: {overview.osVersion || '—'}</span>
+        {/if}
+      </button>
     {/each}
+  </div>
+
+  <section class="card detail" aria-label={title(selected)}>
+    {#if selected === 'cpu'}
+      <h2>Процессор</h2>
+      <p>Загрузка: {formatPercent(overview.cpu.usagePercent)}</p>
+      <p>Логических ядер: {overview.cpu.logicalCores}</p>
+      <div
+        class="bar"
+        role="progressbar"
+        aria-label="Загрузка процессора"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={Math.round(overview.cpu.usagePercent)}
+      >
+        <div class="fill" style:width="{overview.cpu.usagePercent}%"></div>
+      </div>
+      <LineGraph
+        values={cpuHistory}
+        label="График загрузки процессора за 90 секунд"
+        color={SECTION_COLORS.viruses}
+      />
+    {:else if selected === 'ram'}
+      <h2>Оперативная память</h2>
+      <p>
+        {formatBytes(overview.memory.usedBytes)} из {formatBytes(overview.memory.totalBytes)}
+      </p>
+      <p>{formatPercent(overview.memory.usagePercent)}</p>
+      <div
+        class="bar"
+        role="progressbar"
+        aria-label="Использование памяти"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={Math.round(overview.memory.usagePercent)}
+      >
+        <div class="fill" style:width="{overview.memory.usagePercent}%"></div>
+      </div>
+      <LineGraph
+        values={ramHistory}
+        label="График использования памяти за 90 секунд"
+        color={SECTION_COLORS.processes}
+      />
+    {:else if selected === 'gpu'}
+      <h2>Видеокарта (GPU)</h2>
+      <p>{GPU_REASON}</p>
+    {:else if selected === 'board'}
+      <h2>Материнская плата</h2>
+      <p>{BOARD_REASON}</p>
+    {:else if selected === 'disks'}
+      <h2>SSD / HDD</h2>
+      {#each overview.disks as disk (disk.mountPoint)}
+        <div class="disk">
+          <p>
+            <span>{disk.displayName}</span>
+            <span class="muted">{KIND_LABELS[disk.kind]}</span>
+          </p>
+          <p>
+            {formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)} · {formatPercent(
+              disk.usagePercent,
+            )}
+          </p>
+          <div
+            class="bar"
+            role="progressbar"
+            aria-label={`Заполнение диска ${disk.displayName}`}
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow={Math.round(disk.usagePercent)}
+          >
+            <div class="fill" style:width="{disk.usagePercent}%"></div>
+          </div>
+        </div>
+      {:else}
+        <p>Диски не найдены.</p>
+      {/each}
+    {:else if selected === 'system'}
+      <h2>Система</h2>
+      <p>Название: {overview.osName || '—'}</p>
+      <p>Версия: {overview.osVersion || '—'}</p>
+    {/if}
   </section>
 {:else}
   <p>Загрузка…</p>
@@ -148,6 +245,61 @@
     margin: 4px 0;
   }
 
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 44px;
+    padding: 16px;
+    border: 1px solid #343434;
+    border-radius: var(--radius-sm);
+    background: #161b22;
+    color: var(--ink, #fafafa);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .tile.selected {
+    border-color: var(--ink, #fafafa);
+  }
+
+  .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+  }
+
+  .tile-title {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: var(--text-body);
+  }
+
+  .tile-value {
+    font-size: 24px;
+    font-weight: 800;
+  }
+
+  .tile-sub {
+    font-size: 12px;
+    color: #8b949e;
+  }
+
+  .disk-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
   .card,
   .alert {
     margin-bottom: 16px;
@@ -161,7 +313,6 @@
   }
 
   .muted {
-    margin-left: 8px;
     color: #8b949e;
   }
 

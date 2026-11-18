@@ -3,4 +3,12 @@ import type { CpuStatus } from "./CpuStatus";
 import type { DiskStatus } from "./DiskStatus";
 import type { MemoryStatus } from "./MemoryStatus";
 
-export type SystemOverview = { cpu: CpuStatus, memory: MemoryStatus, disks: Array<DiskStatus>, };
+export type SystemOverview = { cpu: CpuStatus, memory: MemoryStatus, disks: Array<DiskStatus>, 
+/**
+ * Название ОС; пустая строка, если ОС не удалось определить.
+ */
+osName: string, 
+/**
+ * Версия ОС; пустая строка, если версию не удалось определить.
+ */
+osVersion: string, };

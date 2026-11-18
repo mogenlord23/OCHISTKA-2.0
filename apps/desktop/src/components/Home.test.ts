@@ -27,9 +27,19 @@ const sample: SystemOverview = {
       totalBytes: 512 * GB,
       usedBytes: 128 * GB,
       usagePercent: 25,
+      kind: 'ssd',
     },
-    { displayName: 'E:\\', mountPoint: 'E:\\', totalBytes: GB, usedBytes: 0, usagePercent: 0 },
+    {
+      displayName: 'E:\\',
+      mountPoint: 'E:\\',
+      totalBytes: GB,
+      usedBytes: 0,
+      usagePercent: 0,
+      kind: 'unknown',
+    },
   ],
+  osName: 'Windows 11',
+  osVersion: '24H2',
 };
 
 /** Даёт эффектам Svelte и продолжениям промисов выполниться (требует фейковых таймеров). */
@@ -223,5 +233,75 @@ describe('Home', () => {
     render(Home);
     await flush();
     expect(toErrorMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Home tiles and graphs', () => {
+  it('shows a tile for each component with the GPU and motherboard reasons', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByRole('button', { name: /Процессор/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Видеокарта/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Оперативная память/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Материнская плата/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /SSD \/ HDD/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Система/ })).toBeTruthy();
+    expect(screen.getByText('Чтение GPU ещё не реализовано')).toBeTruthy();
+    expect(screen.getByText('Нет данных: чтение платы не реализовано')).toBeTruthy();
+  });
+
+  it('shows the OS name and version on the system tile', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByText('Windows 11')).toBeTruthy();
+    expect(screen.getByText('Версия: 24H2')).toBeTruthy();
+  });
+
+  it('shows the disk kind next to each disk', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByText('SSD')).toBeTruthy();
+    expect(screen.getByText('тип не определён')).toBeTruthy();
+  });
+
+  it('opens the RAM details and graph when its tile is clicked', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.queryByRole('img', { name: /память/ })).toBeNull();
+
+    const ramTile = screen.getByRole('button', { name: /Оперативная память/ });
+    ramTile.click();
+    await flush();
+    expect(ramTile.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('img', { name: /использования памяти/ })).toBeTruthy();
+    // Плитка и панель подробностей показывают один объём памяти.
+    expect(screen.getAllByText('4.0 ГБ из 8.0 ГБ')).toHaveLength(2);
+  });
+
+  it('draws the CPU graph with the 100% and 90 seconds labels', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByText('100%')).toBeTruthy();
+    expect(screen.getByText('90 секунд')).toBeTruthy();
+  });
+
+  it('keeps at most 90 CPU samples in the graph history', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    // Первый замер уже есть; ещё 99 опросов с шагом POLL_INTERVAL_MS.
+    for (let i = 0; i < 99; i += 1) {
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    }
+    await flush();
+    const line = document.querySelector('polyline');
+    expect(line).not.toBeNull();
+    const points = (line?.getAttribute('points') ?? '').trim().split(/\s+/);
+    expect(points).toHaveLength(90);
   });
 });

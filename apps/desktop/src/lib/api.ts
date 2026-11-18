@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   CommandError,
+  DiskKind,
   DiskStatus,
   EngineStatus,
   ErrorKind,
@@ -11,7 +12,7 @@ import type {
 } from './types';
 
 /** Интервал опроса раздела «Компьютер», мс. */
-export const POLL_INTERVAL_MS = 2000;
+export const POLL_INTERVAL_MS = 1000;
 
 type Obj = Record<string, unknown>;
 
@@ -27,6 +28,8 @@ function isStr(value: unknown): value is string {
   return typeof value === 'string';
 }
 
+const DISK_KINDS: readonly DiskKind[] = ['ssd', 'hdd', 'unknown'];
+
 function isDisk(value: unknown): value is DiskStatus {
   return (
     isObj(value) &&
@@ -34,7 +37,9 @@ function isDisk(value: unknown): value is DiskStatus {
     isStr(value.mountPoint) &&
     isNum(value.totalBytes) &&
     isNum(value.usedBytes) &&
-    isNum(value.usagePercent)
+    isNum(value.usagePercent) &&
+    isStr(value.kind) &&
+    (DISK_KINDS as readonly string[]).includes(value.kind)
   );
 }
 
@@ -54,7 +59,9 @@ export function isSystemOverview(value: unknown): value is SystemOverview {
     isNum(value.memory.usedBytes) &&
     isNum(value.memory.usagePercent) &&
     Array.isArray(value.disks) &&
-    value.disks.every(isDisk)
+    value.disks.every(isDisk) &&
+    isStr(value.osName) &&
+    isStr(value.osVersion)
   );
 }
 

@@ -175,6 +175,8 @@ mod tests {
             cpu: CpuStatus::new(12.0, 8),
             memory: MemoryStatus::new(100, 50),
             disks: vec![],
+            os_name: "Windows 11".into(),
+            os_version: "24H2".into(),
         }
     }
 

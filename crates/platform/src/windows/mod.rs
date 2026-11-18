@@ -3,15 +3,17 @@
 pub mod clamav;
 pub mod files;
 
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use ochistka_core::system::{
-    CoreError, CpuStatus, DiskStatus, MemoryStatus, SystemInfoPort, SystemOverview,
+    CoreError, CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemInfoPort, SystemOverview,
 };
 use sysinfo::{Disks, System, MINIMUM_CPU_UPDATE_INTERVAL};
 
 pub struct WindowsSystemInfo {
     system: Mutex<Option<System>>,
+    /// Название и версия ОС не меняются за сеанс: читаются один раз.
+    os_identity: OnceLock<(String, String)>,
 }
 
 impl WindowsSystemInfo {
@@ -19,7 +21,26 @@ impl WindowsSystemInfo {
     pub fn new() -> Self {
         Self {
             system: Mutex::new(None),
+            os_identity: OnceLock::new(),
         }
+    }
+
+    fn os_identity(&self) -> &(String, String) {
+        self.os_identity.get_or_init(|| {
+            // Пустая строка означает «не удалось определить»; интерфейс показывает прочерк.
+            let name = System::name().unwrap_or_default();
+            let version = System::os_version().unwrap_or_default();
+            (name, version)
+        })
+    }
+}
+
+/// Переводит тип носителя из sysinfo в тип ядра.
+pub fn map_disk_kind(kind: sysinfo::DiskKind) -> DiskKind {
+    match kind {
+        sysinfo::DiskKind::SSD => DiskKind::Ssd,
+        sysinfo::DiskKind::HDD => DiskKind::Hdd,
+        sysinfo::DiskKind::Unknown(_) => DiskKind::Unknown,
     }
 }
 
@@ -81,16 +102,34 @@ impl SystemInfoPort for WindowsSystemInfo {
                     disk.total_space(),
                     disk.available_space(),
                 )
+                .with_kind(map_disk_kind(disk.kind()))
             })
             .collect();
 
-        Ok(SystemOverview { cpu, memory, disks })
+        let (os_name, os_version) = self.os_identity().clone();
+        Ok(SystemOverview {
+            cpu,
+            memory,
+            disks,
+            os_name,
+            os_version,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maps_sysinfo_disk_kinds_to_core_kinds() {
+        assert_eq!(map_disk_kind(sysinfo::DiskKind::SSD), DiskKind::Ssd);
+        assert_eq!(map_disk_kind(sysinfo::DiskKind::HDD), DiskKind::Hdd);
+        assert_eq!(
+            map_disk_kind(sysinfo::DiskKind::Unknown(7)),
+            DiskKind::Unknown
+        );
+    }
 
     #[test]
     fn overview_recovers_from_poisoned_mutex() {

@@ -6,13 +6,20 @@
 - `verified` — проверено на реальной ОС;
 - `planned` — запланировано; в интерфейсе выключено с причиной.
 
-| Функция                                              | Windows 10/11 x64 | macOS                   | Linux                   |
-| ---------------------------------------------------- | ----------------- | ----------------------- | ----------------------- |
-| Компьютер: загрузка CPU, RAM, список дисков          | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
-| Вирусы: проверка через ClamAV                        | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
-| Вирусы: эвристическая подсказка по файлу             | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
-| Вирусы: карантин и удаление                          | `planned`         | `planned`               | `planned`               |
-| VPN, Процессы, Программы, Диски, Оформление (каркас) | `planned`         | `planned`               | `planned`               |
+| Функция                                               | Windows 10/11 x64 | macOS                   | Linux                   |
+| ----------------------------------------------------- | ----------------- | ----------------------- | ----------------------- |
+| Компьютер: загрузка CPU, RAM, список дисков           | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Компьютер: плитки CPU и RAM, графики за 90 с (клиент) | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Компьютер: тип носителя SSD/HDD                       | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Компьютер: название и версия ОС                       | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Компьютер: GPU (загрузка, память)                     | `planned`         | `planned`               | `planned`               |
+| Компьютер: материнская плата                          | `planned`         | `planned`               | `planned`               |
+| Компьютер: Настройки и Boost (заглушки с причиной)    | `planned`         | `planned`               | `planned`               |
+| Компьютер: Драйверы (список Windows)                  | `planned`         | `planned`               | `planned`               |
+| Вирусы: проверка через ClamAV                         | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Вирусы: эвристическая подсказка по файлу              | `implemented`     | `planned` (Unsupported) | `planned` (Unsupported) |
+| Вирусы: карантин и удаление                           | `planned`         | `planned`               | `planned`               |
+| VPN, Процессы, Программы, Диски, Оформление (каркас)  | `planned`         | `planned`               | `planned`               |
 
 ## Примечания
 

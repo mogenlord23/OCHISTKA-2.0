@@ -60,6 +60,16 @@ impl MemoryStatus {
     }
 }
 
+/// Тип носителя: SSD, HDD или не определён. В JSON — строки `"ssd" | "hdd" | "unknown"`.
+#[derive(Serialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "DiskKind.ts")]
+pub enum DiskKind {
+    Ssd,
+    Hdd,
+    Unknown,
+}
+
 #[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "DiskStatus.ts")]
@@ -71,6 +81,7 @@ pub struct DiskStatus {
     #[ts(type = "number")]
     pub used_bytes: u64,
     pub usage_percent: f32,
+    pub kind: DiskKind,
 }
 
 impl DiskStatus {
@@ -88,7 +99,14 @@ impl DiskStatus {
             total_bytes,
             used_bytes,
             usage_percent: usage_percent(used_bytes, total_bytes),
+            kind: DiskKind::Unknown,
         }
+    }
+
+    /// Задаёт тип носителя, который читает адаптер ОС.
+    pub fn with_kind(mut self, kind: DiskKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
@@ -99,6 +117,10 @@ pub struct SystemOverview {
     pub cpu: CpuStatus,
     pub memory: MemoryStatus,
     pub disks: Vec<DiskStatus>,
+    /// Название ОС; пустая строка, если ОС не удалось определить.
+    pub os_name: String,
+    /// Версия ОС; пустая строка, если версию не удалось определить.
+    pub os_version: String,
 }
 
 #[derive(Debug, Error)]
@@ -166,9 +188,13 @@ mod tests {
         let overview = SystemOverview {
             cpu: CpuStatus::new(12.0, 8),
             memory: MemoryStatus::new(100, 50),
-            disks: vec![DiskStatus::new("C:", "C:\\", 100, 40)],
+            disks: vec![DiskStatus::new("C:", "C:\\", 100, 40).with_kind(DiskKind::Ssd)],
+            os_name: "Windows 11".into(),
+            os_version: "24H2".into(),
         };
         let json = serde_json::to_value(&overview).unwrap();
+        assert_eq!(json["osName"], "Windows 11");
+        assert_eq!(json["osVersion"], "24H2");
         assert!(json["cpu"]["usagePercent"].is_number());
         assert!(json["cpu"]["logicalCores"].is_number());
         assert!(json["memory"]["totalBytes"].is_number());
@@ -176,6 +202,20 @@ mod tests {
         let disk = &json["disks"][0];
         assert_eq!(disk["displayName"], "C:");
         assert_eq!(disk["mountPoint"], "C:\\");
+        assert_eq!(disk["kind"], "ssd");
+    }
+
+    #[test]
+    fn disk_kind_serializes_as_lowercase_string() {
+        assert_eq!(serde_json::to_value(DiskKind::Hdd).unwrap(), "hdd");
+        assert_eq!(serde_json::to_value(DiskKind::Unknown).unwrap(), "unknown");
+    }
+
+    #[test]
+    fn disk_is_unknown_kind_until_adapter_sets_it() {
+        let disk = DiskStatus::new("C:", "C:\\", 100, 40);
+        assert_eq!(disk.kind, DiskKind::Unknown);
+        assert_eq!(disk.with_kind(DiskKind::Hdd).kind, DiskKind::Hdd);
     }
 
     #[test]
