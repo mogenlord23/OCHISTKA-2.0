@@ -6,3 +6,5 @@ apps/desktop/src-tauri/gen/
 .DS_Store
 Thumbs.db
 *.log
+promo/out/
+promo/node_modules/
