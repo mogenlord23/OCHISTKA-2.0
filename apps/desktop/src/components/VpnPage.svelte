@@ -1,4 +1,5 @@
 <script lang="ts">
+  import poster from '../assets/pop-art.png';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import {
@@ -114,6 +115,7 @@
 </script>
 
 <div class="vpn">
+  <img class="poster" src={poster} alt="" aria-hidden="true" draggable="false" />
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
@@ -291,9 +293,25 @@
     padding-top: 12px;
   }
 
+  /* Слева плакат владельца (как на эталоне old-01), справа колонка карточек. */
   .vpn {
-    height: calc(100vh - 118px);
-    min-height: 560px;
+    display: grid;
+    flex: 1;
+    grid-template-columns: clamp(200px, 26%, 320px) minmax(0, 1fr);
+    gap: 20px;
+    min-height: 0;
+    padding-bottom: 4px;
+  }
+
+  .poster {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: var(--radius-lg);
+    object-fit: cover;
+    object-position: 50% 30%;
+    user-select: none;
+    pointer-events: none;
   }
 
   .column {

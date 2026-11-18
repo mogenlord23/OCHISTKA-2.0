@@ -15,8 +15,8 @@
         "title": "OCHISTKA",
         "width": 1200,
         "height": 760,
-        "minWidth": 960,
-        "minHeight": 600,
+        "minWidth": 900,
+        "minHeight": 520,
         "decorations": false,
         "transparent": true,
         "shadow": false

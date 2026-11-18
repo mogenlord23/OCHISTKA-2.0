@@ -41,5 +41,7 @@
   "sub.design.wallpapers": "Обои",
   "sub.design.cursors": "Курсоры",
   "sub.design.colors": "Цвета",
-  "sub.design.settings": "Настройки приложения"
+  "sub.design.settings": "Настройки приложения",
+  "dockCollapse": "Свернуть панель",
+  "dockExpand": "Показать панель"
 }

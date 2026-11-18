@@ -18,6 +18,22 @@
 
   const rows = $derived(connections ? sortConnections(connections, sort) : []);
 
+  /** Виртуализация: в DOM только видимые строки плюс запас, остальное заменяют пустые строки-распорки. */
+  const ROW_H = 30;
+  const OVERSCAN = 8;
+  function measure(node: HTMLElement) {
+    viewH = node.clientHeight || viewH;
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => (viewH = node.clientHeight || viewH));
+    ro.observe(node);
+    return { destroy: () => ro.disconnect() };
+  }
+  let scrollTop = $state(0);
+  let viewH = $state(480);
+  const first = $derived(Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN));
+  const last = $derived(Math.min(rows.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN));
+  const visible = $derived(rows.slice(first, last));
+
   const COLUMNS: { key: ConnectionSortKey; label: string }[] = [
     { key: 'local', label: 'Локальный адрес' },
     { key: 'remote', label: 'Удалённый адрес' },
@@ -53,7 +69,7 @@
   <p class="state" role="status">Читаем соединения…</p>
 {:else}
   <p class="count">TCP-соединений: {connections.length}</p>
-  <div class="table-wrap">
+  <div class="table-wrap" use:measure onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}>
     <table>
       <thead>
         <tr>
@@ -70,8 +86,13 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row, index (index)}
-          <tr>
+        {#if first > 0}
+          <tr class="spacer" aria-hidden="true" style:height="{first * ROW_H}px"
+            ><td colspan="5"></td></tr
+          >
+        {/if}
+        {#each visible as row, index (first + index)}
+          <tr class="row">
             <td>{formatEndpoint(row.localAddr, row.localPort)}</td>
             <td>{formatEndpoint(row.remoteAddr, row.remotePort)}</td>
             <td><span class="state-chip">{row.state}</span></td>
@@ -81,6 +102,11 @@
         {:else}
           <tr><td colspan="5" class="none">Соединений нет.</td></tr>
         {/each}
+        {#if last < rows.length}
+          <tr class="spacer" aria-hidden="true" style:height="{(rows.length - last) * ROW_H}px"
+            ><td colspan="5"></td></tr
+          >
+        {/if}
       </tbody>
     </table>
   </div>
@@ -95,14 +121,14 @@
   }
 
   .table-wrap {
-    max-height: calc(100vh - 330px);
+    height: min(calc(100vh - 330px), 640px);
     min-height: 160px;
     overflow: auto;
     border-radius: var(--radius-lg);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent) transparent;
+    contain: layout paint;
+    overscroll-behavior: contain;
   }
 
   table {
@@ -145,8 +171,17 @@
     font-size: 0.6rem;
   }
 
+  tr.row {
+    height: 30px;
+  }
+
+  tr.spacer td {
+    padding: 0;
+    border: 0;
+  }
+
   td {
-    padding: 7px 12px;
+    padding: 0 12px;
     border-top: 1px solid var(--border);
     color: var(--ink);
     white-space: nowrap;

@@ -9,18 +9,43 @@
     active: SectionId;
     onSelect: (id: SectionId) => void;
   } = $props();
-
-  /** Контурные иконки разделов: собственные, в стиле панели приложения. */
-  const icons: Record<SectionId, string> = {
-    vpn: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
-    viruses: 'M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z',
-    processes: 'M6 4h12v16H6zM9 8h6M9 12h6M9 16h6',
-    programs: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
-    disks: 'M4 6h16v12H4zM4 14h16M16 17h2',
-    computer: 'M3 4h18v12H3zM8 20h8M12 16v4',
-    design: 'M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2s-1-2 0-3 3 0 4-2a9 9 0 0 0-6-11z',
-  };
 </script>
+
+<!-- Значки как в прежнем приложении: контур, закруглённые концы, чёткие линии на сетке 24. -->
+{#snippet icon(id: SectionId)}
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    {#if id === 'vpn'}
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c-3.2 3-3.2 15 0 18M12 3c3.2 3 3.2 15 0 18" />
+    {:else if id === 'viruses'}
+      <path d="M12 3 4.5 6v5.5c0 4.6 3 8 7.5 9.5 4.5-1.5 7.5-4.9 7.5-9.5V6z" />
+    {:else if id === 'processes'}
+      <path d="M6.5 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M9 8h6M9 12h6M9 16h6" />
+    {:else if id === 'programs'}
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    {:else if id === 'disks'}
+      <path
+        d="M5.2 4h13.6a1.5 1.5 0 0 1 1.4 1l2 5.7V18a2 2 0 0 1-2 2H3.8a2 2 0 0 1-2-2v-7.3l2-5.7a1.5 1.5 0 0 1 1.4-1z"
+      />
+      <path d="M1.8 11h20.4" />
+      <path d="M6 15.5h6" />
+      <circle cx="17.5" cy="15.5" r="0.6" />
+    {:else if id === 'computer'}
+      <rect x="2.5" y="3.5" width="19" height="13" rx="2" />
+      <path d="M8 20.5h8M12 16.5v4" />
+    {:else}
+      <path d="M4 7h16M4 12h16M4 17h16" />
+      <circle cx="9" cy="7" r="2.2" class="knob" />
+      <circle cx="16" cy="12" r="2.2" class="knob" />
+      <circle cx="8" cy="17" r="2.2" class="knob" />
+    {/if}
+  </svg>
+{/snippet}
 
 <nav class="rail" aria-label={t('navLabel')}>
   {#each SECTIONS as section (section.id)}
@@ -32,46 +57,68 @@
       aria-current={active === section.id ? 'page' : undefined}
       onclick={() => onSelect(section.id)}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d={icons[section.id]} />
-      </svg>
+      {@render icon(section.id)}
       <span class="label">{t(section.titleKey)}</span>
     </button>
   {/each}
 </nav>
 
 <style>
+  /* Пункты фиксированной высоты на сетке 8 px; первый пункт центрирован на линии Y=32
+     (центр строки заголовка окна). Вертикальный зазор растёт с высотой окна. */
   .rail {
+    --item-h: 56px;
+    --gap: 8px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--gap);
     min-height: 0;
-    overflow-y: auto;
-    padding: 18px 10px 0;
+    padding: calc(32px - var(--item-h) / 2) 10px 0;
     background: var(--window);
+  }
+
+  @media (min-height: 640px) {
+    .rail {
+      --gap: 16px;
+    }
+  }
+
+  @media (min-height: 780px) {
+    .rail {
+      --gap: 24px;
+    }
+  }
+
+  @media (min-height: 1000px) {
+    .rail {
+      --gap: 32px;
+    }
+  }
+
+  @media (max-height: 599px) {
+    .rail {
+      --item-h: 48px;
+    }
   }
 
   .item {
     display: flex;
+    flex: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    gap: 8px;
-    height: 84px;
-    padding: 8px 4px;
+    gap: 4px;
+    height: var(--item-h);
+    padding: 0 4px;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--ink);
+    color: #fff;
     font: inherit;
     font-size: var(--text-caption);
-    font-weight: 700;
+    font-weight: 800;
+    line-height: 1.1;
     cursor: pointer;
-    transition:
-      background-color 150ms ease,
-      color 150ms ease,
-      transform 90ms ease;
   }
 
   .item:hover {
@@ -84,16 +131,42 @@
   }
 
   svg {
-    width: 30px;
-    height: 30px;
+    flex: none;
+    width: 24px;
+    height: 24px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.6;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+    shape-rendering: geometricPrecision;
+    transition: transform 150ms ease;
+  }
+
+  .item:hover svg {
+    transform: scale(1.08);
+  }
+
+  svg :global(.knob) {
+    fill: var(--window);
+  }
+
+  .item.active svg :global(.knob) {
+    fill: var(--accent);
   }
 
   .label {
+    max-width: 100%;
+    overflow: hidden;
     text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Подписи прячем только при очень низком окне. */
+  @media (max-height: 479px) {
+    .label {
+      display: none;
+    }
   }
 </style>

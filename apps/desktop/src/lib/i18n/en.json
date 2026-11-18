@@ -41,5 +41,7 @@
   "sub.design.wallpapers": "Wallpapers",
   "sub.design.cursors": "Cursors",
   "sub.design.colors": "Colors",
-  "sub.design.settings": "App settings"
+  "sub.design.settings": "App settings",
+  "dockCollapse": "Collapse panel",
+  "dockExpand": "Show panel"
 }

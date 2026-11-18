@@ -12,7 +12,8 @@
   import AppearancePage from './components/AppearancePage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, t } from './lib/i18n.svelte';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { watchMaximized } from './lib/windowState';
   import {
     BODY_FONT,
     HEADING_FONT,
@@ -24,7 +25,34 @@
     textOn,
   } from './lib/tokens';
 
-  const VERSION = '0.1.0';
+  let maximized = $state(false);
+  let dockPinned = $state(readPinned());
+  let dockHover = $state(false);
+  const dockOpen = $derived(dockPinned || dockHover);
+
+  function readPinned(): boolean {
+    try {
+      return localStorage.getItem('dockCollapsed') !== '1';
+    } catch {
+      return true;
+    }
+  }
+
+  function toggleDock() {
+    dockPinned = !dockOpen;
+    dockHover = false;
+    try {
+      localStorage.setItem('dockCollapsed', dockPinned ? '0' : '1');
+    } catch {
+      /* без сохранения */
+    }
+  }
+
+  onMount(() => watchMaximized((value) => (maximized = value)));
+
+  $effect(() => {
+    document.documentElement.dataset.maximized = String(maximized);
+  });
 
   let activeId = $state<SectionId>('vpn');
   let activeSub = $state('subscription');
@@ -74,6 +102,7 @@
 
 <div
   class="shell"
+  data-maximized={maximized}
   style:--accent={section.accent}
   style:--page-text={textOn(section.accent)}
   style:--font-heading={HEADING_FONT}
@@ -104,7 +133,7 @@
 >
   <div class="body">
     <div class="stage">
-      <TitleBar />
+      <TitleBar {maximized} />
       <main bind:this={main}>
         <h1>{t(section.titleKey)}</h1>
         {#if section.lead}<p class="lead">{section.lead}</p>{/if}
@@ -143,26 +172,44 @@
 
     <div class="side">
       <Navigation active={activeId} onSelect={select} />
-      <div class="bottom">
-        <button type="button" class="pill sound" disabled title={t('soundTitle')}>
-          {t('sound')}
-          <span class="reason">{t('soundReason')}</span>
-        </button>
-        <div class="lang">
-          <button
-            type="button"
-            class="pill"
-            aria-pressed={i18n.lang === 'ru'}
-            onclick={() => (i18n.lang = 'ru')}>{t('langRu')}</button
-          >
-          <button
-            type="button"
-            class="pill"
-            aria-pressed={i18n.lang === 'en'}
-            onclick={() => (i18n.lang = 'en')}>{t('langEn')}</button
-          >
+      <div
+        class="dock"
+        role="group"
+        onmouseenter={() => (dockHover = true)}
+        onmouseleave={() => (dockHover = false)}
+      >
+        <div class="bottom-wrap" class:open={dockOpen} inert={!dockOpen}>
+          <div class="bottom">
+            <button type="button" class="pill sound" disabled title={t('soundTitle')}>
+              {t('sound')}
+              <span class="reason">{t('soundReason')}</span>
+            </button>
+            <div class="lang">
+              <button
+                type="button"
+                class="pill"
+                aria-pressed={i18n.lang === 'ru'}
+                onclick={() => (i18n.lang = 'ru')}>{t('langRu')}</button
+              >
+              <button
+                type="button"
+                class="pill"
+                aria-pressed={i18n.lang === 'en'}
+                onclick={() => (i18n.lang = 'en')}>{t('langEn')}</button
+              >
+            </div>
+          </div>
         </div>
-        <small>{VERSION}</small>
+        <button
+          type="button"
+          class="handle"
+          class:open={dockOpen}
+          aria-expanded={dockOpen}
+          aria-label={dockOpen ? t('dockCollapse') : t('dockExpand')}
+          onclick={toggleDock}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -177,6 +224,10 @@
     overflow: hidden;
     background: transparent;
     color: #fafafa;
+  }
+
+  :global(body) {
+    overflow: hidden;
   }
 
   /* Полосы прокрутки скрыты везде, прокрутка колесом и касанием работает. */
@@ -225,6 +276,11 @@
     background: var(--window);
   }
 
+  /* Развёрнутое окно: углы квадратные, от края до края. */
+  .shell[data-maximized='true'] {
+    border-radius: 0;
+  }
+
   /* Видимый фокус с клавиатуры, двойное кольцо. Внешнее (цвет текста страницы) читается
      на цветной странице, но на правой панели сливается с её фоном (оба #080808).
      Внутреннее светлое (--ink, 2px, ровно на величину отступа) читается на панели. */
@@ -251,6 +307,8 @@
     min-width: 0;
     overflow: hidden;
     background-color: var(--accent);
+    /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
+    --content-gutter: max(22px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -277,7 +335,8 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden auto;
-    padding: 0 22px 10px;
+    padding: 0 var(--content-gutter) 10px;
+    overscroll-behavior: contain;
   }
 
   h1 {
@@ -309,8 +368,31 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    flex: none;
     width: 110px;
     background: var(--window);
+  }
+
+  .dock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 8px;
+  }
+
+  /* Сворачивание: высота блока и прозрачность (маленький блок, поэтому без нагрузки). */
+  .bottom-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 160ms ease;
+  }
+
+  .bottom-wrap.open {
+    grid-template-rows: 1fr;
+    opacity: 1;
   }
 
   .bottom {
@@ -318,7 +400,46 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 10px 10px 14px;
+    min-height: 0;
+    padding: 0 10px;
+    overflow: hidden;
+  }
+
+  .bottom > :global(:first-child) {
+    margin-top: 8px;
+  }
+
+  .handle {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .handle:hover {
+    background: var(--rail-hover);
+    color: var(--ink);
+  }
+
+  .handle svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .handle:not(.open) svg {
+    transform: rotate(180deg);
   }
 
   .pill {
@@ -363,11 +484,5 @@
   .lang {
     display: flex;
     gap: 8px;
-  }
-
-  .bottom small {
-    text-align: center;
-    color: var(--muted);
-    font-size: 10px;
   }
 </style>

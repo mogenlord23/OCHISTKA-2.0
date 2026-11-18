@@ -78,5 +78,5 @@ export const SHELL = {
 } as const;
 
 /** Узор раздела (pop-pattern.png, чёрный рисунок на прозрачном): плитка 320 px, непрозрачность слоя.
-    Охват узора около 10%; при 0.16 цвет под буквами темнеет не более чем на 2-5%. */
-export const PATTERN = { tile: 320, opacity: 0.16, worstCoverage: 0.25 } as const;
+    Охват узора около 10%; при 0.07 цвет под буквами темнеет не более чем на 2-5%. */
+export const PATTERN = { tile: 320, opacity: 0.07, worstCoverage: 0.25 } as const;
