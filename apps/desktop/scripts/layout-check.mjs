@@ -1,5 +1,5 @@
 // Проверка раскладки оболочки в настоящем Chromium (Playwright, вызовы Tauri подменены).
-// Запуск: сервер `npx vite --port 1431 --strictPort`, затем `node scripts/layout-check.mjs [папка снимков]`.
+// Запуск: сервер `npx vite --port 1441 --strictPort`, затем `node scripts/layout-check.mjs [папка снимков]`.
 // Нужен пакет playwright (глобально или рядом): PLAYWRIGHT_BROWSERS_PATH указывает на браузеры.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -45,7 +45,7 @@ for (const [w, h] of SIZES) {
         },
       };
     }, maximized);
-    await page.goto('http://127.0.0.1:1431/');
+    await page.goto('http://127.0.0.1:1441/');
     await page.waitForTimeout(600);
     const tag = `${w}x${h}${maximized ? ' maximized' : ''}`;
 
@@ -79,14 +79,19 @@ for (const [w, h] of SIZES) {
       `${tag}: all rail items inside the viewport`,
     );
     check(m.sh <= m.vh && m.sw <= m.vw, `${tag}: no page scroll`);
+    // Верхний край первого пункта панели == верхний край кнопок окна (REQUIREMENTS.md).
     for (const wb of m.win)
       check(
-        Math.abs(wb.cy - m.rail[0].cy) <= 0.5,
-        `${tag}: window button centre ${wb.cy} == first rail item centre ${m.rail[0].cy}`,
+        Math.abs(wb.top - m.rail[0].top) <= 0.5,
+        `${tag}: window button top ${wb.top} == first rail item top ${m.rail[0].top}`,
       );
     check(
-      Math.abs(m.brand.cy - m.rail[0].cy) <= 0.5,
-      `${tag}: logo centre ${m.brand.cy} == rail centre`,
+      Math.abs(m.brand.cy - (m.win[0].top + m.win[0].bottom) / 2) <= 0.5,
+      `${tag}: logo centre ${m.brand.cy} == window button centre`,
+    );
+    check(
+      m.rail.every((r) => Math.abs(r.right - r.left - r.h) <= 0.5),
+      `${tag}: rail items are square (${m.rail[0].right - m.rail[0].left}x${m.rail[0].h})`,
     );
     check(
       m.rail.every((r) => r.h % 8 === 0),
@@ -105,6 +110,7 @@ for (const [w, h] of SIZES) {
     check(maximized ? m.radius === '0px' : m.radius !== '0px', `${tag}: corner radius ${m.radius}`);
 
     const names = await page.$$eval('nav.rail button', (b) => b.length);
+    const margins = [];
     for (let i = 0; i < names; i++) {
       await page.locator('nav.rail button').nth(i).click();
       await page.waitForTimeout(350);
@@ -115,9 +121,27 @@ for (const [w, h] of SIZES) {
         vw: innerWidth,
       }));
       check(s.sh <= s.vh && s.sw <= s.vw, `${tag}: section ${i} has no page scroll`);
+      margins.push(
+        await page.evaluate(() => {
+          const r = document.querySelector('main').getBoundingClientRect();
+          const cs = getComputedStyle(document.querySelector('main'));
+          const st = document.querySelector('.stage').getBoundingClientRect();
+          return {
+            left: r.left + parseFloat(cs.paddingLeft) - st.left,
+            right: st.right - (r.right - parseFloat(cs.paddingRight)),
+          };
+        }),
+      );
       if (OUT)
         await page.screenshot({ path: `${OUT}/${w}x${h}${maximized ? '-max' : ''}-${i}.png` });
     }
+    check(
+      margins.every(
+        (x) =>
+          Math.abs(x.left - margins[0].left) <= 0.5 && Math.abs(x.right - margins[0].right) <= 0.5,
+      ),
+      `${tag}: identical container margins across sections (${margins[0].left}/${margins[0].right})`,
+    );
     await page.close();
   }
 }

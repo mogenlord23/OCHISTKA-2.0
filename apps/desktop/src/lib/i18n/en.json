@@ -1,8 +1,10 @@
 {
   "footer": "LOCAL. UNDER YOUR CONTROL.",
   "sound": "SOUND",
-  "soundReason": "in development",
-  "soundTitle": "Sound: in development",
+  "soundOn": "ON",
+  "soundOff": "OFF",
+  "soundTitleOn": "Sound on",
+  "soundTitleOff": "Sound off",
   "langRu": "RU",
   "langEn": "ENG",
   "navLabel": "Navigation",

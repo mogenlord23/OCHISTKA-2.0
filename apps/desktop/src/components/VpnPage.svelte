@@ -1,5 +1,6 @@
 <script lang="ts">
   import poster from '../assets/pop-art.png';
+  import { playHeehee } from '../lib/sound';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import {
@@ -109,13 +110,32 @@
     importMessage = result.ok ? IMPORT_REASON : result.reason;
   }
 
+  /** Пасхалка: звук (если включён) и анимация нажатия. */
+  let pressed = $state(false);
+  function onPoster() {
+    pressed = false;
+    requestAnimationFrame(() => (pressed = true));
+    playHeehee();
+  }
+
   function onConnect() {
     connectMessage = requestVpnConnect().reason;
   }
 </script>
 
 <div class="vpn">
-  <img class="poster" src={poster} alt="" aria-hidden="true" draggable="false" />
+  <div class="poster-cell">
+    <button
+      type="button"
+      class="poster"
+      class:pressed
+      aria-label="Постер"
+      onclick={onPoster}
+      onanimationend={() => (pressed = false)}
+    >
+      <img src={poster} alt="" draggable="false" />
+    </button>
+  </div>
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
@@ -303,15 +323,53 @@
     padding-bottom: 4px;
   }
 
+  /* Ячейка сетки: постер 2:3 целиком, без обрезки, по центру. Масштаб идёт пропорционально
+     (object-fit: contain внутри карточки с тем же соотношением сторон). */
+  .poster-cell {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    container-type: size;
+  }
+
   .poster {
+    display: block;
+    width: min(100cqw, 66.667cqh);
+    height: auto;
+    aspect-ratio: 2 / 3;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .poster img {
+    display: block;
     width: 100%;
     height: 100%;
-    min-height: 0;
-    border-radius: var(--radius-lg);
-    object-fit: cover;
-    object-position: 50% 30%;
+    object-fit: contain;
     user-select: none;
     pointer-events: none;
+  }
+
+  .poster.pressed {
+    animation: poster-press 260ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @keyframes poster-press {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(0.94);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 
   .column {

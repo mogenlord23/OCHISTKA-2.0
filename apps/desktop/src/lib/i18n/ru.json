@@ -1,8 +1,10 @@
 {
   "footer": "ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.",
   "sound": "ЗВУК",
-  "soundReason": "в разработке",
-  "soundTitle": "Звук: в разработке",
+  "soundOn": "ВКЛ",
+  "soundOff": "ВЫКЛ",
+  "soundTitleOn": "Звук включён",
+  "soundTitleOff": "Звук выключен",
   "langRu": "RU",
   "langEn": "ENG",
   "navLabel": "Навигация",

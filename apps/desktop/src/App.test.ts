@@ -67,32 +67,36 @@ describe('App navigation', () => {
   });
 });
 
-describe('FND-0020: sound control is disabled with a visible reason', () => {
-  it('FND-0020: the sound button is disabled', () => {
+describe('FND-0020: sound control toggles and persists', () => {
+  afterEach(() => localStorage.removeItem('soundEnabled'));
+
+  it('FND-0020: the sound button is enabled and on by default', () => {
+    localStorage.removeItem('soundEnabled');
     render(App);
     const sound = screen.getByRole('button', { name: /ЗВУК/ }) as HTMLButtonElement;
-    expect(sound.disabled).toBe(true);
+    expect(sound.disabled).toBe(false);
+    expect(sound.getAttribute('aria-pressed')).toBe('true');
+    expect(within(sound).getByText('ВКЛ')).toBeTruthy();
+    expect(sound.textContent).not.toContain('в разработке');
   });
 
-  it('FND-0020: the reason is visible text inside the button and in its title', () => {
+  it('FND-0020: clicking toggles on/off and saves the state', async () => {
     render(App);
     const sound = screen.getByRole('button', { name: /ЗВУК/ });
-    expect(within(sound).getByText('в разработке')).toBeTruthy();
-    expect(sound.getAttribute('title') ?? '').toContain('в разработке');
-  });
-
-  it('FND-0020: clicking the sound button changes nothing (no fake toggle)', async () => {
-    render(App);
-    const sound = screen.getByRole('button', { name: /ЗВУК/ });
-    const before = sound.textContent;
-    expect(sound.hasAttribute('aria-pressed')).toBe(false);
-
     await fireEvent.click(sound);
+    expect(sound.getAttribute('aria-pressed')).toBe('false');
+    expect(within(sound).getByText('ВЫКЛ')).toBeTruthy();
+    expect(localStorage.getItem('soundEnabled')).toBe('0');
+    await fireEvent.click(sound);
+    expect(sound.getAttribute('aria-pressed')).toBe('true');
+    expect(localStorage.getItem('soundEnabled')).toBe('1');
+  });
 
-    expect(sound.textContent).toBe(before);
-    expect(sound.hasAttribute('aria-pressed')).toBe(false);
-    expect(sound.textContent).not.toMatch(/ВКЛ|ВЫКЛ/);
-    expect(within(sound).getByText('в разработке')).toBeTruthy();
+  it('FND-0020: a saved off state is restored', () => {
+    localStorage.setItem('soundEnabled', '0');
+    render(App);
+    const sound = screen.getByRole('button', { name: /ЗВУК/ });
+    expect(sound.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('switches the interface language with RU and ENG', async () => {

@@ -54,26 +54,28 @@
       class="item"
       class:active={active === section.id}
       aria-label={t(section.titleKey)}
+      title={t(section.titleKey)}
       aria-current={active === section.id ? 'page' : undefined}
       onclick={() => onSelect(section.id)}
     >
       {@render icon(section.id)}
-      <span class="label">{t(section.titleKey)}</span>
     </button>
   {/each}
 </nav>
 
 <style>
-  /* Пункты фиксированной высоты на сетке 8 px; первый пункт центрирован на линии Y=32
-     (центр строки заголовка окна). Вертикальный зазор растёт с высотой окна. */
+  /* Пункты: квадратные плитки на сетке 8 px. Верхний край первого пункта лежит на одной
+     горизонтали с верхним краем кнопок окна (строка 64 px, кнопки 40 px, значит Y = 12).
+     Вертикальный зазор растёт с высотой окна. */
   .rail {
-    --item-h: 56px;
+    --item: 56px;
     --gap: 8px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: calc(32px - var(--item-h) / 2) 10px 0;
+    padding: 12px 0 0;
     background: var(--window);
   }
 
@@ -97,27 +99,21 @@
 
   @media (max-height: 599px) {
     .rail {
-      --item-h: 48px;
+      --item: 48px;
     }
   }
 
   .item {
-    display: flex;
+    display: grid;
     flex: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    height: var(--item-h);
-    padding: 0 4px;
+    place-items: center;
+    width: var(--item);
+    height: var(--item);
+    padding: 0;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
     color: #fff;
-    font: inherit;
-    font-size: var(--text-caption);
-    font-weight: 800;
-    line-height: 1.1;
     cursor: pointer;
   }
 
@@ -132,8 +128,8 @@
 
   svg {
     flex: none;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -153,20 +149,5 @@
 
   .item.active svg :global(.knob) {
     fill: var(--accent);
-  }
-
-  .label {
-    max-width: 100%;
-    overflow: hidden;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* Подписи прячем только при очень низком окне. */
-  @media (max-height: 479px) {
-    .label {
-      display: none;
-    }
   }
 </style>

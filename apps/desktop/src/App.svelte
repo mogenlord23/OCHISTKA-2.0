@@ -14,6 +14,7 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
   import { watchMaximized } from './lib/windowState';
+  import { readSoundEnabled, writeSoundEnabled } from './lib/sound';
   import {
     BODY_FONT,
     HEADING_FONT,
@@ -26,6 +27,12 @@
   } from './lib/tokens';
 
   let maximized = $state(false);
+  let soundOn = $state(readSoundEnabled());
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    writeSoundEnabled(soundOn);
+  }
   let dockPinned = $state(readPinned());
   let dockHover = $state(false);
   const dockOpen = $derived(dockPinned || dockHover);
@@ -180,9 +187,15 @@
       >
         <div class="bottom-wrap" class:open={dockOpen} inert={!dockOpen}>
           <div class="bottom">
-            <button type="button" class="pill sound" disabled title={t('soundTitle')}>
+            <button
+              type="button"
+              class="pill sound"
+              aria-pressed={soundOn}
+              title={t(soundOn ? 'soundTitleOn' : 'soundTitleOff')}
+              onclick={toggleSound}
+            >
               {t('sound')}
-              <span class="reason">{t('soundReason')}</span>
+              <span class="state">{t(soundOn ? 'soundOn' : 'soundOff')}</span>
             </button>
             <div class="lang">
               <button
@@ -462,18 +475,11 @@
     border-color: #4a4a4a;
   }
 
-  /* Звук недоступен: приглушённый, но читаемый (--muted на --surface даёт около 5.4:1). */
   .pill.sound {
     width: 84px;
   }
 
-  .pill.sound:disabled {
-    background: var(--surface);
-    color: var(--ink-soft);
-    cursor: not-allowed;
-  }
-
-  .reason {
+  .state {
     display: block;
     font-size: 9px;
     font-weight: 600;
