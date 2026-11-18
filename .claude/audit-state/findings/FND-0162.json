@@ -8,5 +8,5 @@
   "summary": "The [[bin]] block repeats the default target Cargo would discover, and the empty features = [] entries on tauri and tauri-build are no-ops",
   "evidence": "apps/desktop/src-tauri/Cargo.toml:10-12, 18, 21",
   "failure_scenario": "None. Configuration noise matching the upstream template.",
-  "status": "open"
+  "status": "triaged"
 }

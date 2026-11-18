@@ -8,5 +8,5 @@
   "summary": "default_scan_target swallows a missing USERPROFILE as empty string, and does not handle a relocated Downloads folder",
   "evidence": "commands.rs:92-95 unwrap_or_default; files.rs:14-18 no existence check, no Known Folder lookup",
   "failure_scenario": "Downloads relocated to D:\\\\Загрузки: default C:\\\\Users\\\\u\\\\Downloads is wrong or missing; scan returns probe or scans the wrong folder.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "textOn picks the better of black and white but a narrow luminance band (0.18333 to 0.18593) cannot reach 4.5:1 with either; the test covers only the current colours",
   "evidence": "tokens.ts:40-44; tokens.test.ts:42 loops only the seven current colours",
   "failure_scenario": "textOn(\"#777777\") returns white at 4.478:1 (below AA). A section colour in that band would fail accessibility silently. Related FND-0019.",
-  "status": "open"
+  "status": "triaged"
 }

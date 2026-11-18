@@ -8,5 +8,5 @@
   "summary": "Peak memory about three times the full clamscan stdout (raw bytes, lossy copy, Finding strings); no output size cap",
   "evidence": "clamav.rs:75-82 output(); scan.rs:34-41 lines loop; UNVERIFIED volume of ERROR lines on a whole-drive scan",
   "failure_scenario": "Whole-drive scan with many ERROR lines could take hundreds of megabytes. Timeout is FND-0026.",
-  "status": "open"
+  "status": "triaged"
 }

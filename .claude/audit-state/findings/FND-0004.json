@@ -8,5 +8,5 @@
   "summary": "ClamAV location is next to the executable, so cargo tauri dev reports the engine unavailable unless copied by hand",
   "evidence": "platform/src/lib.rs:31-33 current_exe().parent()/clamav/clamscan.exe; dev binary lives in target/debug",
   "failure_scenario": "Developer runs cargo tauri dev with ClamAV installed elsewhere: the scan button stays disabled. Not documented in the code read; README not checked.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Lossy UTF-8 decoding of clamscan stdout corrupts non-ASCII paths; findings for Cyrillic profiles become non-existent paths with no warning",
   "evidence": "clamav.rs:80-82 String::from_utf8_lossy; VirusesPage.svelte:65 assessFile(path) caught to null; VirusesPage.svelte:136 #each keyed by path",
   "failure_scenario": "Infected C:\\\\Users\\\\Слава\\\\Downloads\\\\счёт.pdf.exe with clamscan writing ANSI or OEM bytes: path becomes U+FFFD garbage, assessFile silently fails, two such findings can collide as duplicate keys. UNVERIFIED: clamscan stdout encoding on Windows.",
-  "status": "open"
+  "status": "deferred"
 }

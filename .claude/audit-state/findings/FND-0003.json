@@ -8,5 +8,5 @@
   "summary": "Windows-only modules are compiled and called on every OS, against the rule that other OSes return Unsupported",
   "evidence": "platform/src/lib.rs:5 pub mod windows without cfg; commands.rs assess_file calls windows::files::file_facts directly; default_scan_target reads USERPROFILE",
   "failure_scenario": "On Linux or macOS assess_file performs a real metadata read instead of returning Unsupported; default_scan_target returns an empty string.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Entry point and its missing-#app guard have no test",
   "evidence": "main.ts:4-7 throw when #app is absent; no test imports main.ts; App.test.ts tests App directly",
   "failure_scenario": "None at runtime: the branch cannot be reached with the current index.html. Gap is test coverage only (CLAUDE.md: every function has tests).",
-  "status": "open"
+  "status": "triaged"
 }

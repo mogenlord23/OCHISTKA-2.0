@@ -8,5 +8,5 @@
   "summary": "The accent format check restates the SECTION_COLORS literals and duplicates tokens.test.ts:28-29; it guards tokens.ts format, not sections.ts",
   "evidence": "sections.test.ts:47; tokens.ts:5-11; tokens.test.ts:28-29",
   "failure_scenario": "None; redundant check.",
-  "status": "open"
+  "status": "triaged"
 }

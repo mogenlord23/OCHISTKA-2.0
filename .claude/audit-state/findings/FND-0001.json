@@ -8,5 +8,5 @@
   "summary": "Startup failure in a release build is invisible: .expect panics and the GUI subsystem has no console",
   "evidence": "lib.rs:24-25 .run(...).expect(\"не удалось запустить OCHISTKA\"); main.rs:1 windows_subsystem in release",
   "failure_scenario": "Release build on a machine where the webview cannot be created: the process exits with no dialog and no log.",
-  "status": "open"
+  "status": "triaged"
 }

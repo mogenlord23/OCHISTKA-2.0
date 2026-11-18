@@ -8,5 +8,5 @@
   "summary": "Plan says to create Placeholder.svelte with props title and says tests look for В разработке from it; shell uses PlaceholderPage instead and checkbox at line 399 is still unchecked",
   "evidence": "skeleton.md:345,373,378,399; PlaceholderPage used at App.svelte:72,74",
   "failure_scenario": "Readers of the plan look for a component that is not used.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Engine-status test expects ClamAV to be unavailable on Windows too; the found-engine path is untested",
   "evidence": "lib.rs:91-96 asserts !status.available on every OS; lib.rs:35 is the is_file()==true branch with no test through current_virus_scanner",
   "failure_scenario": "On Windows with clamscan.exe next to the test binary, the test fails. Engine-present path has no automated check.",
-  "status": "open"
+  "status": "triaged"
 }

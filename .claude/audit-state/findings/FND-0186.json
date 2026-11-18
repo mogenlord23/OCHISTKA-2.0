@@ -8,5 +8,5 @@
   "summary": "Empty and disagreeing finding states are untested: no-report text, Угроз не найдено, the fallback reason text, the meter aria-valuenow, the infected-count versus findings mismatch, and duplicate paths",
   "evidence": "VirusesPage.svelte:130-133, 150, 155; FND-0092 and FND-0100 cross-references; test 71 checks only the score text",
   "failure_scenario": "Changing VirusesPage.svelte:150 to aria-valuenow={0}, or dropping line 133, leaves all tests green.",
-  "status": "open"
+  "status": "triaged"
 }

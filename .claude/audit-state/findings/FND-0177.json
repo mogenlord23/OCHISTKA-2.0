@@ -8,5 +8,5 @@
   "summary": "No test checks the data-tauri-drag-region attributes on the header and brand elements, which are the only way to move the frameless window",
   "evidence": "TitleBar.test.ts:22-38 checks text and buttons only; TitleBar.svelte:7-10; capabilities/default.json:11 allow-start-dragging",
   "failure_scenario": "Deleting all four drag-region attributes leaves both tests green; users cannot move the window.",
-  "status": "open"
+  "status": "triaged"
 }

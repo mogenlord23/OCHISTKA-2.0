@@ -8,5 +8,5 @@
   "summary": "CSP blocks the data: SVG background used by .shell, so the decorative pattern is missing in release builds",
   "evidence": "tauri.conf.json:24 default-src self, no img-src; App.svelte:114 background-image data:image/svg+xml; built CSS still contains the data URL",
   "failure_scenario": "Release binary shows solid background without the pattern; console error on every launch. No security impact. Design difference between dev and release.",
-  "status": "open"
+  "status": "triaged"
 }

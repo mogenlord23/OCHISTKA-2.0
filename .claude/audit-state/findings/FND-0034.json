@@ -8,5 +8,5 @@
   "summary": "CSP lacks connect-src ipc: http://ipc.localhost, so release builds fall back from the fast IPC path to postMessage on every launch",
   "evidence": "tauri.conf.json:24 csp without connect-src; tauri core.js:16-17 builds http://ipc.localhost URL; ipc-protocol.js:37-67 fetch blocked then fallback; tauri-utils config.rs:2895,2910 reference config includes connect-src ipc:",
   "failure_scenario": "First invoke in a release build logs a CSP violation; all later IPC uses postMessage. Commands still work but CSP noise hides real violations.",
-  "status": "open"
+  "status": "triaged"
 }

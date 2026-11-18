@@ -8,5 +8,5 @@
   "summary": "Navigation tests check only the h1 and subtab buttons, never the page component rendered for VPN, Вирусы or Процессы, so the routing chain at App.svelte:65-75 can be deleted with all five tests green",
   "evidence": "apps/desktop/src/App.test.ts:33-54; App.svelte:54 h1; App.svelte:65-75 routing; VpnPage.svelte:7-17",
   "failure_scenario": "Deleting App.svelte:65-68 sends VPN and Вирусы to the placeholder; all tests still pass. Computer branch is the same gap (FND-0129).",
-  "status": "open"
+  "status": "triaged"
 }

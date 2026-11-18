@@ -8,5 +8,5 @@
   "summary": "u64 byte counts become JS number, exact only to 2^53-1 bytes (about 8 PiB); integer fields are plain number",
   "evidence": "types.ts:9-10, 17-18; system.rs u64 fields",
   "failure_scenario": "Unreachable with real disks and RAM. Recorded for completeness.",
-  "status": "open"
+  "status": "triaged"
 }

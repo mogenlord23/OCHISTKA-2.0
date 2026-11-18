@@ -8,5 +8,5 @@
   "summary": "No test clicks a subtab, checks aria-current, or checks that onSelect receives the id; onSelect(items[0].id) would pass all tests",
   "evidence": "grep of test files: only App.test.ts:36,45 check that buttons exist; no Subtabs.test.ts; CLAUDE.md requires tests for every function",
   "failure_scenario": "Regression in tab selection goes unnoticed.",
-  "status": "open"
+  "status": "triaged"
 }

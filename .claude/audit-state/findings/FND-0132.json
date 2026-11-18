@@ -8,5 +8,5 @@
   "summary": "Disabled input has no reason attached; the button reason lives only in title, unreachable by keyboard; visible note not linked by aria-describedby",
   "evidence": "VpnPage.svelte:11-14; CLAUDE.md requires disabled with a reason; related FND-0097",
   "failure_scenario": "Screen-reader user hears Ссылка подписки, недоступно with no reason.",
-  "status": "open"
+  "status": "triaged"
 }

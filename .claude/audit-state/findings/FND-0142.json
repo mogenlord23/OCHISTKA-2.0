@@ -8,5 +8,5 @@
   "summary": "The only active preprocessing is CSS passthrough: no postcss config and no css key, so every style block is run through preprocessCSS with no change",
   "evidence": "preprocess.js:79,87; no postcss config (glob empty); vite.config.ts has no css key",
   "failure_scenario": "Extra work per build and HMR only; no correctness effect.",
-  "status": "open"
+  "status": "triaged"
 }

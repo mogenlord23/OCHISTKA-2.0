@@ -8,5 +8,5 @@
   "summary": "Russian message \"{feature} недоступно на {os}\" is grammatically wrong for plural or feminine features",
   "evidence": "system.rs:97; test system.rs:178 locks in the wrong form.",
   "failure_scenario": "Plural features show \"недоступно\" instead of \"недоступны\".",
-  "status": "open"
+  "status": "triaged"
 }

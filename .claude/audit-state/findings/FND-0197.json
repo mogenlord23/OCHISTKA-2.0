@@ -8,5 +8,5 @@
   "summary": "The only formatPercent input (12.4) cannot distinguish Math.round from floor, trunc or |0; a regression to truncation would pass (for example 12.6 should show 13 % but would show 12 %)",
   "evidence": "format.test.ts:18; format.ts:19 Math.round; FND-0076, FND-0078 cross-references",
   "failure_scenario": "Changing format.ts:19 to Math.floor leaves all tests green; 99.7 would show 99 % instead of 100 %.",
-  "status": "open"
+  "status": "triaged"
 }

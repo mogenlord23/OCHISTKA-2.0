@@ -8,5 +8,5 @@
   "summary": "isolatedModules true is redundant because verbatimModuleSyntax true already enables it (verified in TypeScript 6.0.3 computeValue)",
   "evidence": "apps/desktop/tsconfig.json:8-9; node_modules/typescript/lib/typescript.js:22047-22051",
   "failure_scenario": "None. Configuration noise only.",
-  "status": "open"
+  "status": "triaged"
 }

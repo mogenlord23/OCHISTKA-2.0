@@ -8,5 +8,5 @@
   "summary": "ok_or_else error branch is unreachable: the Option is filled or the function returned early",
   "evidence": "windows/mod.rs:51-56",
   "failure_scenario": "None; dead code only.",
-  "status": "open"
+  "status": "triaged"
 }

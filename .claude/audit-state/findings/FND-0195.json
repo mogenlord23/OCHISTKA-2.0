@@ -8,5 +8,5 @@
   "summary": "POLL_INTERVAL_MS is not imported or asserted in this file",
   "evidence": "api.test.ts:3-10; api.ts:12; FND-0170 cross-reference",
   "failure_scenario": "The polling period can change without any failure in this file.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "current_exe() error is discarded with .ok(); the user-visible reason omits the cause",
   "evidence": "lib.rs:31-33 .ok() then .and_then(...); reason string at lib.rs:37",
   "failure_scenario": "current_exe() fails: status shows a generic reason with no error detail. Safe behaviour (engine unavailable), diagnosis only.",
-  "status": "open"
+  "status": "triaged"
 }

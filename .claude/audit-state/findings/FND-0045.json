@@ -8,5 +8,5 @@
   "summary": "Empty or non-Unicode USERPROFILE yields a misleading path or empty string; empty value produces \\\\Downloads, rejected as invalid target",
   "evidence": "files.rs:9-11 trim and format with no check; files.rs:14-18 .ok() swallows NotUnicode and unset alike",
   "failure_scenario": "USERPROFILE=\"\" -> default target \\\\Downloads -> invalidTarget error instead of profile-unknown message. Extends FND-0028.",
-  "status": "open"
+  "status": "triaged"
 }

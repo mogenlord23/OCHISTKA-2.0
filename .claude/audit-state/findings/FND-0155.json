@@ -8,5 +8,5 @@
   "summary": "Workspace declares no rust-version (MSRV) and no rust-toolchain file, while Cargo.lock is version 4 and locked tauri 2.12.6 and sysinfo 0.40.4 have their own MSRVs",
   "evidence": "Cargo.toml:5-8; Cargo.lock:3 version = 4; Cargo.lock:3300 tauri 2.12.6; Cargo.lock:3214 sysinfo 0.40.4; no rust-toolchain file; no rust-version in any Cargo.toml",
   "failure_scenario": "Cargo older than 1.78 fails to parse the lockfile, or a dependency fails with an unclear error instead of a clear requires rustc message. Reproducibility only. Dependency MSRVs UNVERIFIED.",
-  "status": "open"
+  "status": "triaged"
 }

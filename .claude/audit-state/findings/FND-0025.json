@@ -8,5 +8,5 @@
   "summary": "assess_file is a synchronous command doing filesystem I/O; a UNC or offline mapped drive blocks the IPC thread (window may freeze)",
   "evidence": "commands.rs:87-90 sync #[tauri::command]; tauri-macros wrapper.rs:50,257-260,398-430 runs body inline; VirusesPage.svelte:63-67 calls it per finding via Promise.all; get_system_overview and scan_start use spawn_blocking",
   "failure_scenario": "Scan \\\\nas\\share, then the share goes offline: each assess_file waits for the SMB timeout, serially. UNVERIFIED: that Tauri 2 runs sync commands on the UI thread on Windows (from documentation, not traced).",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Focus ring is #080808 on a #080808 rail: keyboard focus invisible in the right rail (WCAG 2.4.7); comment claim of matching contrast is false for the rail",
   "evidence": "App.svelte:29 --page-text = textOn(accent) = #080808; App.svelte:117-121 outline var(--page-text); Navigation.svelte:50 rail background #080808",
   "failure_scenario": "Tab onto a rail item or the ЗВУК/RU pills in any section: no visible focus indicator.",
-  "status": "open"
+  "status": "triaged"
 }

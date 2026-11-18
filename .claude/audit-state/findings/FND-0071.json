@@ -8,5 +8,5 @@
   "summary": "Feature string \"Сведения о системе\" is a hand-typed literal in several places with no shared constant; tests ignore the feature field, so an edit to one stub passes all tests",
   "evidence": "linux/mod.rs:10; macos/mod.rs:10; platform lib.rs:56 test uses .. and checks only os",
   "failure_scenario": "Changing one stub text to \"Сведения о ПК\" passes every test and the UI wording differs by OS.",
-  "status": "open"
+  "status": "triaged"
 }

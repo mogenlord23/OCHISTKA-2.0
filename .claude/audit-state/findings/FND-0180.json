@@ -8,5 +8,5 @@
   "summary": "The журнал (log) subsection is never rendered; nothing tests adding a run, the empty state, or the run list, although CLAUDE.md requires this subsection",
   "evidence": "VirusesPage.test.ts: only scan and findings subsections rendered; VirusesPage.svelte:54-62 runs, 165-177 log subsection, 166-167 empty state, 170-173 list; FND-0093 key collision untested",
   "failure_scenario": "Deleting runs = [...] at VirusesPage.svelte:54-62 or changing the text at line 172 leaves both tests green.",
-  "status": "open"
+  "status": "triaged"
 }

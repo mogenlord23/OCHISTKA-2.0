@@ -8,5 +8,5 @@
   "summary": "Tests miss infinities and -0.0, normal usage results, DiskStatus happy path, whitespace-only names, zero-total memory, several JSON keys (memory.usagePercent, disks totalBytes/usedBytes/usagePercent), and Display for Probe, EngineMissing, InvalidTarget",
   "evidence": "system.rs:116-179; serialization test at 163-169 checks a subset of keys",
   "failure_scenario": "A serde rename on an unchecked key goes unnoticed; regressions in clamping edge cases pass.",
-  "status": "open"
+  "status": "triaged"
 }

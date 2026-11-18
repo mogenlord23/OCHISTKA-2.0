@@ -8,5 +8,5 @@
   "summary": "Public scan() trusts its caller: target goes into argv unchecked and there is no -- end-of-options marker; safety relies on one caller convention",
   "evidence": "clamav.rs:64-69 command.args(scan_args(target)); only production caller scan.rs:141 after validate_target (scan.rs:140)",
   "failure_scenario": "A future direct caller passing --remove=yes would make clamscan delete files, bypassing the quarantine rule in CLAUDE.md. No current exploit path.",
-  "status": "open"
+  "status": "triaged"
 }

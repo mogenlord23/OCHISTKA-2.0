@@ -8,5 +8,5 @@
   "summary": "On Windows the forward-slash branch accepts drive-relative paths, bare \"/\" and \"//host\" UNC or device paths, a second route around FND-0007; backslash \"\\\" is rejected while \"/\" is accepted",
   "evidence": "scan.rs:63 target.starts_with(\"\\\\\\\\\") || target.starts_with('/'); test scan.rs:203-211 covers only some forms",
   "failure_scenario": "assess_file or scan_start with \"/\" makes clamscan recursively scan the current drive; \"//attacker/share\" reaches SMB. Nothing deleted.",
-  "status": "open"
+  "status": "triaged"
 }

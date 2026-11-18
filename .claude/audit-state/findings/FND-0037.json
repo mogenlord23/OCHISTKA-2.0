@@ -8,5 +8,5 @@
   "summary": "A panic while the mutex is held poisons it: every later overview fails permanently with a misleading lock message until restart",
   "evidence": "windows/mod.rs:47-50 lock().map_err(...); guard held 47-79; no clear_poison or into_inner recovery. sysinfo disk.rs:30-33 slice index panic path (low confidence)",
   "failure_scenario": "One transient panic disables the Компьютер overview for the session. Recovery would be safe: Option<System> stays valid.",
-  "status": "open"
+  "status": "triaged"
 }

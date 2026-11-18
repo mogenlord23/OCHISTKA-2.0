@@ -8,5 +8,5 @@
   "summary": "No test pins the Процессы subsections (Процессы, Службы) defined in CLAUDE.md item 3; only viruses, vpn and computer are looked up",
   "evidence": "sections.test.ts:17-43; sections.ts:50-53",
   "failure_scenario": "Deleting sections.ts:52 or renaming Службы passes all tests and drifts from CLAUDE.md.",
-  "status": "open"
+  "status": "triaged"
 }

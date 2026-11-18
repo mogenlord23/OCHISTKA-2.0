@@ -8,5 +8,5 @@
   "summary": "sysinfo is declared with default features (component, disk, gpu, network, system, user) while the crate uses only the system and disk APIs, so unused Windows and macOS feature code is compiled",
   "evidence": "crates/platform/Cargo.toml:9; sysinfo-0.40.4 Cargo.toml:73-80 defaults; windows/mod.rs:11,32,39,41,58-65 uses only System, MINIMUM_CPU_UPDATE_INTERVAL, Disks, Error",
   "failure_scenario": "No runtime fault. Longer compile time and larger binary surface; dropping unused features would also remove objc2-open-directory from the lock. Hygiene only.",
-  "status": "open"
+  "status": "triaged"
 }

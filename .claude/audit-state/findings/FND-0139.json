@@ -8,5 +8,5 @@
   "summary": "Comment says Svelte in tests needs the browser build, but the setting applies to dev and production builds too",
   "evidence": "vite.config.ts:18 comment; line 19 setting",
   "failure_scenario": "Misleading scope for maintainers.",
-  "status": "open"
+  "status": "triaged"
 }

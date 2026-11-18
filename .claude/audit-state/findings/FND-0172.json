@@ -8,5 +8,5 @@
   "summary": "Several Home render branches and transitions have no test: probe error heading (Home.svelte:49), non-CommandError coercion (api.ts:59), error clearing after success (Home.svelte:24), error replacing existing data, empty disk list (Home.svelte:115), disk usage line (Home.svelte:99-101), progressbar aria-valuenow, and style widths",
   "evidence": "Home.test.ts: only the full sample and one unsupported error are rendered; Home.svelte:24, 44-53, 49, 99-101, 115; api.ts:59; FND-0105 cross-reference",
   "failure_scenario": "Swapping arguments at Home.svelte:99 passes all tests. Partly contradicts CLAUDE.md rule that every function has tests.",
-  "status": "open"
+  "status": "triaged"
 }

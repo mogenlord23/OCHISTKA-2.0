@@ -8,5 +8,5 @@
   "summary": "Maximise button label and glyph never change; it does not track maximised state, so after maximising it still announces Развернуть while it restores",
   "evidence": "TitleBar.svelte:14 static aria-label and glyph; no isMaximized state; double-click on drag region also toggles maximise (drag.js:103)",
   "failure_scenario": "Maximised window: screen reader says Развернуть, button actually restores the window.",
-  "status": "open"
+  "status": "triaged"
 }

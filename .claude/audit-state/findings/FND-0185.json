@@ -8,5 +8,5 @@
   "summary": "flush uses a fixed count of five microtasks, while the scan chain takes roughly six to eight hops, so adding one await could make later assertions run too early",
   "evidence": "VirusesPage.test.ts:17-21 (used at 36, 54, 64); VirusesPage.svelte:29-40, 53-79",
   "failure_scenario": "An extra await makes assertions at lines 38, 56, 65 or 71 fail, a false red or flake rather than a false green. Fix direction: waitFor or findBy queries. Real margin UNVERIFIED (vitest not run).",
-  "status": "open"
+  "status": "triaged"
 }

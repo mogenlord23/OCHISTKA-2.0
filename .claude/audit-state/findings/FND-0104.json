@@ -8,5 +8,5 @@
   "summary": "Keyed each by mountPoint: lossy conversion of unpaired UTF-16 surrogates can map two mount points to the same string, causing each_key_duplicate in production with no boundary; extends FND-0069",
   "evidence": "Home.svelte:90; windows/mod.rs:71 to_string_lossy; sysinfo disk.rs:355-399 one disk per mount path; each.js:357-363 throws in production",
   "failure_scenario": "Mount points C:\\\\mnt\\\\<U+D800>\\\\ and C:\\\\mnt\\\\<U+D801>\\\\ both become C:\\\\mnt\\\\�\\\\: overview block fails to render. UNVERIFIED that such paths can be created on Windows.",
-  "status": "open"
+  "status": "triaged"
 }

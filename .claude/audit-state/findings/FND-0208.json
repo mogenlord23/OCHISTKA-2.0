@@ -8,5 +8,5 @@
   "summary": "NEUTRAL, RADIUS and TYPE_SCALE tests restate tokens.ts literally and check no rules (scale monotonicity, valid formats, neutral contrast); they catch only accidental edits",
   "evidence": "tokens.test.ts:66-92; tokens.ts:47-69; App.svelte:32-48; FND-0086, FND-0023 (unused --text-lead and --text-display)",
   "failure_scenario": "None; low-value tests.",
-  "status": "open"
+  "status": "triaged"
 }

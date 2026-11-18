@@ -8,5 +8,5 @@
   "summary": "Section ids and titles are never checked together; swapping ids between sections without subsection tests (Программы and Диски) passes all tests; Navigation.svelte:36 selects icons by id",
   "evidence": "sections.test.ts:5-15, 52-54; Navigation.svelte:36; App.svelte:65-70 routes only vpn, viruses, computer",
   "failure_scenario": "Exchanging the ids of Программы and Диски keeps ids unique and titles unchanged, so all tests pass; the wrong icon and colour appear.",
-  "status": "open"
+  "status": "triaged"
 }

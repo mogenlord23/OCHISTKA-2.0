@@ -8,5 +8,5 @@
   "summary": "ADR lists only SystemInfoPort as the core port; the core also exposes VirusScanPort. Plan promises a ScanRequest DTO that does not exist",
   "evidence": "docs/adr/0001-stack.md:23; scan.rs:133 VirusScanPort; docs/superpowers/plans/2026-11-18-sections-and-antivirus.md:13 ScanRequest not found in code.",
   "failure_scenario": "Future contributors read the wrong port list.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "No compilerOptions, onwarn or warningFilter, so every compiler warning reaches svelte-check with --fail-on-warnings; intended strictness, recorded so no filter is assumed",
   "evidence": "svelte.config.js:3-5; package.json:11 check script",
   "failure_scenario": "Any a11y or compiler warning fails npm run check.",
-  "status": "open"
+  "status": "triaged"
 }

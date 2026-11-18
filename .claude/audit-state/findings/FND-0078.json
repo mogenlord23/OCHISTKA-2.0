@@ -8,5 +8,5 @@
   "summary": "Tests cover only 0, 500, 1536, 1 GiB and 12.4; missing 1023/1024, 1048575 boundary, ТБ and the cap, .5 rounding, non-finite inputs",
   "evidence": "format.test.ts:4-20",
   "failure_scenario": "Regressions in FND-0073 and rounding go unnoticed.",
-  "status": "open"
+  "status": "triaged"
 }

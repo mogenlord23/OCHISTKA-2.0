@@ -8,5 +8,5 @@
   "summary": "README describes npm test and npm run check as Vitest and svelte-check only, but the scripts also run cargo test, cargo fmt and clippy, which README then lists again",
   "evidence": "package.json:13-14; README.md:23-28",
   "failure_scenario": "Following the README runs fmt, clippy and cargo test twice. Code takes precedence; README drifts.",
-  "status": "open"
+  "status": "triaged"
 }

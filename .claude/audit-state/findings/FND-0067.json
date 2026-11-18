@@ -8,5 +8,5 @@
   "summary": "DTO fields and helper functions are pub, so other crates can build structs that bypass clamping and saturation; a NaN usagePercent would serialise as null",
   "evidence": "system.rs pub fields; no literal bypass found in repo today",
   "failure_scenario": "CpuStatus { usage_percent: f32::NAN, .. } outside this file -> \"usagePercent\": null -> Home.svelte width null%. Not exploitable today.",
-  "status": "open"
+  "status": "triaged"
 }

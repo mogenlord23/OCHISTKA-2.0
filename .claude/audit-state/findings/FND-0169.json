@@ -8,5 +8,5 @@
   "summary": "Section-list test compares the rail to the SECTIONS constant it renders from; the seven-section claim is pinned only by sections.test.ts, and the VPN subtab test checks 2 of 3 subtabs",
   "evidence": "App.test.ts:24-39; sections.test.ts:6-13, 28",
   "failure_scenario": "Low risk, since sections.test.ts pins the list.",
-  "status": "open"
+  "status": "triaged"
 }

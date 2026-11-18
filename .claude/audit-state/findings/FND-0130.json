@@ -8,5 +8,5 @@
   "summary": "Settings, Boost and Drivers show a generic placeholder with no reason and no per-subsection text, against the CLAUDE.md Drivers layout and the disabled-with-reason rule; note prop is not passed",
   "evidence": "ComputerPage.svelte:10-11 no note; PlaceholderPage.svelte:2-6 supports note; CLAUDE.md Драйверы and rules; platform-status.md not read (UNVERIFIED)",
   "failure_scenario": "User cannot tell that Drivers is unimplemented versus unavailable on this OS.",
-  "status": "open"
+  "status": "triaged"
 }

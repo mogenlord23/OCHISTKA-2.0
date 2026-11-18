@@ -8,5 +8,5 @@
   "summary": "Sweep check confirms only element presence; the keyframes, reduced-motion rule, class:active and the progress text are not checked (CSS cannot be verified under jsdom)",
   "evidence": "VirusesPage.test.ts:56; VirusesPage.svelte:117-120, 249-274",
   "failure_scenario": "None on behaviour; presence check is the meaningful part.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Rejection passthrough tested only for getSystemOverview and uses toEqual although the test name says unchanged; scanStart, clamavStatus, assessFile and defaultScanTarget have no rejection test",
   "evidence": "api.test.ts:32-38; api.ts:19-33",
   "failure_scenario": "Low risk today; future wrapper logic changing errors would go unnoticed.",
-  "status": "open"
+  "status": "triaged"
 }

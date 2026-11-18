@@ -8,5 +8,5 @@
   "summary": "Invoke assertions use toHaveBeenCalledWith without toHaveBeenCalledTimes, so a duplicate invoke would not be caught",
   "evidence": "api.test.ts:29,46,58,65,72; api.ts:19-21",
   "failure_scenario": "Calling invoke scan_start twice per click leaves the test green; scans run twice in production.",
-  "status": "open"
+  "status": "triaged"
 }

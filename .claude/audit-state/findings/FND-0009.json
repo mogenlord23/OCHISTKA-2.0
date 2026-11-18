@@ -8,5 +8,5 @@
   "summary": "FOUND line without \": \" is dropped silently; Scanned files parse errors become 0; summary \"Total errors\" is never read",
   "evidence": "scan.rs:37-42 drops lines without \": \"; scan.rs:45-48 unwrap_or(0) for Scanned files; infected count taken from summary even when findings are empty.",
   "failure_scenario": "Output \"weird FOUND\" with \"Infected files: 1\" gives infected_files=1 and findings=[].",
-  "status": "open"
+  "status": "triaged"
 }

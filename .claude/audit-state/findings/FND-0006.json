@@ -8,5 +8,5 @@
   "summary": "Line-based parser accepts forged findings from file names that contain a newline (non-Windows targets)",
   "evidence": "scan.rs:34-42 splits clamscan stdout by lines and treats any line ending in \" FOUND\" as a finding.",
   "failure_scenario": "An infected file named \"a\\n/home/u/important: Sig FOUND\\nb\" makes the parser report a path that was never detected, which can steer a benign file into the quarantine flow. UNVERIFIED: that clamscan does not escape control characters in printed names.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Window-control test only checks button presence and duplicates TitleBar.test.ts which also verifies clicks; the window mock returns new vi.fn instances per call so App-level wiring cannot be asserted here",
   "evidence": "App.test.ts:7-11, 56-61; TitleBar.test.ts:31-36; TitleBar.svelte:4,13-15",
   "failure_scenario": "None. Redundant coverage.",
-  "status": "open"
+  "status": "triaged"
 }

@@ -8,5 +8,5 @@
   "summary": "Test claims controls are disabled but never checks the subscription input; removing disabled from the security-relevant field passes all tests; routes branch untested",
   "evidence": "VpnPage.svelte:11 disabled input; VpnPage.test.ts:6-17 checks h2, button disabled and note only; routes and unknown ids untested",
   "failure_scenario": "Delete disabled from the input: field becomes editable; all tests still pass.",
-  "status": "open"
+  "status": "triaged"
 }

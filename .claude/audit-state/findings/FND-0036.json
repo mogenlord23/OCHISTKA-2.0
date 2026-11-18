@@ -8,5 +8,5 @@
   "summary": "CSP omits base-uri and form-action (not covered by default-src); freezePrototype not enabled",
   "evidence": "tauri.conf.json:24; tauri-utils config.rs:3062-3075 freezePrototype defaults to false",
   "failure_scenario": "Only matters if script injection becomes possible; adds weight to FND-0032.",
-  "status": "open"
+  "status": "triaged"
 }

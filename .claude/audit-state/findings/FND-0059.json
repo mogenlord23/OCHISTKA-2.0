@@ -8,5 +8,5 @@
   "summary": "String(err) throws for null-prototype objects or objects whose toString throws; the TypeError escapes the catch in VirusesPage",
   "evidence": "api.ts:59 String(err); VirusesPage.svelte:76-77 catch body calls toCommandError",
   "failure_scenario": "toCommandError(Object.create(null)) throws TypeError; error not shown. UNVERIFIED reachability over IPC (probably absent).",
-  "status": "open"
+  "status": "triaged"
 }

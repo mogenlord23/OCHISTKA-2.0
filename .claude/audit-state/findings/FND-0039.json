@@ -8,5 +8,5 @@
   "summary": "Disk enumeration runs under the System mutex with everything() refresh kind; a slow or hung removable device blocks overview and serialises all calls",
   "evidence": "windows/mod.rs:65-76 Disks::new_with_refreshed_list inside guard; common/disk.rs:289-291 everything(); sysinfo disk.rs:368-389, 436-499 CreateFileW, IOCTL and GetVolumeInformationW with no timeout",
   "failure_scenario": "USB HDD spinning up or hung card reader: the call blocks, the lock stays held, and Home.svelte remounts queue behind it. Blocking duration UNVERIFIED.",
-  "status": "open"
+  "status": "triaged"
 }

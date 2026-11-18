@@ -8,5 +8,5 @@
   "summary": "Wildcard *.svelte module type Component<Record<string, unknown>> erases real prop types where it applies; plain tsc or editors without the Svelte language service accept wrong or missing props",
   "evidence": "vite-env.d.ts:3-7; VirusesPage.svelte:12 requires subsection: string; test render calls at VirusesPage.test.ts:35 would compile under the wildcard type. Mitigation: svelte-check (package.json:11) resolves real types; UNVERIFIED.",
   "failure_scenario": "render(VirusesPage, { props: { subsection: 42 } }) compiles under plain tsc. No runtime effect; false assurance during refactors.",
-  "status": "open"
+  "status": "triaged"
 }

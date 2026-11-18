@@ -8,5 +8,5 @@
   "summary": "ADR 0001 says api.test.ts keeps the TS types honest against the Rust DTOs, but tests check only TS fixtures against themselves through a mock; no Rust serde output is read, so a Rust rename cannot fail the suite",
   "evidence": "api.test.ts:11-22 typed fixtures; api.ts:16,20,24,28 passthrough; docs/adr/0001-stack.md:35; system.rs:156-170 checks only some fields; scan.rs has no serialization test for ScanReport, Finding, EngineStatus, Suspicion",
   "failure_scenario": "Renaming infected_files to infected_count at scan.rs:18, or removing rename_all camelCase at scan.rs:15, passes every vitest and cargo test; at runtime report.infectedFiles is undefined in the UI.",
-  "status": "open"
+  "status": "triaged"
 }

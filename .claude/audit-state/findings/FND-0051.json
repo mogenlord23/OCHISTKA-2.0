@@ -8,5 +8,5 @@
   "summary": "Engine binary trusted on existence alone: no signature or hash check, symlinks followed; a same-user process can replace it in a per-user install",
   "evidence": "clamav.rs:33-46 path.is_file() only",
   "failure_scenario": "Same-user replacement of clamscan.exe runs attacker code on every scan. Not a privilege boundary; hardening note. UNVERIFIED install location.",
-  "status": "open"
+  "status": "triaged"
 }

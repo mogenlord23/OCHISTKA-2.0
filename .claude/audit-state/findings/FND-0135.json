@@ -8,5 +8,5 @@
   "summary": "Placeholder suggests only https links (no vless or ss schemes); field lacks autocomplete off and spellcheck false; for a token-bearing link these matter once the field is enabled; placeholder colour unstyled (UNVERIFIED contrast)",
   "evidence": "VpnPage.svelte:11, 40-48",
   "failure_scenario": "Once enabled, subscription tokens could reach spellcheck or autocomplete suggestions.",
-  "status": "open"
+  "status": "deferred"
 }

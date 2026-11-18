@@ -8,5 +8,5 @@
   "summary": "Window mocks return undefined instead of promises as the real Tauri window methods do, so the rejection path of FND-0116 cannot be exercised; adding a .catch would throw inside the click handler under these mocks",
   "evidence": "TitleBar.test.ts:5-9; FND-0116 (window.js return promises); TitleBar.svelte:13-15",
   "failure_scenario": "No test covers a failed window call; a future .catch fix would break the mocks for an unrelated reason.",
-  "status": "open"
+  "status": "triaged"
 }

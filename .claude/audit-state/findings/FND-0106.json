@@ -8,5 +8,5 @@
   "summary": "Polling continues every 2 s after an unsupported error that cannot change on macOS and Linux; each tick sends a spawn_blocking call with no back-off",
   "evidence": "Home.svelte:36 setInterval; commands.rs:51-62; unsupported is fixed per OS",
   "failure_scenario": "Idle IPC and blocking-pool traffic on non-Windows builds.",
-  "status": "open"
+  "status": "triaged"
 }

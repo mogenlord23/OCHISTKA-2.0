@@ -8,5 +8,5 @@
   "summary": "A structured error whose kind is not in ERROR_KINDS loses its message: toCommandError returns kind probe with message \"[object Object]\"",
   "evidence": "api.ts:35-40 ERROR_KINDS separate from Rust enum; api.ts:42-52 guard rejects unknown kind; api.ts:59 String(err); commands.rs:17 kind is a free String",
   "failure_scenario": "toCommandError({kind:\"quarantine\", message:\"Файл занят\"}) -> {kind:\"probe\", message:\"[object Object]\"}. Latent today (four kinds match); bites when a backend kind is added without updating ERROR_KINDS.",
-  "status": "open"
+  "status": "triaged"
 }

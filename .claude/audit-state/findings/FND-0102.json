@@ -8,5 +8,5 @@
   "summary": "A getSystemOverview call that never settles keeps pending true forever; polling stops silently and first load shows Загрузка forever",
   "evidence": "Home.svelte:15-19 pending guard; :30-32 finally resets only when the promise settles; no timeout anywhere (api.ts:15-17)",
   "failure_scenario": "Backend blocked (FND-0039 hung disk) or IPC lost: Загрузка… forever or a frozen stale snapshot with no staleness indication.",
-  "status": "open"
+  "status": "triaged"
 }

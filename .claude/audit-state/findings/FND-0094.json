@@ -8,5 +8,5 @@
   "summary": "assessFile errors are swallowed by .catch(() => null); a finding without a hint shows nothing and no reason",
   "evidence": "VirusesPage.svelte:63-68, 71-74, 143",
   "failure_scenario": "File deleted between scan and assessment: no hint, no reason. Related FND-0025, FND-0047.",
-  "status": "open"
+  "status": "triaged"
 }

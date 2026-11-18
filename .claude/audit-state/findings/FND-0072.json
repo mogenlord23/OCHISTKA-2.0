@@ -8,5 +8,5 @@
   "summary": "Non-Windows, non-macOS targets (FreeBSD, Android and others) fall through to LinuxSystemInfo and report \"недоступно на Linux\" for the wrong OS",
   "evidence": "platform lib.rs:21-24 cfg(not(any(windows,macos))); comment at lib.rs:10 documents it",
   "failure_scenario": "A FreeBSD build shows \"Сведения о системе недоступно на Linux\". Cosmetic; only Windows is in scope.",
-  "status": "open"
+  "status": "triaged"
 }

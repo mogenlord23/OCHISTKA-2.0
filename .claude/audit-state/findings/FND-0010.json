@@ -8,5 +8,5 @@
   "summary": "Crack-word match is a substring test, so benign names score",
   "evidence": "scan.rs:92 CRACK_WORDS and scan.rs:122 name.contains(word).",
   "failure_scenario": "dispatcher.exe contains \"patch\" and gets +20.",
-  "status": "open"
+  "status": "triaged"
 }
