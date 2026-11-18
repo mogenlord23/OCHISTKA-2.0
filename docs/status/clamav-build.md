@@ -19,3 +19,9 @@
 - Экспорт: `cl_init`, `cl_engine_new`, `cl_load`, `cl_engine_compile`, `cl_scanfile`, `cl_engine_free`, `cl_retver`, `cl_strerror` найдены в библиотеке. Сигнатуры в `crates/platform/src/windows/clamav_ffi.rs` совпадают с `libclamav/clamav.h` (сверено по исходникам).
 - Не проверено: сборка под Windows (MSVC), линковка Rust-модуля с библиотекой, загрузка сигнатур (нужны базы: freshclam), сканирование EICAR с реальной базой.
 - Фича `libclamav` в `crates/platform` остаётся выключенной по умолчанию.
+
+## Проверка библиотеки на Linux (2026-11-18)
+
+- Небольшая программа на C, связанная с `libclamav_static.a` и `libclamav_rust.a`, выполняет: `cl_init` (0), `cl_retver` (1.4.6), `cl_engine_new`, `cl_load` из пустой папки (код 8 — баз нет, ожидаемо), `cl_engine_compile` (0), `cl_scanfile` (0, без сигнатур).
+- Вывод: API вызывается корректно, библиотека работает. Поиск EICAR требует баз; базы не загружались.
+- Линковка: нужны `libclamav_rust.a` и системные пакеты (см. выше).
