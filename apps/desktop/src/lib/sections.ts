@@ -66,7 +66,7 @@ export const SECTIONS: readonly Section[] = [
     title: 'Программы',
     titleKey: 'section.programs',
     accent: SECTION_COLORS.programs,
-    lead: 'Что установлено и что запускается вместе с Windows. Ничего не удаляем.',
+    lead: 'Что установлено и что запускается вместе с Windows. Удаление — только с вашим подтверждением.',
     subsections: [
       { id: 'installed', title: 'Установленные', titleKey: 'sub.programs.installed' },
       { id: 'startup', title: 'Автозагрузка', titleKey: 'sub.programs.startup' },
