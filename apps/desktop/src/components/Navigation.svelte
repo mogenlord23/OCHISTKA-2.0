@@ -44,33 +44,34 @@
   .rail {
     display: flex;
     flex-direction: column;
-    width: 110px;
-    gap: 4px;
+    gap: 10px;
     min-height: 0;
     overflow-y: auto;
-    padding: 10px 8px 0;
-    background: var(--black);
+    padding: 26px 10px 0;
+    background: var(--window);
   }
 
   .item {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    gap: 4px;
-    padding: 10px 4px 9px;
+    gap: 8px;
+    height: 84px;
+    padding: 8px 4px;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--ink);
     font: inherit;
     font-size: var(--text-caption);
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
   }
 
   .item:hover {
-    background: #1a1a1a;
+    background: var(--rail-hover);
   }
 
   .item.active {
@@ -79,17 +80,16 @@
   }
 
   svg {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 2;
+    stroke-width: 1.6;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 
   .label {
-    text-transform: uppercase;
     text-align: center;
   }
 </style>

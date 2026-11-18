@@ -24,7 +24,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 12px 16px 6px 22px;
     user-select: none;
   }
 
@@ -36,14 +36,14 @@
 
   strong {
     font-family: var(--font-heading);
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 900;
     letter-spacing: 0.01em;
     color: var(--black);
   }
 
   small {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--black);
   }
 
@@ -53,9 +53,9 @@
   }
 
   button {
-    width: 40px;
-    height: 40px;
-    border: 0;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--btn-border);
     border-radius: 8px;
     background: var(--black);
     color: var(--ink);
@@ -65,7 +65,7 @@
   }
 
   button:hover {
-    background: #1f1f1f;
+    background: var(--btn-hover);
   }
 
   button.close:hover {

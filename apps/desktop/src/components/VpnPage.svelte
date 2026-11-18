@@ -283,8 +283,9 @@
     padding: 10px 18px;
     border: 0;
     border-radius: var(--radius-sm);
-    background: var(--ink);
-    color: var(--black);
+    background: var(--btn-bg);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
     font: inherit;
     font-weight: 800;
     cursor: pointer;

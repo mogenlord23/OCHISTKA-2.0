@@ -31,18 +31,18 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 14px 0 18px;
+    margin: 12px 0 14px;
   }
 
   button {
-    min-height: 36px;
-    padding: 8px 14px;
-    border: 0;
+    min-height: 32px;
+    padding: 6px 14px;
+    border: 1px solid var(--btn-border);
     border-radius: var(--radius-sm);
-    background: var(--black);
+    background: var(--btn-bg);
     color: var(--ink);
     font: inherit;
-    font-weight: 800;
+    font-weight: 600;
     font-size: var(--text-body);
     cursor: pointer;
   }
@@ -50,6 +50,5 @@
   /* Активная вкладка: текст и обводка цветом раздела на чёрном, как на эталоне. */
   button.active {
     color: var(--accent);
-    box-shadow: inset 0 0 0 2px var(--accent);
   }
 </style>

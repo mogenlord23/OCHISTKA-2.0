@@ -67,3 +67,12 @@ export const TYPE_SCALE = {
   section: '26px',
   display: '44px',
 } as const;
+
+/** Оболочка окна по эталону 0.5.5: почти чёрное окно, тёмные кнопки с тонкой рамкой. */
+export const SHELL = {
+  window: '#0b0b0b',
+  button: '#111111',
+  buttonBorder: '#2a2a2a',
+  buttonHover: '#1c1c1c',
+  railHover: '#1a1a1a',
+} as const;

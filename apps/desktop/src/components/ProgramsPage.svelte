@@ -302,8 +302,9 @@
   }
 
   button.primary {
-    background: var(--ink);
-    color: var(--black);
+    background: var(--btn-bg);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
   }
 
   button:disabled {
