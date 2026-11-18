@@ -1,18 +1,21 @@
 //! Проверка на вирусы: разбор вывода ClamAV, эвристика и порт сканера. Без кода ОС.
 
 use serde::Serialize;
+use ts_rs::TS;
 
 use crate::system::CoreError;
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "Finding.ts")]
 pub struct Finding {
     pub path: String,
     pub signature: String,
 }
 
-#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "ScanReport.ts")]
 pub struct ScanReport {
     pub scanned_files: u32,
     pub infected_files: u32,
@@ -20,8 +23,9 @@ pub struct ScanReport {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "EngineStatus.ts")]
 pub struct EngineStatus {
     pub available: bool,
     pub reason: String,
@@ -76,8 +80,9 @@ pub struct FileFacts {
     pub in_startup: bool,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "Suspicion.ts")]
 pub struct Suspicion {
     pub score: u8,
     pub reasons: Vec<String>,

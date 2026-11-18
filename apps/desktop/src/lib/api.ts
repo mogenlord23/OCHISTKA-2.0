@@ -1,8 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   CommandError,
+  DiskStatus,
   EngineStatus,
   ErrorKind,
+  Finding,
   ScanReport,
   Suspicion,
   SystemOverview,
@@ -11,17 +13,96 @@ import type {
 /** Интервал опроса раздела «Компьютер», мс. */
 export const POLL_INTERVAL_MS = 2000;
 
+type Obj = Record<string, unknown>;
+
+function isObj(value: unknown): value is Obj {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNum(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isStr(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isDisk(value: unknown): value is DiskStatus {
+  return (
+    isObj(value) &&
+    isStr(value.displayName) &&
+    isStr(value.mountPoint) &&
+    isNum(value.totalBytes) &&
+    isNum(value.usedBytes) &&
+    isNum(value.usagePercent)
+  );
+}
+
+function isFinding(value: unknown): value is Finding {
+  return isObj(value) && isStr(value.path) && isStr(value.signature);
+}
+
+/** Проверка формы ответа `get_system_overview` во время выполнения. */
+export function isSystemOverview(value: unknown): value is SystemOverview {
+  return (
+    isObj(value) &&
+    isObj(value.cpu) &&
+    isNum(value.cpu.usagePercent) &&
+    isNum(value.cpu.logicalCores) &&
+    isObj(value.memory) &&
+    isNum(value.memory.totalBytes) &&
+    isNum(value.memory.usedBytes) &&
+    isNum(value.memory.usagePercent) &&
+    Array.isArray(value.disks) &&
+    value.disks.every(isDisk)
+  );
+}
+
+/** Проверка формы ответа `scan_start` во время выполнения. */
+export function isScanReport(value: unknown): value is ScanReport {
+  return (
+    isObj(value) &&
+    isNum(value.scannedFiles) &&
+    isNum(value.infectedFiles) &&
+    isNum(value.errors) &&
+    Array.isArray(value.findings) &&
+    value.findings.every(isFinding)
+  );
+}
+
+/** Проверка формы ответа `clamav_status` во время выполнения. */
+export function isEngineStatus(value: unknown): value is EngineStatus {
+  return isObj(value) && typeof value.available === 'boolean' && isStr(value.reason);
+}
+
+/** `invoke<T>` только приводит тип; здесь форма ответа проверяется на самом деле. */
+async function invokeChecked<T>(
+  guard: (value: unknown) => value is T,
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  const result: unknown = await (args === undefined ? invoke(command) : invoke(command, args));
+  if (!guard(result)) {
+    const error: CommandError = {
+      kind: 'probe',
+      message: `Ответ команды ${command} имеет неожиданную форму`,
+    };
+    throw error;
+  }
+  return result;
+}
+
 /** Единственная точка вызова бэкенда из интерфейса. */
 export function getSystemOverview(): Promise<SystemOverview> {
-  return invoke<SystemOverview>('get_system_overview');
+  return invokeChecked(isSystemOverview, 'get_system_overview');
 }
 
 export function scanStart(target: string): Promise<ScanReport> {
-  return invoke<ScanReport>('scan_start', { target });
+  return invokeChecked(isScanReport, 'scan_start', { target });
 }
 
 export function clamavStatus(): Promise<EngineStatus> {
-  return invoke<EngineStatus>('clamav_status');
+  return invokeChecked(isEngineStatus, 'clamav_status');
 }
 
 export function assessFile(path: string): Promise<Suspicion> {

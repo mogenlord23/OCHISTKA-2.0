@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use thiserror::Error;
+use ts_rs::TS;
 
 /// Ограничивает проценты диапазоном 0..=100; NaN превращает в 0.
 pub fn clamp_percent(value: f32) -> f32 {
@@ -20,8 +21,9 @@ pub fn usage_percent(used_bytes: u64, total_bytes: u64) -> f32 {
     clamp_percent(used_bytes as f32 / total_bytes as f32 * 100.0)
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "CpuStatus.ts")]
 pub struct CpuStatus {
     pub usage_percent: f32,
     pub logical_cores: u32,
@@ -36,10 +38,13 @@ impl CpuStatus {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "MemoryStatus.ts")]
 pub struct MemoryStatus {
+    #[ts(type = "number")]
     pub total_bytes: u64,
+    #[ts(type = "number")]
     pub used_bytes: u64,
     pub usage_percent: f32,
 }
@@ -55,12 +60,15 @@ impl MemoryStatus {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "DiskStatus.ts")]
 pub struct DiskStatus {
     pub display_name: String,
     pub mount_point: String,
+    #[ts(type = "number")]
     pub total_bytes: u64,
+    #[ts(type = "number")]
     pub used_bytes: u64,
     pub usage_percent: f32,
 }
@@ -84,8 +92,9 @@ impl DiskStatus {
     }
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "SystemOverview.ts")]
 pub struct SystemOverview {
     pub cpu: CpuStatus,
     pub memory: MemoryStatus,

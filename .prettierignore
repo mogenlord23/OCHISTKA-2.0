@@ -5,3 +5,4 @@ apps/desktop/src-tauri/gen
 package-lock.json
 Cargo.lock
 .superpowers
+apps/desktop/src/lib/generated

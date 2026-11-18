@@ -8,5 +8,8 @@
   "summary": "invoke<T> is a compile-time cast only; DTO drift in the backend would appear as undefined fields rather than an error",
   "evidence": "api.ts:16-33 generic invoke; current Rust DTOs match types.ts (traced by auditor)",
   "failure_scenario": "Removed rename_all in a Rust DTO surfaces as undefined fields in the UI. Not a live bug today.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:59:44+00:00",
+  "resolution_note": "Re-verifier CONFIRM-PARTIAL: runtime guards cover get_system_overview, scan_start and clamav_status. Residual R2 (assessFile and defaultScanTarget still plain casts) tracked as FND-0212.",
+  "status_changed_at": "2026-11-18T06:02:05Z"
 }
