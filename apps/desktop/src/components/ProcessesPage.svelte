@@ -30,6 +30,7 @@
   let pathInfo = $state<{ pid: number; path: string | null } | null>(null);
   /** Процесс, ожидающий подтверждения завершения. Без подтверждения ядро не вызывается. */
   let pending = $state<ProcessInfo | null>(null);
+  let updatedAt = $state('');
   let services = $state<ServiceInfo[]>([]);
   let servicesError = $state<ProcessesErrorInfo | null>(null);
 
@@ -46,6 +47,7 @@
     listing = true;
     try {
       processes = await listProcesses();
+      updatedAt = new Date().toLocaleTimeString('ru-RU');
       listError = null;
     } catch (err) {
       listError = toProcessesError(err);
@@ -123,17 +125,22 @@
 </script>
 
 {#if subsection === 'services'}
-  <section class="card" aria-labelledby="services-title">
-    <h2 id="services-title">Службы</h2>
+  <section class="page" aria-labelledby="services-title">
+    <h2 id="services-title" class="sr-only">Службы</h2>
+    <p class="lead">Только чтение: службы здесь не запускаются и не останавливаются.</p>
     {#if servicesError}
       <p class="alert" role="alert">{servicesError.message}</p>
     {:else if services.length === 0}
-      <p class="muted">Служб нет.</p>
+      <p class="status-line">Служб нет.</p>
     {:else}
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Имя</th><th>Отображаемое имя</th><th>Запуск</th></tr>
+            <tr
+              ><th scope="col">Имя</th><th scope="col">Отображаемое имя</th><th scope="col"
+                >Запуск</th
+              ></tr
+            >
           </thead>
           <tbody>
             {#each services as service (service.name)}
@@ -147,55 +154,51 @@
         </table>
       </div>
     {/if}
-    <p class="muted">Только чтение: службы здесь не запускаются и не останавливаются.</p>
   </section>
 {:else}
-  <section class="card" aria-labelledby="processes-title">
+  <section class="page" aria-labelledby="processes-title">
     <h2 id="processes-title" class="sr-only">Процессы</h2>
+    <p class="lead">
+      CPU — доля всех ядер · память — рабочий набор процесса · правый клик по строке — выбрать
+    </p>
 
-    <div class="toolbar">
-      <input
-        type="search"
-        class="search"
-        placeholder="Поиск по имени или PID"
-        aria-label="Поиск по имени или PID"
-        bind:value={query}
-      />
-      <span class="muted">Обновляется каждые 3 с</span>
+    <label class="field-label" for="proc-search">Поиск по названию или PID</label>
+    <input
+      id="proc-search"
+      type="search"
+      class="search"
+      aria-label="Поиск по имени или PID"
+      bind:value={query}
+    />
+
+    <div class="buttons" aria-label="Действия с выбранным процессом">
+      <button type="button" onclick={() => void refresh()}>Обновить</button>
+      <button
+        type="button"
+        disabled={!selected || isProtectedPid(selected.pid)}
+        title={!selected
+          ? 'Сначала выбери процесс в списке'
+          : isProtectedPid(selected.pid)
+            ? 'Этот процесс системный, завершать его нельзя'
+            : 'Завершить задачу'}
+        onclick={() => selected && askEnd(selected)}>Завершить задачу</button
+      >
+      <button
+        type="button"
+        disabled={!selected}
+        title={selected ? 'Показать путь к файлу' : 'Сначала выбери процесс в списке'}
+        onclick={() => selected && showPath(selected)}>Расположение файла</button
+      >
     </div>
+
+    <p class="status-line">
+      Процессов: {processes.length}{updatedAt ? ` · обновлено ${updatedAt}` : ''} · обновление каждые
+      3 секунды
+    </p>
 
     {#if listError}
       <p class="alert" role="alert">{listError.message}</p>
     {/if}
-
-    <div class="actions" aria-label="Действия с выбранным процессом">
-      {#if selected}
-        <span class="selected-name">
-          <span class="icon" style:background={iconColor(selected.name)} aria-hidden="true"></span>
-          {selected.name} · PID {selected.pid}
-        </span>
-        <button type="button" onclick={() => showPath(selected)}>Расположение файла</button>
-        <button
-          type="button"
-          class="danger"
-          disabled={isProtectedPid(selected.pid)}
-          title={isProtectedPid(selected.pid)
-            ? 'Этот процесс системный, завершать его нельзя'
-            : 'Завершить задачу'}
-          onclick={() => askEnd(selected)}>Завершить задачу</button
-        >
-      {:else}
-        <span class="muted">Выберите процесс в списке.</span>
-      {/if}
-    </div>
-
-    {#if pathInfo}
-      <p class="path">
-        PID {pathInfo.pid}:
-        {pathInfo.path ?? 'путь не отдан системой (нет доступа к процессу)'}
-      </p>
-    {/if}
-
     {#if actionError}
       <p class="alert" role="alert">{actionError.message}</p>
     {/if}
@@ -204,27 +207,34 @@
     {/if}
 
     {#if !loaded && !listError}
-      <p class="muted">Загружаем список процессов…</p>
+      <p class="status-line">Загружаем список процессов…</p>
     {:else if visible.length === 0 && processes.length > 0}
-      <p class="muted">Ничего не найдено по запросу «{query}».</p>
+      <p class="status-line">Ничего не найдено по запросу «{query}».</p>
     {:else}
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th scope="col"><span class="sr-only">Значок</span></th>
-              <th scope="col">Имя</th>
+              <th scope="col" class="col-icon"><span class="sr-only">Значок</span></th>
+              <th scope="col">Процесс</th>
               <th scope="col" class="num">PID</th>
-              <th scope="col" class="num">ЦП</th>
+              <th scope="col" class="num">CPU</th>
               <th scope="col" class="num">Память</th>
             </tr>
           </thead>
           <tbody>
             {#each visible as proc (proc.pid)}
-              <tr class:is-selected={proc.pid === selectedPid}>
-                <td>
+              <tr
+                class:is-selected={proc.pid === selectedPid}
+                oncontextmenu={(event) => {
+                  event.preventDefault();
+                  selectedPid = proc.pid;
+                }}
+              >
+                <td class="col-icon">
                   <span class="icon" style:background={iconColor(proc.name)} aria-hidden="true"
-                  ></span>
+                    >{proc.name.charAt(0).toUpperCase()}</span
+                  >
                 </td>
                 <td>
                   <button
@@ -243,6 +253,20 @@
         </table>
       </div>
     {/if}
+
+    <p class="field-label">Путь выбранного процесса</p>
+    <div class="path-box" aria-live="polite">
+      {#if pathInfo}
+        <span class="path">
+          PID {pathInfo.pid}:
+          {pathInfo.path ?? 'путь не отдан системой (нет доступа к процессу)'}
+        </span>
+      {:else if selected}
+        {selected.name} · PID {selected.pid} — нажми «Расположение файла»
+      {:else}
+        Выбери процесс в списке
+      {/if}
+    </div>
   </section>
 
   {#if pending}
@@ -271,16 +295,12 @@
 {/if}
 
 <style>
-  .card {
-    margin-top: 16px;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    color: var(--ink);
-  }
-  h2 {
-    margin: 0 0 8px;
-    font-size: var(--text-title);
+  .page {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 0;
+    color: var(--page-text);
   }
   .sr-only {
     position: absolute;
@@ -289,54 +309,55 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  .muted {
-    color: var(--muted);
+  .lead,
+  .status-line {
+    margin: 0;
     font-size: var(--text-small);
+    font-weight: 600;
   }
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+  .lead {
+    font-weight: 700;
+  }
+  .field-label {
+    margin: 4px 0 0;
+    font-size: var(--text-small);
+    font-weight: 800;
+    text-transform: uppercase;
   }
   .search {
-    flex: 1;
-    max-width: 320px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font: inherit;
-    font-size: var(--text-small);
-    background: var(--surface-alt);
+    height: 48px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
+    background: var(--surface);
     color: var(--ink);
+    font: inherit;
   }
-  .actions {
+  .search:focus-visible {
+    outline: 2px solid var(--ink);
+  }
+  .buttons {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
     gap: 8px;
-    min-height: 36px;
-    margin-bottom: 8px;
-  }
-  .selected-name {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 700;
   }
   button {
-    padding: 6px 12px;
-    border: 0;
-    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-md);
     background: var(--black);
-    color: #fafafa;
+    color: var(--ink);
     font: inherit;
     font-size: var(--text-small);
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
   }
+  button:hover:not(:disabled) {
+    border-color: var(--ink-soft);
+  }
   button:disabled {
-    opacity: 0.45;
+    opacity: 1;
+    color: var(--muted);
     cursor: not-allowed;
   }
   button.danger {
@@ -344,61 +365,100 @@
   }
   .row-btn {
     padding: 0;
+    border: 0;
     background: none;
     color: var(--ink);
     text-align: left;
-    font-weight: 600;
+    font-weight: 500;
   }
   .icon {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    color: #080808;
+    font-size: 11px;
+    font-weight: 800;
   }
   .path {
-    margin: 4px 0 8px;
     font-family: ui-monospace, Consolas, monospace;
-    font-size: var(--text-small);
     word-break: break-all;
   }
-  .alert {
-    color: #9b1c1c;
+  .path-box {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(8, 8, 8, 0.35);
+    color: var(--ink);
+    font-size: var(--text-small);
+  }
+  .alert,
+  .notice {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    font-size: var(--text-small);
     font-weight: 700;
+  }
+  .alert {
+    color: #ff8a8a;
   }
   .notice {
-    color: var(--ink-soft);
-    font-weight: 700;
+    color: var(--ink);
   }
   .table-wrap {
-    max-height: 60vh;
+    max-height: calc(100vh - 486px);
+    min-height: 180px;
     overflow: auto;
+    border-radius: var(--radius-md);
+    background: var(--surface);
   }
   table {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--text-small);
+    color: var(--ink);
   }
   th,
   td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    height: 41px;
+    border-bottom: 1px solid #262626;
     text-align: left;
   }
   th {
     position: sticky;
     top: 0;
-    background: var(--surface);
+    z-index: 1;
+    height: 36px;
+    border-bottom: 0;
+    background: var(--black);
+    color: var(--accent);
+    font-size: var(--text-caption);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .col-icon {
+    width: 22px;
+    padding-right: 0;
   }
   .num {
-    text-align: right;
+    width: 90px;
+    text-align: left;
     font-variant-numeric: tabular-nums;
   }
+  tbody tr:hover {
+    background: #181818;
+  }
   tr.is-selected {
-    background: var(--surface-alt);
+    background: #222;
   }
   .backdrop {
     position: fixed;
     inset: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
