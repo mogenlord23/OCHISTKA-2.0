@@ -8,5 +8,8 @@
   "summary": "ADR promises the installer ships clamscan.exe and freshclam.exe, and the reason text «движок ClamAV не найден»; tauri.conf.json bundles no ClamAV, and the reason text differs",
   "evidence": "ADR 0002 consequences; tauri.conf.json has no resources or ClamAV entries; lib.rs:31-35 path check; clamav.rs:43 reason \"{path} не найден\"",
   "failure_scenario": "Release installs also report the engine unavailable. Users read a different message than the ADR describes. Related to FND-0004.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "engine_replaced_adr_0004",
+  "resolution_note": "Owner sign-off 2026-11-18 (decision D7): ClamAV is not used; the engine is replaced per ADR 0004 (proposed). Finding concerns the clamscan/freshclam integration.",
+  "status_changed_at": "2026-11-18T05:40:34Z"
 }

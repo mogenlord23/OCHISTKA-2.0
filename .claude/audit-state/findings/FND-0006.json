@@ -8,5 +8,8 @@
   "summary": "Line-based parser accepts forged findings from file names that contain a newline (non-Windows targets)",
   "evidence": "scan.rs:34-42 splits clamscan stdout by lines and treats any line ending in \" FOUND\" as a finding.",
   "failure_scenario": "An infected file named \"a\\n/home/u/important: Sig FOUND\\nb\" makes the parser report a path that was never detected, which can steer a benign file into the quarantine flow. UNVERIFIED: that clamscan does not escape control characters in printed names.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "engine_replaced_adr_0004",
+  "resolution_note": "Owner sign-off 2026-11-18 (decision D7): ClamAV is not used; the engine is replaced per ADR 0004 (proposed). Finding concerns the clamscan/freshclam integration.",
+  "status_changed_at": "2026-11-18T05:40:34Z"
 }

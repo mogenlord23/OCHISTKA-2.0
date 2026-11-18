@@ -8,5 +8,8 @@
   "summary": "report.errors is never shown; infectedFiles and findings can disagree (FND-0009), giving \"Находок: 1\" on one tab and \"Угроз не найдено\" on the other",
   "evidence": "VirusesPage.svelte:122 vs 133; types.ts:44 errors field; FND-0005 makes errors effectively 0",
   "failure_scenario": "Scan with unreadable files looks clean; mismatch between counters.",
-  "status": "triaged"
+  "status": "wontfix",
+  "resolution": "engine_replaced_adr_0004",
+  "resolution_note": "Owner sign-off 2026-11-18 (decision D7): ClamAV is not used; the engine is replaced per ADR 0004 (proposed). Finding concerns the clamscan/freshclam integration.",
+  "status_changed_at": "2026-11-18T05:40:34Z"
 }
