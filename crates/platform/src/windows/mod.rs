@@ -4,6 +4,7 @@ pub mod appearance;
 pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;
+pub mod disk_models;
 pub mod files;
 pub mod hardware;
 pub mod network;
@@ -101,6 +102,7 @@ impl SystemInfoPort for WindowsSystemInfo {
             )
         };
 
+        let models = disk_models::volume_models();
         let disks = Disks::new_with_refreshed_list()
             .map_err(probe_error)?
             .iter()
@@ -112,6 +114,10 @@ impl SystemInfoPort for WindowsSystemInfo {
                     disk.available_space(),
                 )
                 .with_kind(map_disk_kind(disk.kind()))
+                .with_model(
+                    ochistka_core::disk_model::volume_letter(&disk.mount_point().to_string_lossy())
+                        .and_then(|letter| models.get(&letter).cloned()),
+                )
             })
             .collect();
 

@@ -172,7 +172,7 @@ describe('runtime shape checks', () => {
 function generatedKeys(typeName: string): string[] {
   const text = readFileSync(join(process.cwd(), 'src/lib/generated', `${typeName}.ts`), 'utf8');
   const body = text.slice(text.indexOf('= {') + 3, text.lastIndexOf('}'));
-  return [...body.matchAll(/(?:^|,|\n)\s*(\w+):/g)].map((m) => m[1]).sort();
+  return [...body.matchAll(/(?:^|,|\n)\s*(\w+)\??:/g)].map((m) => m[1]).sort();
 }
 
 describe('fixtures match the Rust-generated types', () => {
@@ -192,6 +192,7 @@ describe('fixtures match the Rust-generated types', () => {
       usedBytes: 1,
       usagePercent: 100,
       kind: 'ssd',
+      model: 'Kingston NV2',
     };
     expect(Object.keys(disk).sort()).toEqual(generatedKeys('DiskStatus'));
     expect(Object.keys(overview).sort()).toContain('osName');
