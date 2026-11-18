@@ -1,0 +1,15 @@
+{
+  "id": "FND-0210",
+  "file": "apps/desktop/src/App.svelte",
+  "lines": "117-124",
+  "severity": "low",
+  "confidence": "high",
+  "type": "ux-polish",
+  "summary": "After the FND-0019 fix the light inner focus ring merges with the pressed pills (ЗВУК, RU) whose background is also #fafafa, so focus looks like a larger pill rather than a separate ring (still 19:1, WCAG met)",
+  "evidence": "App.svelte:120-123 box-shadow var(--ink); App.svelte .pill[aria-pressed=true] background; re-verifier report for FND-0019",
+  "failure_scenario": "Keyboard user focusing a pressed pill sees a slightly larger pill instead of a distinct ring. Cosmetic.",
+  "status": "wontfix",
+  "resolution": "accepted_by_owner",
+  "resolution_note": "Low severity, not fixed this round per owner rule: low and info findings are accepted and recorded in docs/status/audit.md. Raised by the re-verifier of FND-0019.",
+  "status_changed_at": "2026-11-18T05:43:51Z"
+}
