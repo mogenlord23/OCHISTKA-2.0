@@ -36,6 +36,27 @@ async function mountProcesses() {
   return view;
 }
 
+describe('ProcessesPage virtual list', () => {
+  it('renders only the visible window of a long list but reports the full row count', async () => {
+    const many: ProcessInfo[] = Array.from({ length: 3000 }, (_, i) => ({
+      pid: 10_000 + i,
+      name: `app${String(i).padStart(4, '0')}.exe`,
+      cpuPercent: 0,
+      memoryBytes: 1024,
+      startTimeUnix: i,
+    }));
+    vi.mocked(listProcesses).mockResolvedValue(many);
+    render(ProcessesPage, { subsection: 'processes' });
+    await vi.waitFor(() => expect(screen.getByText('app0000.exe')).toBeTruthy());
+    const table = screen.getByRole('table', { name: 'Процессы' });
+    expect(table.getAttribute('aria-rowcount')).toBe('3001');
+    const rows = table.querySelectorAll('[role="row"]').length;
+    expect(rows).toBeGreaterThan(5);
+    expect(rows).toBeLessThan(60);
+    expect(screen.queryByText('app2999.exe')).toBeNull();
+  });
+});
+
 describe('ProcessesPage list', () => {
   it('shows name, PID, CPU and formatted memory', async () => {
     await mountProcesses();

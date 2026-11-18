@@ -68,7 +68,21 @@
   {#if url !== null && !failed}
     <img src={url} alt="" draggable="false" onerror={() => (failed = true)} />
   {:else}
-    {(/[\p{L}\p{N}]/u.exec(name)?.[0] ?? name.charAt(0)).toUpperCase()}
+    <!-- Заглушка: окно приложения (рамка, строка заголовка, плитка). Цвет зависит от имени. -->
+    <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="4.5"
+        width="17"
+        height="15"
+        rx="3"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+      />
+      <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.8" />
+      <rect x="7" y="12" width="4" height="4" rx="1" fill="currentColor" />
+    </svg>
   {/if}
 </span>
 
@@ -88,6 +102,10 @@
   }
   .has-image {
     background: rgba(255, 255, 255, 0.06) !important;
+  }
+  .glyph {
+    width: 62%;
+    height: 62%;
   }
   img {
     width: 100%;

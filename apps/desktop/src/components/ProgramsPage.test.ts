@@ -14,6 +14,7 @@ import type { InstalledProgram, StartupEntry } from '../lib/programsApi';
 vi.mock('../lib/programsApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/programsApi')>()),
   getIcon: vi.fn().mockResolvedValue(null),
+  getProgramIcon: vi.fn().mockResolvedValue(null),
   setStartupEnabled: vi.fn(),
   uninstallProgram: vi.fn(),
   listInstalled: vi.fn(),
@@ -59,6 +60,36 @@ function mountInstalled() {
   vi.mocked(listInstalled).mockResolvedValue([CHROME, NO_PATH]);
   return render(ProgramsPage, { subsection: 'installed' });
 }
+
+describe('ProgramsPage virtual list and icons', () => {
+  it('renders only the visible window of a long list', async () => {
+    const many: InstalledProgram[] = Array.from({ length: 2500 }, (_, i) => ({
+      ...CHROME,
+      name: `Program ${String(i).padStart(4, '0')}`,
+      id: `p${i}`,
+    }));
+    vi.mocked(listInstalled).mockResolvedValue(many);
+    render(ProgramsPage, { subsection: 'installed' });
+    expect(await screen.findByText('Program 0000')).toBeTruthy();
+    const table = screen.getByRole('table', { name: 'Программы' });
+    expect(table.getAttribute('aria-rowcount')).toBe('2501');
+    expect(table.querySelectorAll('[role="row"]').length).toBeLessThan(60);
+  });
+
+  it('asks the backend for the icon by program id, also for Store packages', async () => {
+    const { getProgramIcon } = await import('../lib/programsApi');
+    vi.mocked(getProgramIcon).mockResolvedValue('data:image/png;base64,QUJD');
+    const store: InstalledProgram = { ...CHROME, name: 'Calc', id: 'calc||', kind: 'store' };
+    vi.mocked(listInstalled).mockResolvedValue([store]);
+    const { container } = render(ProgramsPage, { subsection: 'installed' });
+    await vi.waitFor(() =>
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(
+        'data:image/png;base64,QUJD',
+      ),
+    );
+    expect(getProgramIcon).toHaveBeenCalledWith('calc||');
+  });
+});
 
 describe('ProgramsPage installed programs', () => {
   it('lists programs and filters them by name or publisher', async () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import AppIcon from './AppIcon.svelte';
+  import VirtualList from './VirtualList.svelte';
   import {
     filterProcesses,
     formatCpu,
@@ -234,75 +235,77 @@
     {:else if visible.length === 0 && processes.length > 0}
       <p class="status-line">Ничего не найдено по запросу «{query}».</p>
     {:else}
-      <div class="grid" role="table" aria-label="Процессы" aria-rowcount={visible.length + 1}>
-        <div class="grid-head" role="row">
-          <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
-          {#each COLUMNS as column (column.key)}
-            <span class={column.cls} role="columnheader" aria-sort={ariaSort(sort, column.key)}>
-              <button
-                type="button"
-                class="sort"
-                class:is-active={sort?.key === column.key}
-                onclick={() => sortBy(column)}
-                title="Сортировать: {column.label}"
-              >
-                {column.label}
-                <svg
-                  class="arrow"
-                  class:is-asc={sort?.key === column.key && sort.dir === 'asc'}
-                  viewBox="0 0 10 10"
-                  aria-hidden="true"><path d="M5 8.5 1.5 3h7z" fill="currentColor" /></svg
-                >
-              </button>
-            </span>
-          {/each}
-        </div>
-        <div class="grid-body" role="rowgroup">
-          {#each visible as proc (proc.pid)}
-            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
-            <!-- Клик по строке — удобство для мыши; с клавиатуры строку выбирает кнопка с названием. -->
-            <div
-              class="row"
-              role="row"
-              class:is-selected={proc.pid === selectedPid}
-              onclick={() => (selectedPid = proc.pid)}
-              oncontextmenu={(event) => {
-                event.preventDefault();
-                selectedPid = proc.pid;
-              }}
-            >
-              <span class="c-icon" role="cell">
-                <AppIcon
-                  name={proc.name}
-                  cacheKey={proc.name}
-                  resolve={iconSource(proc)}
-                  size={30}
-                />
-              </span>
-              <span class="c-name" role="cell">
+      <VirtualList
+        items={visible}
+        rowHeight={52}
+        itemKey={(proc) => proc.pid}
+        label="Процессы"
+        maxHeight="calc(100vh - 468px)"
+      >
+        {#snippet head()}
+          <div class="grid-head" role="row">
+            <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
+            {#each COLUMNS as column (column.key)}
+              <span class={column.cls} role="columnheader" aria-sort={ariaSort(sort, column.key)}>
                 <button
                   type="button"
-                  class="row-btn"
-                  aria-pressed={proc.pid === selectedPid}
-                  onclick={(event) => {
-                    event.stopPropagation();
-                    selectedPid = proc.pid;
-                  }}>{proc.name}</button
+                  class="sort"
+                  class:is-active={sort?.key === column.key}
+                  onclick={() => sortBy(column)}
+                  title="Сортировать: {column.label}"
                 >
+                  {column.label}
+                  <svg
+                    class="arrow"
+                    class:is-asc={sort?.key === column.key && sort.dir === 'asc'}
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"><path d="M5 8.5 1.5 3h7z" fill="currentColor" /></svg
+                  >
+                </button>
               </span>
-              <span class="c-pid" role="cell"><span class="pid">{proc.pid}</span></span>
-              <span class="c-cpu" role="cell"
-                ><span class="cpu">{formatCpu(proc.cpuPercent)}</span></span
+            {/each}
+          </div>
+        {/snippet}
+        {#snippet row(proc, index)}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+          <!-- Клик по строке — удобство для мыши; с клавиатуры строку выбирает кнопка с названием. -->
+          <div
+            class="row"
+            role="row"
+            aria-rowindex={index + 2}
+            class:is-selected={proc.pid === selectedPid}
+            onclick={() => (selectedPid = proc.pid)}
+            oncontextmenu={(event) => {
+              event.preventDefault();
+              selectedPid = proc.pid;
+            }}
+          >
+            <span class="c-icon" role="cell">
+              <AppIcon name={proc.name} cacheKey={proc.name} resolve={iconSource(proc)} size={30} />
+            </span>
+            <span class="c-name" role="cell">
+              <button
+                type="button"
+                class="row-btn"
+                aria-pressed={proc.pid === selectedPid}
+                onclick={(event) => {
+                  event.stopPropagation();
+                  selectedPid = proc.pid;
+                }}>{proc.name}</button
               >
-              <span class="c-mem" role="cell"
-                ><span class="mem" class:is-empty={proc.memoryBytes <= 0}
-                  >{formatMemory(proc.memoryBytes)}</span
-                ></span
-              >
-            </div>
-          {/each}
-        </div>
-      </div>
+            </span>
+            <span class="c-pid" role="cell"><span class="pid">{proc.pid}</span></span>
+            <span class="c-cpu" role="cell"
+              ><span class="cpu">{formatCpu(proc.cpuPercent)}</span></span
+            >
+            <span class="c-mem" role="cell"
+              ><span class="mem" class:is-empty={proc.memoryBytes <= 0}
+                >{formatMemory(proc.memoryBytes)}</span
+              ></span
+            >
+          </div>
+        {/snippet}
+      </VirtualList>
     {/if}
 
     <p class="field-label">Путь выбранного процесса</p>
@@ -383,6 +386,10 @@
     background: var(--surface);
     color: var(--ink);
     font: inherit;
+  }
+  .search::placeholder {
+    color: var(--muted);
+    opacity: 1;
   }
   .search:focus-visible {
     outline: 2px solid var(--ink);
@@ -489,16 +496,6 @@
     font-weight: 700;
     text-transform: uppercase;
   }
-  /* Список процессов: сетка из div с ролями таблицы (выделение — скруглённая рамка). */
-  .grid {
-    max-height: calc(100vh - 468px);
-    min-height: 180px;
-    overflow: auto;
-    border-radius: 16px;
-    background: #111;
-    color: var(--ink);
-    font-size: var(--text-small);
-  }
   .grid-head,
   .row {
     display: grid;
@@ -565,16 +562,13 @@
   .is-active .arrow.is-asc {
     transform: rotate(180deg);
   }
-  .grid-body {
-    padding: 4px 6px 6px;
-  }
   .row {
     position: relative;
     height: 52px;
     padding: 0 12px 0 2px;
     border-radius: 12px;
     cursor: default;
-    transition: background 120ms ease;
+    contain: layout paint;
   }
   .row::after {
     content: '';

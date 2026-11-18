@@ -175,6 +175,14 @@ pub trait ProgramsPort: Send + Sync {
     fn icon_png_base64(&self, _path: &str) -> Result<String, CoreError> {
         Err(unsupported_here("Значки приложений"))
     }
+    /// Имена файлов (не папок) в папке; только чтение. По умолчанию — `Unsupported`.
+    fn list_file_names(&self, _dir: &str) -> Result<Vec<String>, CoreError> {
+        Err(unsupported_here("Чтение папки программы"))
+    }
+    /// Содержимое небольшого файла (манифест или логотип пакета); больше `max` байт — ошибка.
+    fn read_small_file(&self, _path: &str, _max: usize) -> Result<Vec<u8>, CoreError> {
+        Err(unsupported_here("Чтение файла программы"))
+    }
     /// Запускает штатный деинсталлятор. Вызывать только после подтверждения пользователя.
     fn run_uninstaller(&self, _command: &UninstallCommand) -> Result<(), CoreError> {
         Err(unsupported_here("Удаление программ"))

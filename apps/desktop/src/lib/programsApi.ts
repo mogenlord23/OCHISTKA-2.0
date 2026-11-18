@@ -64,6 +64,7 @@ type Request =
   | { action: 'measureFolder'; path: string }
   | { action: 'stopMeasure' }
   | { action: 'icon'; path: string }
+  | { action: 'programIcon'; id: string }
   | { action: 'uninstall'; id: string; confirmed: boolean }
   | {
       action: 'setStartupEnabled';
@@ -119,6 +120,14 @@ export async function stopMeasure(): Promise<void> {
 /** Значок файла как адрес PNG; `null`, если взять не удалось (или ОС не поддерживает). */
 export async function getIcon(path: string): Promise<string | null> {
   return expect(await request({ action: 'icon', path }), 'icon').dataUrl;
+}
+
+/**
+ * Значок программы по `id`: бэкенд берёт DisplayIcon, логотип пакета Store из манифеста
+ * или основной exe в папке установки. `null` — значок не найден (рисуется заглушка).
+ */
+export async function getProgramIcon(id: string): Promise<string | null> {
+  return expect(await request({ action: 'programIcon', id }), 'icon').dataUrl;
 }
 
 /** Запускает штатное удаление. `confirmed` — только после диалога подтверждения. */
