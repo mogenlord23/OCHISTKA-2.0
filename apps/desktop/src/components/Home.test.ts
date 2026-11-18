@@ -163,6 +163,34 @@ describe('Home', () => {
     expect(getMock).toHaveBeenCalledTimes(2);
   });
 
+  it('FND-0102: a request that never settles yields a timeout error after 10s and polling resumes', async () => {
+    let resolveSecond: (value: SystemOverview) => void = () => {};
+    getMock.mockReturnValueOnce(new Promise(() => {}));
+    // Опрос на отметке 10 с совпадает с таймаутом: второй запрос стартует сразу после него.
+    getMock.mockReturnValueOnce(new Promise((resolve) => (resolveSecond = resolve)));
+    render(Home);
+    await flush();
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(9_999);
+    await flush();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Не удалось прочитать системные данные');
+    expect(alert.textContent).toContain('Превышено время ожидания');
+    // pending сброшен: опрос возобновился.
+    expect(getMock).toHaveBeenCalledTimes(2);
+
+    resolveSecond(sample);
+    await flush();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('Загрузка: 12 %')).toBeTruthy();
+  });
+
   it('ignores a response that arrives after unmount', async () => {
     let resolveLate: (value: SystemOverview) => void = () => {};
     getMock.mockReturnValue(new Promise((resolve) => (resolveLate = resolve)));

@@ -8,5 +8,8 @@
   "summary": "Teardown does not cancel the in-flight backend job; remount starts a new request that queues on the same Mutex, so repeated subtab switches accumulate blocked threads; the comment claims a hung poll cannot pile up",
   "evidence": "Home.svelte:11-13 comment; :37-40 teardown flips active only; commands.rs:56 spawn_blocking; windows/mod.rs:47 lock held; ComputerPage.svelte:8-12 remounts on each subtab switch",
   "failure_scenario": "Switching Computer subtabs N times during a slow call leaves up to N threads waiting on the Mutex; all but the last result are discarded. Related FND-0039. UNVERIFIED blocking duration.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:58:49.447141+00:00",
+  "resolution_note": "Re-verifier CONFIRM-PARTIAL. Accepted residual: the narrowed lock removes the mutex queue, but hung-disk enumerations now run concurrently and the 10 s timeout abandons one backend call per 10 s during a persistent hang. No backend cancel. Tracked as FND-0211.",
+  "status_changed_at": "2026-11-18T06:02:05Z"
 }

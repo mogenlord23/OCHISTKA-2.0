@@ -3,6 +3,9 @@
   import { formatBytes, formatPercent } from '../lib/format';
   import type { CommandError, SystemOverview } from '../lib/types';
 
+  /** Через сколько запрос считается зависшим. */
+  const REQUEST_TIMEOUT_MS = 10_000;
+
   let overview = $state<SystemOverview | null>(null);
   let error = $state<CommandError | null>(null);
 
@@ -17,8 +20,23 @@
         return;
       }
       pending = true;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
-        const next = await getSystemOverview();
+        // Запрос, который не завершился за REQUEST_TIMEOUT_MS, превращается в ошибку,
+        // чтобы `pending` сбросился и опрос продолжился. Бэкенд отменить нельзя:
+        // отменённый вызов остаётся в очереди на мьютекс, его длительность ограничена
+        // узкой блокировкой на стороне Rust.
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () =>
+              reject({
+                kind: 'probe',
+                message: 'Превышено время ожидания ответа (10 с). Повторим попытку автоматически.',
+              } satisfies CommandError),
+            REQUEST_TIMEOUT_MS,
+          );
+        });
+        const next = await Promise.race([getSystemOverview(), timeout]);
         if (active) {
           overview = next;
           error = null;
@@ -28,6 +46,7 @@
           error = toCommandError(err);
         }
       } finally {
+        clearTimeout(timeoutId);
         pending = false;
       }
     };

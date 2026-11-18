@@ -44,23 +44,32 @@ fn init_system() -> Result<System, CoreError> {
 
 impl SystemInfoPort for WindowsSystemInfo {
     fn overview(&self) -> Result<SystemOverview, CoreError> {
-        let mut guard = self
-            .system
-            .lock()
-            .map_err(|_| CoreError::Probe("блокировка сведений о системе".into()))?;
-        if guard.is_none() {
-            *guard = Some(init_system()?);
-        }
-        let system = guard
-            .as_mut()
-            .ok_or_else(|| CoreError::Probe("сведения о системе не инициализированы".into()))?;
+        // Блокировка нужна только для CPU и памяти. Диски перечисляются после её
+        // освобождения: зависший съёмный накопитель не блокирует остальные вызовы.
+        let (cpu, memory) = {
+            // Отравление мьютекса (паника в другом потоке) не фатально: в `System` лежит
+            // только снимок, который каждый вызов полностью обновляет через refresh_*.
+            // Частично обновлённое состояние после паники перезаписывается следующим замером.
+            let mut guard = self
+                .system
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if guard.is_none() {
+                *guard = Some(init_system()?);
+            }
+            let system = guard
+                .as_mut()
+                .ok_or_else(|| CoreError::Probe("сведения о системе не инициализированы".into()))?;
 
-        system.refresh_cpu_usage();
-        system.refresh_memory();
+            system.refresh_cpu_usage();
+            system.refresh_memory();
 
-        let logical_cores = u32::try_from(system.cpus().len()).unwrap_or(u32::MAX);
-        let cpu = CpuStatus::new(system.global_cpu_usage(), logical_cores);
-        let memory = MemoryStatus::new(system.total_memory(), system.used_memory());
+            let logical_cores = u32::try_from(system.cpus().len()).unwrap_or(u32::MAX);
+            (
+                CpuStatus::new(system.global_cpu_usage(), logical_cores),
+                MemoryStatus::new(system.total_memory(), system.used_memory()),
+            )
+        };
 
         let disks = Disks::new_with_refreshed_list()
             .map_err(probe_error)?
@@ -76,5 +85,26 @@ impl SystemInfoPort for WindowsSystemInfo {
             .collect();
 
         Ok(SystemOverview { cpu, memory, disks })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overview_recovers_from_poisoned_mutex() {
+        let info = std::sync::Arc::new(WindowsSystemInfo::new());
+        let poisoner = std::sync::Arc::clone(&info);
+        let joined = std::thread::spawn(move || {
+            let _guard = poisoner.system.lock().expect("lock");
+            panic!("намеренная паника для отравления мьютекса");
+        })
+        .join();
+        assert!(joined.is_err());
+        assert!(info.system.is_poisoned());
+
+        let overview = info.overview();
+        assert!(overview.is_ok(), "overview after poison: {overview:?}");
     }
 }
