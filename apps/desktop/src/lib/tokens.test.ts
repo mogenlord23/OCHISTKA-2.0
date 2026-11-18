@@ -4,6 +4,7 @@ import {
   BODY_FONT,
   HEADING_FONT,
   NEUTRAL,
+  PATTERN,
   RADIUS,
   SECTION_COLORS,
   TYPE_SCALE,
@@ -89,5 +90,17 @@ describe('neutral, radius and type tokens', () => {
       section: '26px',
       display: '44px',
     });
+  });
+});
+
+describe('PATTERN', () => {
+  it('keeps page text at 4.5:1 even where the pattern darkens the colour under it', () => {
+    const k = 1 - PATTERN.opacity * PATTERN.worstCoverage;
+    for (const color of Object.values(SECTION_COLORS)) {
+      const n = parseInt(color.slice(1), 16);
+      const dark = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * k));
+      const under = '#' + dark.map((v) => v.toString(16).padStart(2, '0')).join('');
+      expect(contrastRatio(textOn(color), under)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

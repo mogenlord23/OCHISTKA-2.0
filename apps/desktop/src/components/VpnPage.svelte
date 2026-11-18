@@ -274,11 +274,16 @@
     display: none;
   }
 
+  /* Тот же верхний отступ, что у заголовка h1 на остальных страницах (12px). */
+  :global(main:has(> .vpn.vpn)) {
+    padding-top: 12px;
+  }
+
   .vpn {
     display: grid;
     grid-template-columns: 286px minmax(0, 1fr);
     gap: 22px;
-    height: calc(100vh - 126px);
+    height: calc(100vh - 130px);
     min-height: 560px;
   }
 

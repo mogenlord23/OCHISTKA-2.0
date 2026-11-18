@@ -12,12 +12,14 @@
   import AppearancePage from './components/AppearancePage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, t } from './lib/i18n.svelte';
+  import { tick } from 'svelte';
   import {
     BODY_FONT,
     HEADING_FONT,
     NEUTRAL,
     RADIUS,
     SHELL,
+    PATTERN,
     TYPE_SCALE,
     textOn,
   } from './lib/tokens';
@@ -28,6 +30,41 @@
   let activeSub = $state('subscription');
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
+
+  let main = $state<HTMLElement>();
+  let firstRun = true;
+
+  /** Плавная смена страницы: прозрачность и сдвиг 180 мс (только transform и opacity).
+      При смене раздела двигается всё содержимое, при смене вкладки только тело страницы.
+      При prefers-reduced-motion: reduce анимации нет. */
+  $effect(() => {
+    const id = activeId;
+    const sub = activeSub;
+    if (firstRun) {
+      firstRun = false;
+      return;
+    }
+    void tick().then(() => {
+      if (!main || typeof main.animate !== 'function') return;
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+      const sectionChanged = id !== lastId;
+      lastId = id;
+      void sub;
+      const targets = Array.from(main.children).filter(
+        (el) => sectionChanged || !el.matches('h1, .lead, .subtabs, footer'),
+      );
+      for (const el of targets) {
+        el.animate(
+          [
+            { opacity: 0, transform: 'translateY(8px)' },
+            { opacity: 1, transform: 'none' },
+          ],
+          { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+        );
+      }
+    });
+  });
+  let lastId: SectionId = 'vpn';
 
   function select(id: SectionId) {
     activeId = id;
@@ -58,6 +95,7 @@
   style:--text-title={TYPE_SCALE.title}
   style:--text-section={TYPE_SCALE.section}
   style:--text-display={TYPE_SCALE.display}
+  style:--pattern-opacity={PATTERN.opacity}
   style:--window={SHELL.window}
   style:--btn-bg={SHELL.button}
   style:--btn-border={SHELL.buttonBorder}
@@ -67,7 +105,7 @@
   <div class="body">
     <div class="stage">
       <TitleBar />
-      <main>
+      <main bind:this={main}>
         <h1>{t(section.titleKey)}</h1>
         {#if section.lead}<p class="lead">{section.lead}</p>{/if}
 
@@ -131,16 +169,58 @@
 </div>
 
 <style>
+  /* Окно прозрачное (tauri.conf.json: transparent). Скруглён только корень приложения. */
+  :global(html),
   :global(body) {
     margin: 0;
-    background: #0b0b0b;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
     color: #fafafa;
+  }
+
+  /* Полосы прокрутки скрыты везде, прокрутка колесом и касанием работает. */
+  :global(*) {
+    scrollbar-width: none;
+  }
+
+  :global(*::-webkit-scrollbar) {
+    display: none;
+  }
+
+  /* Нажатие и наведение: короткие переходы только по цвету и transform. */
+  :global(button) {
+    transition:
+      background-color 130ms ease,
+      border-color 130ms ease,
+      color 130ms ease,
+      transform 90ms ease;
+  }
+
+  :global(button:active:not(:disabled)) {
+    transform: translateY(1px) scale(0.985);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(*),
+    :global(*::before),
+    :global(*::after) {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    :global(button:active:not(:disabled)) {
+      transform: none;
+    }
   }
 
   .shell {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    contain: layout paint;
     font-family: var(--font-body, system-ui, sans-serif);
     background: var(--window);
   }
@@ -160,17 +240,34 @@
     min-height: 0;
   }
 
-  /* Цветная область раздела: скруглённый прямоугольник с отступом от краёв окна. */
+  /* Цветная область раздела занимает окно от края до края (справа её ограничивает панель).
+     Узор лежит на отдельном слое фиксированного размера: при изменении размера окна слой
+     не перерисовывается, его только обрезают границы области. */
   .stage {
+    position: relative;
     display: flex;
     flex: 1;
     flex-direction: column;
     min-width: 0;
-    margin: 8px 0 8px 8px;
-    border-radius: var(--radius-lg);
     overflow: hidden;
     background-color: var(--accent);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23000' fill-opacity='.045'%3E%3Cpath d='M10 20q8-8 16 0q-8 8-16 0z'/%3E%3Cpath d='M70 8l-6 12h6l-4 12 10-15h-6l4-9z'/%3E%3Ccircle cx='96' cy='58' r='5'/%3E%3Cpath d='M20 80h10l2 5h-14zM34 80h10l2 5h-14z'/%3E%3Cpath d='M64 88l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z'/%3E%3Cpath d='M100 100q4-10 10 0'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .stage::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max(2560px, 100vw);
+    height: max(1440px, 100vh);
+    background: url('./assets/pop-pattern.png') 0 0 / 320px 320px;
+    opacity: var(--pattern-opacity);
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  .stage > :global(*) {
+    position: relative;
   }
 
   main {
@@ -179,7 +276,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden auto;
     padding: 0 22px 10px;
   }
 

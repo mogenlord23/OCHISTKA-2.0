@@ -3,10 +3,10 @@ import { SECTIONS } from './sections';
 import { DICTS } from './i18n.svelte';
 
 describe('SECTIONS', () => {
-  it('lists seven sections with viruses first and VPN second', () => {
+  it('lists seven sections with VPN first and viruses second', () => {
     expect(SECTIONS.map((section) => section.title)).toEqual([
-      'Вирусы',
       'VPN',
+      'Вирусы',
       'Процессы',
       'Программы',
       'Диски',

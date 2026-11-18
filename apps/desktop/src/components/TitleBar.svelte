@@ -24,7 +24,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px 6px 22px;
+    height: 64px;
+    padding: 0 16px 0 22px;
     user-select: none;
   }
 

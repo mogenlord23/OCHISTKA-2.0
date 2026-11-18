@@ -47,7 +47,7 @@
     gap: 10px;
     min-height: 0;
     overflow-y: auto;
-    padding: 26px 10px 0;
+    padding: 18px 10px 0;
     background: var(--window);
   }
 
@@ -68,6 +68,10 @@
     font-size: var(--text-caption);
     font-weight: 700;
     cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      transform 90ms ease;
   }
 
   .item:hover {

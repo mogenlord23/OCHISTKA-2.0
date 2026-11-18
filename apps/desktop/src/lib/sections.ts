@@ -3,7 +3,7 @@ import type { Key } from './i18n.svelte';
 
 /** Семь разделов приложения, по порядку правой панели. Подразделы — вкладки на странице. */
 export type SectionId =
-  'viruses' | 'vpn' | 'processes' | 'programs' | 'disks' | 'computer' | 'design';
+  'vpn' | 'viruses' | 'processes' | 'programs' | 'disks' | 'computer' | 'design';
 
 export interface Subsection {
   id: string;
@@ -26,18 +26,6 @@ export interface Section {
 
 export const SECTIONS: readonly Section[] = [
   {
-    id: 'viruses',
-    title: 'Вирусы',
-    titleKey: 'section.viruses',
-    accent: SECTION_COLORS.viruses,
-    lead: 'Сначала проверка. Решение об удалении принимаешь ты.',
-    subsections: [
-      { id: 'scan', title: 'Проверка', titleKey: 'sub.viruses.scan' },
-      { id: 'findings', title: 'Находки', titleKey: 'sub.viruses.findings' },
-      { id: 'log', title: 'Журнал проверки', titleKey: 'sub.viruses.log' },
-    ],
-  },
-  {
     id: 'vpn',
     title: 'VPN',
     titleKey: 'section.vpn',
@@ -47,6 +35,18 @@ export const SECTIONS: readonly Section[] = [
       { id: 'subscription', title: 'Подписка и импорт', titleKey: 'sub.vpn.subscription' },
       { id: 'servers', title: 'Серверы', titleKey: 'sub.vpn.servers' },
       { id: 'routes', title: 'Маршруты и исключения', titleKey: 'sub.vpn.routes' },
+    ],
+  },
+  {
+    id: 'viruses',
+    title: 'Вирусы',
+    titleKey: 'section.viruses',
+    accent: SECTION_COLORS.viruses,
+    lead: 'Сначала проверка. Решение об удалении принимаешь ты.',
+    subsections: [
+      { id: 'scan', title: 'Проверка', titleKey: 'sub.viruses.scan' },
+      { id: 'findings', title: 'Находки', titleKey: 'sub.viruses.findings' },
+      { id: 'log', title: 'Журнал проверки', titleKey: 'sub.viruses.log' },
     ],
   },
   {
