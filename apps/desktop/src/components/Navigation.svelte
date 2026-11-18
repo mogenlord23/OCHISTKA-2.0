@@ -54,7 +54,6 @@
       class="item"
       class:active={active === section.id}
       aria-label={t(section.titleKey)}
-      title={t(section.titleKey)}
       aria-current={active === section.id ? 'page' : undefined}
       onclick={() => onSelect(section.id)}
     >
@@ -65,7 +64,7 @@
 
 <style>
   /* Пункты: квадратные плитки на сетке 8 px. Верхний край первого пункта лежит на одной
-     горизонтали с верхним краем кнопок окна (строка 64 px, кнопки 40 px, значит Y = 12).
+     горизонтали с верхним краем кнопок окна (строка 64 px, кнопки 48 px, значит Y = 8).
      Вертикальный зазор растёт с высотой окна. */
   .rail {
     --item: 56px;
@@ -75,7 +74,7 @@
     align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: 12px 0 0;
+    padding: 8px 0 0;
     background: var(--window);
   }
 

@@ -38,20 +38,22 @@
 </header>
 
 <style>
-  /* Строка 64 px: центр Y = 32 общий для логотипа, кнопок окна и первого пункта панели. */
+  /* Строка 64 px: верхний край Y = 8 общий для логотипа (48 px), кнопок окна (48 px) и первого пункта панели. */
   .titlebar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex: none;
     height: 64px;
-    padding: 0 16px 0 var(--content-gutter, 22px);
+    padding: 0 var(--content-gutter, 24px);
     user-select: none;
   }
 
   .brand {
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    height: 48px;
     line-height: 1.1;
   }
 
@@ -64,7 +66,7 @@
   }
 
   small {
-    font-size: 9px;
+    font-size: var(--text-caption);
     color: var(--black);
   }
 
@@ -77,11 +79,11 @@
   button {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     background: var(--black);
     color: #fff;
     cursor: pointer;

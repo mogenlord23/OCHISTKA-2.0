@@ -3,8 +3,6 @@
   "sound": "SOUND",
   "soundOn": "ON",
   "soundOff": "OFF",
-  "soundTitleOn": "Sound on",
-  "soundTitleOff": "Sound off",
   "langRu": "RU",
   "langEn": "ENG",
   "navLabel": "Navigation",
@@ -45,5 +43,12 @@
   "sub.design.colors": "Colors",
   "sub.design.settings": "App settings",
   "dockCollapse": "Collapse panel",
-  "dockExpand": "Show panel"
+  "dockExpand": "Show panel",
+  "lead.vpn": "Network features and diagnostics · read only",
+  "lead.viruses": "Scan first. You decide what gets removed.",
+  "lead.processes": "What is running and how much it uses right now.",
+  "lead.programs": "What is installed and what starts with Windows. Removal only with your confirmation.",
+  "lead.disks": "What takes space and what can go. Deleting goes through quarantine only.",
+  "lead.computer": "Hardware, live load, settings, Boost and drivers.",
+  "lead.design": "Start menu, wallpapers, cursors and Windows accent colours."
 }

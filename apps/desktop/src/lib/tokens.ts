@@ -55,7 +55,7 @@ export const NEUTRAL = {
 } as const;
 
 /** Скругления: маленькое (кнопки), среднее (карточки), большое (панели). */
-export const RADIUS = { sm: '8px', md: '12px', lg: '14px' } as const;
+export const RADIUS = { sm: '8px', md: '12px', lg: '12px' } as const;
 
 /** Размеры текста: подпись, мелкий, основной, ведущий, заголовок блока, раздел, дисплей. */
 export const TYPE_SCALE = {
@@ -78,5 +78,19 @@ export const SHELL = {
 } as const;
 
 /** Узор раздела (pop-pattern.png, чёрный рисунок на прозрачном): плитка 320 px, непрозрачность слоя.
-    Охват узора около 10%; при 0.07 цвет под буквами темнеет не более чем на 2-5%. */
-export const PATTERN = { tile: 320, opacity: 0.07, worstCoverage: 0.25 } as const;
+    Охват узора около 10%; при 0.03 цвет под буквами темнеет не более чем на 3% (тест BACKDROP: контраст текста >= 4.5:1 при любом пикселе узора). */
+export const PATTERN = { tile: 320, opacity: 0.03, worstCoverage: 0.25 } as const;
+
+/** Фон раздела: узор на весь экран, cover, фокус по центру. Приглушён: слой чёрного рисунка на цвете
+    раздела темнеет не более чем на `opacity`; контраст текста проверяется тестом (>= 4.5:1). */
+export const BACKDROP = { opacity: PATTERN.opacity, size: 'cover', position: 'center' } as const;
+
+/** Размеры оболочки в px, все кратны 8: строка окна, ширина панели, поля страницы, плитка, ручка блока языка. */
+export const LAYOUT = {
+  titleBar: 64,
+  rail: 112,
+  gutter: 24,
+  tile: 56,
+  handle: 24,
+  controls: 48,
+} as const;

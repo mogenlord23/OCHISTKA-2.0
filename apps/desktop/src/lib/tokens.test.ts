@@ -10,6 +10,8 @@ import {
   TYPE_SCALE,
   contrastRatio,
   textOn,
+  BACKDROP,
+  LAYOUT,
 } from './tokens';
 
 describe('SECTION_COLORS', () => {
@@ -77,7 +79,7 @@ describe('neutral, radius and type tokens', () => {
   });
 
   it('defines the radius scale', () => {
-    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '14px' });
+    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '12px' });
   });
 
   it('defines the type scale', () => {
@@ -101,6 +103,49 @@ describe('PATTERN', () => {
       const dark = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * k));
       const under = '#' + dark.map((v) => v.toString(16).padStart(2, '0')).join('');
       expect(contrastRatio(textOn(color), under)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
+describe('BACKDROP (section background image, dimmed)', () => {
+  const blend = (a: string, b: string, k: number) => {
+    const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const [x, y] = [p(a), p(b)];
+    return (
+      '#' +
+      x
+        .map((v, i) =>
+          Math.round(v * (1 - k) + y[i] * k)
+            .toString(16)
+            .padStart(2, '0'),
+        )
+        .join('')
+    );
+  };
+
+  it('keeps text at 4.5:1 or better on every section even under the worst image pixel', () => {
+    for (const color of Object.values(SECTION_COLORS)) {
+      const text = textOn(color);
+      for (const pixel of ['#000000', '#ffffff']) {
+        const bg = blend(color, pixel, BACKDROP.opacity);
+        expect(
+          contrastRatio(text, bg),
+          `${color} text ${text} under ${pixel}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('covers the stage from the centre', () => {
+    expect(BACKDROP.size).toBe('cover');
+    expect(BACKDROP.position).toBe('center');
+  });
+});
+
+describe('LAYOUT', () => {
+  it('lies on the 8 px grid', () => {
+    for (const [name, value] of Object.entries(LAYOUT)) {
+      expect(value % 8, name).toBe(0);
     }
   });
 });

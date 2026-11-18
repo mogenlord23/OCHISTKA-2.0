@@ -21,6 +21,7 @@ export interface Section {
   accent: string;
   /** Короткая строка под заголовком. */
   lead: string;
+  leadKey: Key;
   subsections: readonly Subsection[];
 }
 
@@ -31,6 +32,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.vpn',
     accent: SECTION_COLORS.vpn,
     lead: 'Сетевые функции и диагностика · только чтение',
+    leadKey: 'lead.vpn',
     subsections: [
       { id: 'vpn', title: 'VPN', titleKey: 'sub.vpn.vpn' },
       { id: 'advanced', title: 'Дополнительно', titleKey: 'sub.vpn.advanced' },
@@ -44,6 +46,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.viruses',
     accent: SECTION_COLORS.viruses,
     lead: 'Сначала проверка. Решение об удалении принимаешь ты.',
+    leadKey: 'lead.viruses',
     subsections: [
       { id: 'scan', title: 'Проверка', titleKey: 'sub.viruses.scan' },
       { id: 'findings', title: 'Находки', titleKey: 'sub.viruses.findings' },
@@ -56,6 +59,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.processes',
     accent: SECTION_COLORS.processes,
     lead: 'Что запущено и сколько ресурсов занимает прямо сейчас.',
+    leadKey: 'lead.processes',
     subsections: [
       { id: 'processes', title: 'Процессы', titleKey: 'sub.processes.processes' },
       { id: 'services', title: 'Службы', titleKey: 'sub.processes.services' },
@@ -67,6 +71,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.programs',
     accent: SECTION_COLORS.programs,
     lead: 'Что установлено и что запускается вместе с Windows. Удаление — только с вашим подтверждением.',
+    leadKey: 'lead.programs',
     subsections: [
       { id: 'installed', title: 'Установленные', titleKey: 'sub.programs.installed' },
       { id: 'startup', title: 'Автозагрузка', titleKey: 'sub.programs.startup' },
@@ -78,6 +83,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.disks',
     accent: SECTION_COLORS.disks,
     lead: 'Что занимает место и что можно убрать. Удаляем только через карантин.',
+    leadKey: 'lead.disks',
     subsections: [
       { id: 'cleanup', title: 'Глубокая очистка', titleKey: 'sub.disks.cleanup' },
       { id: 'files', title: 'Очистка файлов', titleKey: 'sub.disks.files' },
@@ -91,6 +97,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.computer',
     accent: SECTION_COLORS.computer,
     lead: 'Комплектующие, текущая нагрузка, настройки, Boost и драйверы.',
+    leadKey: 'lead.computer',
     subsections: [
       { id: 'components', title: 'Комплектующие и графики', titleKey: 'sub.computer.components' },
       { id: 'settings', title: 'Настройки', titleKey: 'sub.computer.settings' },
@@ -104,6 +111,7 @@ export const SECTIONS: readonly Section[] = [
     titleKey: 'section.design',
     accent: SECTION_COLORS.design,
     lead: 'Пуск, обои, курсоры и акцентные цвета Windows.',
+    leadKey: 'lead.design',
     subsections: [
       { id: 'wallpapers', title: 'Обои', titleKey: 'sub.design.wallpapers' },
       { id: 'cursors', title: 'Курсоры', titleKey: 'sub.design.cursors' },
