@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { SECTIONS } from './sections';
 
 describe('SECTIONS', () => {
-  it('lists seven sections with VPN first and viruses second', () => {
+  it('lists seven sections with viruses first and VPN second', () => {
     expect(SECTIONS.map((section) => section.title)).toEqual([
-      'VPN',
       'Вирусы',
+      'VPN',
       'Процессы',
       'Программы',
       'Диски',

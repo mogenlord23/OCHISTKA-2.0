@@ -89,11 +89,14 @@ describe('FND-0020: sound control is disabled with a visible reason', () => {
     expect(within(sound).getByText('в разработке')).toBeTruthy();
   });
 
-  it('FND-0020: the ENG pill is still disabled', () => {
+  it('switches the interface language with RU and ENG', async () => {
     render(App);
-    const eng = screen.queryByRole('button', { name: /ENG/ }) as HTMLButtonElement | null;
-    if (eng) {
-      expect(eng.disabled).toBe(true);
-    }
+    const footer = () => document.querySelector('footer')?.textContent;
+    expect(footer()).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
+    await fireEvent.click(screen.getByRole('button', { name: 'ENG' }));
+    expect(footer()).toBe('LOCAL. UNDER YOUR CONTROL.');
+    expect(screen.getByRole('button', { name: 'ENG' }).getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+    expect(footer()).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
   });
 });

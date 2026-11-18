@@ -7,6 +7,7 @@
   import ComputerPage from './components/ComputerPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
+  import { i18n, t } from './lib/i18n.svelte';
   import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
 
   const VERSION = '0.1.0';
@@ -73,19 +74,29 @@
         <PlaceholderPage />
       {/if}
 
-      <footer>ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.</footer>
+      <footer>{t('footer')}</footer>
     </main>
 
     <div class="side">
       <Navigation active={activeId} onSelect={select} />
       <div class="bottom">
-        <button type="button" class="pill sound" disabled title="Звук: в разработке">
-          ЗВУК
-          <span class="reason">в разработке</span>
+        <button type="button" class="pill sound" disabled title={t('soundTitle')}>
+          {t('sound')}
+          <span class="reason">{t('soundReason')}</span>
         </button>
         <div class="lang">
-          <button type="button" class="pill" aria-pressed="true">RU</button>
-          <button type="button" class="pill" disabled title="Английский появится позже">ENG</button>
+          <button
+            type="button"
+            class="pill"
+            aria-pressed={i18n.lang === 'ru'}
+            onclick={() => (i18n.lang = 'ru')}>{t('langRu')}</button
+          >
+          <button
+            type="button"
+            class="pill"
+            aria-pressed={i18n.lang === 'en'}
+            onclick={() => (i18n.lang = 'en')}>{t('langEn')}</button
+          >
         </div>
         <small>{VERSION}</small>
       </div>
@@ -106,7 +117,7 @@
     min-height: 100vh;
     font-family: var(--font-body, system-ui, sans-serif);
     background-color: var(--accent);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ccircle cx='24' cy='28' r='6' fill='%23000' fill-opacity='.07'/%3E%3Cpath d='M110 20l6 12 13 2-9 9 2 13-12-6-12 6 2-13-9-9 13-2z' fill='%23000' fill-opacity='.07'/%3E%3Crect x='60' y='96' width='14' height='14' rx='3' fill='%23000' fill-opacity='.07'/%3E%3Cpath d='M22 120q10-14 22 0t22 0' stroke='%23000' stroke-opacity='.07' stroke-width='3' fill='none'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ccircle cx='24' cy='28' r='6' fill='%23fff' fill-opacity='.10'/%3E%3Cpath d='M110 20l6 12 13 2-9 9 2 13-12-6-12 6 2-13-9-9 13-2z' fill='%23fff' fill-opacity='.10'/%3E%3Crect x='60' y='96' width='14' height='14' rx='3' fill='%23fff' fill-opacity='.10'/%3E%3Cpath d='M22 120q10-14 22 0t22 0' stroke='%23fff' stroke-opacity='.10' stroke-width='3' fill='none'/%3E%3C/svg%3E");
   }
 
   /* Видимый фокус с клавиатуры, двойное кольцо. Внешнее (цвет текста страницы) читается

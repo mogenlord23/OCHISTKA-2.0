@@ -21,17 +21,6 @@ export interface Section {
 
 export const SECTIONS: readonly Section[] = [
   {
-    id: 'vpn',
-    title: 'VPN',
-    accent: SECTION_COLORS.vpn,
-    lead: 'Твоё подключение. Твои правила.',
-    subsections: [
-      { id: 'subscription', title: 'Подписка и импорт' },
-      { id: 'servers', title: 'Серверы' },
-      { id: 'routes', title: 'Маршруты и исключения' },
-    ],
-  },
-  {
     id: 'viruses',
     title: 'Вирусы',
     accent: SECTION_COLORS.viruses,
@@ -40,6 +29,17 @@ export const SECTIONS: readonly Section[] = [
       { id: 'scan', title: 'Проверка' },
       { id: 'findings', title: 'Находки' },
       { id: 'log', title: 'Журнал проверки' },
+    ],
+  },
+  {
+    id: 'vpn',
+    title: 'VPN',
+    accent: SECTION_COLORS.vpn,
+    lead: 'Твоё подключение. Твои правила.',
+    subsections: [
+      { id: 'subscription', title: 'Подписка и импорт' },
+      { id: 'servers', title: 'Серверы' },
+      { id: 'routes', title: 'Маршруты и исключения' },
     ],
   },
   {
