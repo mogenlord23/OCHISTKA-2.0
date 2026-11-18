@@ -4,10 +4,13 @@ import {
   APPEARANCE_KINDS,
   COLOR_SCHEMES,
   CURSORS,
+  CURSOR_DEFS,
+  cursorSvg,
   WALLPAPERS,
   defaultTileId,
   tilesFor,
 } from './appearance';
+import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 describe('appearance tiles', () => {
   it('has unique ids inside each kind and a label on every tile', () => {
@@ -22,30 +25,33 @@ describe('appearance tiles', () => {
     }
   });
 
-  it('draws wallpapers only as CSS gradients, with no image files', () => {
-    for (const tile of WALLPAPERS) {
-      expect(tile.preview).toMatch(/gradient\(/);
-      expect(tile.preview).not.toMatch(/url\(|\.png|\.jpe?g|\.webp/i);
-    }
+  it('offers the owner photos with thumbnails and solid colours', () => {
+    expect(WALLPAPER_PHOTOS).toHaveLength(146);
+    expect(WALLPAPERS.filter((tile) => tile.thumb).length).toBe(146);
+    expect(WALLPAPERS.filter((tile) => !tile.thumb).every((t) => /^#/.test(t.preview))).toBe(true);
   });
 
-  it('names cursors without any cursor file', () => {
-    expect(CURSORS.length).toBeGreaterThanOrEqual(3);
-    for (const tile of CURSORS) {
-      expect(tile.id).toMatch(/^[a-z-]+$/);
-    }
+  it('has 35 cursor schemes: 12 plain and 23 patterned, drawn as SVG', () => {
+    expect(CURSOR_DEFS).toHaveLength(35);
+    expect(CURSOR_DEFS.filter((d) => d.cursor.pattern === 'plain')).toHaveLength(12);
+    const patterns = new Set(CURSOR_DEFS.map((d) => d.cursor.pattern));
+    expect([...patterns].sort()).toEqual(['checker', 'cross', 'dots', 'plain', 'stripes']);
+    const svg = cursorSvg(CURSOR_DEFS[20].cursor, 'x');
+    expect(svg).toContain('<pattern id="p-x"');
+    expect(svg).toContain('stroke="#fff"');
+    expect(cursorSvg(CURSOR_DEFS[0].cursor, 'y')).not.toContain('<pattern');
   });
 
   it('takes colour tiles from the section palette tokens', () => {
-    expect(COLOR_SCHEMES.map((tile) => tile.preview)).toEqual(Object.values(SECTION_COLORS));
-    for (const tile of COLOR_SCHEMES) {
-      expect(tile.id in SECTION_COLORS).toBe(true);
-    }
+    expect(COLOR_SCHEMES.slice(0, 7).map((tile) => tile.preview)).toEqual(
+      Object.values(SECTION_COLORS),
+    );
+    expect(COLOR_SCHEMES).toHaveLength(7 + 30);
   });
 
   it('defaults to the first tile of each kind', () => {
     expect(defaultTileId('wallpaper')).toBe(WALLPAPERS[0].id);
-    expect(defaultTileId('cursor')).toBe(CURSORS[0].id);
+    expect(defaultTileId('cursor')).toBe('cursor-white');
     expect(defaultTileId('color')).toBe(COLOR_SCHEMES[0].id);
   });
 });

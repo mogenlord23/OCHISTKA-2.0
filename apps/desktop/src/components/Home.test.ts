@@ -341,3 +341,33 @@ describe('Home tiles and graphs', () => {
     expect(points).toHaveLength(90);
   });
 });
+
+describe('Home details card', () => {
+  it('is closed by default, opens on a tile click and closes on a second click', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    const reveal = document.querySelector('.reveal') as HTMLElement;
+    expect(reveal.classList.contains('open')).toBe(false);
+    const cpuTile = screen.getByRole('button', { name: /Процессор/ });
+    cpuTile.click();
+    await flush();
+    expect(reveal.classList.contains('open')).toBe(true);
+    cpuTile.click();
+    await flush();
+    expect(reveal.classList.contains('open')).toBe(false);
+  });
+
+  it('closes with the close button', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    screen.getByRole('button', { name: /Оперативная память/ }).click();
+    await flush();
+    const reveal = document.querySelector('.reveal') as HTMLElement;
+    expect(reveal.classList.contains('open')).toBe(true);
+    (document.querySelector('.close') as HTMLButtonElement).click();
+    await flush();
+    expect(reveal.classList.contains('open')).toBe(false);
+  });
+});

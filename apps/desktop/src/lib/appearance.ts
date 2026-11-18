@@ -1,10 +1,10 @@
 import { SECTION_COLORS } from './tokens';
 import type { SectionId } from './sections';
+import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 /**
- * Встроенные варианты оформления. Это только данные: обоев-картинок нет (фон рисуется CSS),
- * курсоров-файлов нет (только названия), цвета берутся из палитры разделов.
- * Применение к Windows не подключено: см. AppearancePage.svelte.
+ * Варианты оформления: фото владельца (превью), сплошные цвета, SVG-курсоры и цвета.
+ * Данные портированы из старого приложения. Применение к Windows не подключено.
  */
 
 export const APPEARANCE_KINDS = ['wallpaper', 'cursor', 'color'] as const;
@@ -16,158 +16,159 @@ export interface AppearanceTile {
   description: string;
   /** Значение для фона превью: CSS-градиент или цвет. */
   preview: string;
+  /** Адрес превью-картинки (обои-фото). */
+  thumb?: string;
 }
 
-export const WALLPAPERS: readonly AppearanceTile[] = [
-  {
-    id: 'solid-lime',
-    label: 'Лайм',
-    description: 'Сплошной цвет #b4ff00',
-    preview: 'linear-gradient(#b4ff00, #b4ff00)',
-  },
-  {
-    id: 'solid-orange',
-    label: 'Апельсин',
-    description: 'Сплошной цвет #ff7a00',
-    preview: 'linear-gradient(#ff7a00, #ff7a00)',
-  },
-  {
-    id: 'solid-cyan',
-    label: 'Бирюза',
-    description: 'Сплошной цвет #00f5f0',
-    preview: 'linear-gradient(#00f5f0, #00f5f0)',
-  },
-  {
-    id: 'solid-magenta',
-    label: 'Маджента',
-    description: 'Сплошной цвет #ff009d',
-    preview: 'linear-gradient(#ff009d, #ff009d)',
-  },
-  {
-    id: 'solid-lemon',
-    label: 'Лимон',
-    description: 'Сплошной цвет #f5ff00',
-    preview: 'linear-gradient(#f5ff00, #f5ff00)',
-  },
-  {
-    id: 'solid-fuchsia',
-    label: 'Фуксия',
-    description: 'Сплошной цвет #f000ff',
-    preview: 'linear-gradient(#f000ff, #f000ff)',
-  },
-  {
-    id: 'solid-violet',
-    label: 'Фиалка',
-    description: 'Сплошной цвет #a000ff',
-    preview: 'linear-gradient(#a000ff, #a000ff)',
-  },
-  {
-    id: 'solid-chartreuse',
-    label: 'Шартрез',
-    description: 'Сплошной цвет #dcff00',
-    preview: 'linear-gradient(#dcff00, #dcff00)',
-  },
-  {
-    id: 'solid-green',
-    label: 'Трава',
-    description: 'Сплошной цвет #5cff00',
-    preview: 'linear-gradient(#5cff00, #5cff00)',
-  },
-  {
-    id: 'solid-indigo',
-    label: 'Индиго',
-    description: 'Сплошной цвет #8c00ff',
-    preview: 'linear-gradient(#8c00ff, #8c00ff)',
-  },
-  {
-    id: 'solid-black',
-    label: 'Чёрный',
-    description: 'Сплошной цвет #0a0a0a',
-    preview: 'linear-gradient(#0a0a0a, #0a0a0a)',
-  },
-  {
-    id: 'solid-white',
-    label: 'Белый',
-    description: 'Сплошной цвет #f7f7f7',
-    preview: 'linear-gradient(#f7f7f7, #f7f7f7)',
-  },
-  {
-    id: 'aurora',
-    label: 'Аврора',
-    description: 'Тёмно-синий переход в мятный',
-    preview: 'linear-gradient(135deg, #0f2027, #2c5364 50%, #7fffd4)',
-  },
-  {
-    id: 'sunset',
-    label: 'Закат',
-    description: 'Персиковый переход в фиолетовый',
-    preview: 'linear-gradient(160deg, #ff7e5f, #feb47b 45%, #6a0572)',
-  },
-  {
-    id: 'ocean',
-    label: 'Океан',
-    description: 'Два оттенка синего сверху вниз',
-    preview: 'linear-gradient(180deg, #00c6ff, #0072ff)',
-  },
-  {
-    id: 'graphite',
-    label: 'Графит',
-    description: 'Сдержанный серый переход',
-    preview: 'linear-gradient(135deg, #232526, #414345)',
-  },
-  {
-    id: 'mint',
-    label: 'Мята',
-    description: 'Светло-зелёный переход',
-    preview: 'linear-gradient(120deg, #a8ff78, #78ffd6)',
-  },
-  {
-    id: 'dusk',
-    label: 'Сумерки',
-    description: 'Сиреневый с коралловым бликом',
-    preview: 'linear-gradient(140deg, #3a1c71, #d76d77 55%, #ffaf7b)',
-  },
-  {
-    id: 'ember',
-    label: 'Угли',
-    description: 'Жёлтое свечение на тёмном фоне',
-    preview: 'radial-gradient(circle at 30% 20%, #ffd200, #ff4e00 60%, #1a0500)',
-  },
-  {
-    id: 'night',
-    label: 'Ночь',
-    description: 'Почти чёрный переход в синий',
-    preview: 'linear-gradient(to bottom, #000428, #004e92)',
-  },
+/** Пары «основной цвет, второй цвет» из старого приложения (AppearanceArtwork.cs), только данные. */
+export const ACID_PAIRS: readonly (readonly [string, string])[] = [
+  ['#B4FF00', '#FF009D'],
+  ['#FF009D', '#00FFFF'],
+  ['#087FFF', '#F5FF00'],
+  ['#FF7A00', '#CF00FF'],
+  ['#F5FF00', '#087FFF'],
+  ['#CF00FF', '#B4FF00'],
+  ['#00FFF0', '#FF009D'],
+  ['#FF244D', '#F5FF00'],
+  ['#B4FF00', '#087FFF'],
+  ['#FF009D', '#F5FF00'],
+  ['#087FFF', '#00FFF0'],
+  ['#FF7A00', '#B4FF00'],
+  ['#F5FF00', '#FF009D'],
+  ['#CF00FF', '#00FFFF'],
+  ['#8AFF00', '#FF6600'],
+  ['#FF00DD', '#087FFF'],
+  ['#00C8FF', '#F5FF00'],
+  ['#FF5E00', '#00FFF0'],
+  ['#B400FF', '#FF009D'],
+  ['#FFEE00', '#CF00FF'],
+  ['#00FF7F', '#001BFF'],
+  ['#E6FF00', '#FF1493'],
+  ['#00F5FF', '#7A00FF'],
+  ['#FF3864', '#00FFD5'],
+  ['#6DFF00', '#FF00A8'],
+  ['#FF6B00', '#00A2FF'],
+  ['#D0FF00', '#00FF95'],
+  ['#9D00FF', '#FFEA00'],
+  ['#00FFCC', '#FF3D00'],
+  ['#FF008C', '#8AFF00'],
 ];
 
-/** Названия схем курсора. Файлов курсора нет: выбор только запоминается. */
-export const CURSORS: readonly AppearanceTile[] = [
-  {
-    id: 'classic',
-    label: 'Классический',
-    description: 'Обычный указатель, стандартный размер',
-    preview: '#1f1f1f',
-  },
-  {
-    id: 'large',
-    label: 'Крупный',
-    description: 'Увеличенный указатель для лучшей видимости',
-    preview: '#1f1f1f',
-  },
-  {
-    id: 'inverted',
-    label: 'Инверсный',
-    description: 'Светлый контур на тёмном фоне',
-    preview: '#1f1f1f',
-  },
-  {
-    id: 'dark',
-    label: 'Тёмный',
-    description: 'Тёмный контур для светлых окон',
-    preview: '#1f1f1f',
-  },
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Сплошные обои старого приложения: каждая третья пара и два «узора» (чёрный, белый). */
+const SOLID_WALLPAPERS: readonly { id: string; label: string; color: string }[] = [
+  ...ACID_PAIRS.filter((_, i) => i % 3 === 0).map(([color], k) => ({
+    id: `solid-acid-${pad2(k * 3 + 1)}`,
+    label: `Цвет ${color}`,
+    color,
+  })),
+  { id: 'solid-black', label: 'Чёрный', color: '#080808' },
+  { id: 'solid-white', label: 'Белый', color: '#FFFFFF' },
 ];
+
+export const WALLPAPERS: readonly AppearanceTile[] = [
+  ...SOLID_WALLPAPERS.map((s) => ({
+    id: s.id,
+    label: s.label,
+    description: `Сплошной цвет ${s.color}`,
+    preview: s.color,
+  })),
+  ...WALLPAPER_PHOTOS.map((photo) => ({
+    id: photo.id,
+    label: photo.title,
+    description: `${photo.title}, ${photo.width}×${photo.height}`,
+    preview: '#161616',
+    thumb: photo.thumb,
+  })),
+];
+
+export type CursorPattern = 'plain' | 'stripes' | 'dots' | 'checker' | 'cross';
+
+/** Описание курсора: цвета и узор заливки. Рисуется как SVG-стрелка, файлов нет. */
+export interface CursorDef {
+  color: string;
+  secondary: string;
+  pattern: CursorPattern;
+}
+
+/** Однотонные курсоры из старого приложения, в порядке экрана. */
+const PLAIN_CURSORS: readonly { id: string; label: string; color: string }[] = [
+  { id: 'cursor-black', label: 'Чёрный', color: '#000000' },
+  { id: 'cursor-white', label: 'Белый', color: '#FFFFFF' },
+  { id: 'cursor-gray', label: 'Серый', color: '#808080' },
+  { id: 'cursor-red', label: 'Красный', color: '#FF0000' },
+  { id: 'cursor-blood', label: 'Бордовый', color: '#860000' },
+  { id: 'cursor-lime', label: 'Лаймовый', color: '#8AFF00' },
+  { id: 'cursor-blue', label: 'Синий', color: '#0066FF' },
+  { id: 'cursor-purple', label: 'Фиолетовый', color: '#B400FF' },
+  { id: 'cursor-yellow', label: 'Жёлтый', color: '#FFF000' },
+  { id: 'cursor-orange', label: 'Оранжевый', color: '#FF7300' },
+  { id: 'cursor-pink', label: 'Розовый', color: '#FF00B8' },
+  { id: 'cursor-cyan', label: 'Бирюзовый', color: '#00FFFF' },
+];
+
+/** Узор по номеру группы из четырёх пар: 1 полосы, 2 точки, 3 шахматка, дальше сетка. */
+const PATTERN_BY_GROUP: readonly CursorPattern[] = ['plain', 'stripes', 'dots', 'checker'];
+const PATTERN_NAMES: Record<CursorPattern, string> = {
+  plain: 'однотонный',
+  stripes: 'полосы',
+  dots: 'точки',
+  checker: 'шахматка',
+  cross: 'сетка',
+};
+
+/** 35 курсоров: 12 однотонных и 23 узорчатых (пары 5–27 старой таблицы). */
+export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = [
+  ...PLAIN_CURSORS.map((c) => ({
+    id: c.id,
+    label: c.label,
+    description: `Курсор «${c.label.toLowerCase()}»`,
+    preview: '#161616',
+    cursor: { color: c.color, secondary: c.color, pattern: 'plain' as CursorPattern },
+  })),
+  ...ACID_PAIRS.slice(4, 27).map(([color, secondary], k) => {
+    const index = k + 4;
+    const pattern = PATTERN_BY_GROUP[Math.floor(index / 4)] ?? 'cross';
+    return {
+      id: `cursor-acid-${pad2(index + 1)}`,
+      label: `${PATTERN_NAMES[pattern]} ${color}`,
+      description: `Курсор: ${PATTERN_NAMES[pattern]}, ${color} и ${secondary}`,
+      preview: '#161616',
+      cursor: { color, secondary, pattern },
+    };
+  }),
+];
+
+export const CURSORS: readonly AppearanceTile[] = CURSOR_DEFS;
+
+const ARROW_PATH =
+  'M12,7 Q10,6 10,10 L10,48 Q10,51 13,49 L23,40 L31,57 Q33,60 36,58 L41,55 Q43,54 41,51 L32,35 L46,34 Q50,34 47,31 L14,8 Q13,7 12,7 Z';
+
+/** SVG-стрелка с белой обводкой. `uid` делает id узора уникальным на странице. Данные только свои. */
+export function cursorSvg(def: CursorDef, uid: string): string {
+  const { color, secondary, pattern } = def;
+  const fill = pattern === 'plain' ? color : `url(#p-${uid})`;
+  let defs = '';
+  if (pattern !== 'plain') {
+    let body = `<rect width="16" height="16" fill="${color}"/>`;
+    if (pattern === 'stripes') {
+      body += `<path d="M-4,16 L16,-4 M4,20 L20,4" stroke="${secondary}" stroke-width="6"/>`;
+    } else if (pattern === 'dots') {
+      body += `<circle cx="4" cy="4" r="3" fill="${secondary}"/><circle cx="12" cy="12" r="2" fill="#fff"/>`;
+    } else if (pattern === 'checker') {
+      body += `<rect width="8" height="8" fill="${secondary}"/><rect x="8" y="8" width="8" height="8" fill="${secondary}"/>`;
+    } else {
+      body += `<path d="M0,8 H16" stroke="${secondary}" stroke-width="5"/><path d="M8,0 V16" stroke="#fff" stroke-width="2"/>`;
+    }
+    defs = `<defs><pattern id="p-${uid}" width="16" height="16" patternUnits="userSpaceOnUse">${body}</pattern></defs>`;
+  }
+  return (
+    `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" focusable="false">${defs}` +
+    `<path d="${ARROW_PATH}" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
+    `<path d="${ARROW_PATH}" fill="${fill}" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>`
+  );
+}
 
 const COLOR_NAMES: Record<SectionId, string> = {
   vpn: 'Розовый',
@@ -180,14 +181,24 @@ const COLOR_NAMES: Record<SectionId, string> = {
 };
 
 /** Цвета страниц разделов из палитры tokens.ts. */
-export const COLOR_SCHEMES: readonly AppearanceTile[] = (
-  Object.keys(SECTION_COLORS) as SectionId[]
-).map((id) => ({
-  id,
-  label: COLOR_NAMES[id],
-  description: `Цвет раздела «${COLOR_NAMES[id].toLowerCase()}»`,
-  preview: SECTION_COLORS[id],
+const SECTION_SCHEMES: readonly AppearanceTile[] = (Object.keys(SECTION_COLORS) as SectionId[]).map(
+  (id) => ({
+    id,
+    label: COLOR_NAMES[id],
+    description: `Цвет раздела «${COLOR_NAMES[id].toLowerCase()}»`,
+    preview: SECTION_COLORS[id],
+  }),
+);
+
+/** Цветовые плитки старого приложения: основной цвет и второй, по диагонали. */
+const ACID_SCHEMES: readonly AppearanceTile[] = ACID_PAIRS.map(([color, secondary], i) => ({
+  id: `acid-${pad2(i + 1)}`,
+  label: `Пара ${pad2(i + 1)}`,
+  description: `Цвета ${color} и ${secondary}`,
+  preview: `linear-gradient(135deg, ${color} 55%, ${secondary} 55%)`,
 }));
+
+export const COLOR_SCHEMES: readonly AppearanceTile[] = [...SECTION_SCHEMES, ...ACID_SCHEMES];
 
 export function tilesFor(kind: AppearanceKind): readonly AppearanceTile[] {
   switch (kind) {
@@ -202,5 +213,5 @@ export function tilesFor(kind: AppearanceKind): readonly AppearanceTile[] {
 
 /** Первый вариант списка считается выбранным по умолчанию. */
 export function defaultTileId(kind: AppearanceKind): string {
-  return tilesFor(kind)[0].id;
+  return kind === 'cursor' ? 'cursor-white' : tilesFor(kind)[0].id;
 }

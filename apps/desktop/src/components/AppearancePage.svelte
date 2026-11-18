@@ -1,10 +1,21 @@
 <script lang="ts">
-  import { tilesFor, type AppearanceKind } from '../lib/appearance';
-  import { loadChoice, saveChoice, type AppearanceChoice } from '../lib/appearanceStore';
+  import { cursorSvg, CURSOR_DEFS, tilesFor, type AppearanceKind } from '../lib/appearance';
+  import {
+    applyReduceMotion,
+    loadChoice,
+    loadSettings,
+    saveChoice,
+    saveSettings,
+    type AppearanceChoice,
+  } from '../lib/appearanceStore';
+  import { i18n } from '../lib/i18n.svelte';
+  import pkg from '../../package.json';
 
   let { subsection }: { subsection: string } = $props();
 
   const APPLY_REASON = 'Применение к Windows пока не подключено';
+  const PAGE_SIZE = 40;
+  const REPO_URL = 'https://github.com/mogenlord23/OCHISTKA-2.0';
 
   const KIND_BY_SUBSECTION: Record<string, AppearanceKind> = {
     wallpapers: 'wallpaper',
@@ -19,7 +30,7 @@
     },
     cursor: {
       title: 'Курсоры',
-      hint: 'Нажми на схему, чтобы выбрать курсор. Выбор запоминается; применение появится позже.',
+      hint: 'Полные схемы курсора Windows здесь доступны только для просмотра. Системная схема не изменяется.',
     },
     color: {
       title: 'Цвета',
@@ -28,53 +39,149 @@
   };
 
   let choice = $state<AppearanceChoice>(loadChoice());
+  let reduceMotion = $state(loadSettings().reduceMotion);
+  let visible = $state(PAGE_SIZE);
+  let sentinel = $state<HTMLElement | null>(null);
 
+  const isSettings = $derived(subsection === 'settings');
   const kind = $derived<AppearanceKind>(KIND_BY_SUBSECTION[subsection] ?? 'wallpaper');
   const tiles = $derived(tilesFor(kind));
   const selectedId = $derived(choice[kind]);
   const selectedLabel = $derived(tiles.find((tile) => tile.id === selectedId)?.label ?? '');
+  const shown = $derived(kind === 'wallpaper' ? tiles.slice(0, visible) : tiles);
+  const cursorById = new Map(CURSOR_DEFS.map((def) => [def.id, def.cursor]));
 
   function pick(id: string) {
     saveChoice(kind, id);
     choice = { ...choice, [kind]: id };
   }
+
+  function toggleMotion() {
+    reduceMotion = !reduceMotion;
+    saveSettings({ reduceMotion });
+    applyReduceMotion(reduceMotion);
+  }
+
+  // Обои подгружаются порциями: когда низ списка виден, добавляем ещё порцию.
+  $effect(() => {
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) visible += PAGE_SIZE;
+      },
+      { rootMargin: '400px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
 </script>
 
 <section class="appearance" aria-label="Оформление">
-  <h2>{HEADINGS[kind].title}</h2>
-  <p class="hint">{HEADINGS[kind].hint}</p>
+  {#key subsection}
+    <div class="pane">
+      {#if isSettings}
+        <h2>Настройки приложения</h2>
+        <p class="hint">Меняют только это приложение, Windows не затрагивают.</p>
 
-  <div class="actions">
-    {#if kind === 'wallpaper'}
-      <button type="button" disabled title={APPLY_REASON}>Добавить свои обои…</button>
-      <button type="button" disabled title={APPLY_REASON}>Вернуть прежний фон</button>
-    {/if}
-    <button type="button" disabled aria-describedby="apply-reason">Применить к Windows</button>
-  </div>
-  <p id="apply-reason" class="reason">{APPLY_REASON}</p>
+        <div class="setting">
+          <span class="setting-name" id="lang-label">Язык / Language</span>
+          <div class="seg" role="group" aria-labelledby="lang-label">
+            <button
+              type="button"
+              aria-pressed={i18n.lang === 'ru'}
+              onclick={() => (i18n.lang = 'ru')}>RU</button
+            >
+            <button
+              type="button"
+              aria-pressed={i18n.lang === 'en'}
+              onclick={() => (i18n.lang = 'en')}>ENG</button
+            >
+          </div>
+        </div>
 
-  <p class="current">Выбрано: <strong>{selectedLabel}</strong></p>
+        <div class="setting">
+          <span class="setting-name" id="motion-label">Меньше анимации</span>
+          <button
+            type="button"
+            class="switch"
+            role="switch"
+            aria-checked={reduceMotion}
+            aria-labelledby="motion-label"
+            onclick={toggleMotion}
+          >
+            <span class="knob"></span>
+          </button>
+        </div>
 
-  <ul class="grid">
-    {#each tiles as tile (tile.id)}
-      {@const isSelected = tile.id === selectedId}
-      <li>
-        <button
-          type="button"
-          class="tile"
-          class:selected={isSelected}
-          aria-pressed={isSelected}
-          title={tile.description}
-          style:background={tile.preview}
-          onclick={() => pick(tile.id)}
-        >
-          {#if kind === 'cursor'}<span class="pointer" aria-hidden="true">↖</span>{/if}
-          <span class="label">{tile.label}</span>
-          {#if isSelected}<span class="state">✓<span class="sr">Выбрано</span></span>{/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
+        <div class="setting">
+          <span class="setting-name">Версия</span>
+          <span>OCHISTKA {pkg.version}</span>
+        </div>
+        <div class="setting">
+          <span class="setting-name">Ссылки</span>
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">Исходный код на GitHub</a>
+        </div>
+      {:else}
+        <h2>{HEADINGS[kind].title}</h2>
+        <p class="hint">{HEADINGS[kind].hint}</p>
+
+        <div class="actions">
+          {#if kind === 'wallpaper'}
+            <button type="button" disabled title={APPLY_REASON}>Добавить свои обои…</button>
+            <button type="button" disabled title={APPLY_REASON}>Вернуть прежний фон</button>
+          {/if}
+          <button type="button" disabled aria-describedby="apply-reason">Применить к Windows</button
+          >
+        </div>
+        <p class="current">
+          Выбрано: <strong>{selectedLabel}</strong>
+          <span id="apply-reason" class="reason">{APPLY_REASON}</span>
+        </p>
+
+        <ul class="grid grid-{kind}">
+          {#each shown as tile (tile.id)}
+            {@const isSelected = tile.id === selectedId}
+            {@const cursor = cursorById.get(tile.id)}
+            <li>
+              <button
+                type="button"
+                class="tile"
+                class:selected={isSelected}
+                aria-pressed={isSelected}
+                title={tile.description}
+                style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
+                style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
+                onclick={() => pick(tile.id)}
+              >
+                {#if tile.thumb}
+                  <img
+                    src={tile.thumb}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width="288"
+                    height="162"
+                  />
+                {:else if cursor}
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -- собственные данные, не ввод -->
+                  <span class="cursor" aria-hidden="true">{@html cursorSvg(cursor, tile.id)}</span>
+                {/if}
+                <span class="label">{tile.label}</span>
+                {#if isSelected}<span class="state">✓<span class="sr">Выбрано</span></span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+        {#if kind === 'wallpaper' && visible < tiles.length}
+          <div bind:this={sentinel} class="more">
+            <button type="button" onclick={() => (visible += PAGE_SIZE)}>
+              Показать ещё ({tiles.length - visible})
+            </button>
+          </div>
+        {/if}
+      {/if}
+    </div>
+  {/key}
 </section>
 
 <style>
@@ -82,8 +189,19 @@
     color: var(--page-text);
   }
 
+  .pane {
+    animation: pane-in 220ms ease-out both;
+  }
+
+  @keyframes pane-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
   h2 {
-    margin: 0 0 14px;
+    margin: 0 0 6px;
     font-family: var(--font-heading);
     font-size: var(--text-section);
     font-weight: 900;
@@ -101,7 +219,8 @@
     gap: 8px;
   }
 
-  .actions button {
+  .actions button,
+  .more button {
     min-height: 44px;
     padding: 10px 14px;
     border: 1px solid var(--btn-border, #343434);
@@ -111,6 +230,9 @@
     font: inherit;
     font-size: var(--text-small);
     font-weight: 600;
+  }
+
+  .actions button {
     cursor: not-allowed;
   }
 
@@ -118,24 +240,47 @@
     color: var(--ink-soft);
   }
 
+  .more {
+    display: flex;
+    justify-content: center;
+    margin: 14px 0;
+  }
+
+  .more button {
+    cursor: pointer;
+  }
+
   .reason {
-    margin: 6px 0 0;
+    margin: 0 0 0 12px;
     font-size: var(--text-caption);
     font-weight: 700;
   }
 
   .current {
-    margin: 10px 0 12px;
+    margin: 8px 0 10px;
     font-size: var(--text-small);
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .grid-wallpaper {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .grid-cursor,
+  .grid-color {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .grid li {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 90px;
   }
 
   .tile {
@@ -144,20 +289,62 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    aspect-ratio: 140 / 78;
+    aspect-ratio: 16 / 9;
     min-height: 44px;
     padding: 0;
-    border: 2px solid transparent;
-    border-radius: 12px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 14px;
+    background-origin: border-box;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
     color: var(--ink);
     font: inherit;
     cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%);
+    transition:
+      transform 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .grid-cursor .tile {
+    background-color: #161616 !important;
+    aspect-ratio: 140 / 102;
+  }
+
+  .tile:hover {
+    transform: translateY(-3px);
   }
 
   .tile.selected {
-    border-color: var(--black);
-    box-shadow: 0 0 0 2px var(--ink);
+    outline: 3px solid #fff;
+    outline-offset: -3px;
+    animation: pop 220ms ease-out;
+  }
+
+  @keyframes pop {
+    50% {
+      transform: scale(1.06);
+    }
+  }
+
+  .tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #161616;
+  }
+
+  .cursor {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cursor :global(svg) {
+    width: 62%;
+    height: 78%;
   }
 
   .label {
@@ -177,11 +364,6 @@
     clip-path: inset(50%);
   }
 
-  .pointer {
-    font-size: 28px;
-    color: #fafafa;
-  }
-
   .state {
     position: absolute;
     right: 6px;
@@ -195,5 +377,103 @@
     color: var(--ink);
     font-size: 13px;
     font-weight: 800;
+  }
+
+  .setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 560px;
+    min-height: 52px;
+    margin-bottom: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    background: var(--black);
+    color: var(--ink);
+    font-size: var(--text-small);
+  }
+
+  .setting-name {
+    font-weight: 700;
+  }
+
+  .setting a {
+    color: var(--ink);
+  }
+
+  .seg {
+    display: flex;
+    gap: 4px;
+  }
+
+  .seg button {
+    min-width: 56px;
+    min-height: 36px;
+    border: 1px solid #343434;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .seg button[aria-pressed='true'] {
+    background: var(--ink);
+    color: var(--black);
+  }
+
+  .switch {
+    position: relative;
+    width: 52px;
+    height: 30px;
+    border: 0;
+    border-radius: 999px;
+    background: #3a3a3a;
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+
+  .switch[aria-checked='true'] {
+    background: var(--ink);
+  }
+
+  .knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 160ms ease;
+  }
+
+  .switch[aria-checked='true'] .knob {
+    background: var(--black);
+    transform: translateX(22px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pane,
+    .tile,
+    .tile.selected,
+    .switch,
+    .knob {
+      animation: none;
+      transition: none;
+    }
+
+    .tile:hover {
+      transform: none;
+    }
+  }
+
+  :global(:root[data-reduce-motion='true'] *),
+  :global(:root[data-reduce-motion='true'] *::before),
+  :global(:root[data-reduce-motion='true'] *::after) {
+    animation: none !important;
+    transition: none !important;
   }
 </style>

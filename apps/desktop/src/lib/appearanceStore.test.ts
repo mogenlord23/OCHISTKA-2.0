@@ -32,12 +32,12 @@ describe('appearance storage', () => {
   });
 
   it('stores one kind and keeps the others', () => {
-    expect(saveChoice('wallpaper', 'ocean', storage)).toBe(true);
-    expect(saveChoice('cursor', 'large', storage)).toBe(true);
+    expect(saveChoice('wallpaper', 'solid-black', storage)).toBe(true);
+    expect(saveChoice('cursor', 'cursor-red', storage)).toBe(true);
     expect(loadChoice(storage)).toEqual({
       ...defaultChoice(),
-      wallpaper: 'ocean',
-      cursor: 'large',
+      wallpaper: 'solid-black',
+      cursor: 'cursor-red',
     });
   });
 
@@ -54,8 +54,8 @@ describe('appearance storage', () => {
 
   it('does not throw when storage is unavailable', () => {
     expect(loadChoice(new BrokenStorage())).toEqual(defaultChoice());
-    expect(saveChoice('wallpaper', 'ocean', new BrokenStorage())).toBe(false);
+    expect(saveChoice('wallpaper', 'solid-black', new BrokenStorage())).toBe(false);
     expect(loadChoice(null)).toEqual(defaultChoice());
-    expect(saveChoice('wallpaper', 'ocean', null)).toBe(false);
+    expect(saveChoice('wallpaper', 'solid-black', null)).toBe(false);
   });
 });
