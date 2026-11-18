@@ -55,6 +55,8 @@ const hardwareSample: HardwareOverview = {
     },
   ],
   motherboard: { vendor: 'ASUS', name: 'ROG STRIX B650', version: 'Rev 1.xx' },
+  cpuBrand: 'Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz',
+  driveModels: ['KINGSTON SHFS37A120G', 'WDC WD10EZEX-21WN4A0'],
 };
 
 /** Даёт эффектам Svelte и продолжениям промисов выполниться (требует фейковых таймеров). */
@@ -92,21 +94,39 @@ describe('Home', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.getByText('Загрузка: 12 %')).toBeTruthy();
-    expect(screen.getByText('Логических ядер: 8')).toBeTruthy();
-    expect(screen.getByText('4.0 ГБ из 8.0 ГБ')).toBeTruthy();
-    expect(screen.getByText('50 %')).toBeTruthy();
-    expect(screen.getByText('Локальный диск (C:)')).toBeTruthy();
-    expect(screen.getByText('C:\\')).toBeTruthy();
+    // Проценты только в верхней строке; плитки показывают названия.
+    expect(screen.getByText('CPU 12%')).toBeTruthy();
+    expect(screen.getByText('GPU 37%')).toBeTruthy();
+    expect(screen.getByText('RAM 50%')).toBeTruthy();
+    expect(screen.getByText('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz')).toBeTruthy();
+    expect(screen.getByText('8,0 ГБ')).toBeTruthy();
+    expect(screen.getByText('KINGSTON SHFS37A120G / WDC WD10EZEX-21WN4A0')).toBeTruthy();
+  });
+
+  it('shows no percentages on the tiles', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    const tiles = document.querySelector('.tiles') as HTMLElement;
+    expect(tiles.textContent).not.toMatch(/%/);
+  });
+
+  it('refreshes immediately with the «Обновить сведения» button', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    const before = getMock.mock.calls.length;
+    screen.getByRole('button', { name: 'Обновить сведения' }).click();
+    await flush();
+    expect(getMock.mock.calls.length).toBe(before + 1);
   });
 
   it('shows GPU and motherboard tiles from the hardware port', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.getByText('GeForce RTX 4070')).toBeTruthy();
-    expect(screen.getByText('Загрузка: 37 %')).toBeTruthy();
-    expect(screen.getByText('ROG STRIX B650')).toBeTruthy();
+    expect(screen.getByText('NVIDIA GeForce RTX 4070')).toBeTruthy();
+    expect(screen.getByText('ASUS · ROG STRIX B650')).toBeTruthy();
   });
 
   it('shows the hardware reason in the tiles when the platform cannot read it', async () => {
@@ -118,14 +138,8 @@ describe('Home', () => {
     render(Home);
     await flush();
     expect(screen.getAllByText('Чтение комплектующих недоступно на Linux').length).toBe(2);
-    expect(screen.getByText('Локальный диск (C:)')).toBeTruthy();
-  });
-
-  it('shows the disk mount point when the disk has no other name', async () => {
-    getMock.mockResolvedValue(sample);
-    render(Home);
-    await flush();
-    expect(screen.getByText('E:\\')).toBeTruthy();
+    // Модели дисков недоступны: честно «тип · буква».
+    expect(screen.getByText('SSD · C: / Диск · E:')).toBeTruthy();
   });
 
   it('shows the unsupported reason in an alert', async () => {
@@ -193,7 +207,7 @@ describe('Home', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
     expect(getMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('Загрузка: 12 %')).toBeTruthy();
+    expect(screen.getByText('CPU 12%')).toBeTruthy();
   });
 
   it('FND-0170: resumes polling after a slow request settles', async () => {
@@ -236,7 +250,7 @@ describe('Home', () => {
     resolveSecond(sample);
     await flush();
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('Загрузка: 12 %')).toBeTruthy();
+    expect(screen.getByText('CPU 12%')).toBeTruthy();
   });
 
   it('ignores a response that arrives after unmount', async () => {
@@ -248,7 +262,7 @@ describe('Home', () => {
     resolveLate(sample);
     await flush();
 
-    expect(document.body.textContent).not.toContain('Загрузка: 12 %');
+    expect(document.body.textContent).not.toContain('CPU 12%');
     expect(consoleError).not.toHaveBeenCalled();
   });
 
@@ -281,7 +295,7 @@ describe('Home tiles and graphs', () => {
     await flush();
     expect(screen.getByRole('button', { name: /Процессор/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Видеокарта/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Оперативная память/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /RAM \/ Память/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Материнская плата/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /SSD \/ HDD/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Система/ })).toBeTruthy();
@@ -291,13 +305,14 @@ describe('Home tiles and graphs', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.getByText('Windows 11')).toBeTruthy();
-    expect(screen.getByText('Версия: 24H2')).toBeTruthy();
+    expect(screen.getByText('Windows 11 · 24H2')).toBeTruthy();
   });
 
   it('shows the disk kind next to each disk', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
+    await flush();
+    screen.getByRole('button', { name: /SSD \/ HDD/ }).click();
     await flush();
     expect(screen.getByText('SSD')).toBeTruthy();
     expect(screen.getByText('тип не определён')).toBeTruthy();
@@ -309,18 +324,19 @@ describe('Home tiles and graphs', () => {
     await flush();
     expect(screen.queryByRole('img', { name: /память/ })).toBeNull();
 
-    const ramTile = screen.getByRole('button', { name: /Оперативная память/ });
+    const ramTile = screen.getByRole('button', { name: /RAM \/ Память/ });
     ramTile.click();
     await flush();
     expect(ramTile.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('img', { name: /использования памяти/ })).toBeTruthy();
-    // Плитка и панель подробностей показывают один объём памяти.
-    expect(screen.getAllByText('4.0 ГБ из 8.0 ГБ')).toHaveLength(2);
+    expect(screen.getByText('Занято 4.0 ГБ из 8.0 ГБ')).toBeTruthy();
   });
 
   it('draws the CPU graph with the 100% and 90 seconds labels', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
+    await flush();
+    screen.getByRole('button', { name: /Процессор/ }).click();
     await flush();
     expect(screen.getByText('100%')).toBeTruthy();
     expect(screen.getByText('90 секунд')).toBeTruthy();
@@ -329,6 +345,8 @@ describe('Home tiles and graphs', () => {
   it('keeps at most 90 CPU samples in the graph history', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
+    await flush();
+    screen.getByRole('button', { name: /Процессор/ }).click();
     await flush();
     // Первый замер уже есть; ещё 99 опросов с шагом POLL_INTERVAL_MS.
     for (let i = 0; i < 99; i += 1) {
@@ -362,12 +380,33 @@ describe('Home details card', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    screen.getByRole('button', { name: /Оперативная память/ }).click();
+    screen.getByRole('button', { name: /RAM \/ Память/ }).click();
     await flush();
     const reveal = document.querySelector('.reveal') as HTMLElement;
     expect(reveal.classList.contains('open')).toBe(true);
-    (document.querySelector('.close') as HTMLButtonElement).click();
+    screen.getByRole('button', { name: 'Скрыть' }).click();
     await flush();
     expect(reveal.classList.contains('open')).toBe(false);
+  });
+
+  it('opens the three graphs together when the summary row is clicked', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    screen.getByRole('button', { name: 'Показать графики загрузки' }).click();
+    await flush();
+    expect(screen.getByRole('img', { name: /загрузки процессора/ })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /загрузки видеокарты/ })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /использования памяти/ })).toBeTruthy();
+  });
+
+  it('titles the GPU card with the percent and the sample time', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    screen.getByRole('button', { name: /GPU \/ Видеокарта/ }).click();
+    await flush();
+    expect(screen.getByRole('region', { name: 'Видеокарта' })).toBeTruthy();
+    expect(document.querySelector('.headline')?.textContent).toMatch(/^37% · \d\d:\d\d:\d\d$/);
   });
 });

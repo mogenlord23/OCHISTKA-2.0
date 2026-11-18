@@ -1,31 +1,39 @@
 <script lang="ts">
   import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
   import {
-    boardName,
+    boardLine,
+    clockTime,
+    cpuName,
+    detailPercent,
+    drivesLine,
+    gpuFullName,
     gpuMemoryLine,
-    gpuName,
-    gpuUsageLine,
     HARDWARE_LOADING,
+    ramTotal,
+    shortPercent,
+    systemLine,
   } from '../lib/computer';
-  import { formatBytes, formatPercent } from '../lib/format';
+  import { formatBytes } from '../lib/format';
   import { HISTORY_LIMIT, pushSample } from '../lib/history';
   import { SECTION_COLORS } from '../lib/tokens';
   import type { CommandError, DiskKind, HardwareOverview, SystemOverview } from '../lib/types';
+  import ComputerIcon from './ComputerIcon.svelte';
   import LineGraph from './LineGraph.svelte';
 
   /** Через сколько запрос считается зависшим. */
   const REQUEST_TIMEOUT_MS = 10_000;
 
   type TileId = 'cpu' | 'gpu' | 'ram' | 'board' | 'disks' | 'system';
+  /** Что раскрыто над плитками: сводка с тремя графиками, одна комплектующая или ничего. */
+  type View = TileId | 'summary' | null;
 
-  /** Цвета плиток — из палитры токенов: lime, pink, blue, yellow. */
-  const TILES: readonly { id: TileId; title: string; color: string }[] = [
-    { id: 'cpu', title: 'CPU / Процессор', color: SECTION_COLORS.viruses },
-    { id: 'gpu', title: 'GPU / Видеокарта', color: SECTION_COLORS.vpn },
-    { id: 'ram', title: 'RAM / Оперативная память', color: SECTION_COLORS.processes },
-    { id: 'board', title: 'Материнская плата', color: SECTION_COLORS.disks },
-    { id: 'disks', title: 'SSD / HDD', color: SECTION_COLORS.viruses },
-    { id: 'system', title: 'Система', color: SECTION_COLORS.vpn },
+  const TILES: readonly { id: TileId; title: string; detail: string }[] = [
+    { id: 'cpu', title: 'CPU / Процессор', detail: 'Процессор' },
+    { id: 'gpu', title: 'GPU / Видеокарта', detail: 'Видеокарта' },
+    { id: 'ram', title: 'RAM / Память', detail: 'Оперативная память' },
+    { id: 'board', title: 'Материнская плата', detail: 'Материнская плата' },
+    { id: 'disks', title: 'SSD / HDD', detail: 'Диски' },
+    { id: 'system', title: 'Система', detail: 'Система' },
   ];
 
   const KIND_LABELS: Record<DiskKind, string> = {
@@ -34,23 +42,28 @@
     unknown: 'тип не определён',
   };
 
+  const GRAPH_COLOR = SECTION_COLORS.viruses;
+
   let overview = $state<SystemOverview | null>(null);
   let error = $state<CommandError | null>(null);
   let hardware = $state<HardwareOverview | null>(null);
   let hardwareError = $state<CommandError | null>(null);
   let cpuHistory = $state<number[]>([]);
+  let gpuHistory = $state<number[]>([]);
   let ramHistory = $state<number[]>([]);
-  /** Открытая плитка: карточка с графиком появляется только после нажатия. */
-  let selected = $state<TileId | null>(null);
-  /** Последняя открытая плитка: её содержимое остаётся видимым, пока карточка закрывается. */
-  let shownId = $state<TileId>('cpu');
+  let updatedAt = $state<Date | null>(null);
+  let view = $state<View>(null);
+  /** Последнее раскрытое: содержимое остаётся видимым, пока карточка закрывается. */
+  let shownView = $state<Exclude<View, null>>('summary');
+  /** Запуск внеочередного опроса по кнопке «Обновить сведения». */
+  let reload: () => void = () => {};
 
-  function toggle(id: TileId) {
-    if (selected === id) {
-      selected = null;
+  function open(next: Exclude<View, null>) {
+    if (view === next) {
+      view = null;
     } else {
-      selected = id;
-      shownId = id;
+      view = next;
+      shownView = next;
     }
   }
 
@@ -90,9 +103,14 @@
           error = null;
           hardware = hw.data;
           hardwareError = hw.error;
-          // История за 90 секунд: по одному замеру CPU и RAM на каждый опрос.
+          updatedAt = new Date();
+          // История за 90 секунд: по одному замеру на каждый опрос.
           cpuHistory = pushSample(cpuHistory, next.cpu.usagePercent, HISTORY_LIMIT);
           ramHistory = pushSample(ramHistory, next.memory.usagePercent, HISTORY_LIMIT);
+          const gpuUsage = hw.data?.gpus[0]?.usagePercent;
+          if (gpuUsage !== null && gpuUsage !== undefined) {
+            gpuHistory = pushSample(gpuHistory, gpuUsage, HISTORY_LIMIT);
+          }
         }
       } catch (err) {
         if (active) {
@@ -106,6 +124,7 @@
       }
     };
 
+    reload = () => void load();
     load();
     const timer = setInterval(load, POLL_INTERVAL_MS);
     return () => {
@@ -126,8 +145,16 @@
     }
   }
 
-  function title(id: TileId): string {
-    return TILES.find((tile) => tile.id === id)?.title ?? '';
+  const gpuNow = $derived(hardware?.gpus[0]?.usagePercent ?? null);
+
+  function detailTitle(id: Exclude<View, null>): string {
+    return id === 'summary' ? 'Нагрузка' : (TILES.find((tile) => tile.id === id)?.detail ?? '');
+  }
+
+  /** Крупная строка карточки: процент и время замера. */
+  function headline(percent: number | null): string {
+    const time = updatedAt ? clockTime(updatedAt) : '';
+    return percent === null ? `нет данных · ${time}` : `${detailPercent(percent)} · ${time}`;
   }
 </script>
 
@@ -141,188 +168,199 @@
     <p>{error.message}</p>
   </section>
 {:else if overview}
-  <div class="reveal" class:open={selected !== null} inert={selected === null}>
+  <div class="summary" role="group" aria-label="Текущая загрузка">
+    <button
+      type="button"
+      class="summary-values"
+      aria-pressed={view === 'summary'}
+      aria-label="Показать графики загрузки"
+      onclick={() => open('summary')}
+    >
+      <span>CPU {shortPercent(overview.cpu.usagePercent)}</span>
+      <span>GPU {gpuNow === null ? '—' : shortPercent(gpuNow)}</span>
+      <span>RAM {shortPercent(overview.memory.usagePercent)}</span>
+    </button>
+    <button type="button" class="refresh" onclick={() => reload()}>Обновить сведения</button>
+  </div>
+
+  <div class="reveal" class:open={view !== null} inert={view === null}>
     <div class="reveal-inner">
-      <section class="card detail" aria-label={title(shownId)}>
-        <button
-          type="button"
-          class="close"
-          aria-label="Закрыть сведения"
-          onclick={() => (selected = null)}>×</button
-        >
-        {#if shownId === 'cpu'}
-          <h2>Процессор</h2>
-          <p>Загрузка: {formatPercent(overview.cpu.usagePercent)}</p>
-          <p>Логических ядер: {overview.cpu.logicalCores}</p>
-          <div
-            class="bar"
-            role="progressbar"
-            aria-label="Загрузка процессора"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow={Math.round(overview.cpu.usagePercent)}
-          >
-            <div class="fill" style:width="{overview.cpu.usagePercent}%"></div>
+      {#if shownView === 'summary'}
+        <section class="card graphs" aria-label="Нагрузка">
+          <div class="graph-col">
+            <h2>CPU</h2>
+            <LineGraph
+              values={cpuHistory}
+              label="График загрузки процессора за 90 секунд"
+              color={GRAPH_COLOR}
+              height={140}
+            />
+            <p class="note">
+              Общая загрузка процессора. Нажми плитку процессора ниже, чтобы увидеть модель и число
+              потоков.
+            </p>
           </div>
-          <LineGraph
-            values={cpuHistory}
-            label="График загрузки процессора за 90 секунд"
-            color={SECTION_COLORS.computer}
-          />
-        {:else if shownId === 'ram'}
-          <h2>Оперативная память</h2>
-          <p>
-            {formatBytes(overview.memory.usedBytes)} из {formatBytes(overview.memory.totalBytes)}
-          </p>
-          <p>{formatPercent(overview.memory.usagePercent)}</p>
-          <div
-            class="bar"
-            role="progressbar"
-            aria-label="Использование памяти"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow={Math.round(overview.memory.usagePercent)}
-          >
-            <div class="fill" style:width="{overview.memory.usagePercent}%"></div>
+          <div class="graph-col">
+            <h2>GPU</h2>
+            <LineGraph
+              values={gpuHistory}
+              label="График загрузки видеокарты за 90 секунд"
+              color={GRAPH_COLOR}
+              height={140}
+            />
+            <p class="note">
+              Самый занятый графический движок Windows. Модель и память — в плитке видеокарты.
+            </p>
           </div>
-          <LineGraph
-            values={ramHistory}
-            label="График использования памяти за 90 секунд"
-            color={SECTION_COLORS.computer}
-          />
-        {:else if shownId === 'gpu'}
-          <h2>Видеокарта (GPU)</h2>
-          {#if hardwareError}
-            <p>{hardwareError.message}</p>
-          {:else if hardware}
-            {#each hardware.gpus as gpu, index (index)}
+          <div class="graph-col">
+            <h2>RAM</h2>
+            <LineGraph
+              values={ramHistory}
+              label="График использования памяти за 90 секунд"
+              color={GRAPH_COLOR}
+              height={140}
+            />
+            <p class="note">Доля занятой оперативной памяти. Объём — в плитке памяти.</p>
+          </div>
+          <button type="button" class="hide" onclick={() => (view = null)}>Скрыть</button>
+        </section>
+      {:else}
+        <section class="card detail" aria-label={detailTitle(shownView)}>
+          <button type="button" class="hide" onclick={() => (view = null)}>Скрыть</button>
+          <h2>{detailTitle(shownView)}</h2>
+          {#if shownView === 'cpu'}
+            <p class="headline">{headline(overview.cpu.usagePercent)}</p>
+            <LineGraph
+              values={cpuHistory}
+              label="График загрузки процессора за 90 секунд"
+              color={GRAPH_COLOR}
+            />
+            <p>Модель: {cpuName(hardware)}</p>
+            <p>Потоков: {overview.cpu.logicalCores}</p>
+          {:else if shownView === 'ram'}
+            <p class="headline">{headline(overview.memory.usagePercent)}</p>
+            <LineGraph
+              values={ramHistory}
+              label="График использования памяти за 90 секунд"
+              color={GRAPH_COLOR}
+            />
+            <p>
+              Занято {formatBytes(overview.memory.usedBytes)} из {formatBytes(
+                overview.memory.totalBytes,
+              )}
+            </p>
+          {:else if shownView === 'gpu'}
+            <p class="headline">{headline(gpuNow)}</p>
+            <LineGraph
+              values={gpuHistory}
+              label="График загрузки видеокарты за 90 секунд"
+              color={GRAPH_COLOR}
+            />
+            {#if hardwareError}
+              <p>{hardwareError.message}</p>
+            {:else if hardware}
+              {#each hardware.gpus as gpu, index (index)}
+                <p>Модель: {gpuFullName(gpu)}</p>
+                {#if gpuMemoryLine(gpu)}<p>Память: {gpuMemoryLine(gpu)}</p>{/if}
+              {:else}
+                <p>Видеокарты не найдены.</p>
+              {/each}
+              <p class="note">
+                Нагрузка показывает самый занятый движок видеокарты по счётчикам Windows.
+                Температура и частота без программы производителя недоступны.
+              </p>
+            {:else}
+              <p>{HARDWARE_LOADING}</p>
+            {/if}
+          {:else if shownView === 'board'}
+            {#if hardwareError}
+              <p>{hardwareError.message}</p>
+            {:else if hardware}
+              <p>Производитель: {hardware.motherboard.vendor ?? '—'}</p>
+              <p>Модель: {hardware.motherboard.name ?? '—'}</p>
+              <p>Версия: {hardware.motherboard.version ?? '—'}</p>
+            {:else}
+              <p>{HARDWARE_LOADING}</p>
+            {/if}
+          {:else if shownView === 'disks'}
+            {#each overview.disks as disk (disk.mountPoint)}
               <div class="disk">
-                <p>{gpuName(gpu)}{gpu.vendor && gpu.model ? ` · ${gpu.vendor}` : ''}</p>
-                {#if gpuUsageLine(gpu)}<p>{gpuUsageLine(gpu)}</p>{/if}
-                {#if gpuMemoryLine(gpu)}<p>{gpuMemoryLine(gpu)}</p>{/if}
+                <p>
+                  <span>{disk.displayName}</span>
+                  <span class="muted">{KIND_LABELS[disk.kind]}</span>
+                </p>
+                <p>
+                  {formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)} · {shortPercent(
+                    disk.usagePercent,
+                  )}
+                </p>
+                <div
+                  class="bar"
+                  role="progressbar"
+                  aria-label={`Заполнение диска ${disk.displayName}`}
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={Math.round(disk.usagePercent)}
+                >
+                  <div class="fill" style:width="{disk.usagePercent}%"></div>
+                </div>
               </div>
             {:else}
-              <p>Видеокарты не найдены.</p>
+              <p>Диски не найдены.</p>
             {/each}
-          {:else}
-            <p>{HARDWARE_LOADING}</p>
+          {:else if shownView === 'system'}
+            <p>Название: {overview.osName || '—'}</p>
+            <p>Версия: {overview.osVersion || '—'}</p>
           {/if}
-        {:else if shownId === 'board'}
-          <h2>Материнская плата</h2>
-          {#if hardwareError}
-            <p>{hardwareError.message}</p>
-          {:else if hardware}
-            <p>Производитель: {hardware.motherboard.vendor ?? '—'}</p>
-            <p>Модель: {hardware.motherboard.name ?? '—'}</p>
-            <p>Версия: {hardware.motherboard.version ?? '—'}</p>
-          {:else}
-            <p>{HARDWARE_LOADING}</p>
-          {/if}
-        {:else if shownId === 'disks'}
-          <h2>SSD / HDD</h2>
-          {#each overview.disks as disk (disk.mountPoint)}
-            <div class="disk">
-              <p>
-                <span>{disk.displayName}</span>
-                <span class="muted">{KIND_LABELS[disk.kind]}</span>
-              </p>
-              <p>
-                {formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)} · {formatPercent(
-                  disk.usagePercent,
-                )}
-              </p>
-              <div
-                class="bar"
-                role="progressbar"
-                aria-label={`Заполнение диска ${disk.displayName}`}
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={Math.round(disk.usagePercent)}
-              >
-                <div class="fill" style:width="{disk.usagePercent}%"></div>
-              </div>
-            </div>
-          {:else}
-            <p>Диски не найдены.</p>
-          {/each}
-        {:else if shownId === 'system'}
-          <h2>Система</h2>
-          <p>Название: {overview.osName || '—'}</p>
-          <p>Версия: {overview.osVersion || '—'}</p>
-        {/if}
-      </section>
+        </section>
+      {/if}
     </div>
   </div>
+
+  <p class="updated">
+    Сведения обновлены {updatedAt ? clockTime(updatedAt) : '—'} · CPU/GPU/RAM обновляются каждую секунду
+  </p>
   <p class="hint">Нажми на комплектующую, чтобы открыть сведения и график</p>
   <div class="tiles" role="group" aria-label="Комплектующие">
     {#each TILES as tile (tile.id)}
       <button
         type="button"
         class="tile"
-        class:selected={selected === tile.id}
-        aria-pressed={selected === tile.id}
-        onclick={() => toggle(tile.id)}
+        class:selected={view === tile.id}
+        aria-pressed={view === tile.id}
+        onclick={() => open(tile.id)}
       >
-        <span class="icon" style:background={tile.color} aria-hidden="true"
-          ><span class="glyph glyph-{tile.id}"></span></span
-        >
+        <span class="icon" aria-hidden="true"><ComputerIcon kind={tile.id} /></span>
         <span class="tile-body">
           <span class="tile-title">{tile.title}</span>
-
           {#if tile.id === 'cpu'}
-            <span class="tile-value">{formatPercent(overview.cpu.usagePercent)}</span>
-            <span class="tile-sub">{overview.cpu.logicalCores} логических ядер</span>
+            <span class="tile-value">{cpuName(hardware)}</span>
           {:else if tile.id === 'ram'}
-            <span class="tile-value">{formatPercent(overview.memory.usagePercent)}</span>
-            <span class="tile-sub"
-              >{formatBytes(overview.memory.usedBytes)} из {formatBytes(
-                overview.memory.totalBytes,
-              )}</span
-            >
+            <span class="tile-value">{ramTotal(overview.memory.totalBytes)}</span>
           {:else if tile.id === 'gpu'}
             {#if hardwareError}
               <span class="tile-value">—</span>
               <span class="tile-sub">{hardwareError.message}</span>
             {:else if hardware}
               {@const gpu = hardware.gpus[0]}
-              <span class="tile-value">{gpu ? gpuName(gpu) : '—'}</span>
-              <span class="tile-sub">
-                {#if gpu}{gpuUsageLine(gpu) ?? 'Загрузка не отдаётся ОС'}{:else}Видеокарты не
-                  найдены.{/if}
-              </span>
+              <span class="tile-value">{gpu ? gpuFullName(gpu) : 'Видеокарты не найдены'}</span>
             {:else}
-              <span class="tile-value">—</span>
-              <span class="tile-sub">{HARDWARE_LOADING}</span>
+              <span class="tile-value">{HARDWARE_LOADING}</span>
             {/if}
           {:else if tile.id === 'board'}
             {#if hardwareError}
               <span class="tile-value">—</span>
               <span class="tile-sub">{hardwareError.message}</span>
             {:else if hardware}
-              <span class="tile-value">{boardName(hardware.motherboard)}</span>
-              <span class="tile-sub"
-                >{hardware.motherboard.vendor ?? 'Производитель не указан'}</span
-              >
+              <span class="tile-value">{boardLine(hardware.motherboard)}</span>
             {:else}
-              <span class="tile-value">—</span>
-              <span class="tile-sub">{HARDWARE_LOADING}</span>
+              <span class="tile-value">{HARDWARE_LOADING}</span>
             {/if}
           {:else if tile.id === 'disks'}
-            <span class="tile-value">{overview.disks.length} шт.</span>
-            {#each overview.disks as disk (disk.mountPoint)}
-              <span class="tile-sub disk-row">
-                <span>{disk.displayName}</span>
-                {#if disk.displayName !== disk.mountPoint}
-                  <span class="muted">{disk.mountPoint}</span>
-                {/if}
-                <span class="muted">{KIND_LABELS[disk.kind]}</span>
-              </span>
-            {:else}
-              <span class="tile-sub">Диски не найдены.</span>
-            {/each}
+            <span class="tile-value">{drivesLine(hardware?.driveModels ?? [], overview.disks)}</span
+            >
           {:else if tile.id === 'system'}
-            <span class="tile-value">{overview.osName || '—'}</span>
-            <span class="tile-sub">Версия: {overview.osVersion || '—'}</span>
+            <span class="tile-value">{systemLine(overview.osName, overview.osVersion)}</span>
           {/if}
         </span>
       </button>
@@ -340,6 +378,66 @@
 
   p {
     margin: 4px 0;
+  }
+
+  .summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    background: var(--black, #080808);
+    color: var(--ink, #fafafa);
+  }
+
+  .summary-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    min-height: 44px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 26px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: border-color 160ms ease;
+  }
+
+  .summary-values:hover,
+  .summary-values[aria-pressed='true'] {
+    border-color: var(--ink, #fafafa);
+  }
+
+  .refresh,
+  .hide {
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 1px solid var(--btn-border, #cf00ff);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink, #fafafa);
+    font: inherit;
+    font-size: var(--text-small);
+    cursor: pointer;
+    transition: background-color 160ms ease;
+  }
+
+  .refresh:hover,
+  .hide:hover {
+    background: #222;
+  }
+
+  .updated {
+    margin: 0 0 4px;
+    font-size: var(--text-caption);
+    color: var(--page-text);
   }
 
   .hint {
@@ -362,7 +460,7 @@
     align-items: center;
     gap: 14px;
     min-height: 44px;
-    padding: 20px 18px;
+    padding: 18px;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
@@ -370,9 +468,6 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-  }
-
-  .tile {
     transition:
       transform 160ms ease,
       border-color 160ms ease;
@@ -386,81 +481,9 @@
     border-color: var(--ink, #fafafa);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tile:hover {
-      transform: none;
-    }
-  }
-
   .icon {
     display: flex;
     flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 88px;
-    height: 88px;
-    border-radius: 12px;
-  }
-
-  .glyph {
-    display: block;
-    background: #080808;
-  }
-
-  .glyph-cpu {
-    width: 48px;
-    height: 48px;
-    border-radius: 4px;
-    box-shadow: inset 0 0 0 12px #080808;
-    background: #f5f5f0;
-    outline: 4px dashed #080808;
-    outline-offset: 3px;
-  }
-
-  .glyph-gpu {
-    width: 64px;
-    height: 36px;
-    border-radius: 4px;
-    border-bottom: 5px solid #f5ff00;
-  }
-
-  .glyph-ram {
-    width: 66px;
-    height: 46px;
-    background:
-      repeating-linear-gradient(90deg, #b4ff00 0 9px, transparent 9px 15px) 8px 8px / 52px 10px
-        no-repeat,
-      repeating-linear-gradient(90deg, #b4ff00 0 9px, transparent 9px 15px) 8px 28px / 52px 10px
-        no-repeat,
-      #080808;
-    border-radius: 4px;
-  }
-
-  .glyph-board {
-    width: 56px;
-    height: 60px;
-    background:
-      linear-gradient(#f5ff00, #f5ff00) 10px 10px / 20px 20px no-repeat,
-      #080808;
-    border-radius: 3px;
-  }
-
-  .glyph-disks {
-    width: 46px;
-    height: 62px;
-    border-radius: 4px;
-    background:
-      linear-gradient(#f5f5f0, #f5f5f0) 9px 10px / 28px 18px no-repeat,
-      radial-gradient(circle at 12px 50px, #ff009d 3px, transparent 4px),
-      #080808;
-  }
-
-  .glyph-system {
-    width: 62px;
-    height: 44px;
-    border: 5px solid #080808;
-    background: #147cff;
-    border-radius: 2px;
   }
 
   .tile-body {
@@ -488,15 +511,9 @@
     color: #8b949e;
   }
 
-  .disk-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
   .card,
   .alert {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
@@ -508,24 +525,47 @@
     padding: 18px 18px 14px;
   }
 
-  .close {
+  .card .hide {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 44px;
-    height: 44px;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--ink, #fafafa);
-    font: inherit;
-    font-size: 26px;
-    line-height: 1;
-    cursor: pointer;
+    top: 14px;
+    right: 14px;
   }
 
-  .close:hover {
-    background: #222;
+  .card h2 {
+    font-size: 19px;
+    text-transform: uppercase;
+  }
+
+  .headline {
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card p {
+    font-size: var(--text-small);
+  }
+
+  .note {
+    color: #b8b8b8;
+  }
+
+  .graphs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 20px;
+    padding-top: 18px;
+  }
+
+  .graphs .hide {
+    position: static;
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .graphs h2 {
+    margin: 0;
   }
 
   /* Открытие карточки: строка сетки 0fr -> 1fr, прозрачность и сдвиг. */
@@ -553,8 +593,15 @@
 
   @media (prefers-reduced-motion: reduce) {
     .reveal,
-    .tile {
+    .tile,
+    .summary-values,
+    .refresh,
+    .hide {
       transition: none;
+    }
+
+    .tile:hover {
+      transform: none;
     }
   }
 
@@ -562,17 +609,10 @@
     transition: none;
   }
 
-  .card h2 {
-    font-size: 19px;
-    text-transform: uppercase;
-  }
-
-  .card p {
-    font-size: var(--text-small);
-  }
-
-  .card .bar {
-    height: 4px;
+  @media (max-width: 760px) {
+    .graphs {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .alert {
@@ -584,7 +624,7 @@
   }
 
   .bar {
-    height: 8px;
+    height: 4px;
     margin-top: 8px;
     border-radius: 4px;
     background: #21262d;

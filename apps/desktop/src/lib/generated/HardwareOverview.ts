@@ -5,4 +5,12 @@ import type { MotherboardInfo } from "./MotherboardInfo";
 /**
  * Ответ раздела «Компьютер» на сведения о комплектующих.
  */
-export type HardwareOverview = { gpus: Array<GpuInfo>, motherboard: MotherboardInfo, };
+export type HardwareOverview = { gpus: Array<GpuInfo>, motherboard: MotherboardInfo, 
+/**
+ * Название процессора, например «Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz».
+ */
+cpuBrand: string | null, 
+/**
+ * Короткие названия моделей физических дисков; пусто, если ОС их не отдала.
+ */
+driveModels: Array<string>, };

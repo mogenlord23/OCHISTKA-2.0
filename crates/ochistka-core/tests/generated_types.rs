@@ -11,6 +11,7 @@ use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
 use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
+use ochistka_core::tweaks::{BoostState, TweakState, TweaksOverview};
 use ts_rs::{Config, TS};
 
 fn committed_dir() -> PathBuf {
@@ -49,6 +50,9 @@ fn export_all_into(dir: &Path) {
     HardwareOverview::export_all(&cfg).unwrap();
     NetworkAdapter::export_all(&cfg).unwrap();
     TcpConnection::export_all(&cfg).unwrap();
+    TweaksOverview::export_all(&cfg).unwrap();
+    TweakState::export_all(&cfg).unwrap();
+    BoostState::export_all(&cfg).unwrap();
 }
 
 #[test]

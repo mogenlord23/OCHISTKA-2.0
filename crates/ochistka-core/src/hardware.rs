@@ -38,6 +38,10 @@ pub struct MotherboardInfo {
 pub struct HardwareOverview {
     pub gpus: Vec<GpuInfo>,
     pub motherboard: MotherboardInfo,
+    /// Название процессора, например «Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz».
+    pub cpu_brand: Option<String>,
+    /// Короткие названия моделей физических дисков; пусто, если ОС их не отдала.
+    pub drive_models: Vec<String>,
 }
 
 /// Пустая строка и строка из пробелов означают «нет значения».
@@ -89,6 +93,40 @@ pub fn build_motherboard(
     }
 }
 
+/// Суффиксы, которые Windows дописывает к модели диска и которые ничего не говорят человеку.
+const DRIVE_NOISE: [&str; 5] = [
+    " ATA Device",
+    " SCSI Disk Device",
+    " NVMe Device",
+    " USB Device",
+    " Disk Device",
+];
+
+/// Короткое название модели диска: без служебных хвостов и лишних пробелов.
+pub fn shorten_drive_model(raw: &str) -> Option<String> {
+    let mut text = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    for noise in DRIVE_NOISE {
+        if let Some(stripped) = text.strip_suffix(noise) {
+            text = stripped.trim().to_string();
+        }
+    }
+    (!text.is_empty()).then_some(text)
+}
+
+/// Названия дисков для интерфейса: сокращённые, без пустых и без повторов, порядок сохранён.
+pub fn clean_drive_models<S: AsRef<str>>(raw: &[S]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for model in raw
+        .iter()
+        .filter_map(|item| shorten_drive_model(item.as_ref()))
+    {
+        if !out.contains(&model) {
+            out.push(model);
+        }
+    }
+    out
+}
+
 /// Порт комплектующих. Реализации живут в `crates/platform`.
 pub trait HardwarePort: Send + Sync {
     fn overview(&self) -> Result<HardwareOverview, CoreError>;
@@ -134,6 +172,23 @@ mod tests {
     }
 
     #[test]
+    fn drive_models_are_shortened_deduplicated_and_cleaned() {
+        assert_eq!(
+            shorten_drive_model("KINGSTON SHFS37A120G ATA Device"),
+            Some("KINGSTON SHFS37A120G".to_string())
+        );
+        assert_eq!(
+            shorten_drive_model("  WDC   WD10EZEX-21WN4A0  "),
+            Some("WDC WD10EZEX-21WN4A0".to_string())
+        );
+        assert_eq!(shorten_drive_model("  "), None);
+        assert_eq!(
+            clean_drive_models(&["A ATA Device", "A", "", "B"]),
+            vec!["A".to_string(), "B".to_string()]
+        );
+    }
+
+    #[test]
     fn motherboard_fields_are_cleaned() {
         let board = build_motherboard(Some("ASUS"), Some(" ROG STRIX "), Some(""));
         assert_eq!(board.vendor.as_deref(), Some("ASUS"));
@@ -146,6 +201,8 @@ mod tests {
         let overview = HardwareOverview {
             gpus: vec![build_gpu(None, Some("GPU"), Some(10.0), Some(8), Some(2))],
             motherboard: build_motherboard(None, Some("Board"), None),
+            cpu_brand: Some("CPU".into()),
+            drive_models: vec!["Disk".into()],
         };
         let json = serde_json::to_value(&overview).unwrap();
         assert_eq!(json["gpus"][0]["usagePercent"], 10.0);
@@ -153,5 +210,7 @@ mod tests {
         assert_eq!(json["gpus"][0]["usedMemoryBytes"], 2);
         assert!(json["gpus"][0]["vendor"].is_null());
         assert_eq!(json["motherboard"]["name"], "Board");
+        assert_eq!(json["cpuBrand"], "CPU");
+        assert_eq!(json["driveModels"][0], "Disk");
     }
 }

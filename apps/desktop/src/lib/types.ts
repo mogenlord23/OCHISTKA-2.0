@@ -11,6 +11,9 @@ export type { Finding } from './generated/Finding';
 export type { MemoryStatus } from './generated/MemoryStatus';
 export type { ScanReport } from './generated/ScanReport';
 export type { Suspicion } from './generated/Suspicion';
+export type { BoostState } from './generated/BoostState';
+export type { TweakState } from './generated/TweakState';
+export type { TweaksOverview } from './generated/TweaksOverview';
 export type { SystemOverview } from './generated/SystemOverview';
 
 // Типы только фронтенда.

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { SYSTEM_CHANGE_REASON } from '../lib/computer';
   import Home from './Home.svelte';
-  import PlaceholderPage from './PlaceholderPage.svelte';
+  import SettingsPage from './SettingsPage.svelte';
+  import BoostPage from './BoostPage.svelte';
   import DriversPage from './DriversPage.svelte';
 
   let { subsection }: { subsection: string } = $props();
@@ -9,8 +9,10 @@
 
 {#if subsection === 'components'}
   <Home />
+{:else if subsection === 'settings'}
+  <SettingsPage />
+{:else if subsection === 'boost'}
+  <BoostPage />
 {:else if subsection === 'drivers'}
   <DriversPage />
-{:else}
-  <PlaceholderPage note={SYSTEM_CHANGE_REASON} />
 {/if}

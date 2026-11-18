@@ -12,8 +12,17 @@ const gpu = {
 
 describe('isHardwareOverview', () => {
   it('accepts a payload with missing optional fields as null', () => {
-    expect(isHardwareOverview({ gpus: [gpu], motherboard: board })).toBe(true);
-    expect(isHardwareOverview({ gpus: [], motherboard: board })).toBe(true);
+    expect(
+      isHardwareOverview({
+        gpus: [gpu],
+        motherboard: board,
+        cpuBrand: 'Intel',
+        driveModels: ['WDC'],
+      }),
+    ).toBe(true);
+    expect(
+      isHardwareOverview({ gpus: [], motherboard: board, cpuBrand: null, driveModels: [] }),
+    ).toBe(true);
   });
 
   it('rejects a payload with the wrong shape', () => {

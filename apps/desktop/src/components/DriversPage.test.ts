@@ -1,6 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import DriversPage from './DriversPage.svelte';
+import { getHardware } from '../lib/api';
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>();
+  return { ...actual, getHardware: vi.fn(() => new Promise(() => {})) };
+});
 
 afterEach(() => {
   cleanup();
@@ -29,8 +35,32 @@ describe('DriversPage', () => {
     );
   });
 
-  it('shows the Windows driver placeholder with its reason', () => {
+  it('shows the hardware row and the ready catalog with official links as text', () => {
     render(DriversPage);
-    expect(screen.getByText(/^Раздел в разработке: список драйверов Windows/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Готовый каталог' })).toBeTruthy();
+    expect(screen.getByText('GeForce Game Ready / Studio')).toBeTruthy();
+    expect(screen.getByText('https://www.nvidia.com/en-us/drivers/')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Копировать ссылку' }).length).toBeGreaterThan(5);
+    expect(document.querySelector('a[href]')).toBeNull();
+  });
+
+  it('builds the hardware row from the detected GPU', async () => {
+    vi.mocked(getHardware).mockResolvedValueOnce({
+      gpus: [
+        {
+          vendor: 'AMD',
+          model: 'Radeon RX 6600',
+          usagePercent: null,
+          totalMemoryBytes: null,
+          usedMemoryBytes: null,
+        },
+      ],
+      motherboard: { vendor: null, name: null, version: null },
+      cpuBrand: 'AMD Ryzen 5 5600',
+      driveModels: [],
+    });
+    render(DriversPage);
+    await vi.waitFor(() => expect(screen.queryByText('Видеокарта NVIDIA')).toBeNull());
+    expect(screen.getByText('AMD · видео / чипсет')).toBeTruthy();
   });
 });

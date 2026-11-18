@@ -5,18 +5,44 @@
     values,
     label,
     color,
+    height = 170,
   }: {
     /** Замеры в процентах, от старого к новому. */
     values: readonly number[];
     /** Название графика для программ чтения с экрана. */
     label: string;
     color: string;
+    /** Высота рамки графика, px. */
+    height?: number;
   } = $props();
 
   const WIDTH = 300;
   const HEIGHT = 100;
 
   /** Точки линии: последний замер справа, шкала 0–100 % снизу вверх. */
+  /** Сдвиг по оси X на один замер. */
+  const STEP = WIDTH / (HISTORY_LIMIT - 1);
+  let layer = $state<SVGGElement | null>(null);
+
+  /** Плавная прокрутка: новый кадр стартует со сдвига на один замер и за секунду приходит на место. */
+  $effect(() => {
+    void values.length;
+    void values[values.length - 1];
+    if (!layer || typeof layer.animate !== 'function') {
+      return;
+    }
+    if (document.documentElement.dataset.reduceMotion === 'true') {
+      return;
+    }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    layer.animate([{ transform: `translateX(${STEP}px)` }, { transform: 'translateX(0)' }], {
+      duration: 950,
+      easing: 'linear',
+    });
+  });
+
   const points = $derived.by(() => {
     const count = values.length;
     return values
@@ -28,10 +54,17 @@
       })
       .join(' ');
   });
+
+  /** Заливка под линией. */
+  const area = $derived(
+    values.length > 1
+      ? `${points} ${WIDTH},${HEIGHT} ${WIDTH - (values.length - 1) * STEP},${HEIGHT}`
+      : '',
+  );
 </script>
 
 <figure class="graph">
-  <div class="frame">
+  <div class="frame" style:height="{height}px">
     <span class="top">100%</span>
     <svg viewBox="0 0 {WIDTH} {HEIGHT}" preserveAspectRatio="none" role="img" aria-label={label}>
       {#each [1, 2, 3, 4, 5] as col (col)}
@@ -40,16 +73,20 @@
       {#each [1, 2, 3] as row (row)}
         <line x1="0" x2={WIDTH} y1={(HEIGHT / 4) * row} y2={(HEIGHT / 4) * row} class="grid" />
       {/each}
-      {#if values.length > 1}
-        <polyline
-          {points}
-          fill="none"
-          stroke={color}
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-          stroke-linejoin="round"
-        />
-      {/if}
+      <g bind:this={layer}>
+        {#if values.length > 1}
+          <polygon points={area} fill={color} opacity="0.12" />
+          <polyline
+            {points}
+            fill="none"
+            stroke={color}
+            stroke-width="1.8"
+            vector-effect="non-scaling-stroke"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+          />
+        {/if}
+      </g>
     </svg>
   </div>
   <figcaption class="bottom">90 секунд</figcaption>
@@ -63,7 +100,6 @@
 
   .frame {
     position: relative;
-    height: 170px;
     border-radius: 8px;
     background: #0e0e0e;
     overflow: hidden;

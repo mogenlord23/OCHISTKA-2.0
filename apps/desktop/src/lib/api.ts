@@ -94,7 +94,10 @@ export function isHardwareOverview(value: unknown): value is HardwareOverview {
     isObj(value) &&
     Array.isArray(value.gpus) &&
     value.gpus.every(isGpu) &&
-    isBoard(value.motherboard)
+    isBoard(value.motherboard) &&
+    (value.cpuBrand === null || isStr(value.cpuBrand)) &&
+    Array.isArray(value.driveModels) &&
+    value.driveModels.every(isStr)
   );
 }
 
