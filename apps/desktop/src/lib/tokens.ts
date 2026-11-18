@@ -54,6 +54,9 @@ export const NEUTRAL = {
   border: '#343434',
 } as const;
 
+/** Цвет ошибок: рамка и акцент сообщений о сбое. */
+export const ERROR_COLOR = '#ff009d';
+
 /** Скругления: маленькое (кнопки), среднее (карточки), большое (панели). */
 export const RADIUS = { sm: '8px', md: '12px', lg: '14px' } as const;
 

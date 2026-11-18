@@ -7,7 +7,15 @@
   import ComputerPage from './components/ComputerPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
-  import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
+  import {
+    BODY_FONT,
+    ERROR_COLOR,
+    HEADING_FONT,
+    NEUTRAL,
+    RADIUS,
+    TYPE_SCALE,
+    textOn,
+  } from './lib/tokens';
 
   const VERSION = '0.1.0';
 
@@ -35,6 +43,7 @@
   style:--surface={NEUTRAL.surface}
   style:--surface-alt={NEUTRAL.surfaceAlt}
   style:--border={NEUTRAL.border}
+  style:--error={ERROR_COLOR}
   style:--radius-sm={RADIUS.sm}
   style:--radius-md={RADIUS.md}
   style:--radius-lg={RADIUS.lg}

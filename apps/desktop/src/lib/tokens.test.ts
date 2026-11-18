@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SECTIONS } from './sections';
 import {
   BODY_FONT,
+  ERROR_COLOR,
   HEADING_FONT,
   NEUTRAL,
   RADIUS,
@@ -89,5 +90,12 @@ describe('neutral, radius and type tokens', () => {
       section: '26px',
       display: '44px',
     });
+  });
+});
+
+describe('error colour', () => {
+  it('is the pink used for errors, and reads on the dark surface at WCAG AA (4.5:1)', () => {
+    expect(ERROR_COLOR).toBe('#ff009d');
+    expect(contrastRatio(ERROR_COLOR, NEUTRAL.surface)).toBeGreaterThanOrEqual(4.5);
   });
 });

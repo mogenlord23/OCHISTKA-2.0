@@ -153,29 +153,29 @@
     margin-bottom: 16px;
     padding: 16px;
     border-radius: var(--radius-sm);
-    background: #161b22;
+    background: var(--surface);
   }
 
   .alert {
-    border: 1px solid #da3633;
+    border: 1px solid var(--error);
   }
 
   .muted {
     margin-left: 8px;
-    color: #8b949e;
+    color: var(--muted);
   }
 
   .bar {
     height: 8px;
     margin-top: 8px;
     border-radius: 4px;
-    background: #21262d;
+    background: var(--black);
     overflow: hidden;
   }
 
   .fill {
     height: 100%;
-    background: #1f6feb;
+    background: var(--accent);
   }
 
   .disk + .disk {

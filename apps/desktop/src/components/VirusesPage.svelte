@@ -164,7 +164,7 @@
   }
 
   .alert {
-    border: 1px solid #ff009d;
+    border: 1px solid var(--error);
   }
 
   label {
@@ -276,7 +276,7 @@
     height: 8px;
     margin: 10px 0 6px;
     border-radius: 4px;
-    background: #21262d;
+    background: var(--black);
     overflow: hidden;
   }
 
