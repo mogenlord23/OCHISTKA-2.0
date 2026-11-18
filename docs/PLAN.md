@@ -53,4 +53,4 @@
 
 ## 9. Итог
 
-- [ ] README, docs/platform-status.md, docs/status/итог.md: что готово, что заглушка, что проверить на Windows.
+- [x] README, docs/platform-status.md, docs/status/итог.md: что готово, что заглушка, что проверить на Windows.

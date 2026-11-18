@@ -36,3 +36,7 @@ cargo test --workspace
 - `docs/adr/` — архитектурные решения.
 - `docs/platform-status.md` — статус функций по ОС.
 - `CLAUDE.md` — правила проекта.
+
+## Статус
+
+Текущее состояние по разделам, заглушкам и проверкам на Windows — в `docs/status/итог.md`. Статус функций по ОС — в `docs/platform-status.md`.
