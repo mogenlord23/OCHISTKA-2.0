@@ -1,0 +1,12 @@
+{
+  "id": "FND-0205",
+  "file": "apps/desktop/src/lib/tokens.test.ts",
+  "lines": "48-51",
+  "severity": "info",
+  "confidence": "high",
+  "type": "misleading-test",
+  "summary": "Test titled black text on every section colour, the purple one included (4.86:1) asserts only the computer colour at 4.5 and hard-codes #080808 instead of NEUTRAL.black (FND-0084 drift risk)",
+  "evidence": "tokens.test.ts:48-51; tokens.test.ts:44 loop already covers computer",
+  "failure_scenario": "Changing processes to #0000ff makes textOn return white; lines 44 and 48-51 still pass although the title promises black text.",
+  "status": "open"
+}

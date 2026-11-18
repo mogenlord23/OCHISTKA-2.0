@@ -1,0 +1,12 @@
+{
+  "id": "FND-0209",
+  "file": "apps/desktop/src/lib/tokens.test.ts",
+  "lines": "55-62",
+  "severity": "info",
+  "confidence": "high",
+  "type": "weak-assertion",
+  "summary": "Font tests check only that BODY_FONT contains system-ui and HEADING_FONT contains Arial Black; Segoe UI, the intended Windows body font (design-system.md:31-32, brief.md:46), is not checked",
+  "evidence": "tokens.test.ts:55-62; App.svelte:30-31",
+  "failure_scenario": "BODY_FONT = system-ui passes while Segoe UI is dropped.",
+  "status": "open"
+}

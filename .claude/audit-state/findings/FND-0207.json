@@ -1,0 +1,12 @@
+{
+  "id": "FND-0207",
+  "file": "apps/desktop/src/lib/tokens.test.ts",
+  "lines": "15-16",
+  "severity": "info",
+  "confidence": "high",
+  "type": "doc-drift",
+  "summary": "Test claims to match the design brief, but brief.md has no hex values (colours are to be sampled from screenshots, and the Вирусы colour is unconfirmed at brief.md:26); tokens.ts:3 calls values ориентиры",
+  "evidence": "tokens.test.ts:15-16; docs/design/brief.md:18-28; tokens.ts:3, 4-12; design-system.md:21",
+  "failure_scenario": "None on behaviour; the Вирусы value #b4ff00 has no confirmed source.",
+  "status": "open"
+}
