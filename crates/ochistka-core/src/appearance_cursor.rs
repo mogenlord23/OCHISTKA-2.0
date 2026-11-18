@@ -15,6 +15,8 @@ pub enum Pattern {
     Dots,
     Checker,
     Cross,
+    /// Анимированная схема: стрелка плавно меняет цвет (`.ani`), остальные курсоры однотонные.
+    Pulse,
 }
 
 impl Pattern {
@@ -25,6 +27,7 @@ impl Pattern {
             "dots" => Self::Dots,
             "checker" => Self::Checker,
             "cross" => Self::Cross,
+            "pulse" => Self::Pulse,
             _ => return Err(AppearanceError::Invalid("неизвестный узор курсора".into())),
         })
     }
@@ -136,7 +139,7 @@ fn fill_color(pattern: Pattern, main: [f64; 3], second: [f64; 3], x: f64, y: f64
     let cx = x.rem_euclid(8.0);
     let cy = y.rem_euclid(8.0);
     match pattern {
-        Pattern::Plain => main,
+        Pattern::Plain | Pattern::Pulse => main,
         Pattern::Stripes => {
             if ((x + y) / std::f64::consts::SQRT_2).rem_euclid(8.0) < 3.0 {
                 second
@@ -298,6 +301,76 @@ pub fn build_cur(
     Ok(cur)
 }
 
+/// Кадров в анимации стрелки: цвет, середина, второй цвет, середина.
+pub const PULSE_FRAMES: usize = 4;
+/// Длительность кадра в «джиффи» (1/60 с): весь цикл около 1,3 секунды.
+const PULSE_JIFFIES: u32 = 20;
+
+/// Смесь двух цветов `#RRGGBB`; `t` от 0 (первый) до 1 (второй).
+pub fn mix_hex(a: &str, b: &str, t: f64) -> Result<String, AppearanceError> {
+    let (r1, g1, b1) = parse_hex(a)?;
+    let (r2, g2, b2) = parse_hex(b)?;
+    let m = |x: u8, y: u8| (f64::from(x) + (f64::from(y) - f64::from(x)) * t).round() as u8;
+    Ok(format!(
+        "#{:02X}{:02X}{:02X}",
+        m(r1, r2),
+        m(g1, g2),
+        m(b1, b2)
+    ))
+}
+
+/// Расширение файла роли: анимированная стрелка пишется как `.ani`, остальное как `.cur`.
+pub fn file_extension(role: Role, pattern: Pattern) -> &'static str {
+    if role == Role::Arrow && pattern == Pattern::Pulse {
+        "ani"
+    } else {
+        "cur"
+    }
+}
+
+fn riff_chunk(out: &mut Vec<u8>, kind: &[u8; 4], body: &[u8]) {
+    out.extend_from_slice(kind);
+    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    out.extend_from_slice(body);
+    if body.len() % 2 == 1 {
+        out.push(0);
+    }
+}
+
+/// Файл `.ani` (RIFF ACON): кадры `.cur` с плавной сменой цвета между `color` и `secondary`.
+pub fn build_ani(role: Role, color: &str, secondary: &str) -> Result<Vec<u8>, AppearanceError> {
+    let steps = [0.0, 0.5, 1.0, 0.5];
+    let mut frames = Vec::new();
+    for t in steps {
+        let c = mix_hex(color, secondary, t)?;
+        let cur = build_cur(role, Pattern::Plain, &c, &c)?;
+        riff_chunk(&mut frames, b"icon", &cur);
+    }
+    let mut list = b"fram".to_vec();
+    list.extend_from_slice(&frames);
+    let mut anih = Vec::new();
+    for v in [
+        36u32,
+        PULSE_FRAMES as u32,
+        PULSE_FRAMES as u32,
+        0,
+        0,
+        0,
+        0,
+        PULSE_JIFFIES,
+        1,
+    ] {
+        anih.extend_from_slice(&v.to_le_bytes());
+    }
+    let mut body = b"ACON".to_vec();
+    riff_chunk(&mut body, b"anih", &anih);
+    riff_chunk(&mut body, b"LIST", &list);
+    let mut out = b"RIFF".to_vec();
+    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    out.extend_from_slice(&body);
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,6 +412,36 @@ mod tests {
             &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
         );
         assert_eq!(&cur[cur.len() - 8..cur.len() - 4], b"IEND");
+    }
+
+    #[test]
+    fn pulse_scheme_makes_a_valid_ani_for_the_arrow() {
+        let ani = build_ani(Role::Arrow, "#FF009D", "#00FFFF").unwrap();
+        assert_eq!(&ani[..4], b"RIFF");
+        assert_eq!(&ani[8..12], b"ACON");
+        let riff = u32::from_le_bytes(ani[4..8].try_into().unwrap()) as usize;
+        assert_eq!(ani.len(), 8 + riff);
+        assert_eq!(&ani[12..16], b"anih");
+        let frames = u32::from_le_bytes(ani[12 + 8 + 4..12 + 8 + 8].try_into().unwrap());
+        assert_eq!(frames as usize, PULSE_FRAMES);
+        assert!(ani.windows(4).any(|w| w == b"fram"));
+        assert_eq!(
+            ani.windows(4).filter(|w| *w == b"icon").count(),
+            PULSE_FRAMES
+        );
+        assert_eq!(Pattern::parse("pulse").unwrap(), Pattern::Pulse);
+        assert_eq!(file_extension(Role::Arrow, Pattern::Pulse), "ani");
+        assert_eq!(file_extension(Role::IBeam, Pattern::Pulse), "cur");
+        assert_eq!(file_extension(Role::Arrow, Pattern::Plain), "cur");
+    }
+
+    #[test]
+    fn pulse_frames_differ_and_mix_is_exact() {
+        assert_eq!(mix_hex("#000000", "#FFFFFF", 0.0).unwrap(), "#000000");
+        assert_eq!(mix_hex("#000000", "#FFFFFF", 1.0).unwrap(), "#FFFFFF");
+        let a = build_ani(Role::Arrow, "#FF0000", "#0000FF").unwrap();
+        let b = build_ani(Role::Arrow, "#FF0000", "#FF0000").unwrap();
+        assert_ne!(a, b);
     }
 
     #[test]

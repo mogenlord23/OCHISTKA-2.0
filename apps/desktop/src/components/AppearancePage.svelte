@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import brushesUrl from '../assets/brushes/brushes-a.svg';
   import { cursorSvg, CURSOR_DEFS, tilesFor, type AppearanceKind } from '../lib/appearance';
   import {
     appearanceErrorMessage,
@@ -9,7 +10,6 @@
     downloadOriginals,
     isCancelled,
     pickAndApplyWallpaper,
-    restoreAccent,
     restoreAppearance,
     restoreCursorScheme,
     restoreWallpaper,
@@ -22,7 +22,7 @@
   } from '../lib/appearanceApi';
   import { applyReduceMotion, loadSettings, saveSettings } from '../lib/appearanceStore';
   import { thumbBase64 } from '../lib/appearanceWallpapers';
-  import { i18n } from '../lib/i18n.svelte';
+  import { i18n, t, type Key } from '../lib/i18n.svelte';
 
   let { subsection }: { subsection: string } = $props();
 
@@ -32,27 +32,6 @@
     wallpapers: 'wallpaper',
     cursors: 'cursor',
     colors: 'color',
-  };
-
-  const ACCESSIBLE_NAME: Record<AppearanceKind, string> = {
-    wallpaper: 'Обои',
-    cursor: 'Курсор',
-    color: 'Цвет',
-  };
-
-  const HEADINGS: Record<AppearanceKind, { title: string; hint: string }> = {
-    wallpaper: {
-      title: 'Обои',
-      hint: 'Нажми на картинку, и она станет обоями рабочего стола Windows. Ещё один клик по выбранной вернёт прежние обои.',
-    },
-    cursor: {
-      title: 'Курсоры',
-      hint: 'Выбранная схема становится курсором Windows. Ещё один клик по выбранной вернёт прежний курсор.',
-    },
-    color: {
-      title: 'Акцентный цвет Windows',
-      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и светлый или тёмный режим настраиваются отдельно.',
-    },
   };
 
   /** Действие, ожидающее подтверждения: текст диалога и сама операция. */
@@ -86,32 +65,40 @@
   );
   const shown = $derived(kind === 'wallpaper' ? tiles.slice(0, visible) : tiles);
   const cursorById = new Map(CURSOR_DEFS.map((def) => [def.id, def.cursor]));
+  /** Анимация курсора в превью: не при «Меньше анимации» и не при системной настройке. */
+  const animateCursors = $derived(
+    !reduceMotion &&
+      !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches),
+  );
+  /** Есть что вернуть: прежнее значение записано до первого изменения. */
+  const canRestore = $derived(
+    kind === 'wallpaper'
+      ? status?.hasPreviousWallpaper === true
+      : kind === 'cursor'
+        ? !!status?.cursorScheme
+        : status?.hasBackup === true || !!status?.accentTile,
+  );
 
-  /** Клик по плитке ставит значение в Windows, повторный клик по выбранной возвращает прежнее. */
+  /** Клик по новой плитке ставит значение в Windows. Клик по уже выбранной ничего не делает. */
   async function pick(id: string) {
-    if (busy) return;
+    if (busy || id === selectedId) return;
     const tile = tiles.find((item) => item.id === id);
     if (!tile) return;
-    const selected = id === selectedId;
     busy = true;
     message = null;
     try {
       if (kind === 'wallpaper') {
-        status = selected
-          ? await restoreWallpaper()
-          : await applyWallpaperTile(
-              id,
-              tile.thumb ? undefined : tile.preview,
-              tile.thumb ? await thumbBase64(tile.thumb) : undefined,
-            );
+        status = await applyWallpaperTile(
+          id,
+          tile.thumb ? undefined : tile.preview,
+          tile.thumb ? await thumbBase64(tile.thumb) : undefined,
+        );
       } else if (kind === 'cursor') {
         const def = cursorById.get(id);
         if (!def) return;
-        status = selected
-          ? await restoreCursorScheme()
-          : await applyCursorScheme(id, def.color, def.secondary, def.pattern);
+        status = await applyCursorScheme(id, def.color, def.secondary, def.pattern);
       } else {
-        status = selected ? await restoreAccent() : await setAccent(tile.preview);
+        status = await setAccent(tile.preview);
       }
     } catch (err) {
       if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
@@ -132,6 +119,23 @@
     } finally {
       busy = false;
     }
+  }
+
+  /** Единственный способ вернуть прежнее значение: кнопка «Вернуть как было». */
+  function restorePrevious(event: Event) {
+    if (!canRestore) return;
+    if (kind === 'wallpaper') void act(restoreWallpaper);
+    else if (kind === 'cursor') void act(restoreCursorScheme);
+    else
+      ask(
+        {
+          title: t('appearance.restoreDialog.title'),
+          text: t('appearance.restoreDialog.text'),
+          confirm: t('appearance.dialog.restore'),
+          run: restoreAppearance,
+        },
+        event.currentTarget,
+      );
   }
 
   function toggleMotion() {
@@ -170,16 +174,16 @@
     }
   }
 
-  const KEEP =
-    'Прежнее значение сохранится, его можно вернуть кнопкой «Вернуть оформление Windows».';
+  const keep = (key: Key) => `${t(key)} ${t('appearance.keep')}`;
+  const change = () => t('appearance.dialog.change');
 
   function askTransparency(event: Event) {
     const enabled = !(status?.transparency ?? true);
     ask(
       {
-        title: enabled ? 'Включить эффект прозрачности?' : 'Выключить эффект прозрачности?',
-        text: `Изменится настройка прозрачности Windows. ${KEEP}`,
-        confirm: 'Изменить',
+        title: t(enabled ? 'appearance.transparencyOn.title' : 'appearance.transparencyOff.title'),
+        text: keep('appearance.transparency.text'),
+        confirm: change(),
         run: () => setTransparency(enabled),
       },
       event.currentTarget,
@@ -190,9 +194,9 @@
     const enabled = !(status?.fillTaskbar ?? false);
     ask(
       {
-        title: enabled ? 'Залить Пуск и панель задач?' : 'Убрать заливку Пуска и панели задач?',
-        text: `Акцентный цвет ${enabled ? 'появится' : 'уберётся'} на Пуске и панели задач. ${KEEP}`,
-        confirm: 'Изменить',
+        title: t(enabled ? 'appearance.fillOn.title' : 'appearance.fillOff.title'),
+        text: keep(enabled ? 'appearance.fillOn.text' : 'appearance.fillOff.text'),
+        confirm: change(),
         run: () => setFillTaskbar(enabled),
       },
       event.currentTarget,
@@ -203,9 +207,9 @@
     const dark = !(status?.darkSystem ?? false);
     ask(
       {
-        title: dark ? 'Тёмный режим для Пуска?' : 'Светлый режим для Пуска?',
-        text: `Изменится тема Пуска и панели задач. Приложения не затрагиваются. ${KEEP}`,
-        confirm: 'Изменить',
+        title: t(dark ? 'appearance.startDark.title' : 'appearance.startLight.title'),
+        text: keep('appearance.start.text'),
+        confirm: change(),
         run: () => setSystemTheme(dark),
       },
       event.currentTarget,
@@ -215,23 +219,10 @@
   function askTheme(dark: boolean, event: Event) {
     ask(
       {
-        title: dark ? 'Включить тёмный режим?' : 'Включить светлый режим?',
-        text: `Изменится тема приложений, Пуска и панели задач Windows. ${KEEP}`,
-        confirm: 'Изменить',
+        title: t(dark ? 'appearance.themeDark.title' : 'appearance.themeLight.title'),
+        text: keep('appearance.theme.text'),
+        confirm: change(),
         run: () => setTheme(dark),
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askRestore(event: Event) {
-    if (!status?.hasBackup) return;
-    ask(
-      {
-        title: 'Вернуть оформление Windows?',
-        text: 'Цвета, прозрачность и тема вернутся к значениям, которые были до первого изменения из OCHISTKA.',
-        confirm: 'Вернуть',
-        run: restoreAppearance,
       },
       event.currentTarget,
     );
@@ -279,15 +270,16 @@
   </button>
 {/snippet}
 
-<section class="appearance" aria-label="Оформление">
+<!-- Заголовок, описание и вкладки рисует общий шаблон страницы (PageShell); здесь только содержимое. -->
+<section class="appearance" aria-label={t('appearance.aria')}>
+  <span class="brushes" aria-hidden="true"><img src={brushesUrl} alt="" /></span>
   {#key subsection}
     <div class="pane">
       {#if isSettings}
-        <h2>Настройки приложения</h2>
-        <p class="hint">Меняют только это приложение, Windows не затрагивают.</p>
+        <p class="hint">{t('appearance.settings.hint')}</p>
 
         <div class="setting">
-          <span class="setting-name" id="lang-label">Язык / Language</span>
+          <span class="setting-name" id="lang-label">{t('appearance.settings.language')}</span>
           <div class="seg" role="group" aria-labelledby="lang-label">
             <button
               type="button"
@@ -303,7 +295,7 @@
         </div>
 
         <div class="setting">
-          <span class="setting-name" id="motion-label">Меньше анимации</span>
+          <span class="setting-name" id="motion-label">{t('appearance.settings.motion')}</span>
           <button
             type="button"
             class="switch"
@@ -316,46 +308,57 @@
           </button>
         </div>
       {:else}
-        <h2>{HEADINGS[kind].title}</h2>
-        <p class="hint">{HEADINGS[kind].hint}</p>
+        <p class="hint">{t(`appearance.hint.${kind}`)}</p>
 
         {#if message}
           <p class="msg error" role="status">{message.text}</p>
         {/if}
 
-        {#if kind === 'wallpaper'}
+        {#if kind === 'color'}
+          <div class="chips">
+            {@render chip(
+              t('appearance.chip.transparency'),
+              status?.transparency ?? true,
+              askTransparency,
+            )}
+            {@render chip(t('appearance.chip.fill'), status?.fillTaskbar ?? false, askFill)}
+            {@render chip(
+              t('appearance.chip.startMode'),
+              status?.darkSystem ?? false,
+              askStartMode,
+            )}
+          </div>
+          <div class="chips">
+            {@render chip(t('appearance.chip.dark'), status?.darkApps === true, (e) =>
+              askTheme(true, e),
+            )}
+            {@render chip(t('appearance.chip.light'), status?.darkApps === false, (e) =>
+              askTheme(false, e),
+            )}
+            {@render chip(t('appearance.restore'), false, restorePrevious, !canRestore)}
+          </div>
+        {:else}
           <div class="actions">
-            <button type="button" onclick={() => void act(pickAndApplyWallpaper)}
-              >Добавить свои обои…</button
-            >
+            {#if kind === 'wallpaper'}
+              <button type="button" onclick={() => void act(pickAndApplyWallpaper)}
+                >{t('appearance.addWallpaper')}</button
+              >
+            {/if}
             <button
               type="button"
-              aria-disabled={!status?.hasPreviousWallpaper}
-              class:disabled={!status?.hasPreviousWallpaper}
-              onclick={() => {
-                if (status?.hasPreviousWallpaper) void act(restoreWallpaper);
-              }}>Вернуть прежний фон</button
+              aria-disabled={!canRestore}
+              class:disabled={!canRestore}
+              onclick={restorePrevious}>{t('appearance.restore')}</button
             >
-            {#if status?.originalsMissing}
+            {#if kind === 'wallpaper' && status?.originalsMissing}
               <button type="button" onclick={() => void act(downloadOriginals)}
-                >Скачать оригиналы</button
+                >{t('appearance.downloadOriginals')}</button
               >
             {/if}
           </div>
-        {:else if kind === 'color'}
-          <div class="chips">
-            {@render chip('Эффект прозрачности', status?.transparency ?? true, askTransparency)}
-            {@render chip('Залить Пуск и всю панель задач', status?.fillTaskbar ?? false, askFill)}
-            {@render chip('Режим для Пуска', status?.darkSystem ?? false, askStartMode)}
-          </div>
-          <div class="chips">
-            {@render chip('Тёмный режим', status?.darkApps === true, (e) => askTheme(true, e))}
-            {@render chip('Светлый режим', status?.darkApps === false, (e) => askTheme(false, e))}
-            {@render chip('Вернуть оформление Windows', false, askRestore, !status?.hasBackup)}
-          </div>
         {/if}
 
-        <ul class="grid grid-{kind}">
+        <ul class="grid grid-{kind}" class:squares={kind !== 'color'}>
           {#each shown as tile, index (tile.id)}
             {@const isSelected = tile.id === selectedId}
             {@const cursor = cursorById.get(tile.id)}
@@ -365,7 +368,7 @@
                 class="tile"
                 class:selected={isSelected}
                 aria-pressed={isSelected}
-                aria-label="{ACCESSIBLE_NAME[kind]} {index + 1}"
+                aria-label="{t(`appearance.name.${kind}`)} {index + 1}"
                 style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
                 onclick={() => void pick(tile.id)}
@@ -376,13 +379,13 @@
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    width="288"
-                    height="162"
+                    width="160"
+                    height="160"
                   />
                 {:else if cursor}
                   <!-- eslint-disable-next-line svelte/no-at-html-tags -- собственные данные, не ввод -->
                   <span class="cursor" aria-hidden="true"
-                    >{@html cursorSvg(cursor, tile.id, 64)}</span
+                    >{@html cursorSvg(cursor, tile.id, 32, animateCursors)}</span
                   >
                 {/if}
               </button>
@@ -392,7 +395,7 @@
         {#if kind === 'wallpaper' && visible < tiles.length}
           <div bind:this={sentinel} class="more">
             <button type="button" onclick={() => (visible += PAGE_SIZE)}>
-              Показать ещё ({tiles.length - visible})
+              {t('appearance.more')} ({tiles.length - visible})
             </button>
           </div>
         {/if}
@@ -414,7 +417,9 @@
         <h3 id="appearance-dialog-title">{pending.title}</h3>
         <p id="appearance-dialog-text">{pending.text}</p>
         <div class="dialog-actions">
-          <button type="button" bind:this={cancelButton} onclick={closeDialog}>Отмена</button>
+          <button type="button" bind:this={cancelButton} onclick={closeDialog}
+            >{t('appearance.dialog.cancel')}</button
+          >
           <button type="button" class="primary" onclick={() => void confirmPending()}
             >{pending.confirm}</button
           >
@@ -426,7 +431,30 @@
 
 <style>
   .appearance {
+    position: relative;
     color: var(--page-text);
+  }
+
+  /* Кисти в шапке: справа от заголовка, поверх пустого места строки заголовка и описания. */
+  .brushes {
+    position: absolute;
+    top: -128px;
+    right: 0;
+    width: 150px;
+    height: 100px;
+    pointer-events: none;
+  }
+
+  .brushes img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 760px) {
+    .brushes {
+      display: none;
+    }
   }
 
   .pane {
@@ -440,17 +468,10 @@
     }
   }
 
-  h2 {
-    margin: 0 0 6px;
-    font-family: var(--font-heading);
-    font-size: var(--text-section);
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
   .hint {
-    margin: 0 0 14px;
+    margin: 0 0 16px;
     font-size: var(--text-small);
+    font-weight: 700;
   }
 
   .msg {
@@ -545,56 +566,55 @@
     background: var(--accent, #f83c5c);
   }
 
-  /* Плитки фиксированного размера: на любом экране одинаковые. Сетка добавляет колонки и
-     стоит по центру общей области раздела. */
+  /* Сетка заполняет всю ширину контейнера, как другие разделы: колонки добавляются по ширине,
+     плитки растягиваются поровну, пустых полей по бокам нет. Обои и курсоры квадратные. */
   .grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
     gap: 12px;
     margin: 0;
     padding: 0;
     list-style: none;
-    justify-content: center;
   }
 
   .grid-wallpaper {
-    grid-template-columns: repeat(auto-fill, 176px);
-    grid-auto-rows: 99px;
+    --tile-min: 128px;
   }
 
   .grid-cursor {
-    grid-template-columns: repeat(auto-fill, 128px);
-    grid-auto-rows: 94px;
+    --tile-min: 96px;
   }
 
   .grid-color {
-    grid-template-columns: repeat(auto-fill, 96px);
-    grid-auto-rows: 64px;
+    --tile-min: 88px;
   }
 
   .grid li {
-    display: flex;
+    display: block;
     min-width: 0;
   }
 
   .tile {
     position: relative;
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     width: 100%;
-    height: 100%;
+    aspect-ratio: 3 / 2;
     padding: 0;
     overflow: hidden;
     border: 0;
     border-radius: 14px;
-    background-origin: border-box;
+    background-position: center;
     background-repeat: no-repeat;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
     color: var(--ink);
     font: inherit;
     cursor: pointer;
+    backface-visibility: hidden;
     transition: transform 160ms ease;
+  }
+
+  .squares .tile {
+    aspect-ratio: 1 / 1;
   }
 
   .grid-cursor .tile {
@@ -606,8 +626,9 @@
     box-shadow: inset 0 0 0 3px #111;
   }
 
+  /* Наведение: только плавное увеличение, без линий и теней, уходящих в сторону. */
   .tile:hover {
-    transform: scale(1.05);
+    transform: scale(1.04);
   }
 
   .tile:focus-visible {
@@ -615,7 +636,8 @@
     outline-offset: 2px;
   }
 
-  /* Выбранная плитка: белая скруглённая рамка внутри плитки, без галочки и без анимации. */
+  /* Выбранная плитка: одна ровная обводка по краю самой плитки (внутри её границы,
+     скругление такое же, как у плитки), без галочки и без анимации. */
   .tile.selected::after {
     content: '';
     position: absolute;
@@ -626,14 +648,17 @@
     pointer-events: none;
   }
 
+  /* Квадратное превью: картинка по центру, обрезка cover. */
   .tile img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
     background: #161616;
   }
 
+  /* Курсор в реальном размере 32 px: размер не зависит от размера окна. */
   .cursor {
     display: grid;
     place-items: center;
@@ -643,8 +668,10 @@
 
   .cursor :global(svg) {
     display: block;
-    width: 64px;
-    height: 64px;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    shape-rendering: geometricPrecision;
   }
 
   .setting {

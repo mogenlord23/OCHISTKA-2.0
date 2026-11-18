@@ -81,7 +81,7 @@ export const WALLPAPERS: readonly AppearanceTile[] = [
   })),
 ];
 
-export type CursorPattern = 'plain' | 'stripes' | 'dots' | 'checker' | 'cross';
+export type CursorPattern = 'plain' | 'stripes' | 'dots' | 'checker' | 'cross' | 'pulse';
 
 /** Описание курсора: цвета и узор заливки. Тот же рисунок Rust превращает в `.cur`. */
 export interface CursorDef {
@@ -114,9 +114,19 @@ const PATTERN_NAMES: Record<CursorPattern, string> = {
   dots: 'точки',
   checker: 'шахматка',
   cross: 'сетка',
+  pulse: 'пульс',
 };
 
-/** 35 курсоров: 12 однотонных и 23 узорчатых (пары 5–27 старой таблицы). */
+/** Анимированная схема: стрелка плавно меняет цвет, в Windows ставится как `.ani`. */
+const PULSE_CURSOR = {
+  id: 'cursor-pulse',
+  label: 'пульс',
+  description: 'Анимированный курсор: розовый и бирюзовый',
+  preview: '#161616',
+  cursor: { color: '#FF009D', secondary: '#00FFFF', pattern: 'pulse' as CursorPattern },
+};
+
+/** 36 курсоров: 12 однотонных, 23 узорчатых (пары 5–27 старой таблицы) и один анимированный. */
 export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = [
   ...PLAIN_CURSORS.map((c) => ({
     id: c.id,
@@ -136,6 +146,7 @@ export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = 
       cursor: { color, secondary, pattern },
     };
   }),
+  PULSE_CURSOR,
 ];
 
 export const CURSORS: readonly AppearanceTile[] = CURSOR_DEFS;
@@ -162,15 +173,20 @@ export const ARROW_POINTS: readonly (readonly [number, number])[] = (() => {
 })();
 
 /**
- * SVG-стрелка 32×32: белая внешняя линия, чёрная тонкая линия, заливка с узором. Это тот же
+ * SVG-стрелка (по умолчанию в реальном размере 32 px): белая внешняя линия, чёрная тонкая линия, заливка с узором. Это тот же
  * рисунок, что Rust кладёт в `.cur`. `uid` делает id узора уникальным на странице.
  */
-export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
+export function cursorSvg(def: CursorDef, uid: string, size = 32, animate = true): string {
   const { color, secondary, pattern } = def;
   const points = ARROW_POINTS.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
-  const fill = pattern === 'plain' ? color : `url(#p-${uid})`;
+  const flat = pattern === 'plain' || pattern === 'pulse';
+  const fill = flat ? color : `url(#p-${uid})`;
+  const pulse =
+    pattern === 'pulse' && animate
+      ? `<animate attributeName="fill" values="${color};${secondary};${color}" dur="1.33s" repeatCount="indefinite"/>`
+      : '';
   let defs = '';
-  if (pattern !== 'plain') {
+  if (!flat) {
     let body = `<rect width="8" height="8" fill="${color}"/>`;
     let transform = '';
     if (pattern === 'stripes') {
@@ -188,7 +204,7 @@ export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
   return (
     `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true" focusable="false">${defs}` +
     `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>` +
-    `<polygon points="${points}" fill="${fill}" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>`
+    `<polygon points="${points}" fill="${fill}" stroke="#000" stroke-width="1.4" stroke-linejoin="round">${pulse}</polygon></svg>`
   );
 }
 

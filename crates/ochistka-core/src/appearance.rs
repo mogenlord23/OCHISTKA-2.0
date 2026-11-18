@@ -577,7 +577,7 @@ pub struct CursorSpec<'a> {
 }
 
 /// Ставит схему курсора Windows: рисует `.cur`, пишет `HKCU\Control Panel\Cursors`, обновляет.
-/// Анимированные схемы (`.ani`) не поддерживаются: в таблице таких пока нет.
+/// Схема с узором `pulse` кладёт стрелку как анимированный `.ani`.
 pub fn apply_cursor_scheme(
     reg: &dyn RegistryPort,
     files: &dyn FilePort,
@@ -593,13 +593,18 @@ pub fn apply_cursor_scheme(
     // Сначала рисуем всё: ошибка в данных не должна оставить реестр наполовину изменённым.
     let mut cursors = Vec::new();
     for role in crate::appearance_cursor::Role::ALL {
-        let bytes = crate::appearance_cursor::build_cur(role, pattern, spec.color, spec.secondary)?;
-        cursors.push((role, bytes));
+        let ext = crate::appearance_cursor::file_extension(role, pattern);
+        let bytes = if ext == "ani" {
+            crate::appearance_cursor::build_ani(role, spec.color, spec.secondary)?
+        } else {
+            crate::appearance_cursor::build_cur(role, pattern, spec.color, spec.secondary)?
+        };
+        cursors.push((role, ext, bytes));
     }
     let dir = format!("{}\\Cursors\\{}", files.data_dir()?, spec.id);
     let mut paths = Vec::new();
-    for (role, bytes) in &cursors {
-        let path = format!("{dir}\\{}.cur", role.registry_name());
+    for (role, ext, bytes) in &cursors {
+        let path = format!("{dir}\\{}.{ext}", role.registry_name());
         files.write(&path, bytes)?;
         paths.push((role.registry_name(), path));
     }
@@ -973,6 +978,32 @@ mod tests {
         restore_cursor_scheme(&reg, &refresh, true).unwrap();
         assert_eq!(reg.writes.lock().unwrap().len(), before);
         assert_eq!(*refresh.0.lock().unwrap(), refreshed);
+    }
+
+    #[test]
+    fn animated_scheme_writes_ani_for_arrow_and_restores_the_stored_value_once() {
+        let reg = FakeReg::with(&[(CUR, "Arrow", RegValue::Text(r"C:\old\arrow.cur".into()))]);
+        let (files, refresh) = (FakeFiles::default(), FakeRefresh::default());
+        let pulse = CursorSpec {
+            id: "cursor-pulse",
+            color: "#FF009D",
+            secondary: "#00FFFF",
+            pattern: "pulse",
+        };
+        apply_cursor_scheme(&reg, &files, &refresh, &pulse, true).unwrap();
+        assert_eq!(
+            reg.get(CUR, "Arrow"),
+            Some(RegValue::Text(
+                r"C:\Data\OCHISTKA\Cursors\cursor-pulse\Arrow.ani".into()
+            ))
+        );
+        assert!(files.exists(r"C:\Data\OCHISTKA\Cursors\cursor-pulse\IBeam.cur"));
+        apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-red"), true).unwrap();
+        restore_cursor_scheme(&reg, &refresh, true).unwrap();
+        assert_eq!(
+            reg.get(CUR, "Arrow"),
+            Some(RegValue::Text(r"C:\old\arrow.cur".into()))
+        );
     }
 
     #[test]

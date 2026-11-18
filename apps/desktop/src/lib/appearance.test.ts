@@ -32,16 +32,26 @@ describe('appearance tiles', () => {
     expect(WALLPAPERS.filter((tile) => !tile.thumb).every((t) => /^#/.test(t.preview))).toBe(true);
   });
 
-  it('has 35 cursor schemes: 12 plain and 23 patterned, drawn as SVG', () => {
-    expect(CURSOR_DEFS).toHaveLength(35);
+  it('has 36 cursor schemes: 12 plain, 23 patterned and one animated, drawn as SVG', () => {
+    expect(CURSOR_DEFS).toHaveLength(36);
     expect(CURSOR_DEFS.filter((d) => d.cursor.pattern === 'plain')).toHaveLength(12);
     const patterns = new Set(CURSOR_DEFS.map((d) => d.cursor.pattern));
-    expect([...patterns].sort()).toEqual(['checker', 'cross', 'dots', 'plain', 'stripes']);
+    expect([...patterns].sort()).toEqual(['checker', 'cross', 'dots', 'plain', 'pulse', 'stripes']);
     const svg = cursorSvg(CURSOR_DEFS[20].cursor, 'x');
     expect(svg).toContain('<pattern id="p-x"');
     expect(svg).toContain('stroke="#fff"');
     expect(svg).toContain('viewBox="0 0 32 32"');
     expect(cursorSvg(CURSOR_DEFS[0].cursor, 'y')).not.toContain('<pattern');
+  });
+
+  it('draws the animated scheme with SMIL only when motion is allowed, at real 32 px', () => {
+    const pulse = CURSOR_DEFS.find((d) => d.cursor.pattern === 'pulse');
+    expect(pulse).toBeTruthy();
+    const moving = cursorSvg(pulse!.cursor, 'a');
+    expect(moving).toContain('<animate');
+    expect(moving).toContain('width="32"');
+    expect(cursorSvg(pulse!.cursor, 'b', 32, false)).not.toContain('<animate');
+    expect(cursorSvg(CURSOR_DEFS[0].cursor, 'c')).not.toContain('<animate');
   });
 
   it('has 53 accent colours as plain hex swatches, each unique', () => {
