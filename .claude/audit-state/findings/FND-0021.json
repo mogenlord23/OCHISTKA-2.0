@@ -8,5 +8,8 @@
   "summary": "--font-body is defined on .shell, a descendant of body, so body never receives it; BODY_FONT token has no effect",
   "evidence": "App.svelte:31 style:--font-body on .shell; App.svelte:103 body font-family var(--font-body, ...); --font-body unused elsewhere",
   "failure_scenario": "body always uses the fallback system-ui; BODY_FONT (Segoe UI) is dead. Visible effect small on Windows (inferred).",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18",
+  "resolution_note": "Re-verifier CONFIRM 2026-11-18; mutations killed by font-scope.test.ts (font-family back on body, deleted from .shell, --font-body rebound).",
+  "status_changed_at": "2026-11-18T05:50:11Z"
 }

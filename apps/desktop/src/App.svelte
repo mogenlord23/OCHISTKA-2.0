@@ -96,7 +96,6 @@
 <style>
   :global(body) {
     margin: 0;
-    font-family: var(--font-body, system-ui, sans-serif);
     background: #080808;
     color: #fafafa;
   }
@@ -105,6 +104,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    font-family: var(--font-body, system-ui, sans-serif);
     background-color: var(--accent);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ccircle cx='24' cy='28' r='6' fill='%23000' fill-opacity='.07'/%3E%3Cpath d='M110 20l6 12 13 2-9 9 2 13-12-6-12 6 2-13-9-9 13-2z' fill='%23000' fill-opacity='.07'/%3E%3Crect x='60' y='96' width='14' height='14' rx='3' fill='%23000' fill-opacity='.07'/%3E%3Cpath d='M22 120q10-14 22 0t22 0' stroke='%23000' stroke-opacity='.07' stroke-width='3' fill='none'/%3E%3C/svg%3E");
   }
