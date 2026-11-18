@@ -94,21 +94,33 @@ describe('Home', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    // Проценты только в верхней строке; плитки показывают названия.
-    expect(screen.getByText('CPU 12%')).toBeTruthy();
-    expect(screen.getByText('GPU 37%')).toBeTruthy();
-    expect(screen.getByText('RAM 50%')).toBeTruthy();
-    expect(screen.getByText('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz')).toBeTruthy();
+    // Название крупно, проценты мелко во вторичной строке карточки.
+    const loads = [...document.querySelectorAll('.card-load')].map((n) => n.textContent ?? '');
+    expect(loads.some((text) => text.includes('12%'))).toBe(true);
+    expect(loads.some((text) => text.includes('37%'))).toBe(true);
+    expect(loads.some((text) => text.includes('50%'))).toBe(true);
+    expect(screen.getByText('Intel Core i7-6700')).toBeTruthy();
     expect(screen.getByText('8,0 ГБ')).toBeTruthy();
-    expect(screen.getByText('KINGSTON SHFS37A120G / WDC WD10EZEX-21WN4A0')).toBeTruthy();
+    expect(screen.getByText('KINGSTON SHFS37A120G +1')).toBeTruthy();
   });
 
-  it('shows no percentages on the tiles', async () => {
+  it('shows no percentages in the names and on the board and system tiles', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
     const tiles = document.querySelector('.tiles') as HTMLElement;
     expect(tiles.textContent).not.toMatch(/%/);
+    for (const name of document.querySelectorAll('.card-name')) {
+      expect(name.textContent).not.toMatch(/%/);
+    }
+  });
+
+  it('shows four separate top cards with a short graph for CPU, GPU and RAM', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(document.querySelectorAll('.top .card-tile').length).toBe(4);
+    expect(document.querySelectorAll('.top svg[role="img"]').length).toBe(3);
   });
 
   it('refreshes immediately with the «Обновить сведения» button', async () => {
@@ -125,7 +137,7 @@ describe('Home', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.getByText('NVIDIA GeForce RTX 4070')).toBeTruthy();
+    expect(screen.getAllByText('NVIDIA GeForce RTX 4070').length).toBeGreaterThan(0);
     expect(screen.getByText('ASUS · ROG STRIX B650')).toBeTruthy();
   });
 
@@ -207,7 +219,7 @@ describe('Home', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
     expect(getMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('CPU 12%')).toBeTruthy();
+    expect(screen.getByText('Intel Core i7-6700')).toBeTruthy();
   });
 
   it('FND-0170: resumes polling after a slow request settles', async () => {
@@ -250,7 +262,7 @@ describe('Home', () => {
     resolveSecond(sample);
     await flush();
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('CPU 12%')).toBeTruthy();
+    expect(screen.getByText('Intel Core i7-6700')).toBeTruthy();
   });
 
   it('ignores a response that arrives after unmount', async () => {
@@ -262,7 +274,7 @@ describe('Home', () => {
     resolveLate(sample);
     await flush();
 
-    expect(document.body.textContent).not.toContain('CPU 12%');
+    expect(document.body.textContent).not.toContain('Intel Core');
     expect(consoleError).not.toHaveBeenCalled();
   });
 
@@ -322,13 +334,12 @@ describe('Home tiles and graphs', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.queryByRole('img', { name: /память/ })).toBeNull();
 
     const ramTile = screen.getByRole('button', { name: /RAM \/ Память/ });
     ramTile.click();
     await flush();
     expect(ramTile.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('img', { name: /использования памяти/ })).toBeTruthy();
+    expect(screen.getAllByRole('img', { name: /использования памяти/ }).length).toBe(2);
     expect(screen.getByText('Занято 4.0 ГБ из 8.0 ГБ')).toBeTruthy();
   });
 
@@ -340,6 +351,8 @@ describe('Home tiles and graphs', () => {
     await flush();
     expect(screen.getByText('100%')).toBeTruthy();
     expect(screen.getByText('90 секунд')).toBeTruthy();
+    // Малые графики в карточках без подписей осей.
+    expect(screen.getAllByText('100%').length).toBe(1);
   });
 
   it('keeps at most 90 CPU samples in the graph history', async () => {
@@ -389,17 +402,6 @@ describe('Home details card', () => {
     expect(reveal.classList.contains('open')).toBe(false);
   });
 
-  it('opens the three graphs together when the summary row is clicked', async () => {
-    getMock.mockResolvedValue(sample);
-    render(Home);
-    await flush();
-    screen.getByRole('button', { name: 'Показать графики загрузки' }).click();
-    await flush();
-    expect(screen.getByRole('img', { name: /загрузки процессора/ })).toBeTruthy();
-    expect(screen.getByRole('img', { name: /загрузки видеокарты/ })).toBeTruthy();
-    expect(screen.getByRole('img', { name: /использования памяти/ })).toBeTruthy();
-  });
-
   it('titles the GPU card with the percent and the sample time', async () => {
     getMock.mockResolvedValue(sample);
     render(Home);
@@ -408,5 +410,16 @@ describe('Home details card', () => {
     await flush();
     expect(screen.getByRole('region', { name: 'Видеокарта' })).toBeTruthy();
     expect(document.querySelector('.headline')?.textContent).toMatch(/^37% · \d\d:\d\d:\d\d$/);
+  });
+});
+
+describe('computer icons', () => {
+  it('draws the GPU with two fans and the RAM with two sticks', async () => {
+    const { default: ComputerIcon } = await import('./ComputerIcon.svelte');
+    const gpu = render(ComputerIcon, { props: { kind: 'gpu' } });
+    expect(gpu.container.querySelectorAll('circle[stroke]').length).toBe(2);
+    cleanup();
+    const ram = render(ComputerIcon, { props: { kind: 'ram' } });
+    expect(ram.container.querySelectorAll('rect[rx="3"][width="72"]').length).toBe(2);
   });
 });
