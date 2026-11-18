@@ -86,5 +86,15 @@ export const SECTIONS: readonly Section[] = [
       { id: 'drivers', title: 'Драйверы' },
     ],
   },
-  { id: 'design', title: 'Оформление', accent: SECTION_COLORS.design, lead: '', subsections: [] },
+  {
+    id: 'design',
+    title: 'Оформление',
+    accent: SECTION_COLORS.design,
+    lead: '',
+    subsections: [
+      { id: 'wallpapers', title: 'Обои' },
+      { id: 'cursors', title: 'Курсоры' },
+      { id: 'colors', title: 'Цвета' },
+    ],
+  },
 ];

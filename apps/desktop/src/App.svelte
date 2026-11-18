@@ -9,6 +9,7 @@
   import ProcessesPage from './components/ProcessesPage.svelte';
   import ProgramsPage from './components/ProgramsPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
+  import AppearancePage from './components/AppearancePage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, t } from './lib/i18n.svelte';
   import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
@@ -77,6 +78,8 @@
         <ProcessesPage subsection={activeSub} />
       {:else if activeId === 'programs'}
         <ProgramsPage subsection={activeSub} />
+      {:else if activeId === 'design'}
+        <AppearancePage subsection={activeSub} />
       {:else if section.subsections.length === 0}
         <PlaceholderPage note="Подразделы уточняются" />
       {:else}

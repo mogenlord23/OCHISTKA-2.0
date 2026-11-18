@@ -60,6 +60,15 @@ describe('SECTIONS', () => {
     ]);
   });
 
+  it('gives the design section its wallpapers, cursors and colours subsections in order', () => {
+    const design = SECTIONS.find((section) => section.id === 'design');
+    expect(design?.subsections).toEqual([
+      { id: 'wallpapers', title: 'Обои' },
+      { id: 'cursors', title: 'Курсоры' },
+      { id: 'colors', title: 'Цвета' },
+    ]);
+  });
+
   it('has a page colour and a lead string for every section', () => {
     for (const section of SECTIONS) {
       expect(section.accent).toMatch(/^#[0-9a-f]{6}$/i);

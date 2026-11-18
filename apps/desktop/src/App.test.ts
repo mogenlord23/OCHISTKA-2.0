@@ -46,11 +46,17 @@ describe('App navigation', () => {
     expect(within(tabs).getByRole('button', { name: 'Журнал проверки' })).toBeTruthy();
   });
 
-  it('shows a placeholder for a section that is not built yet', async () => {
+  it('opens the appearance section with its three subsections and the first grid', async () => {
     render(App);
     await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Оформление');
-    expect(screen.getByText('Подразделы уточняются')).toBeTruthy();
+    const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
+    expect(
+      within(tabs)
+        .getAllByRole('button')
+        .map((button) => button.textContent?.trim()),
+    ).toEqual(['Обои', 'Курсоры', 'Цвета']);
+    expect(screen.getByRole('button', { name: /Аврора/ })).toBeTruthy();
   });
 
   it('has window controls for minimise, maximise and close', () => {

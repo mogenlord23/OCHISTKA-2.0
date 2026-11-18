@@ -16,30 +16,14 @@ use commands::{
 /// Текст фиксированный: без деталей ошибки, путей и данных пользователя.
 #[cfg(windows)]
 fn show_startup_error() {
-    #[link(name = "user32")]
-    extern "system" {
-        fn MessageBoxW(
-            hwnd: *mut core::ffi::c_void,
-            text: *const u16,
-            caption: *const u16,
-            utype: u32,
-        ) -> i32;
-    }
-    const MB_OK: u32 = 0x0000_0000;
-    const MB_ICONERROR: u32 = 0x0000_0010;
-
-    let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
-    let text = wide("Не удалось запустить OCHISTKA. Попробуйте перезапустить приложение или переустановить его.");
-    let caption = wide("OCHISTKA");
-    // SAFETY: обе строки заканчиваются нулём и живут до конца вызова; окно-владелец не задано.
-    unsafe {
-        MessageBoxW(
-            core::ptr::null_mut(),
-            text.as_ptr(),
-            caption.as_ptr(),
-            MB_OK | MB_ICONERROR,
-        );
-    }
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("OCHISTKA")
+        .set_description(
+            "Не удалось запустить OCHISTKA. Попробуйте перезапустить приложение или переустановить его.",
+        )
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
 }
 
 pub fn run() {
