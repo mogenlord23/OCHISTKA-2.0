@@ -60,3 +60,40 @@ describe('App navigation', () => {
     expect(screen.getByRole('button', { name: 'Закрыть' })).toBeTruthy();
   });
 });
+
+describe('FND-0020: sound control is disabled with a visible reason', () => {
+  it('FND-0020: the sound button is disabled', () => {
+    render(App);
+    const sound = screen.getByRole('button', { name: /ЗВУК/ }) as HTMLButtonElement;
+    expect(sound.disabled).toBe(true);
+  });
+
+  it('FND-0020: the reason is visible text inside the button and in its title', () => {
+    render(App);
+    const sound = screen.getByRole('button', { name: /ЗВУК/ });
+    expect(within(sound).getByText('в разработке')).toBeTruthy();
+    expect(sound.getAttribute('title') ?? '').toContain('в разработке');
+  });
+
+  it('FND-0020: clicking the sound button changes nothing (no fake toggle)', async () => {
+    render(App);
+    const sound = screen.getByRole('button', { name: /ЗВУК/ });
+    const before = sound.textContent;
+    expect(sound.hasAttribute('aria-pressed')).toBe(false);
+
+    await fireEvent.click(sound);
+
+    expect(sound.textContent).toBe(before);
+    expect(sound.hasAttribute('aria-pressed')).toBe(false);
+    expect(sound.textContent).not.toMatch(/ВКЛ|ВЫКЛ/);
+    expect(within(sound).getByText('в разработке')).toBeTruthy();
+  });
+
+  it('FND-0020: the ENG pill is still disabled', () => {
+    render(App);
+    const eng = screen.queryByRole('button', { name: /ENG/ }) as HTMLButtonElement | null;
+    if (eng) {
+      expect(eng.disabled).toBe(true);
+    }
+  });
+});

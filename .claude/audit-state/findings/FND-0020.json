@@ -8,5 +8,8 @@
   "summary": "ЗВУК toggle changes its label and does nothing else; it is enabled and not persisted",
   "evidence": "App.svelte:16 soundOn state; only uses at lines 86-89; no audio code anywhere in apps/desktop/src",
   "failure_scenario": "Click ЗВУК: ВКЛ, label flips to ВЫКЛ, no effect; after reload it is ВКЛ again. Breaks the rule that unavailable features are shown disabled with a reason.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T00:00:00Z",
+  "resolution_note": "Re-verifier CONFIRM 2026-11-18; 4 mutations killed by App.test.ts (remove disabled, drop reason span, drop title, fake toggle label).",
+  "status_changed_at": "2026-11-18T05:47:07Z"
 }

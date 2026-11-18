@@ -98,3 +98,6 @@ Why the source is parsed: vitest/jsdom does not apply Svelte component CSS, so `
 ## Re-verification (verdict recorded by orchestrator; re-verifier tools are read-only)
 Verdict: CONFIRM. Original path (outline #080808 on rail #080808, 1:1) no longer reaches the bad state: the 2px `--ink` (#fafafa) box-shadow fills the outline-offset gap and gives about 19:1 on the rail. No clipping (rail padding 8px, ring reaches 5px; no overflow on rail/side/body/shell). No other outline or box-shadow rules override it. Not run by the re-verifier: tests/build (fix log results relied on).
 Residual (low): on `.pill[aria-pressed='true']` (background #fafafa) the inner ring merges with the pill, so focus reads as a larger pill rather than a distinct ring; still 19:1 so WCAG 2.4.7 and 1.4.11 are met. Tracked as FND-0210.
+
+## Correction (orchestrator, 2026-11-18)
+The first mutation run above used a wrapper (`vitest --root apps/desktop` from the repo root) that broke the Svelte plugin, so every test failed even without a mutation; that run proved nothing. The mutations were re-run with a corrected harness (green baseline required first, via `npm test -w apps/desktop`). Results are the same: removing box-shadow, recolouring it, and setting `--ink` to black are each killed by focus-ring.test.ts.

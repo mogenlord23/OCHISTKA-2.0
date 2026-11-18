@@ -13,7 +13,6 @@
 
   let activeId = $state<SectionId>('vpn');
   let activeSub = $state('subscription');
-  let soundOn = $state(true);
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
 
@@ -80,13 +79,9 @@
     <div class="side">
       <Navigation active={activeId} onSelect={select} />
       <div class="bottom">
-        <button
-          type="button"
-          class="pill"
-          onclick={() => (soundOn = !soundOn)}
-          aria-pressed={soundOn}
-        >
-          ЗВУК: {soundOn ? 'ВКЛ' : 'ВЫКЛ'}
+        <button type="button" class="pill sound" disabled title="Звук: в разработке">
+          ЗВУК
+          <span class="reason">в разработке</span>
         </button>
         <div class="lang">
           <button type="button" class="pill" aria-pressed="true">RU</button>
@@ -192,6 +187,20 @@
   .pill:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  /* Звук недоступен: приглушённый, но читаемый (--muted на --surface даёт около 5.4:1). */
+  .pill.sound:disabled {
+    opacity: 1;
+    background: var(--surface);
+    color: var(--muted);
+  }
+
+  .reason {
+    display: block;
+    font-size: var(--text-caption);
+    font-weight: 700;
+    text-transform: none;
   }
 
   .lang {
