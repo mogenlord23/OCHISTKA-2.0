@@ -215,7 +215,7 @@
       <LineGraph
         values={cpuHistory}
         label="График загрузки процессора за 90 секунд"
-        color={SECTION_COLORS.viruses}
+        color={SECTION_COLORS.computer}
       />
     {:else if selected === 'ram'}
       <h2>Оперативная память</h2>
@@ -236,7 +236,7 @@
       <LineGraph
         values={ramHistory}
         label="График использования памяти за 90 секунд"
-        color={SECTION_COLORS.processes}
+        color={SECTION_COLORS.computer}
       />
     {:else if selected === 'gpu'}
       <h2>Видеокарта (GPU)</h2>
@@ -394,7 +394,7 @@
 
   .fill {
     height: 100%;
-    background: #1f6feb;
+    background: var(--accent);
   }
 
   .disk + .disk {

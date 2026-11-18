@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getSystemOverview } from '../lib/api';
   import { formatBytes } from '../lib/format';
+  import type { DiskStatus } from '../lib/types';
   import {
     analyzeCleanup,
     cleanSelected,
@@ -23,6 +25,14 @@
   } from '../lib/disksApi';
 
   let { subsection }: { subsection: string } = $props();
+
+  /** Плитки дисков: только чтение сведений о заполнении. Нет ответа — плиток нет. */
+  let disks = $state<DiskStatus[]>([]);
+  onMount(() => {
+    getSystemOverview()
+      .then((overview) => (disks = overview.disks))
+      .catch(() => (disks = []));
+  });
 
   type Running = 'cleanup' | 'files' | 'space' | 'privacy' | null;
   let running = $state<Running>(null);
@@ -204,6 +214,22 @@
   }
 </script>
 
+{#if disks.length > 0}
+  <ul class="disk-tiles" aria-label="Диски">
+    {#each disks as disk (disk.mountPoint)}
+      <li class="disk-tile">
+        <span class="swatch" aria-hidden="true"></span>
+        <span class="disk-name">{disk.displayName}</span>
+        <span class="disk-value">{Math.round(disk.usagePercent)} %</span>
+        <span class="disk-sub">{formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)}</span
+        >
+        <span class="disk-bar"
+          ><span class="disk-fill" style:width="{disk.usagePercent}%"></span></span
+        >
+      </li>
+    {/each}
+  </ul>
+{/if}
 {#if error}
   <div class="alert" role="alert"><p>{error.message}</p></div>
 {/if}
@@ -443,6 +469,62 @@
 {/if}
 
 <style>
+  .disk-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .disk-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px;
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    color: var(--ink);
+  }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: var(--accent);
+  }
+
+  .disk-name {
+    font-size: var(--text-caption);
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .disk-value {
+    font-size: 26px;
+    font-weight: 900;
+  }
+
+  .disk-sub {
+    font-size: var(--text-caption);
+    color: var(--muted);
+  }
+
+  .disk-bar {
+    height: 6px;
+    margin-top: 6px;
+    border-radius: 3px;
+    background: var(--black);
+    overflow: hidden;
+  }
+
+  .disk-fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+
   .panel,
   .rows,
   .alert,
