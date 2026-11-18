@@ -5,6 +5,7 @@
   import VirusesPage from './components/VirusesPage.svelte';
   import VpnPage from './components/VpnPage.svelte';
   import ComputerPage from './components/ComputerPage.svelte';
+  import DisksPage from './components/DisksPage.svelte';
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, t } from './lib/i18n.svelte';
@@ -68,6 +69,8 @@
         <VirusesPage subsection={activeSub} />
       {:else if activeId === 'computer'}
         <ComputerPage subsection={activeSub} />
+      {:else if activeId === 'disks'}
+        <DisksPage subsection={activeSub} />
       {:else if section.subsections.length === 0}
         <PlaceholderPage note="Подразделы уточняются" />
       {:else}

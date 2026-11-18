@@ -4,6 +4,12 @@ pub mod linux;
 pub mod macos;
 pub mod windows;
 
+/// Очистка дисков Windows: файловый адаптер и раскладка. Файл лежит в `windows/`, но модуль
+/// объявлен здесь, потому что `windows/mod.rs` ведётся отдельно.
+#[path = "windows/cleanup.rs"]
+pub mod windows_cleanup;
+
+use ochistka_core::layout::CleanupEnvPort;
 use ochistka_core::scan::VirusScanPort;
 use ochistka_core::system::SystemInfoPort;
 
@@ -44,6 +50,17 @@ pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
     Box::new(windows::clamav::ClamAvScanner::unavailable(
         "проверка ClamAV доступна только в Windows",
     ))
+}
+
+/// Раскладка и файловые операции очистки для текущей ОС: Windows — адаптер, остальные — заглушка.
+#[cfg(target_os = "windows")]
+pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
+    Box::new(windows_cleanup::WindowsCleanupEnv::new())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
+    Box::new(linux::cleanup::UnsupportedCleanupEnv)
 }
 
 #[cfg(test)]

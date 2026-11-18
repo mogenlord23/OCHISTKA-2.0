@@ -2202,6 +2202,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror 2.0.21",
  "ts-rs",
 ]
@@ -2213,6 +2214,7 @@ dependencies = [
  "ochistka-core",
  "ochistka-platform",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
 ]

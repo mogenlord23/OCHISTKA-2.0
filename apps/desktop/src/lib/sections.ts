@@ -59,7 +59,18 @@ export const SECTIONS: readonly Section[] = [
     lead: '',
     subsections: [],
   },
-  { id: 'disks', title: 'Диски', accent: SECTION_COLORS.disks, lead: '', subsections: [] },
+  {
+    id: 'disks',
+    title: 'Диски',
+    accent: SECTION_COLORS.disks,
+    lead: 'Что занимает место и что можно убрать. Удаляем только через карантин.',
+    subsections: [
+      { id: 'cleanup', title: 'Глубокая очистка' },
+      { id: 'files', title: 'Очистка файлов' },
+      { id: 'space', title: 'Анализ пространства' },
+      { id: 'privacy', title: 'Приватность' },
+    ],
+  },
   {
     id: 'computer',
     title: 'Компьютер',

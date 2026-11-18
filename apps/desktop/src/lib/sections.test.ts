@@ -42,6 +42,16 @@ describe('SECTIONS', () => {
     ]);
   });
 
+  it('gives the disks section its four subsections in order', () => {
+    const disks = SECTIONS.find((section) => section.id === 'disks');
+    expect(disks?.subsections.map((item) => item.title)).toEqual([
+      'Глубокая очистка',
+      'Очистка файлов',
+      'Анализ пространства',
+      'Приватность',
+    ]);
+  });
+
   it('has a page colour and a lead string for every section', () => {
     for (const section of SECTIONS) {
       expect(section.accent).toMatch(/^#[0-9a-f]{6}$/i);

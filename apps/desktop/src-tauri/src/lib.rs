@@ -1,6 +1,7 @@
 //! Оболочка Tauri: команды и управляющее состояние.
 
 pub mod commands;
+pub mod disks;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -47,13 +48,17 @@ pub fn run() {
             scanner: Arc::from(ochistka_platform::current_virus_scanner()),
             scan_running: Arc::new(AtomicBool::new(false)),
         })
+        .manage(disks::DisksState::new(
+            ochistka_platform::current_cleanup_env(),
+        ))
         .invoke_handler(tauri::generate_handler![
             get_system_overview,
             scan_start,
             scan_cancel,
             clamav_status,
             assess_file,
-            default_scan_target
+            default_scan_target,
+            disks::disks_request
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {
