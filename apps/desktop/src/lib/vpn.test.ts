@@ -204,11 +204,11 @@ describe('formatElapsed', () => {
 describe('stubs', () => {
   it('connecting returns the TUN reason and changes no state', () => {
     expect(requestVpnConnect()).toEqual({ ok: false, reason: VPN_CONNECT_REASON });
-    expect(VPN_CONNECT_REASON).toBe('Подключение не подключено: нужен драйвер TUN');
+    expect(VPN_CONNECT_REASON).toBe('Нужен драйвер TUN');
   });
 
-  it('a network change returns the not-connected reason', () => {
+  it('a network change returns a short reason without a not-connected wording', () => {
     expect(requestNetworkChange()).toEqual({ ok: false, reason: NETWORK_CHANGE_REASON });
-    expect(NETWORK_CHANGE_REASON).toBe('Изменение сети пока не подключено');
+    expect(NETWORK_CHANGE_REASON).toBe('Нужен сетевой модуль');
   });
 });

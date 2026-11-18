@@ -9,8 +9,6 @@ export type { NetworkAdapter, TcpConnection };
 export const NETWORK_REFRESH_MS = 2000;
 export const CONNECTIONS_REFRESH_MS = 3000;
 
-export const CONNECTIONS_UNAVAILABLE = 'Список соединений пока не подключён';
-
 export async function listAdapters(): Promise<NetworkAdapter[]> {
   return invoke<NetworkAdapter[]>('get_network_adapters');
 }
