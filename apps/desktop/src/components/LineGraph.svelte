@@ -34,13 +34,18 @@
   <div class="frame">
     <span class="top">100%</span>
     <svg viewBox="0 0 {WIDTH} {HEIGHT}" preserveAspectRatio="none" role="img" aria-label={label}>
-      <line x1="0" x2={WIDTH} y1={HEIGHT / 2} y2={HEIGHT / 2} class="midline" />
+      {#each [1, 2, 3, 4, 5] as col (col)}
+        <line x1={(WIDTH / 6) * col} x2={(WIDTH / 6) * col} y1="0" y2={HEIGHT} class="grid" />
+      {/each}
+      {#each [1, 2, 3] as row (row)}
+        <line x1="0" x2={WIDTH} y1={(HEIGHT / 4) * row} y2={(HEIGHT / 4) * row} class="grid" />
+      {/each}
       {#if values.length > 1}
         <polyline
           {points}
           fill="none"
           stroke={color}
-          stroke-width="2"
+          stroke-width="1.5"
           vector-effect="non-scaling-stroke"
           stroke-linejoin="round"
         />
@@ -52,16 +57,16 @@
 
 <style>
   .graph {
-    margin: 16px 0 0;
+    position: relative;
+    margin: 12px 0;
   }
 
   .frame {
     position: relative;
-    height: 120px;
-    padding: 4px 0 0 40px;
-    border: 1px solid #343434;
+    height: 170px;
     border-radius: 8px;
-    background: #111111;
+    background: #0e0e0e;
+    overflow: hidden;
   }
 
   svg {
@@ -70,23 +75,26 @@
     height: 100%;
   }
 
-  .midline {
-    stroke: #343434;
-    stroke-dasharray: 4 4;
+  .grid {
+    stroke: #262626;
+    stroke-width: 1;
     vector-effect: non-scaling-stroke;
   }
 
-  .top {
+  .top,
+  .bottom {
     position: absolute;
-    left: 8px;
-    top: 4px;
-    font-size: 12px;
-    color: #8b8b8b;
+    left: 10px;
+    font-size: 10px;
+    color: #d4d4d4;
+  }
+
+  .top {
+    top: 8px;
   }
 
   .bottom {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #8b8b8b;
+    bottom: 8px;
+    margin: 0;
   }
 </style>

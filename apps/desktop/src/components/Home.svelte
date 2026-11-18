@@ -20,9 +20,9 @@
 
   /** Цвета плиток — из палитры токенов: lime, pink, blue, yellow. */
   const TILES: readonly { id: TileId; title: string; color: string }[] = [
-    { id: 'cpu', title: 'Процессор (CPU)', color: SECTION_COLORS.viruses },
-    { id: 'gpu', title: 'Видеокарта (GPU)', color: SECTION_COLORS.vpn },
-    { id: 'ram', title: 'Оперативная память', color: SECTION_COLORS.processes },
+    { id: 'cpu', title: 'CPU / Процессор', color: SECTION_COLORS.viruses },
+    { id: 'gpu', title: 'GPU / Видеокарта', color: SECTION_COLORS.vpn },
+    { id: 'ram', title: 'RAM / Оперативная память', color: SECTION_COLORS.processes },
     { id: 'board', title: 'Материнская плата', color: SECTION_COLORS.disks },
     { id: 'disks', title: 'SSD / HDD', color: SECTION_COLORS.viruses },
     { id: 'system', title: 'Система', color: SECTION_COLORS.vpn },
@@ -129,74 +129,6 @@
     <p>{error.message}</p>
   </section>
 {:else if overview}
-  <div class="tiles" role="group" aria-label="Комплектующие">
-    {#each TILES as tile (tile.id)}
-      <button
-        type="button"
-        class="tile"
-        class:selected={selected === tile.id}
-        aria-pressed={selected === tile.id}
-        onclick={() => (selected = tile.id)}
-      >
-        <span class="swatch" style:background={tile.color} aria-hidden="true"></span>
-        <span class="tile-title">{tile.title}</span>
-
-        {#if tile.id === 'cpu'}
-          <span class="tile-value">{formatPercent(overview.cpu.usagePercent)}</span>
-          <span class="tile-sub">{overview.cpu.logicalCores} логических ядер</span>
-        {:else if tile.id === 'ram'}
-          <span class="tile-value">{formatPercent(overview.memory.usagePercent)}</span>
-          <span class="tile-sub"
-            >{formatBytes(overview.memory.usedBytes)} из {formatBytes(
-              overview.memory.totalBytes,
-            )}</span
-          >
-        {:else if tile.id === 'gpu'}
-          {#if hardwareError}
-            <span class="tile-value">—</span>
-            <span class="tile-sub">{hardwareError.message}</span>
-          {:else if hardware}
-            {@const gpu = hardware.gpus[0]}
-            <span class="tile-value">{gpu ? gpuName(gpu) : '—'}</span>
-            <span class="tile-sub">
-              {#if gpu}{gpuUsageLine(gpu) ?? 'Загрузка не отдаётся ОС'}{:else}Видеокарты не найдены.{/if}
-            </span>
-          {:else}
-            <span class="tile-value">—</span>
-            <span class="tile-sub">{HARDWARE_LOADING}</span>
-          {/if}
-        {:else if tile.id === 'board'}
-          {#if hardwareError}
-            <span class="tile-value">—</span>
-            <span class="tile-sub">{hardwareError.message}</span>
-          {:else if hardware}
-            <span class="tile-value">{boardName(hardware.motherboard)}</span>
-            <span class="tile-sub">{hardware.motherboard.vendor ?? 'Производитель не указан'}</span>
-          {:else}
-            <span class="tile-value">—</span>
-            <span class="tile-sub">{HARDWARE_LOADING}</span>
-          {/if}
-        {:else if tile.id === 'disks'}
-          <span class="tile-value">{overview.disks.length} шт.</span>
-          {#each overview.disks as disk (disk.mountPoint)}
-            <span class="tile-sub disk-row">
-              <span>{disk.displayName}</span>
-              {#if disk.displayName !== disk.mountPoint}
-                <span class="muted">{disk.mountPoint}</span>
-              {/if}
-              <span class="muted">{KIND_LABELS[disk.kind]}</span>
-            </span>
-          {:else}
-            <span class="tile-sub">Диски не найдены.</span>
-          {/each}
-        {:else if tile.id === 'system'}
-          <span class="tile-value">{overview.osName || '—'}</span>
-          <span class="tile-sub">Версия: {overview.osVersion || '—'}</span>
-        {/if}
-      </button>
-    {/each}
-  </div>
-
   <section class="card detail" aria-label={title(selected)}>
     {#if selected === 'cpu'}
       <h2>Процессор</h2>
@@ -299,6 +231,81 @@
       <p>Версия: {overview.osVersion || '—'}</p>
     {/if}
   </section>
+  <p class="hint">Нажми на комплектующую, чтобы открыть сведения и график</p>
+  <div class="tiles" role="group" aria-label="Комплектующие">
+    {#each TILES as tile (tile.id)}
+      <button
+        type="button"
+        class="tile"
+        class:selected={selected === tile.id}
+        aria-pressed={selected === tile.id}
+        onclick={() => (selected = tile.id)}
+      >
+        <span class="icon" style:background={tile.color} aria-hidden="true"
+          ><span class="glyph glyph-{tile.id}"></span></span
+        >
+        <span class="tile-body">
+          <span class="tile-title">{tile.title}</span>
+
+          {#if tile.id === 'cpu'}
+            <span class="tile-value">{formatPercent(overview.cpu.usagePercent)}</span>
+            <span class="tile-sub">{overview.cpu.logicalCores} логических ядер</span>
+          {:else if tile.id === 'ram'}
+            <span class="tile-value">{formatPercent(overview.memory.usagePercent)}</span>
+            <span class="tile-sub"
+              >{formatBytes(overview.memory.usedBytes)} из {formatBytes(
+                overview.memory.totalBytes,
+              )}</span
+            >
+          {:else if tile.id === 'gpu'}
+            {#if hardwareError}
+              <span class="tile-value">—</span>
+              <span class="tile-sub">{hardwareError.message}</span>
+            {:else if hardware}
+              {@const gpu = hardware.gpus[0]}
+              <span class="tile-value">{gpu ? gpuName(gpu) : '—'}</span>
+              <span class="tile-sub">
+                {#if gpu}{gpuUsageLine(gpu) ?? 'Загрузка не отдаётся ОС'}{:else}Видеокарты не
+                  найдены.{/if}
+              </span>
+            {:else}
+              <span class="tile-value">—</span>
+              <span class="tile-sub">{HARDWARE_LOADING}</span>
+            {/if}
+          {:else if tile.id === 'board'}
+            {#if hardwareError}
+              <span class="tile-value">—</span>
+              <span class="tile-sub">{hardwareError.message}</span>
+            {:else if hardware}
+              <span class="tile-value">{boardName(hardware.motherboard)}</span>
+              <span class="tile-sub"
+                >{hardware.motherboard.vendor ?? 'Производитель не указан'}</span
+              >
+            {:else}
+              <span class="tile-value">—</span>
+              <span class="tile-sub">{HARDWARE_LOADING}</span>
+            {/if}
+          {:else if tile.id === 'disks'}
+            <span class="tile-value">{overview.disks.length} шт.</span>
+            {#each overview.disks as disk (disk.mountPoint)}
+              <span class="tile-sub disk-row">
+                <span>{disk.displayName}</span>
+                {#if disk.displayName !== disk.mountPoint}
+                  <span class="muted">{disk.mountPoint}</span>
+                {/if}
+                <span class="muted">{KIND_LABELS[disk.kind]}</span>
+              </span>
+            {:else}
+              <span class="tile-sub">Диски не найдены.</span>
+            {/each}
+          {:else if tile.id === 'system'}
+            <span class="tile-value">{overview.osName || '—'}</span>
+            <span class="tile-sub">Версия: {overview.osVersion || '—'}</span>
+          {/if}
+        </span>
+      </button>
+    {/each}
+  </div>
 {:else}
   <p>Загрузка…</p>
 {/if}
@@ -313,23 +320,30 @@
     margin: 4px 0;
   }
 
+  .hint {
+    margin: 0 0 10px;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--page-text);
+  }
+
   .tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 16px;
   }
 
   .tile {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    align-items: center;
+    gap: 14px;
     min-height: 44px;
-    padding: 16px;
-    border: 1px solid #343434;
-    border-radius: var(--radius-sm);
-    background: #161b22;
+    padding: 20px 18px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--black, #080808);
     color: var(--ink, #fafafa);
     font: inherit;
     text-align: left;
@@ -340,21 +354,95 @@
     border-color: var(--ink, #fafafa);
   }
 
-  .swatch {
-    width: 16px;
-    height: 16px;
+  .icon {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 88px;
+    height: 88px;
+    border-radius: 12px;
+  }
+
+  .glyph {
+    display: block;
+    background: #080808;
+  }
+
+  .glyph-cpu {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 12px #080808;
+    background: #f5f5f0;
+    outline: 4px dashed #080808;
+    outline-offset: 3px;
+  }
+
+  .glyph-gpu {
+    width: 64px;
+    height: 36px;
+    border-radius: 4px;
+    border-bottom: 5px solid #f5ff00;
+  }
+
+  .glyph-ram {
+    width: 66px;
+    height: 46px;
+    background:
+      repeating-linear-gradient(90deg, #b4ff00 0 9px, transparent 9px 15px) 8px 8px / 52px 10px
+        no-repeat,
+      repeating-linear-gradient(90deg, #b4ff00 0 9px, transparent 9px 15px) 8px 28px / 52px 10px
+        no-repeat,
+      #080808;
+    border-radius: 4px;
+  }
+
+  .glyph-board {
+    width: 56px;
+    height: 60px;
+    background:
+      linear-gradient(#f5ff00, #f5ff00) 10px 10px / 20px 20px no-repeat,
+      #080808;
     border-radius: 3px;
   }
 
+  .glyph-disks {
+    width: 46px;
+    height: 62px;
+    border-radius: 4px;
+    background:
+      linear-gradient(#f5f5f0, #f5f5f0) 9px 10px / 28px 18px no-repeat,
+      radial-gradient(circle at 12px 50px, #ff009d 3px, transparent 4px),
+      #080808;
+  }
+
+  .glyph-system {
+    width: 62px;
+    height: 44px;
+    border: 5px solid #080808;
+    background: #147cff;
+    border-radius: 2px;
+  }
+
+  .tile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
   .tile-title {
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
-    font-size: var(--text-body);
+    font-size: var(--text-caption);
+    color: var(--ink-soft, #d4d4d4);
   }
 
   .tile-value {
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 800;
+    overflow-wrap: anywhere;
   }
 
   .tile-sub {
@@ -372,8 +460,26 @@
   .alert {
     margin-bottom: 16px;
     padding: 16px;
-    border-radius: var(--radius-sm);
-    background: #161b22;
+    border-radius: var(--radius-md);
+    background: var(--black, #080808);
+    color: var(--ink, #fafafa);
+  }
+
+  .card {
+    padding: 18px 18px 14px;
+  }
+
+  .card h2 {
+    font-size: 19px;
+    text-transform: uppercase;
+  }
+
+  .card p {
+    font-size: var(--text-small);
+  }
+
+  .card .bar {
+    height: 4px;
   }
 
   .alert {

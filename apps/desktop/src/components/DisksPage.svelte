@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getSystemOverview } from '../lib/api';
   import { formatBytes } from '../lib/format';
+  import { SECTION_COLORS } from '../lib/tokens';
   import type { DiskStatus } from '../lib/types';
   import {
     analyzeCleanup,
@@ -25,6 +26,20 @@
   } from '../lib/disksApi';
 
   let { subsection }: { subsection: string } = $props();
+
+  const HEADINGS: Record<string, string> = {
+    cleanup: 'Глубокая очистка',
+    files: 'Очистка файлов',
+    space: 'Пространство',
+    privacy: 'Приватность',
+  };
+  /** Цвета квадратных иконок плиток по кругу, из палитры разделов. */
+  const TILE_COLORS = [
+    SECTION_COLORS.disks,
+    SECTION_COLORS.viruses,
+    SECTION_COLORS.vpn,
+    SECTION_COLORS.processes,
+  ];
 
   /** Плитки дисков: только чтение сведений о заполнении. Нет ответа — плиток нет. */
   let disks = $state<DiskStatus[]>([]);
@@ -214,18 +229,26 @@
   }
 </script>
 
+<p class="page-heading">Диски / {HEADINGS[subsection] ?? ''}</p>
 {#if disks.length > 0}
   <ul class="disk-tiles" aria-label="Диски">
-    {#each disks as disk (disk.mountPoint)}
+    {#each disks as disk, index (disk.mountPoint)}
       <li class="disk-tile">
-        <span class="swatch" aria-hidden="true"></span>
-        <span class="disk-name">{disk.displayName}</span>
-        <span class="disk-value">{Math.round(disk.usagePercent)} %</span>
-        <span class="disk-sub">{formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)}</span
+        <span
+          class="swatch"
+          style:background={TILE_COLORS[index % TILE_COLORS.length]}
+          aria-hidden="true"><span class="drive-glyph"></span></span
         >
-        <span class="disk-bar"
-          ><span class="disk-fill" style:width="{disk.usagePercent}%"></span></span
-        >
+        <span class="disk-info">
+          <span class="disk-name">{disk.displayName}</span>
+          <span class="disk-value">{Math.round(disk.usagePercent)} %</span>
+          <span class="disk-sub"
+            >{formatBytes(disk.usedBytes)} из {formatBytes(disk.totalBytes)}</span
+          >
+          <span class="disk-bar"
+            ><span class="disk-fill" style:width="{disk.usagePercent}%"></span></span
+          >
+        </span>
       </li>
     {/each}
   </ul>
@@ -469,35 +492,63 @@
 {/if}
 
 <style>
+  .page-heading {
+    margin: 0 0 12px;
+    font-family: var(--font-heading);
+    font-size: var(--text-section);
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--page-text);
+  }
+
   .disk-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-    margin: 0 0 12px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin: 0 0 16px;
     padding: 0;
     list-style: none;
   }
 
   .disk-tile {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
     border-radius: var(--radius-md);
-    background: var(--surface-alt);
+    background: var(--black);
     color: var(--ink);
   }
 
   .swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    background: var(--accent);
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+  }
+
+  .drive-glyph {
+    width: 44px;
+    height: 30px;
+    border-radius: 4px;
+    background: radial-gradient(circle at 34px 20px, #b4ff00 3px, transparent 4px), #080808;
+  }
+
+  .disk-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
   }
 
   .disk-name {
     font-size: var(--text-caption);
-    font-weight: 800;
+    font-weight: 700;
+    color: var(--ink-soft);
     text-transform: uppercase;
   }
 
@@ -515,7 +566,7 @@
     height: 6px;
     margin-top: 6px;
     border-radius: 3px;
-    background: var(--black);
+    background: var(--surface);
     overflow: hidden;
   }
 

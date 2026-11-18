@@ -12,6 +12,21 @@
     colors: 'color',
   };
 
+  const HEADINGS: Record<AppearanceKind, { title: string; hint: string }> = {
+    wallpaper: {
+      title: 'Обои',
+      hint: 'Нажми на картинку, чтобы выбрать фон. Выбор запоминается; установка в Windows появится позже.',
+    },
+    cursor: {
+      title: 'Курсоры',
+      hint: 'Нажми на схему, чтобы выбрать курсор. Выбор запоминается; применение появится позже.',
+    },
+    color: {
+      title: 'Цвета',
+      hint: 'Нажми на цвет, чтобы выбрать акцент. Выбор запоминается; применение появится позже.',
+    },
+  };
+
   let choice = $state<AppearanceChoice>(loadChoice());
 
   const kind = $derived<AppearanceKind>(KIND_BY_SUBSECTION[subsection] ?? 'wallpaper');
@@ -26,6 +41,18 @@
 </script>
 
 <section class="appearance" aria-label="Оформление">
+  <h2>{HEADINGS[kind].title}</h2>
+  <p class="hint">{HEADINGS[kind].hint}</p>
+
+  <div class="actions">
+    {#if kind === 'wallpaper'}
+      <button type="button" disabled title={APPLY_REASON}>Добавить свои обои…</button>
+      <button type="button" disabled title={APPLY_REASON}>Вернуть прежний фон</button>
+    {/if}
+    <button type="button" disabled aria-describedby="apply-reason">Применить к Windows</button>
+  </div>
+  <p id="apply-reason" class="reason">{APPLY_REASON}</p>
+
   <p class="current">Выбрано: <strong>{selectedLabel}</strong></p>
 
   <ul class="grid">
@@ -38,22 +65,16 @@
           class:selected={isSelected}
           aria-pressed={isSelected}
           title={tile.description}
+          style:background={tile.preview}
           onclick={() => pick(tile.id)}
         >
-          <span class="preview" style:background={tile.preview} aria-hidden="true">
-            {#if kind === 'cursor'}<span class="pointer">↖</span>{/if}
-          </span>
+          {#if kind === 'cursor'}<span class="pointer" aria-hidden="true">↖</span>{/if}
           <span class="label">{tile.label}</span>
-          {#if isSelected}<span class="state">✓ Выбрано</span>{/if}
+          {#if isSelected}<span class="state">✓<span class="sr">Выбрано</span></span>{/if}
         </button>
       </li>
     {/each}
   </ul>
-
-  <div class="apply">
-    <button type="button" disabled aria-describedby="apply-reason">Применить к Windows</button>
-    <p id="apply-reason" class="reason">{APPLY_REASON}</p>
-  </div>
 </section>
 
 <style>
@@ -61,15 +82,56 @@
     color: var(--page-text);
   }
 
-  .current {
-    margin: 0 0 12px;
-    font-size: var(--text-lead);
+  h2 {
+    margin: 0 0 14px;
+    font-family: var(--font-heading);
+    font-size: var(--text-section);
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .hint {
+    margin: 0 0 14px;
+    font-size: var(--text-small);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .actions button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--btn-border, #343434);
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--text-small);
+    font-weight: 600;
+    cursor: not-allowed;
+  }
+
+  .actions button:disabled {
+    color: var(--ink-soft);
+  }
+
+  .reason {
+    margin: 6px 0 0;
+    font-size: var(--text-caption);
     font-weight: 700;
+  }
+
+  .current {
+    margin: 10px 0 12px;
+    font-size: var(--text-small);
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
     margin: 0;
     padding: 0;
@@ -77,31 +139,42 @@
   }
 
   .tile {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-    min-height: 44px;
-    padding: 6px;
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    color: var(--ink);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .tile.selected {
-    border-color: var(--ink);
-  }
-
-  .preview {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 96px;
-    border-radius: var(--radius-sm);
+    width: 100%;
+    aspect-ratio: 140 / 78;
+    min-height: 44px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%);
+  }
+
+  .tile.selected {
+    border-color: var(--black);
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+
+  .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   .pointer {
@@ -109,44 +182,18 @@
     color: #fafafa;
   }
 
-  .label {
-    font-size: var(--text-caption);
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-
   .state {
-    font-size: var(--text-caption);
-    font-weight: 700;
-    color: var(--muted);
-  }
-
-  .tile.selected .state {
-    color: var(--ink);
-  }
-
-  .apply {
-    margin-top: 24px;
-  }
-
-  .apply button {
-    min-height: 44px;
-    padding: 10px 16px;
-    border: 0;
-    border-radius: var(--radius-sm);
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
     background: var(--black);
     color: var(--ink);
-    font: inherit;
+    font-size: 13px;
     font-weight: 800;
-    text-transform: uppercase;
-    font-size: var(--text-body);
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .reason {
-    margin: 8px 0 0;
-    font-size: var(--text-small);
-    font-weight: 700;
   }
 </style>

@@ -20,6 +20,78 @@ export interface AppearanceTile {
 
 export const WALLPAPERS: readonly AppearanceTile[] = [
   {
+    id: 'solid-lime',
+    label: 'Лайм',
+    description: 'Сплошной цвет #b4ff00',
+    preview: 'linear-gradient(#b4ff00, #b4ff00)',
+  },
+  {
+    id: 'solid-orange',
+    label: 'Апельсин',
+    description: 'Сплошной цвет #ff7a00',
+    preview: 'linear-gradient(#ff7a00, #ff7a00)',
+  },
+  {
+    id: 'solid-cyan',
+    label: 'Бирюза',
+    description: 'Сплошной цвет #00f5f0',
+    preview: 'linear-gradient(#00f5f0, #00f5f0)',
+  },
+  {
+    id: 'solid-magenta',
+    label: 'Маджента',
+    description: 'Сплошной цвет #ff009d',
+    preview: 'linear-gradient(#ff009d, #ff009d)',
+  },
+  {
+    id: 'solid-lemon',
+    label: 'Лимон',
+    description: 'Сплошной цвет #f5ff00',
+    preview: 'linear-gradient(#f5ff00, #f5ff00)',
+  },
+  {
+    id: 'solid-fuchsia',
+    label: 'Фуксия',
+    description: 'Сплошной цвет #f000ff',
+    preview: 'linear-gradient(#f000ff, #f000ff)',
+  },
+  {
+    id: 'solid-violet',
+    label: 'Фиалка',
+    description: 'Сплошной цвет #a000ff',
+    preview: 'linear-gradient(#a000ff, #a000ff)',
+  },
+  {
+    id: 'solid-chartreuse',
+    label: 'Шартрез',
+    description: 'Сплошной цвет #dcff00',
+    preview: 'linear-gradient(#dcff00, #dcff00)',
+  },
+  {
+    id: 'solid-green',
+    label: 'Трава',
+    description: 'Сплошной цвет #5cff00',
+    preview: 'linear-gradient(#5cff00, #5cff00)',
+  },
+  {
+    id: 'solid-indigo',
+    label: 'Индиго',
+    description: 'Сплошной цвет #8c00ff',
+    preview: 'linear-gradient(#8c00ff, #8c00ff)',
+  },
+  {
+    id: 'solid-black',
+    label: 'Чёрный',
+    description: 'Сплошной цвет #0a0a0a',
+    preview: 'linear-gradient(#0a0a0a, #0a0a0a)',
+  },
+  {
+    id: 'solid-white',
+    label: 'Белый',
+    description: 'Сплошной цвет #f7f7f7',
+    preview: 'linear-gradient(#f7f7f7, #f7f7f7)',
+  },
+  {
     id: 'aurora',
     label: 'Аврора',
     description: 'Тёмно-синий переход в мятный',
