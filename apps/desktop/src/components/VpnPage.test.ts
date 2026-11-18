@@ -41,18 +41,37 @@ describe('VpnPage: подписка и импорт', () => {
     expect(screen.getByText(IMPORT_REASON)).toBeTruthy();
   });
 
-  it('parses pasted subscription text and lists the servers on the servers page', async () => {
-    const { unmount } = render(VpnPage, { props: { subsection: 'subscription' } });
-    const textarea = screen.getByLabelText('Текст подписки') as HTMLTextAreaElement;
-    await fireEvent.input(textarea, { target: { value: SAMPLE } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Разобрать' }));
-    expect(screen.getByText('Серверов: 2. Не распознано строк: 1.')).toBeTruthy();
-    unmount();
+  it('parses pasted subscription text and lists servers with count and selection', async () => {
+    render(VpnPage, { props: { subsection: 'subscription' } });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    // Однострочное поле: строки подписки приходят через пробел.
+    await fireEvent.input(input, { target: { value: SAMPLE.split('\n').slice(0, 2).join(' ') } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
+    expect(screen.getByText('Серверов: 2. Не распознано строк: 0.')).toBeTruthy();
+    expect(screen.getByText('Серверы / 2')).toBeTruthy();
+    const second = screen.getByRole('button', { name: /Finland/ });
+    await fireEvent.click(second);
+    expect(second.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('shows the country code from a flag emoji', async () => {
+    render(VpnPage, { props: { subsection: 'subscription' } });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'vless://a@1:1#🇱🇻 Латвия' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
+    expect(screen.getByText('LV')).toBeTruthy();
+    expect(screen.getByText('Латвия')).toBeTruthy();
+  });
+
+  it('«Маршруты и исключения» opens the advanced view', async () => {
+    render(VpnPage, { props: { subsection: 'subscription' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Маршруты и исключения' }));
+    expect(screen.getByRole('switch', { name: 'Zapret' })).toBeTruthy();
   });
 });
 
-describe('VpnPage: серверы', () => {
-  it('shows the connect button off, the timer at zero, and the TUN reason on click', async () => {
+describe('VpnPage: подключение и серверы', () => {
+  it('shows the connect toggle off, the timer at zero, and the TUN reason on click', async () => {
     render(VpnPage, { props: { subsection: 'servers' } });
     const toggle = screen.getByRole('button', { name: 'Подключить' });
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
@@ -64,15 +83,16 @@ describe('VpnPage: серверы', () => {
     expect(screen.getByLabelText('Время подключения').textContent).toBe('00:00:00');
   });
 
-  it('shows TUN as a disabled mode with its reason', () => {
+  it('shows the TUN mode as a disabled dropdown with its reason', () => {
     render(VpnPage, { props: { subsection: 'servers' } });
-    const tun = screen.getByRole('radio', { name: 'TUN' }) as HTMLInputElement;
+    const tun = screen.getByRole('combobox', { name: 'Режим' }) as HTMLSelectElement;
     expect(tun.disabled).toBe(true);
     expect(screen.getByText(VPN_TUN_MODE_REASON)).toBeTruthy();
   });
 
-  it('explains how to get servers when none were parsed', () => {
+  it('shows an honest empty state when there are no servers', () => {
     render(VpnPage, { props: { subsection: 'servers' } });
+    expect(screen.getByText('Серверы / 0')).toBeTruthy();
     expect(screen.getByText(/Серверов пока нет/)).toBeTruthy();
   });
 });

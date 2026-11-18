@@ -168,8 +168,11 @@
   </section>
 
   <section class="scanner" class:active={busy} aria-live="polite">
+    <h3>Состояние</h3>
+    <div class="track" aria-hidden="true">
+      {#if scan.phase === 'scanning'}<div class="sweep" data-testid="scan-sweep"></div>{/if}
+    </div>
     {#if scan.phase === 'scanning'}
-      <div class="sweep" data-testid="scan-sweep" aria-hidden="true"></div>
       <p>Проверяем файлы…</p>
     {:else if scan.phase === 'assessing'}
       <p>Оцениваем находки…</p>
@@ -188,9 +191,9 @@
 
 {#if subsection === 'findings'}
   {#if !scan.report}
-    <p class="empty">Здесь появятся находки после проверки.</p>
+    <p class="empty panel">Здесь появятся находки после проверки.</p>
   {:else if findings.length === 0}
-    <p class="empty">Угроз не найдено.</p>
+    <p class="empty panel">Угроз не найдено.</p>
   {:else}
     {#if scan.notice}
       <p class="empty" role="status">{scan.notice}</p>
@@ -247,9 +250,9 @@
 
 {#if subsection === 'log'}
   {#if scan.runs.length === 0}
-    <p class="empty">Проверок в этой сессии пока не было.</p>
+    <p class="empty panel">Проверок в этой сессии пока не было.</p>
   {:else}
-    <ul class="log">
+    <ul class="log panel">
       {#each scan.runs as run (run.id)}
         <li>
           {run.startedAt} · {run.target} · {runSummary(run)}
@@ -258,7 +261,7 @@
     </ul>
   {/if}
 
-  <section class="quarantine-block">
+  <section class="quarantine-block panel">
     <h3>Карантин от проверок</h3>
     {#if journalNotice}
       <p class="empty" role="status">{journalNotice}</p>
@@ -297,14 +300,53 @@
   .scanner,
   .alert,
   .findings li {
-    margin-bottom: 16px;
+    margin: 0 0 14px;
     padding: 16px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--surface);
+    box-shadow: 0 0 0 2px #000;
+    font-size: var(--text-caption);
+  }
+
+  h3,
+  label {
+    margin: 0 0 10px;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .log li,
+  .quarantine-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-soft);
+  }
+
+  .quarantine-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .track {
+    position: relative;
+    height: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #222;
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
   .alert {
-    border: 1px solid #ff009d;
+    border: 2px solid var(--accent);
+    color: var(--ink);
+  }
+
+  .alert strong {
+    text-transform: uppercase;
   }
 
   label {
@@ -313,8 +355,19 @@
     gap: 6px;
   }
 
+  label input {
+    text-transform: none;
+    font-weight: 400;
+  }
+
+  input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+
   input {
-    padding: 10px;
+    padding: 12px 14px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--black);
@@ -329,12 +382,16 @@
   }
 
   button {
+    min-height: 38px;
     padding: 8px 14px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--ink-soft);
+    background: var(--btn-bg);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
+    color: var(--ink);
     font: inherit;
+    font-size: var(--text-caption);
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -355,6 +412,21 @@
     font-weight: 700;
   }
 
+  .bar {
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: 0 0 0 2px #000;
+  }
+
+  .pick {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    text-transform: none;
+  }
+
   .scanner {
     position: relative;
     min-height: 88px;
@@ -371,12 +443,15 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.35;
     animation: sweep 1.6s linear infinite;
   }
 
   .scanner p {
     position: relative;
+  }
+
+  .empty.panel {
+    margin-bottom: 14px;
   }
 
   @keyframes sweep {
