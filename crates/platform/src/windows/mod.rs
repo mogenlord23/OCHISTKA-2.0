@@ -2,6 +2,8 @@
 
 pub mod clamav;
 pub mod files;
+pub mod processes;
+pub mod programs;
 
 use std::sync::{Mutex, OnceLock};
 

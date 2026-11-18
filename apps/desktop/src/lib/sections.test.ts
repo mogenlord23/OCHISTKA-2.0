@@ -42,6 +42,14 @@ describe('SECTIONS', () => {
     ]);
   });
 
+  it('gives the programs section its installed and startup subsections', () => {
+    const programs = SECTIONS.find((section) => section.id === 'programs');
+    expect(programs?.subsections.map((item) => item.title)).toEqual([
+      'Установленные',
+      'Автозагрузка',
+    ]);
+  });
+
   it('gives the disks section its four subsections in order', () => {
     const disks = SECTIONS.find((section) => section.id === 'disks');
     expect(disks?.subsections.map((item) => item.title)).toEqual([

@@ -7,3 +7,7 @@ publish.workspace = true
 [dependencies]
 ochistka-core = { path = "../ochistka-core" }
 sysinfo = "0.40.4"
+
+# Реестр Windows: только чтение, только под Windows (безопасная обёртка над WinAPI).
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56.0"

@@ -2,6 +2,8 @@
 
 pub mod commands;
 pub mod disks;
+pub mod processes;
+pub mod programs;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -51,6 +53,10 @@ pub fn run() {
         .manage(disks::DisksState::new(
             ochistka_platform::current_cleanup_env(),
         ))
+        .manage(programs::ProgramsState::new(
+            ochistka_platform::current_programs_port(),
+            ochistka_platform::current_cleanup_env(),
+        ))
         .invoke_handler(tauri::generate_handler![
             get_system_overview,
             scan_start,
@@ -58,7 +64,9 @@ pub fn run() {
             clamav_status,
             assess_file,
             default_scan_target,
-            disks::disks_request
+            disks::disks_request,
+            processes::processes_request,
+            programs::programs_request
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

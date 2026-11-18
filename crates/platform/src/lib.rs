@@ -10,6 +10,7 @@ pub mod windows;
 pub mod windows_cleanup;
 
 use ochistka_core::layout::CleanupEnvPort;
+use ochistka_core::programs::ProgramsPort;
 use ochistka_core::scan::VirusScanPort;
 use ochistka_core::system::SystemInfoPort;
 
@@ -61,6 +62,28 @@ pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
 #[cfg(not(target_os = "windows"))]
 pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {
     Box::new(linux::cleanup::UnsupportedCleanupEnv)
+}
+
+/// Порт процессов: Windows — sysinfo, остальные ОС — заглушка `Unsupported`.
+#[cfg(target_os = "windows")]
+pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> {
+    Box::new(windows::processes::WindowsProcessPort::new())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> {
+    Box::new(linux::processes::UnsupportedProcessPort)
+}
+
+/// Реестр и автозагрузка для раздела «Программы»: Windows — адаптер реестра (только чтение), остальные — заглушка.
+#[cfg(target_os = "windows")]
+pub fn current_programs_port() -> Box<dyn ProgramsPort> {
+    Box::new(windows::programs::WindowsPrograms::new())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn current_programs_port() -> Box<dyn ProgramsPort> {
+    Box::new(linux::programs::UnsupportedPrograms)
 }
 
 #[cfg(test)]

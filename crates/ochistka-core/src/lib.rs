@@ -2,6 +2,8 @@ pub mod cleanup;
 pub mod fs;
 pub mod layout;
 pub mod policy;
+pub mod processes;
+pub mod programs;
 pub mod quarantine;
 pub mod readonly;
 pub mod scan;

@@ -48,9 +48,9 @@ describe('App navigation', () => {
 
   it('shows a placeholder for a section that is not built yet', async () => {
     render(App);
-    await fireEvent.click(screen.getByRole('button', { name: 'Процессы' }));
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Процессы');
-    expect(screen.getByText('В разработке')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Оформление');
+    expect(screen.getByText('Подразделы уточняются')).toBeTruthy();
   });
 
   it('has window controls for minimise, maximise and close', () => {
