@@ -44,11 +44,11 @@
   .rail {
     display: flex;
     flex-direction: column;
-    width: 124px;
+    width: 110px;
     gap: 4px;
     min-height: 0;
     overflow-y: auto;
-    padding: 8px 8px 0;
+    padding: 10px 8px 0;
     background: var(--black);
   }
 
@@ -57,14 +57,14 @@
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
-    gap: 2px;
-    padding: 6px 4px;
+    gap: 4px;
+    padding: 10px 4px 9px;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--ink);
     font: inherit;
-    font-size: var(--text-small);
+    font-size: var(--text-caption);
     font-weight: 800;
     cursor: pointer;
   }
@@ -79,8 +79,8 @@
   }
 
   svg {
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;

@@ -31,25 +31,25 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 16px 0 20px;
+    margin: 14px 0 18px;
   }
 
   button {
-    min-height: 44px;
-    padding: 10px 16px;
+    min-height: 36px;
+    padding: 8px 14px;
     border: 0;
     border-radius: var(--radius-sm);
     background: var(--black);
     color: var(--ink);
     font: inherit;
     font-weight: 800;
-    text-transform: uppercase;
     font-size: var(--text-body);
     cursor: pointer;
   }
 
+  /* Активная вкладка: текст и обводка цветом раздела на чёрном, как на эталоне. */
   button.active {
-    background: var(--ink);
-    color: var(--black);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
 </style>

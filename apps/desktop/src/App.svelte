@@ -14,7 +14,7 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
 
-  const VERSION = '0.1.0';
+  const VERSION = '0.5.5';
 
   let activeId = $state<SectionId>('vpn');
   let activeSub = $state('subscription');
@@ -148,9 +148,11 @@
   }
 
   main {
+    display: flex;
     flex: 1;
+    flex-direction: column;
     min-width: 0;
-    padding: 0 24px 16px;
+    padding: 0 24px 14px;
   }
 
   h1 {
@@ -170,7 +172,8 @@
   }
 
   footer {
-    margin-top: 24px;
+    margin-top: auto;
+    padding-top: 20px;
     font-size: 11px;
     color: var(--page-text);
   }

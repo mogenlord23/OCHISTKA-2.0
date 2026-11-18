@@ -69,7 +69,7 @@ describe('neutral, radius and type tokens', () => {
       ink: '#fafafa',
       inkSoft: '#d4d4d4',
       muted: '#8b8b8b',
-      surface: '#141414',
+      surface: '#111111',
       surfaceAlt: '#111111',
       border: '#343434',
     });

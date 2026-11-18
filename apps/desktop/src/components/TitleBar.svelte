@@ -35,27 +35,28 @@
   }
 
   strong {
-    font-size: var(--text-section);
+    font-family: var(--font-heading);
+    font-size: 30px;
     font-weight: 900;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     color: var(--black);
   }
 
   small {
-    font-size: var(--text-caption);
+    font-size: 10px;
     color: var(--black);
   }
 
   .controls {
     display: flex;
-    gap: 8px;
+    gap: 6px;
   }
 
   button {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border: 0;
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--black);
     color: var(--ink);
     font: inherit;
