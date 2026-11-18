@@ -44,7 +44,7 @@
             {#if kind === 'cursor'}<span class="pointer">↖</span>{/if}
           </span>
           <span class="label">{tile.label}</span>
-          <span class="state">{isSelected ? '✓ Выбрано' : tile.description}</span>
+          {#if isSelected}<span class="state">✓ Выбрано</span>{/if}
         </button>
       </li>
     {/each}
@@ -69,8 +69,8 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -82,7 +82,7 @@
     gap: 8px;
     width: 100%;
     min-height: 44px;
-    padding: 8px;
+    padding: 6px;
     border: 2px solid transparent;
     border-radius: var(--radius-md);
     background: var(--surface);
@@ -100,7 +100,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 84px;
+    height: 96px;
     border-radius: var(--radius-sm);
   }
 
@@ -110,7 +110,7 @@
   }
 
   .label {
-    font-size: var(--text-body);
+    font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
   }
