@@ -30,11 +30,12 @@ export const SECTIONS: readonly Section[] = [
     title: 'VPN',
     titleKey: 'section.vpn',
     accent: SECTION_COLORS.vpn,
-    lead: 'Твоё подключение. Твои правила.',
+    lead: 'Сетевые функции и диагностика · только чтение',
     subsections: [
-      { id: 'subscription', title: 'Подписка и импорт', titleKey: 'sub.vpn.subscription' },
-      { id: 'servers', title: 'Серверы', titleKey: 'sub.vpn.servers' },
-      { id: 'routes', title: 'Маршруты и исключения', titleKey: 'sub.vpn.routes' },
+      { id: 'vpn', title: 'VPN', titleKey: 'sub.vpn.vpn' },
+      { id: 'advanced', title: 'Дополнительно', titleKey: 'sub.vpn.advanced' },
+      { id: 'network', title: 'Сеть', titleKey: 'sub.vpn.network' },
+      { id: 'connections', title: 'Соединения', titleKey: 'sub.vpn.connections' },
     ],
   },
   {
@@ -107,6 +108,7 @@ export const SECTIONS: readonly Section[] = [
       { id: 'wallpapers', title: 'Обои', titleKey: 'sub.design.wallpapers' },
       { id: 'cursors', title: 'Курсоры', titleKey: 'sub.design.cursors' },
       { id: 'colors', title: 'Цвета', titleKey: 'sub.design.colors' },
+      { id: 'settings', title: 'Настройки приложения', titleKey: 'sub.design.settings' },
     ],
   },
 ];

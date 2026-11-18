@@ -34,8 +34,8 @@ describe('App navigation', () => {
     render(App);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('VPN');
     const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
-    expect(within(tabs).getByRole('button', { name: 'Подписка и импорт' })).toBeTruthy();
-    expect(within(tabs).getByRole('button', { name: 'Серверы' })).toBeTruthy();
+    expect(within(tabs).getByRole('button', { name: 'VPN' })).toBeTruthy();
+    expect(within(tabs).getByRole('button', { name: 'Соединения' })).toBeTruthy();
   });
 
   it('opens the virus section from the rail', async () => {
@@ -46,7 +46,7 @@ describe('App navigation', () => {
     expect(within(tabs).getByRole('button', { name: 'Журнал проверки' })).toBeTruthy();
   });
 
-  it('opens the appearance section with its three subsections and the first grid', async () => {
+  it('opens the appearance section with its four tabs and the first grid', async () => {
     render(App);
     await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Оформление');
@@ -55,8 +55,8 @@ describe('App navigation', () => {
       within(tabs)
         .getAllByRole('button')
         .map((button) => button.textContent?.trim()),
-    ).toEqual(['Обои', 'Курсоры', 'Цвета']);
-    expect(screen.getByRole('button', { name: /Аврора/ })).toBeTruthy();
+    ).toEqual(['Обои', 'Курсоры', 'Цвета', 'Настройки приложения']);
+    expect(screen.getByRole('button', { name: /Фото 001/ })).toBeTruthy();
   });
 
   it('has window controls for minimise, maximise and close', () => {

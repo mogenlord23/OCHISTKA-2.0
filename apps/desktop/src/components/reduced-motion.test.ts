@@ -18,3 +18,12 @@ describe('VirusesPage reduced motion', () => {
     expect(pageSource).toContain('Проверяем файлы');
   });
 });
+
+describe('VpnPage reduced motion', () => {
+  it('turns the tab-switch animation off under prefers-reduced-motion: reduce', async () => {
+    const source = (await import('./VpnPage.svelte?raw')).default;
+    const css = source.slice(source.indexOf('<style>'));
+    const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
+    expect(match?.[1] ?? '').toMatch(/\.pane\s*\{[^}]*animation:\s*none/);
+  });
+});

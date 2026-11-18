@@ -100,6 +100,22 @@ pub fn current_programs_port() -> Box<dyn ProgramsPort> {
     Box::new(linux::programs::UnsupportedPrograms)
 }
 
+/// Сеть (адаптеры и TCP-соединения), только чтение: Windows — sysinfo и netstat2, остальные ОС — заглушка.
+#[cfg(target_os = "windows")]
+pub fn current_network_port() -> Box<dyn ochistka_core::network::NetworkPort> {
+    Box::new(windows::network::WindowsNetwork::new())
+}
+
+#[cfg(target_os = "macos")]
+pub fn current_network_port() -> Box<dyn ochistka_core::network::NetworkPort> {
+    Box::new(macos::network::UnsupportedNetwork)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn current_network_port() -> Box<dyn ochistka_core::network::NetworkPort> {
+    Box::new(linux::network::UnsupportedNetwork)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

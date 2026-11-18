@@ -22,9 +22,10 @@
   "sub.viruses.scan": "Scan",
   "sub.viruses.findings": "Findings",
   "sub.viruses.log": "Scan log",
-  "sub.vpn.subscription": "Subscription and import",
-  "sub.vpn.servers": "Servers",
-  "sub.vpn.routes": "Routes and exclusions",
+  "sub.vpn.vpn": "VPN",
+  "sub.vpn.advanced": "Advanced",
+  "sub.vpn.network": "Network",
+  "sub.vpn.connections": "Connections",
   "sub.processes.processes": "Processes",
   "sub.processes.services": "Services",
   "sub.programs.installed": "Installed",
@@ -39,5 +40,6 @@
   "sub.computer.drivers": "Drivers",
   "sub.design.wallpapers": "Wallpapers",
   "sub.design.cursors": "Cursors",
-  "sub.design.colors": "Colors"
+  "sub.design.colors": "Colors",
+  "sub.design.settings": "App settings"
 }

@@ -5,6 +5,7 @@ pub mod hardware;
 pub mod heuristic;
 pub mod inventory;
 pub mod layout;
+pub mod network;
 pub mod policy;
 pub mod processes;
 pub mod programs;

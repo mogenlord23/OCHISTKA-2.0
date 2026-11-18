@@ -10,6 +10,12 @@ use serde::Serialize;
 use crate::fs::{walk, Budget, CleanupError, FsPort, Limits};
 use crate::system::CoreError;
 
+pub mod icons;
+pub mod startup_state;
+pub mod uninstall;
+
+use uninstall::{parse_uninstall_string, UninstallCommand, DEFAULT_SYSTEM_ROOT};
+
 /// Лимит для подсчёта размера папки программы. Больше — обход останавливается, результат неполный.
 pub const FOLDER_LIMITS: Limits = Limits {
     max_entries: 200_000,
@@ -63,6 +69,16 @@ pub struct InstalledProgram {
     /// Буква диска вида `C:`, если известна из папки установки.
     pub disk_letter: Option<String>,
     pub kind: ProgramKind,
+    /// Стабильный ключ записи: имя, версия и издатель в нижнем регистре. По нему просят удалить программу.
+    pub id: String,
+    /// Файл со значком из `DisplayIcon`; `None` — значка нет, интерфейс рисует букву.
+    pub icon_path: Option<String>,
+    /// Можно ли запустить штатное удаление. Если нет, причина в `uninstall_reason`.
+    pub can_uninstall: bool,
+    pub uninstall_reason: Option<String>,
+    /// Строка из реестра. В интерфейс не уходит: удаление запускается по `id`, команду берёт ядро.
+    #[serde(skip)]
+    pub uninstall_string: Option<String>,
 }
 
 /// Источник записи автозагрузки.
@@ -75,6 +91,26 @@ pub enum StartupSource {
 }
 
 impl StartupSource {
+    /// Короткий стабильный идентификатор для обмена с интерфейсом.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::HkcuRun => "hkcuRun",
+            Self::HklmRun => "hklmRun",
+            Self::UserStartupFolder => "userFolder",
+            Self::CommonStartupFolder => "commonFolder",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "hkcuRun" => Some(Self::HkcuRun),
+            "hklmRun" => Some(Self::HklmRun),
+            "userFolder" => Some(Self::UserStartupFolder),
+            "commonFolder" => Some(Self::CommonStartupFolder),
+            _ => None,
+        }
+    }
+
     /// Подпись для интерфейса.
     pub fn label(self) -> &'static str {
         match self {
@@ -92,6 +128,12 @@ pub struct RawStartup {
     pub source: StartupSource,
     pub name: String,
     pub command: Option<String>,
+    /// Имя значения в `StartupApproved`: для Run — имя записи, для папки — имя файла с расширением.
+    pub value_name: String,
+    /// Значение флага `StartupApproved`; `None` — флага нет (запись включена).
+    pub approved: Option<Vec<u8>>,
+    /// Состояние до первого отключения из OCHISTKA (значение нашей резервной копии).
+    pub backup: Option<Vec<u8>>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -100,6 +142,27 @@ pub struct StartupEntry {
     pub name: String,
     pub command: Option<String>,
     pub location: String,
+    /// Идентификатор источника (`StartupSource::id`) и имя значения: по ним просят изменить запись.
+    pub source: String,
+    pub key: String,
+    pub enabled: bool,
+    /// Состояние до отключения из OCHISTKA, если оно записано.
+    pub previous_enabled: Option<bool>,
+}
+
+/// Итог изменения флага автозагрузки: что было и что стало.
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupToggle {
+    pub previous_enabled: bool,
+    pub enabled: bool,
+}
+
+fn unsupported_here(feature: &str) -> CoreError {
+    CoreError::Unsupported {
+        feature: feature.into(),
+        os: "этой ОС".into(),
+    }
 }
 
 /// Порт чтения реестра и папок автозагрузки. Реализация на Windows — в `crates/platform`.
@@ -108,6 +171,27 @@ pub trait ProgramsPort: Send + Sync {
     fn installed_records(&self) -> Result<Vec<RawProgramRecord>, CoreError>;
     /// Записи автозагрузки: ключи Run и папки «Автозагрузка». Только чтение.
     fn startup_records(&self) -> Result<Vec<RawStartup>, CoreError>;
+    /// PNG значка файла в base64. По умолчанию — `Unsupported`; на Windows — извлечение значка.
+    fn icon_png_base64(&self, _path: &str) -> Result<String, CoreError> {
+        Err(unsupported_here("Значки приложений"))
+    }
+    /// Запускает штатный деинсталлятор. Вызывать только после подтверждения пользователя.
+    fn run_uninstaller(&self, _command: &UninstallCommand) -> Result<(), CoreError> {
+        Err(unsupported_here("Удаление программ"))
+    }
+    /// Включает или отключает запись автозагрузки флагом `StartupApproved`, помня прежнее значение.
+    fn set_startup_enabled(
+        &self,
+        _source: StartupSource,
+        _value_name: &str,
+        _enable: bool,
+    ) -> Result<StartupToggle, CoreError> {
+        Err(unsupported_here("Управление автозагрузкой"))
+    }
+    /// Папка Windows для `msiexec.exe`. По умолчанию `C:\Windows`.
+    fn system_root(&self) -> String {
+        DEFAULT_SYSTEM_ROOT.to_string()
+    }
 }
 
 /// Текстовое значение без пробелов по краям; пустая строка — отсутствие значения.
@@ -167,10 +251,35 @@ pub fn parse_program(record: &RawProgramRecord) -> Option<InstalledProgram> {
             }
         }
     };
+    let publisher = text(values, "Publisher");
+    let version = text(values, "DisplayVersion");
+    let uninstall_string = text(values, "UninstallString");
+    let (can_uninstall, uninstall_reason) = match (record.source, uninstall_string.as_deref()) {
+        (RawSource::Store, _) => (
+            false,
+            Some("Приложения Microsoft Store удаляются через «Параметры» Windows".to_string()),
+        ),
+        (_, None) => (false, Some("В реестре нет команды удаления".to_string())),
+        (_, Some(raw)) => match parse_uninstall_string(raw, DEFAULT_SYSTEM_ROOT) {
+            Ok(_) => (true, None),
+            Err(err) => (false, Some(err.to_string())),
+        },
+    };
+    let id = format!(
+        "{}|{}|{}",
+        name.to_lowercase(),
+        version.clone().unwrap_or_default(),
+        publisher.clone().unwrap_or_default().to_lowercase()
+    );
     Some(InstalledProgram {
+        icon_path: text(values, "DisplayIcon").and_then(|raw| icons::parse_display_icon(&raw)),
+        id,
+        can_uninstall,
+        uninstall_reason,
+        uninstall_string,
         name,
-        publisher: text(values, "Publisher"),
-        version: text(values, "DisplayVersion"),
+        publisher,
+        version,
         size_bytes: number(values, "EstimatedSize").map(|kb| kb * 1024),
         disk_letter: install_location.as_deref().and_then(disk_letter_of),
         install_location,
@@ -183,14 +292,28 @@ pub fn build_inventory(records: &[RawProgramRecord]) -> Vec<InstalledProgram> {
     let mut programs: Vec<InstalledProgram> = records.iter().filter_map(parse_program).collect();
     programs.sort_by_key(|program| program.name.to_lowercase());
     let mut seen = std::collections::BTreeSet::new();
-    programs.retain(|program| {
-        seen.insert((
-            program.name.to_lowercase(),
-            program.version.clone().unwrap_or_default(),
-            program.publisher.clone().unwrap_or_default().to_lowercase(),
-        ))
-    });
+    programs.retain(|program| seen.insert(program.id.clone()));
     programs
+}
+
+/// Команда удаления программы по `id`. Ошибка — причина на русском для интерфейса.
+pub fn uninstall_command_for(
+    records: &[RawProgramRecord],
+    id: &str,
+    system_root: &str,
+) -> Result<UninstallCommand, CoreError> {
+    let program = build_inventory(records)
+        .into_iter()
+        .find(|program| program.id == id)
+        .ok_or_else(|| CoreError::InvalidTarget("программа не найдена в реестре".into()))?;
+    if let Some(reason) = program.uninstall_reason {
+        return Err(CoreError::InvalidTarget(reason));
+    }
+    let raw = program
+        .uninstall_string
+        .ok_or_else(|| CoreError::InvalidTarget("В реестре нет команды удаления".into()))?;
+    parse_uninstall_string(&raw, system_root)
+        .map_err(|err| CoreError::InvalidTarget(err.to_string()))
 }
 
 /// Записи автозагрузки: без пустых имён, без повторов (источник и имя), по имени.
@@ -209,6 +332,14 @@ pub fn build_startup(records: Vec<RawStartup>) -> Vec<StartupEntry> {
                     .map(|command| command.trim().to_string())
                     .filter(|command| !command.is_empty()),
                 location: record.source.label().to_string(),
+                source: record.source.id().to_string(),
+                key: record.value_name,
+                enabled: record
+                    .approved
+                    .as_deref()
+                    .and_then(startup_state::is_enabled)
+                    .unwrap_or(true),
+                previous_enabled: record.backup.as_deref().and_then(startup_state::is_enabled),
             })
         })
         .collect();
@@ -453,21 +584,33 @@ mod tests {
                 source: StartupSource::HkcuRun,
                 name: "Zeta".into(),
                 command: Some("  z.exe ".into()),
+                value_name: "Zeta".into(),
+                approved: None,
+                backup: None,
             },
             RawStartup {
                 source: StartupSource::HklmRun,
                 name: "alpha".into(),
                 command: Some(String::new()),
+                value_name: "alpha".into(),
+                approved: None,
+                backup: None,
             },
             RawStartup {
                 source: StartupSource::HkcuRun,
                 name: "Zeta".into(),
                 command: Some("z.exe".into()),
+                value_name: "Zeta".into(),
+                approved: None,
+                backup: None,
             },
             RawStartup {
                 source: StartupSource::UserStartupFolder,
                 name: "  ".into(),
                 command: None,
+                value_name: "  ".into(),
+                approved: None,
+                backup: None,
             },
         ]);
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
@@ -475,6 +618,103 @@ mod tests {
         assert_eq!(entries[0].command, None);
         assert_eq!(entries[1].command.as_deref(), Some("z.exe"));
         assert_eq!(entries[1].location, "Реестр: HKCU, Run");
+    }
+
+    #[test]
+    fn startup_entry_carries_source_key_and_state() {
+        let entries = build_startup(vec![
+            RawStartup {
+                source: StartupSource::HkcuRun,
+                name: "On".into(),
+                command: None,
+                value_name: "On".into(),
+                approved: Some(vec![2, 0, 0, 0]),
+                backup: None,
+            },
+            RawStartup {
+                source: StartupSource::UserStartupFolder,
+                name: "Off".into(),
+                command: None,
+                value_name: "Off.lnk".into(),
+                approved: Some(vec![3, 0, 0, 0]),
+                backup: Some(vec![2, 0, 0, 0]),
+            },
+        ]);
+        assert!(entries[1].enabled || entries[0].enabled);
+        let off = entries.iter().find(|e| e.name == "Off").unwrap();
+        assert!(!off.enabled);
+        assert_eq!(off.previous_enabled, Some(true));
+        assert_eq!(
+            (off.source.as_str(), off.key.as_str()),
+            ("userFolder", "Off.lnk")
+        );
+        let on = entries.iter().find(|e| e.name == "On").unwrap();
+        assert!(on.enabled);
+        assert_eq!(on.previous_enabled, None);
+    }
+
+    #[test]
+    fn startup_source_ids_roundtrip() {
+        for source in [
+            StartupSource::HkcuRun,
+            StartupSource::HklmRun,
+            StartupSource::UserStartupFolder,
+            StartupSource::CommonStartupFolder,
+        ] {
+            assert_eq!(StartupSource::from_id(source.id()), Some(source));
+        }
+        assert_eq!(StartupSource::from_id("nope"), None);
+    }
+
+    fn uninstall_record(extra: &[(&str, RawValue)], source: RawSource) -> RawProgramRecord {
+        let mut pairs = vec![("DisplayName", text_value("Tool"))];
+        pairs.extend(extra.iter().cloned());
+        record(source, &pairs)
+    }
+
+    #[test]
+    fn program_exposes_icon_and_uninstall_availability() {
+        let rec = uninstall_record(
+            &[
+                ("DisplayIcon", text_value("\"C:\\A\\a.exe\",0")),
+                ("UninstallString", text_value("\"C:\\A\\u.exe\" /S")),
+            ],
+            RawSource::Uninstall,
+        );
+        let program = parse_program(&rec).unwrap();
+        assert_eq!(program.icon_path.as_deref(), Some("C:\\A\\a.exe"));
+        assert!(program.can_uninstall);
+        assert_eq!(program.uninstall_reason, None);
+        let json = serde_json::to_string(&program).unwrap();
+        assert!(!json.contains("u.exe"), "the command must not reach the UI");
+    }
+
+    #[test]
+    fn program_without_command_or_from_store_cannot_be_uninstalled() {
+        let none = parse_program(&uninstall_record(&[], RawSource::Uninstall)).unwrap();
+        assert!(!none.can_uninstall);
+        assert_eq!(
+            none.uninstall_reason.as_deref(),
+            Some("В реестре нет команды удаления")
+        );
+        let store = parse_program(&uninstall_record(&[], RawSource::Store)).unwrap();
+        assert!(!store.can_uninstall);
+        assert!(store.uninstall_reason.unwrap().contains("Store"));
+    }
+
+    #[test]
+    fn uninstall_command_is_found_by_id_and_refuses_unknown_or_blocked() {
+        let ok = uninstall_record(
+            &[("UninstallString", text_value("MsiExec.exe /I{X}"))],
+            RawSource::Uninstall,
+        );
+        let id = parse_program(&ok).unwrap().id;
+        let cmd = uninstall_command_for(std::slice::from_ref(&ok), &id, "C:\\Windows").unwrap();
+        assert_eq!(cmd.raw_args, "/X{X}");
+        assert!(uninstall_command_for(&[ok], "other", "C:\\Windows").is_err());
+        let blocked = uninstall_record(&[], RawSource::Uninstall);
+        let id = parse_program(&blocked).unwrap().id;
+        assert!(uninstall_command_for(&[blocked], &id, "C:\\Windows").is_err());
     }
 
     #[test]

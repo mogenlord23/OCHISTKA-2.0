@@ -3,6 +3,7 @@
 pub mod commands;
 pub mod disks;
 pub mod hardware;
+pub mod network;
 pub mod processes;
 pub mod programs;
 
@@ -51,7 +52,9 @@ pub fn run() {
             disks::disks_request,
             processes::processes_request,
             programs::programs_request,
-            hardware::get_hardware
+            hardware::get_hardware,
+            network::get_network_adapters,
+            network::get_tcp_connections
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

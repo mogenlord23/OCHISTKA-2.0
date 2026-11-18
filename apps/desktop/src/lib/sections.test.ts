@@ -24,12 +24,13 @@ describe('SECTIONS', () => {
     ]);
   });
 
-  it('gives the VPN section its three subsections in order', () => {
+  it('gives the VPN section its four tabs in order', () => {
     const vpn = SECTIONS.find((section) => section.id === 'vpn');
     expect(vpn?.subsections.map((item) => item.title)).toEqual([
-      'Подписка и импорт',
-      'Серверы',
-      'Маршруты и исключения',
+      'VPN',
+      'Дополнительно',
+      'Сеть',
+      'Соединения',
     ]);
   });
 
@@ -67,6 +68,7 @@ describe('SECTIONS', () => {
       { id: 'wallpapers', title: 'Обои', titleKey: 'sub.design.wallpapers' },
       { id: 'cursors', title: 'Курсоры', titleKey: 'sub.design.cursors' },
       { id: 'colors', title: 'Цвета', titleKey: 'sub.design.colors' },
+      { id: 'settings', title: 'Настройки приложения', titleKey: 'sub.design.settings' },
     ]);
   });
 

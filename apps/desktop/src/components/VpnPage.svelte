@@ -1,4 +1,6 @@
 <script lang="ts">
+  import VpnConnectionsTab from './VpnConnectionsTab.svelte';
+  import VpnNetworkTab from './VpnNetworkTab.svelte';
   import {
     IMPORT_REASON,
     NETWORK_STATUS_OFF,
@@ -13,12 +15,24 @@
 
   let { subsection }: { subsection: string } = $props();
 
-  /** Один экран, как на эталоне: «главный» или «Дополнительно» (Zapret, Xbox DNS). */
+  type Tab = 'vpn' | 'advanced' | 'network' | 'connections';
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'vpn', label: 'VPN' },
+    { id: 'advanced', label: 'Дополнительно' },
+    { id: 'network', label: 'Сеть' },
+    { id: 'connections', label: 'Соединения' },
+  ];
+
+  function tabOf(id: string): Tab {
+    return TABS.find((item) => item.id === id)?.id ?? 'vpn';
+  }
+
   // svelte-ignore state_referenced_locally
-  let view = $state<'main' | 'advanced'>(subsection === 'routes' ? 'advanced' : 'main');
+  let tab = $state<Tab>(tabOf(subsection));
   $effect(() => {
-    view = subsection === 'routes' ? 'advanced' : 'main';
+    tab = tabOf(subsection);
   });
+  const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
   let selected = $state(0);
   let fileInput: HTMLInputElement | undefined = $state();
 
@@ -44,8 +58,8 @@
   }
 
   const ADVANCED = [
-    { id: 'zapret', label: 'Zapret', description: 'Обход блокировок DPI' },
-    { id: 'xbox-dns', label: 'Xbox DNS', description: 'DNS-серверы Xbox' },
+    { id: 'zapret', label: 'Zapret', description: 'Обход блокировок DPI', icon: '↗' },
+    { id: 'xbox-dns', label: 'Xbox DNS', description: 'DNS-серверы Xbox', icon: 'X' },
   ] as const;
 
   let urlInput = $state('');
@@ -100,169 +114,167 @@
 </script>
 
 <div class="vpn">
-  <aside class="poster" aria-hidden="true">
-    <div class="pop-strip">
-      {#each [0, 1, 2] as tile (tile)}
-        <span class="pop-tile"><span class="pop-dot"></span></span>
-      {/each}
-    </div>
-    <div class="pop-main">
-      <span class="pop-ring"></span>
-      <span class="pop-disc"></span>
-      <span class="pop-glyph">VPN</span>
-    </div>
-  </aside>
-
   <div class="column">
     <header class="head">
-      <div class="titles">
-        <button
-          type="button"
-          class="title-tab"
-          class:on={view === 'main'}
-          aria-pressed={view === 'main'}
-          onclick={() => (view = 'main')}>VPN</button
-        >
-        <button
-          type="button"
-          class="title-tab"
-          class:on={view === 'advanced'}
-          aria-pressed={view === 'advanced'}
-          onclick={() => (view = 'advanced')}>Дополнительно</button
-        >
-      </div>
-      <p class="tagline">Твоё подключение. Твои правила.</p>
+      <div class="title" data-testid="vpn-title">{tabLabel}</div>
+      <p class="tagline">Сетевые функции и диагностика · только чтение</p>
     </header>
 
-    {#if view === 'main'}
-      <section class="card">
-        <h2>Ссылка подписки / импорта</h2>
-        <div class="row">
-          <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
-          <button type="button" onclick={onImport}>Импорт</button>
-        </div>
-        <div class="row tight">
-          <button type="button" onclick={() => fileInput?.click()}>Из файла…</button>
-          <button type="button" onclick={() => (view = 'advanced')}>Маршруты и исключения</button>
-          <input
-            bind:this={fileInput}
-            class="hidden"
-            type="file"
-            accept=".txt,text/plain"
-            aria-label="Файл подписки"
-            onchange={onFile}
-          />
-        </div>
-        {#if importMessage}
-          <p class="note" role="status">{importMessage}</p>
-        {/if}
-      </section>
-
-      <section class="card connect">
-        <div class="power-row">
-          <button
-            type="button"
-            class="power"
-            aria-pressed="false"
-            aria-label="Подключить"
-            onclick={onConnect}
-          >
-            <span class="power-knob" aria-hidden="true"></span>
-          </button>
-          <div class="power-text">
-            <span class="power-label">Подключить</span>
-            <span class="timer" aria-label="Время подключения">{formatElapsed(elapsedSeconds)}</span
-            >
-            <span class="status-line" role="status">{connectMessage ?? 'Не подключено'}</span>
-          </div>
-        </div>
-        <label class="select">
-          <span class="hidden">Режим</span>
-          <select disabled aria-describedby="vpn-tun-reason" aria-label="Режим">
-            <option>TUN · весь компьютер</option>
-          </select>
-          <span class="chev" aria-hidden="true"></span>
-        </label>
-        <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
-      </section>
-
-      <h2 class="list-title">Серверы / {parsed?.servers.length ?? 0}</h2>
-      <section class="card servers-card">
-        {#if parsed && parsed.servers.length > 0}
-          <ul class="servers" aria-label="Серверы">
-            {#each parsed.servers as server, index (index)}
-              <li>
-                <button
-                  type="button"
-                  class="server"
-                  class:selected={selected === index}
-                  aria-pressed={selected === index}
-                  onclick={() => (selected = index)}
-                >
-                  <span class="srv-name">
-                    {#if countryCode(server.name)}<b class="cc">{countryCode(server.name)}</b
-                      >{/if}{displayName(server.name)}
-                  </span>
-                  <span class="scheme">{server.scheme.toUpperCase()}</span>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="note empty">
-            Серверов пока нет. Вставь ссылку https:// или текст подписки в поле выше, либо выбери
-            файл.
-          </p>
-        {/if}
-      </section>
-    {:else}
-      <h2 class="big">Инструменты доступа</h2>
-      {#each ADVANCED as item (item.id)}
-        <section class="card switch-row">
-          <div class="switch-head">
-            <span class="switch-title">{item.label}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked="false"
-              aria-label={item.label}
-              onclick={() => askNetworkToggle(item)}
-            >
-              <span class="knob"></span>
-            </button>
-          </div>
-          <span class="note"
-            >{item.description} · <span class="status">{NETWORK_STATUS_OFF}</span></span
-          >
-          {#if networkMessages[item.id]}
-            <p class="note" role="status">{networkMessages[item.id]}</p>
-          {/if}
-        </section>
+    <div class="tabbar" role="tablist" aria-label="Вкладки VPN">
+      {#each TABS as item (item.id)}
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          class:on={tab === item.id}
+          aria-selected={tab === item.id}
+          onclick={() => (tab = item.id)}>{item.label}</button
+        >
       {/each}
-      {#if pendingNetwork}
-        <div class="backdrop">
-          <div
-            class="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="network-title"
-            aria-describedby="network-text"
-            tabindex="-1"
-            onkeydown={onDialogKey}
-          >
-            <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
-            <p id="network-text">
-              {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока это
-              заглушка: ничего не изменится.
-            </p>
-            <div class="dialog-actions">
-              <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
-              <button type="button" onclick={confirmNetworkToggle}>Включить</button>
+    </div>
+
+    {#key tab}
+      <div class="pane" role="tabpanel" aria-label={tabLabel}>
+        {#if tab === 'vpn'}
+          <section class="card">
+            <h2>Ссылка подписки / импорта</h2>
+            <div class="row">
+              <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
+              <button type="button" onclick={onImport}>Импорт</button>
             </div>
-          </div>
-        </div>
-      {/if}
-    {/if}
+            <div class="row tight">
+              <button type="button" onclick={() => fileInput?.click()}>Из файла…</button>
+              <input
+                bind:this={fileInput}
+                class="hidden"
+                type="file"
+                accept=".txt,text/plain"
+                aria-label="Файл подписки"
+                onchange={onFile}
+              />
+            </div>
+            {#if importMessage}
+              <p class="note" role="status">{importMessage}</p>
+            {/if}
+          </section>
+
+          <section class="card connect">
+            <div class="power-row">
+              <button
+                type="button"
+                class="power"
+                aria-pressed="false"
+                aria-label="Подключить"
+                onclick={onConnect}
+              >
+                <span class="power-knob" aria-hidden="true"></span>
+              </button>
+              <div class="power-text">
+                <span class="power-label">Подключить</span>
+                <span class="timer" aria-label="Время подключения"
+                  >{formatElapsed(elapsedSeconds)}</span
+                >
+                <span class="status-line" role="status">{connectMessage ?? 'Не подключено'}</span>
+              </div>
+            </div>
+            <label class="select">
+              <span class="hidden">Режим</span>
+              <select disabled aria-describedby="vpn-tun-reason" aria-label="Режим">
+                <option>TUN · весь компьютер</option>
+              </select>
+              <span class="chev" aria-hidden="true"></span>
+            </label>
+            <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
+          </section>
+
+          <h2 class="list-title">Серверы / {parsed?.servers.length ?? 0}</h2>
+          <section class="card servers-card">
+            {#if parsed && parsed.servers.length > 0}
+              <ul class="servers" aria-label="Серверы">
+                {#each parsed.servers as server, index (index)}
+                  <li>
+                    <button
+                      type="button"
+                      class="server"
+                      class:selected={selected === index}
+                      aria-pressed={selected === index}
+                      onclick={() => (selected = index)}
+                    >
+                      <span class="srv-name">
+                        {#if countryCode(server.name)}<b class="cc">{countryCode(server.name)}</b
+                          >{/if}{displayName(server.name)}
+                      </span>
+                      <span class="scheme">{server.scheme.toUpperCase()}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="note empty">
+                Серверов пока нет. Вставь ссылку https:// или текст подписки в поле выше, либо
+                выбери файл.
+              </p>
+            {/if}
+          </section>
+        {:else if tab === 'advanced'}
+          {#each ADVANCED as item (item.id)}
+            <section class="card tool switch-row">
+              <span class="tool-icon" class:glyph={item.icon === 'X'} aria-hidden="true"
+                >{item.icon}</span
+              >
+              <div class="tool-text">
+                <span class="tool-label">Дополнительный инструмент</span>
+                <span class="switch-title">{item.label}</span>
+                <span class="note"
+                  >Запуск и изменение сетевых настроек отключены.<span class="hidden">
+                    Состояние: {NETWORK_STATUS_OFF}</span
+                  ></span
+                >
+                {#if networkMessages[item.id]}
+                  <p class="note" role="status">{networkMessages[item.id]}</p>
+                {/if}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked="false"
+                aria-label={item.label}
+                onclick={() => askNetworkToggle(item)}
+              >
+                <span class="knob"></span>
+              </button>
+            </section>
+          {/each}
+          {#if pendingNetwork}
+            <div class="backdrop">
+              <div
+                class="dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="network-title"
+                aria-describedby="network-text"
+                tabindex="-1"
+                onkeydown={onDialogKey}
+              >
+                <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
+                <p id="network-text">
+                  {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока
+                  это заглушка: ничего не изменится.
+                </p>
+                <div class="dialog-actions">
+                  <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
+                  <button type="button" onclick={confirmNetworkToggle}>Включить</button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        {:else if tab === 'network'}
+          <VpnNetworkTab />
+        {:else}
+          <VpnConnectionsTab />
+        {/if}
+      </div>
+    {/key}
   </div>
 </div>
 
@@ -280,94 +292,8 @@
   }
 
   .vpn {
-    display: grid;
-    grid-template-columns: 286px minmax(0, 1fr);
-    gap: 22px;
-    height: calc(100vh - 130px);
+    height: calc(100vh - 118px);
     min-height: 560px;
-  }
-
-  /* Нейтральная поп-арт композиция из CSS вместо фотографии. */
-  .poster {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: var(--radius-lg);
-    background: #000;
-  }
-
-  .pop-strip {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    height: 112px;
-    padding-bottom: 8px;
-    border-bottom: 14px solid var(--accent);
-  }
-
-  .pop-tile {
-    display: grid;
-    place-items: center;
-    background: #b4ff00;
-  }
-
-  .pop-tile:nth-child(2) {
-    background: var(--accent);
-  }
-
-  .pop-dot {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: #2b1b6e;
-    box-shadow: 0 0 0 8px #000;
-  }
-
-  .pop-main {
-    position: relative;
-    flex: 1;
-    margin-top: 10px;
-    background:
-      radial-gradient(circle, rgba(0, 0, 0, 0.28) 1.6px, transparent 2px) 0 0 / 10px 10px,
-      linear-gradient(180deg, #ffe500 0%, #ffe500 45%, #1a1a1a 45%);
-  }
-
-  .pop-ring {
-    position: absolute;
-    left: 50%;
-    top: 44%;
-    width: 210px;
-    height: 210px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    background: #000;
-    box-shadow:
-      0 0 0 14px #ffb3c7,
-      0 0 0 26px #000;
-  }
-
-  .pop-disc {
-    position: absolute;
-    left: 50%;
-    top: 44%;
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(circle at 35% 35%, #5ad1ff 0 18%, #ff2a2a 19% 100%);
-  }
-
-  .pop-glyph {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 26px;
-    text-align: center;
-    font-family: 'Arial Black', sans-serif;
-    font-size: 3.4rem;
-    color: #fff;
-    -webkit-text-stroke: 3px #000;
-    letter-spacing: 0.04em;
   }
 
   .column {
@@ -378,27 +304,84 @@
     min-height: 0;
   }
 
-  .titles {
-    display: flex;
-    gap: 22px;
-    align-items: baseline;
-  }
-
-  .title-tab {
-    min-height: 0;
-    padding: 0;
-    background: none;
-    box-shadow: none;
+  .title {
+    margin: 0;
     font-family: 'Arial Black', 'Segoe UI', sans-serif;
-    font-size: 1.95rem;
+    font-size: 2.6rem;
     font-weight: 900;
     line-height: 1;
     text-transform: uppercase;
-    color: rgba(0, 0, 0, 0.55);
+    color: #000;
   }
 
-  .title-tab.on {
+  /* Чёрная сегментированная панель вкладок; активная — «таблетка» цвета раздела. */
+  .tabbar {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    border-radius: var(--radius-lg);
+    background: #111;
+  }
+
+  .tab {
+    flex: 1;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+    font-size: var(--text-caption);
+    font-weight: 800;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
+  }
+
+  .tab:hover:not(.on) {
+    background: #1d1d1d;
+  }
+
+  .tab.on {
+    background: var(--accent);
     color: #000;
+    box-shadow: none;
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  .pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    animation: pane-in 0.22s ease-out;
+  }
+
+  @keyframes pane-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pane {
+      animation: none;
+    }
+
+    .tab {
+      transition: none;
+    }
   }
 
   .tagline {
@@ -425,13 +408,6 @@
 
   .list-title {
     margin: 10px 0 -2px;
-    color: #000;
-  }
-
-  .big {
-    margin: 10px 0 6px;
-    font-family: 'Arial Black', sans-serif;
-    font-size: 1.4rem;
     color: #000;
   }
 
@@ -631,20 +607,54 @@
 
   .switch-row {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 18px;
+    padding: 22px 20px;
   }
 
-  .switch-head {
+  .tool-icon {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: var(--accent);
+    color: #000;
+    font-size: 1.5rem;
+    font-weight: 900;
+  }
+
+  .tool-icon.glyph {
+    font-family: 'Arial Black', sans-serif;
+    font-size: 1.6rem;
+  }
+
+  .tool-text {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .tool-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
   }
 
   .switch-title {
     font-size: 1.15rem;
     font-weight: 800;
     color: var(--ink);
+  }
+
+  .tool-text .note {
+    margin: 0;
   }
 
   [role='switch'] {
@@ -697,12 +707,11 @@
 
   @media (max-width: 760px) {
     .vpn {
-      grid-template-columns: minmax(0, 1fr);
       height: auto;
     }
 
-    .poster {
-      display: none;
+    .tab {
+      padding: 8px 4px;
     }
   }
 </style>

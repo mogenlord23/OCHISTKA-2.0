@@ -22,9 +22,10 @@
   "sub.viruses.scan": "Проверка",
   "sub.viruses.findings": "Находки",
   "sub.viruses.log": "Журнал проверки",
-  "sub.vpn.subscription": "Подписка и импорт",
-  "sub.vpn.servers": "Серверы",
-  "sub.vpn.routes": "Маршруты и исключения",
+  "sub.vpn.vpn": "VPN",
+  "sub.vpn.advanced": "Дополнительно",
+  "sub.vpn.network": "Сеть",
+  "sub.vpn.connections": "Соединения",
   "sub.processes.processes": "Процессы",
   "sub.processes.services": "Службы",
   "sub.programs.installed": "Установленные",
@@ -39,5 +40,6 @@
   "sub.computer.drivers": "Драйверы",
   "sub.design.wallpapers": "Обои",
   "sub.design.cursors": "Курсоры",
-  "sub.design.colors": "Цвета"
+  "sub.design.colors": "Цвета",
+  "sub.design.settings": "Настройки приложения"
 }

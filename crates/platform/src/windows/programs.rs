@@ -9,6 +9,10 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
+#[cfg_attr(not(windows), allow(unused_imports))]
+use ochistka_core::programs::uninstall::UninstallCommand;
+#[cfg_attr(not(windows), allow(unused_imports))]
+use ochistka_core::programs::StartupToggle;
 use ochistka_core::programs::{
     ProgramsPort, RawProgramRecord, RawSource, RawStartup, RawValue, StartupSource,
 };
@@ -60,14 +64,17 @@ pub fn startup_folder_records(dir: &Path, source: StartupSource) -> Vec<RawStart
             let name = if is_shortcut {
                 path.file_stem()
                     .map(|stem| stem.to_string_lossy().into_owned())
-                    .unwrap_or(file_name)
+                    .unwrap_or_else(|| file_name.clone())
             } else {
-                file_name
+                file_name.clone()
             };
             Some(RawStartup {
                 source,
                 name,
                 command: None,
+                value_name: file_name,
+                approved: None,
+                backup: None,
             })
         })
         .collect()
@@ -155,11 +162,16 @@ mod registry {
     use ochistka_core::programs::{
         RawProgramRecord, RawSource, RawStartup, RawValue, StartupSource,
     };
+    use std::borrow::Cow;
     use winreg::enums::{
-        RegType, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY,
+        RegType, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WOW64_32KEY,
+        KEY_WOW64_64KEY,
     };
+
+    use ochistka_core::programs::{startup_state, StartupToggle};
+    use ochistka_core::system::CoreError;
     use winreg::types::FromRegValue;
-    use winreg::RegKey;
+    use winreg::{RegKey, RegValue};
 
     use super::{store_record, RUN_PATH, STORE_ALL_PACKAGES, STORE_USER_PACKAGES, UNINSTALL_PATH};
 
@@ -217,8 +229,11 @@ mod registry {
             .filter_map(|(name, value)| match value {
                 RawValue::Text(command) => Some(RawStartup {
                     source,
+                    value_name: name.clone(),
                     name,
                     command: Some(command),
+                    approved: None,
+                    backup: None,
                 }),
                 RawValue::Number(_) => None,
             })
@@ -249,6 +264,104 @@ mod registry {
         records
     }
 
+    const APPROVED_ROOT: &str =
+        r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved";
+    const BACKUP_ROOT: &str = r"Software\OCHISTKA\StartupBackup";
+
+    fn hive(source: StartupSource) -> RegKey {
+        RegKey::predef(if startup_state::is_machine_wide(source) {
+            HKEY_LOCAL_MACHINE
+        } else {
+            HKEY_CURRENT_USER
+        })
+    }
+
+    fn approved_path(source: StartupSource) -> String {
+        format!(
+            r"{APPROVED_ROOT}\{}",
+            startup_state::approved_subkey(source)
+        )
+    }
+
+    /// Флаг `StartupApproved` записи; `None`, если флага нет.
+    pub fn read_approved(source: StartupSource, name: &str) -> Option<Vec<u8>> {
+        let key = hive(source)
+            .open_subkey_with_flags(approved_path(source), KEY_READ)
+            .ok()?;
+        key.get_raw_value(name).ok().map(|v| v.bytes.to_vec())
+    }
+
+    /// Состояние до отключения из OCHISTKA (наша резервная копия в HKCU).
+    pub fn read_backup(source: StartupSource, name: &str) -> Option<Vec<u8>> {
+        let key = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey_with_flags(format!(r"{BACKUP_ROOT}\{}", source.id()), KEY_READ)
+            .ok()?;
+        key.get_raw_value(name).ok().map(|v| v.bytes.to_vec())
+    }
+
+    /// Записывает флаг. Прежнее значение сохраняется в резервную копию (один раз) и
+    /// удаляется из неё, когда запись снова включена.
+    pub fn set_enabled(
+        source: StartupSource,
+        name: &str,
+        enable: bool,
+    ) -> Result<StartupToggle, CoreError> {
+        let denied = |err: std::io::Error| {
+            if err.kind() == std::io::ErrorKind::PermissionDenied {
+                CoreError::InvalidTarget(
+                    "для этой записи нужны права администратора, а приложение запущено без них"
+                        .into(),
+                )
+            } else {
+                CoreError::Probe(format!("реестр: {err}"))
+            }
+        };
+        let (key, _) = hive(source)
+            .create_subkey_with_flags(approved_path(source), KEY_READ | KEY_SET_VALUE)
+            .map_err(denied)?;
+        let current = key.get_raw_value(name).ok().map(|v| v.bytes.to_vec());
+        let previous_enabled = current
+            .as_deref()
+            .and_then(startup_state::is_enabled)
+            .unwrap_or(true);
+        let (backup, _) = RegKey::predef(HKEY_CURRENT_USER)
+            .create_subkey_with_flags(
+                format!(r"{BACKUP_ROOT}\{}", source.id()),
+                KEY_READ | KEY_SET_VALUE,
+            )
+            .map_err(denied)?;
+        if !enable && backup.get_raw_value(name).is_err() {
+            let original = current
+                .clone()
+                .unwrap_or_else(|| startup_state::toggled_bytes(None, true, 0));
+            backup
+                .set_raw_value(
+                    name,
+                    &RegValue {
+                        bytes: Cow::Owned(original),
+                        vtype: RegType::REG_BINARY,
+                    },
+                )
+                .map_err(denied)?;
+        }
+        let bytes = startup_state::toggled_bytes(current.as_deref(), enable, super::filetime_now());
+        key.set_raw_value(
+            name,
+            &RegValue {
+                bytes: Cow::Owned(bytes),
+                vtype: RegType::REG_BINARY,
+            },
+        )
+        .map_err(denied)?;
+        if enable {
+            let _ = backup.delete_value(name);
+        }
+        Ok(StartupToggle {
+            previous_enabled,
+            enabled: enable,
+        })
+    }
+
     pub fn run_entries() -> Vec<RawStartup> {
         let mut entries = run_from(&RegKey::predef(HKEY_CURRENT_USER), StartupSource::HkcuRun);
         entries.extend(run_from(
@@ -276,13 +389,82 @@ impl ProgramsPort for WindowsPrograms {
         for (dir, source) in startup_folders() {
             records.extend(startup_folder_records(&dir, source));
         }
+        for record in &mut records {
+            record.approved = registry::read_approved(record.source, &record.value_name);
+            record.backup = registry::read_backup(record.source, &record.value_name);
+        }
         Ok(records)
+    }
+
+    #[cfg(windows)]
+    fn icon_png_base64(&self, path: &str) -> Result<String, CoreError> {
+        let safe = ochistka_core::programs::icons::validate_icon_path(path)
+            .map_err(CoreError::InvalidTarget)?;
+        if !Path::new(&safe).is_file() {
+            return Err(CoreError::InvalidTarget("файл значка не найден".into()));
+        }
+        windows_icons::get_icon_base64_by_path_with_size(&safe, windows_icons::IconSize::Medium)
+            .map_err(|err| CoreError::Probe(format!("значок: {err}")))
+    }
+
+    #[cfg(windows)]
+    fn run_uninstaller(&self, command: &UninstallCommand) -> Result<(), CoreError> {
+        use std::os::windows::process::CommandExt;
+        if !Path::new(&command.exe).is_file() {
+            return Err(CoreError::InvalidTarget(
+                "программа удаления не найдена по указанному пути".into(),
+            ));
+        }
+        let mut process = std::process::Command::new(&command.exe);
+        if !command.raw_args.is_empty() {
+            process.raw_arg(&command.raw_args);
+        }
+        let mut child = process
+            .spawn()
+            .map_err(|err| CoreError::Probe(format!("не удалось запустить удаление: {err}")))?;
+        // Ждём завершения в фоне, чтобы не оставлять процесс-зомби; интерфейс не блокируется.
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn set_startup_enabled(
+        &self,
+        source: StartupSource,
+        value_name: &str,
+        enable: bool,
+    ) -> Result<StartupToggle, CoreError> {
+        if !ochistka_core::programs::startup_state::valid_value_name(value_name) {
+            return Err(CoreError::InvalidTarget("недопустимое имя записи".into()));
+        }
+        registry::set_enabled(source, value_name, enable)
+    }
+
+    #[cfg(windows)]
+    fn system_root(&self) -> String {
+        std::env::var("SystemRoot")
+            .ok()
+            .filter(|root| !root.trim().is_empty())
+            .unwrap_or_else(|| ochistka_core::programs::uninstall::DEFAULT_SYSTEM_ROOT.to_string())
     }
 
     #[cfg(not(windows))]
     fn startup_records(&self) -> Result<Vec<RawStartup>, CoreError> {
         Err(unsupported())
     }
+}
+
+/// Текущее время в формате FILETIME (100-нс интервалы с 1601 года).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn filetime_now() -> u64 {
+    const UNIX_TO_FILETIME_SECS: u64 = 11_644_473_600;
+    let since_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    (since_unix.as_secs() + UNIX_TO_FILETIME_SECS) * 10_000_000
+        + u64::from(since_unix.subsec_nanos() / 100)
 }
 
 #[cfg(not(windows))]
@@ -305,6 +487,37 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn filetime_is_after_2020_and_in_100ns_ticks() {
+        // 2020-01-01 в FILETIME.
+        assert!(filetime_now() > 132_223_104_000_000_000);
+    }
+
+    #[test]
+    fn startup_folder_keeps_the_file_name_as_the_approved_key() {
+        let dir = temp_dir("keys");
+        std::fs::write(dir.join("Messenger.lnk"), b"x").unwrap();
+        let records = startup_folder_records(&dir, StartupSource::UserStartupFolder);
+        assert_eq!(records[0].name, "Messenger");
+        assert_eq!(records[0].value_name, "Messenger.lnk");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn mutating_operations_are_unsupported_outside_windows() {
+        let port = WindowsPrograms::new();
+        assert!(port
+            .set_startup_enabled(StartupSource::HkcuRun, "X", false)
+            .is_err());
+        assert!(port.icon_png_base64(r"C:\A\a.exe").is_err());
+        let command = UninstallCommand {
+            exe: r"C:\A\u.exe".into(),
+            raw_args: String::new(),
+        };
+        assert!(port.run_uninstaller(&command).is_err());
     }
 
     #[test]

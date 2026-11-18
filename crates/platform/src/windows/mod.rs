@@ -5,6 +5,7 @@ pub mod clamav;
 pub mod clamav_ffi;
 pub mod files;
 pub mod hardware;
+pub mod network;
 pub mod processes;
 pub mod programs;
 pub mod services;

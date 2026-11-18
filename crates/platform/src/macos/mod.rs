@@ -2,6 +2,7 @@
 //! Причина для интерфейса: «Недоступно на macOS в этой версии».
 
 pub mod hardware;
+pub mod network;
 
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 
