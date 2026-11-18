@@ -8,5 +8,8 @@
   "summary": "The response-after-unmount test cannot fail when the active guard is removed: the DOM assertion passes because no DOM exists after cleanup, and the console.error assertion depends on unverified Svelte behaviour",
   "evidence": "apps/desktop/src/components/Home.test.ts:102-115; Home.svelte:10 comment, 22, 27 if (active) guards",
   "failure_scenario": "Deleting if (active) at Home.svelte:22 and 27 leaves the test green; the guard has no detecting test.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:53:25Z",
+  "resolution_note": "Re-verifier CONFIRM-PARTIAL. Error-path guard covered by test. Residual accepted: the success-path guard at Home.svelte:22 writes only to detached $state and has no observable effect, so no assertion can detect its removal (surviving mutation recorded in log/fix-FND-0170.md).",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

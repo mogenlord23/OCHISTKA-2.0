@@ -8,5 +8,8 @@
   "summary": "No test checks that polling happens or resumes; only toHaveBeenCalledTimes(1) is asserted after timer advances, so deleting the setInterval (Home.svelte:36) or the pending reset (Home.svelte:31) keeps all seven tests green",
   "evidence": "apps/desktop/src/components/Home.test.ts:81-100 (lines 90, 99 only assert count 1); Home.svelte:31, 36",
   "failure_scenario": "Removing pending = false in Home.svelte:31 means the Компьютер page fetches once and never refreshes; all tests pass. Same for changing the interval to POLL_INTERVAL_MS * 100.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:53:25Z",
+  "resolution_note": "Re-verifier CONFIRM; mutations killed (polls again, does not poll early, pending reset, setInterval removed, interval x100).",
+  "status_changed_at": "2026-11-18T05:56:47Z"
 }

@@ -1,15 +1,20 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Home from './Home.svelte';
-import { getSystemOverview, POLL_INTERVAL_MS } from '../lib/api';
+import { getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
 import type { SystemOverview } from '../lib/types';
 
-vi.mock('../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api')>()),
-  getSystemOverview: vi.fn(),
-}));
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>();
+  return {
+    ...actual,
+    getSystemOverview: vi.fn(),
+    toCommandError: vi.fn(actual.toCommandError),
+  };
+});
 const getMock = vi.mocked(getSystemOverview);
+const toErrorMock = vi.mocked(toCommandError);
 
 const GB = 1024 ** 3;
 const sample: SystemOverview = {
@@ -27,17 +32,26 @@ const sample: SystemOverview = {
   ],
 };
 
-/** Даёт промисам и эффектам Svelte выполниться без таймеров. */
+/** Даёт эффектам Svelte и продолжениям промисов выполниться (требует фейковых таймеров). */
 async function flush(): Promise<void> {
   await tick();
-  for (let i = 0; i < 5; i++) await Promise.resolve();
+  await vi.advanceTimersByTimeAsync(0);
   await tick();
 }
+
+const consoleError = vi.spyOn(console, 'error');
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  consoleError.mockImplementation(() => {});
+});
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   getMock.mockReset();
+  toErrorMock.mockClear();
+  consoleError.mockReset();
 });
 
 describe('Home', () => {
@@ -79,28 +93,77 @@ describe('Home', () => {
   });
 
   it('stops polling after unmount', async () => {
-    vi.useFakeTimers();
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
     expect(getMock).toHaveBeenCalledTimes(1);
 
     cleanup();
-    vi.advanceTimersByTime(POLL_INTERVAL_MS * 3);
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
     expect(getMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not start a request while the previous one is still pending', async () => {
-    vi.useFakeTimers();
     getMock.mockReturnValue(new Promise(() => {}));
     render(Home);
     await flush();
-    vi.advanceTimersByTime(POLL_INTERVAL_MS * 3);
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
     expect(getMock).toHaveBeenCalledTimes(1);
   });
 
+  it('FND-0170: polls again on every interval while responses resolve', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(getMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(getMock).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(getMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('FND-0170: does not poll before the interval has elapsed', async () => {
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS - 1);
+    expect(getMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(getMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('FND-0170: pending clears after a failed request and polling recovers', async () => {
+    getMock.mockRejectedValueOnce({ kind: 'probe', message: 'временный сбой' });
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    expect(screen.getByRole('alert').textContent).toContain('временный сбой');
+
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('Загрузка: 12 %')).toBeTruthy();
+  });
+
+  it('FND-0170: resumes polling after a slow request settles', async () => {
+    let resolveSlow: (value: SystemOverview) => void = () => {};
+    getMock.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+    getMock.mockResolvedValue(sample);
+    render(Home);
+    await flush();
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    resolveSlow(sample);
+    await flush();
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(getMock).toHaveBeenCalledTimes(2);
+  });
+
   it('ignores a response that arrives after unmount', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     let resolveLate: (value: SystemOverview) => void = () => {};
     getMock.mockReturnValue(new Promise((resolve) => (resolveLate = resolve)));
     render(Home);
@@ -111,6 +174,26 @@ describe('Home', () => {
 
     expect(document.body.textContent).not.toContain('Загрузка: 12 %');
     expect(consoleError).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+  });
+
+  it('FND-0171: an error that arrives after unmount is not processed', async () => {
+    let rejectLate: (reason: unknown) => void = () => {};
+    getMock.mockReturnValue(new Promise((_, reject) => (rejectLate = reject)));
+    render(Home);
+    cleanup();
+
+    rejectLate({ kind: 'probe', message: 'поздняя ошибка' });
+    await flush();
+
+    // Без защиты `if (active)` компонент вызвал бы toCommandError и записал состояние.
+    expect(toErrorMock).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it('FND-0171: an error from a mounted component is processed (guard control)', async () => {
+    getMock.mockRejectedValue({ kind: 'probe', message: 'ошибка' });
+    render(Home);
+    await flush();
+    expect(toErrorMock).toHaveBeenCalledTimes(1);
   });
 });
