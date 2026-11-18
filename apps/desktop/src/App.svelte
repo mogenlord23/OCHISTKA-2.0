@@ -14,7 +14,7 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { BODY_FONT, HEADING_FONT, NEUTRAL, RADIUS, TYPE_SCALE, textOn } from './lib/tokens';
 
-  const VERSION = '0.5.5';
+  const VERSION = '0.1.0';
 
   let activeId = $state<SectionId>('vpn');
   let activeSub = $state('subscription');
