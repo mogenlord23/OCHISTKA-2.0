@@ -1,0 +1,12 @@
+{
+  "id": "FND-0200",
+  "file": "apps/desktop/src/lib/sections.test.ts",
+  "lines": "45-50",
+  "severity": "low",
+  "confidence": "high",
+  "type": "weak-assertion",
+  "summary": "The lead-string test asserts only typeof string, which the TypeScript type already guarantees, and it passes for empty strings; three sections ship with an empty lead and the test does not notice",
+  "evidence": "sections.test.ts:45-50; sections.ts:18 lead string type; sections.ts:59, 62, 75 lead empty; App.svelte:55 renders lead only when truthy",
+  "failure_scenario": "Setting the VPN or Вирусы lead to an empty string at sections.ts:27 removes the subtitle with every test still green.",
+  "status": "open"
+}
