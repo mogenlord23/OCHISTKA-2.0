@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VirusesPage from './VirusesPage.svelte';
 import { assessFile, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
+import { scanCancel } from '../lib/scanControl';
+import { resetScanState } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
+
+vi.mock('../lib/scanControl', () => ({ scanCancel: vi.fn() }));
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
@@ -19,6 +23,8 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.resetAllMocks();
+  // Состояние проверки теперь общее на модуль: сбрасываем между тестами.
+  resetScanState();
 });
 
 function engineOk(target: string = DOWNLOADS): void {
@@ -258,6 +264,30 @@ describe('VirusesPage findings', () => {
     ).toBeTruthy();
   });
 
+  it('FND-0092: two findings with the same path both render (no each_key_duplicate)', async () => {
+    engineOk();
+    const path = `${DOWNLOADS}\\dup.exe`;
+    vi.mocked(scanStart).mockResolvedValue(
+      report([
+        { path, signature: 'Win.Dup.A' },
+        { path, signature: 'Win.Dup.B' },
+      ]),
+    );
+    vi.mocked(assessFile).mockResolvedValue({ score: 5, reasons: [] });
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+
+    await view.rerender({ subsection: 'findings' });
+    expect(await screen.findByText('Win.Dup.A')).toBeTruthy();
+    expect(screen.getByText('Win.Dup.B')).toBeTruthy();
+    expect(screen.getAllByText(path)).toHaveLength(2);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
+
   it('FND-0186: shows a fallback when the score has no reasons', async () => {
     engineOk();
     vi.mocked(scanStart).mockResolvedValue(
@@ -323,5 +353,69 @@ describe('VirusesPage journal', () => {
     expect(items[0].textContent).toBe(items[1].textContent);
     expect(errors).not.toHaveBeenCalled();
     errors.mockRestore();
+  });
+});
+
+describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
+  it('FND-0018: a running scan and its results survive unmounting the page', async () => {
+    engineOk();
+    let finish: (report: ScanReport) => void = () => {};
+    vi.mocked(scanStart).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(await screen.findByTestId('scan-sweep')).toBeTruthy();
+
+    cleanup();
+    render(VirusesPage, { props: { subsection: 'scan' } });
+    expect(await screen.findByTestId('scan-sweep')).toBeTruthy();
+    expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(true);
+
+    finish(report());
+    expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
+    cleanup();
+    render(VirusesPage, { props: { subsection: 'log' } });
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(scanStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('FND-0098: assessing phase has its own text and no scan sweep', async () => {
+    engineOk();
+    let finishAssess: (value: { score: number; reasons: string[] }) => void = () => {};
+    vi.mocked(scanStart).mockResolvedValue(
+      report([{ path: `${DOWNLOADS}\\a.exe`, signature: 'S' }]),
+    );
+    vi.mocked(assessFile).mockReturnValue(new Promise((resolve) => (finishAssess = resolve)));
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+
+    expect(await screen.findByText('Оцениваем находки…')).toBeTruthy();
+    expect(screen.queryByText('Проверяем файлы…')).toBeNull();
+    expect(screen.queryByTestId('scan-sweep')).toBeNull();
+    expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(true);
+
+    finishAssess({ score: 1, reasons: [] });
+    expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();
+  });
+
+  it('FND-0026: the stop button cancels the scan and shows a cancelled notice', async () => {
+    engineOk();
+    let fail: (err: unknown) => void = () => {};
+    vi.mocked(scanStart).mockReturnValue(new Promise((_, reject) => (fail = reject)));
+    vi.mocked(scanCancel).mockResolvedValue(true);
+    await renderReady();
+    expect(screen.queryByRole('button', { name: 'Остановить' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Остановить' }));
+    expect(scanCancel).toHaveBeenCalledTimes(1);
+    fail({ kind: 'probe', message: 'ошибка чтения системных данных: проверка отменена' });
+
+    expect(await screen.findByText('Проверка отменена')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
   });
 });

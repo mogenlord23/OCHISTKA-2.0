@@ -8,5 +8,8 @@
   "summary": "Keyed each over finding.path throws each_key_duplicate on duplicate paths; no svelte:boundary contains it, so the Находки view breaks when threats exist",
   "evidence": "VirusesPage.svelte:136; svelte each.js:357-362 duplicate-key throw in production; no svelte:boundary in apps/desktop; parser does not de-duplicate (scan.rs:36-41); lossy decoding can merge names (FND-0047)",
   "failure_scenario": "Two findings with the same path (e.g. two Cyrillic names decoded to identical U+FFFD strings): opening Находки throws. UNVERIFIED reachability.",
-  "status": "deferred"
+  "status": "verified",
+  "fixed_at": "2026-11-18T06:03:00Z",
+  "resolution_note": "Re-verifier CONFIRM 2026-11-18; mutation (path-only key) killed.",
+  "status_changed_at": "2026-11-18T06:03:47Z"
 }

@@ -8,5 +8,8 @@
   "summary": "scanning stays true and the message says \"Проверяем файлы\" while assessFile calls run after scanStart already resolved; each call can block (FND-0025)",
   "evidence": "VirusesPage.svelte:52-79 finally after Promise.all; 118-120 status text",
   "failure_scenario": "Share of 20 findings goes offline after the scan: UI reports scanning for about 20 SMB timeouts with no progress change.",
-  "status": "triaged"
+  "status": "verified",
+  "fixed_at": "2026-11-18T05:59:27.265425+00:00",
+  "resolution_note": "Re-verifier CONFIRM 2026-11-18 (code trace).",
+  "status_changed_at": "2026-11-18T06:02:05Z"
 }

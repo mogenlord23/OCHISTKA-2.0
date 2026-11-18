@@ -1,44 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    assessFile,
-    clamavStatus,
-    defaultScanTarget,
-    scanStart,
-    toCommandError,
-  } from '../lib/api';
-  import type { CommandError, EngineStatus, ScanReport, Suspicion } from '../lib/types';
+  import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
+  import { cancelScan, scan, startScan } from '../lib/scanState.svelte';
+  import type { CommandError, EngineStatus } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
 
-  let nextRunId = 0;
-
-  interface Run {
-    id: number;
-    startedAt: string;
-    target: string;
-    scanned: number;
-    infected: number;
-  }
-
   let engine = $state<EngineStatus | null>(null);
-  let target = $state('');
-  let scanning = $state(false);
-  let report = $state<ScanReport | null>(null);
-  let error = $state<CommandError | null>(null);
-  let suspicions = $state<Record<string, Suspicion>>({});
-  let runs = $state<Run[]>([]);
-  let assessFailures = $state<{ count: number; firstMessage: string }>({
-    count: 0,
-    firstMessage: '',
-  });
+  let engineError = $state<CommandError | null>(null);
+
+  // Идёт либо сама проверка, либо оценка находок: новую начинать нельзя.
+  const busy = $derived(scan.phase !== 'idle');
+  const error = $derived(scan.error ?? engineError);
 
   const startBlockReason = $derived(
-    scanning
+    busy
       ? ''
       : !engine?.available
         ? 'Сначала проверьте движок'
-        : target.trim() === ''
+        : scan.target.trim() === ''
           ? 'Укажите папку для проверки'
           : '',
   );
@@ -47,66 +27,20 @@
     try {
       engine = await clamavStatus();
     } catch (err) {
-      error = toCommandError(err);
+      engineError = toCommandError(err);
     }
-    try {
-      target = await defaultScanTarget();
-    } catch {
-      // Пустое поле — пользователь укажет папку сам.
+    // Поле не затираем, если проверка уже идёт или путь введён раньше.
+    if (scan.target === '') {
+      try {
+        scan.target = await defaultScanTarget();
+      } catch {
+        // Пустое поле — пользователь укажет папку сам.
+      }
     }
   });
 
-  async function start() {
-    const path = target.trim();
-    if (!engine?.available || scanning || path === '') {
-      return;
-    }
-    scanning = true;
-    error = null;
-    report = null;
-    suspicions = {};
-    assessFailures = { count: 0, firstMessage: '' };
-    try {
-      const result = await scanStart(path);
-      report = result;
-      runs = [
-        {
-          id: nextRunId++,
-          startedAt: new Date().toLocaleTimeString('ru-RU'),
-          target: path,
-          scanned: result.scannedFiles,
-          infected: result.infectedFiles,
-        },
-        ...runs,
-      ];
-      let failureCount = 0;
-      let firstFailure = '';
-      const scores = await Promise.all(
-        result.findings.map(async (finding) => {
-          try {
-            return [finding.path, await assessFile(finding.path)] as const;
-          } catch (err) {
-            failureCount += 1;
-            if (firstFailure === '') {
-              firstFailure = toCommandError(err).message;
-            }
-            return [finding.path, null] as const;
-          }
-        }),
-      );
-      assessFailures = { count: failureCount, firstMessage: firstFailure };
-      const next: Record<string, Suspicion> = {};
-      for (const [findingPath, score] of scores) {
-        if (score) {
-          next[findingPath] = score;
-        }
-      }
-      suspicions = next;
-    } catch (err) {
-      error = toCommandError(err);
-    } finally {
-      scanning = false;
-    }
+  function start() {
+    void startScan(scan.target.trim());
   }
 </script>
 
@@ -126,32 +60,36 @@
   <section class="panel">
     <label>
       Папка для проверки
-      <input bind:value={target} placeholder="C:\Users\Имя\Downloads" disabled={scanning} />
+      <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
     </label>
     <div class="actions">
       <button
         type="button"
         class="primary"
         onclick={start}
-        disabled={!engine?.available || scanning || target.trim() === ''}
+        disabled={!engine?.available || busy || scan.target.trim() === ''}
       >
         Начать проверку
       </button>
       {#if startBlockReason}
         <span class="reason">{startBlockReason}</span>
       {/if}
-      <button type="button" disabled title="Отмена появится в следующей версии">
-        Остановить
-      </button>
+      {#if scan.phase === 'scanning'}
+        <button type="button" onclick={() => void cancelScan()}>Остановить</button>
+      {/if}
     </div>
   </section>
 
-  <section class="scanner" class:active={scanning} aria-live="polite">
-    {#if scanning}
+  <section class="scanner" class:active={busy} aria-live="polite">
+    {#if scan.phase === 'scanning'}
       <div class="sweep" data-testid="scan-sweep"></div>
       <p>Проверяем файлы…</p>
-    {:else if report}
-      <p>Проверено файлов: {report.scannedFiles}. Находок: {report.infectedFiles}.</p>
+    {:else if scan.phase === 'assessing'}
+      <p>Оцениваем находки…</p>
+    {:else if scan.notice}
+      <p>{scan.notice}</p>
+    {:else if scan.report}
+      <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
     {:else}
       <p>Готово к проверке.</p>
     {/if}
@@ -159,19 +97,20 @@
 {/if}
 
 {#if subsection === 'findings'}
-  {#if !report}
+  {#if !scan.report}
     <p class="empty">Здесь появятся находки после проверки.</p>
-  {:else if report.findings.length === 0}
+  {:else if scan.report.findings.length === 0}
     <p class="empty">Угроз не найдено.</p>
   {:else}
-    {#if assessFailures.count > 0}
+    {#if scan.assessFailures.count > 0}
       <p class="empty" role="status">
-        Не удалось оценить файлов: {assessFailures.count}. Причина: {assessFailures.firstMessage}
+        Не удалось оценить файлов: {scan.assessFailures.count}. Причина: {scan.assessFailures
+          .firstMessage}
       </p>
     {/if}
     <ul class="findings">
-      {#each report.findings as finding (finding.path)}
-        {@const score = suspicions[finding.path]}
+      {#each scan.report.findings as finding, index (`${finding.path}#${index}`)}
+        {@const score = scan.suspicions[finding.path]}
         <li>
           <div class="head">
             <strong>{finding.signature}</strong>
@@ -200,11 +139,11 @@
 {/if}
 
 {#if subsection === 'log'}
-  {#if runs.length === 0}
+  {#if scan.runs.length === 0}
     <p class="empty">Проверок в этой сессии пока не было.</p>
   {:else}
     <ul class="log">
-      {#each runs as run (run.id)}
+      {#each scan.runs as run (run.id)}
         <li>
           {run.startedAt} · {run.target} · проверено {run.scanned}, находок {run.infected}
         </li>

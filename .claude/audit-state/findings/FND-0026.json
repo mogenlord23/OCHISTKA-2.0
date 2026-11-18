@@ -8,5 +8,8 @@
   "summary": "No scan concurrency guard, cancellation or timeout; duplicate scans run in parallel and a hung clamscan is never stopped",
   "evidence": "commands.rs:45-48 AppState has no in-progress flag; commands.rs:65-77 spawn per invoke; clamav.rs:68-88 Command::output() with no timeout or kill; lib.rs:17-23 no cancel command. Confirms the backend half of FND-0018.",
   "failure_scenario": "scan_start(\"C:\\\\\") invoked twice (e.g. after section switch) runs two full-disk clamscan processes. On app exit the child may be orphaned (UNVERIFIED: job object).",
-  "status": "triaged"
+  "status": "needs-human",
+  "fixed_at": "2026-11-18T05:59:27.193119+00:00",
+  "resolution_note": "Re-verifier CONFIRM-PARTIAL: single-scan guard, cancel, timeout and limits verified by trace and tests on Linux. Windows-only items UNVERIFIED: clamscan --max-scantime/--max-filesize behaviour, Child::kill on clamscan.exe, orphaned clamscan if the app exits mid-scan (no job object), possible spin if kill() fails. Windows check required.",
+  "status_changed_at": "2026-11-18T06:02:05Z"
 }

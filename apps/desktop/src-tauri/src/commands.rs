@@ -1,5 +1,6 @@
 //! Типизированные команды Tauri. Интерфейс получает данные только отсюда.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use std::path::Path;
@@ -45,6 +46,31 @@ pub fn scan_with(port: &dyn VirusScanPort, target: &str) -> Result<ScanReport, C
 pub struct AppState {
     pub system: Arc<dyn SystemInfoPort>,
     pub scanner: Arc<dyn VirusScanPort>,
+    /// Признак идущей проверки: одновременно допускается только одна.
+    pub scan_running: Arc<AtomicBool>,
+}
+
+/// Занимает право на проверку и освобождает его при выходе (в том числе при панике).
+pub struct ScanGuard(Arc<AtomicBool>);
+
+impl Drop for ScanGuard {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Пытается начать проверку; если одна уже идёт — возвращает ошибку.
+pub fn try_begin_scan(flag: &Arc<AtomicBool>) -> Result<ScanGuard, CommandError> {
+    if flag
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err(CommandError {
+            kind: "probe".into(),
+            message: "проверка уже идёт".into(),
+        });
+    }
+    Ok(ScanGuard(Arc::clone(flag)))
 }
 
 /// Чтение выполняется в фоновом потоке, чтобы не блокировать главный поток окна.
@@ -67,13 +93,23 @@ pub async fn scan_start(
     state: State<'_, AppState>,
     target: String,
 ) -> Result<ScanReport, CommandError> {
+    let guard = try_begin_scan(&state.scan_running)?;
     let scanner = Arc::clone(&state.scanner);
-    tauri::async_runtime::spawn_blocking(move || scan_with(scanner.as_ref(), &target))
-        .await
-        .map_err(|err| CommandError {
-            kind: "probe".into(),
-            message: err.to_string(),
-        })?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        scan_with(scanner.as_ref(), &target)
+    })
+    .await
+    .map_err(|err| CommandError {
+        kind: "probe".into(),
+        message: err.to_string(),
+    })?
+}
+
+/// Останавливает идущий clamscan. Если проверки нет, ничего не делает.
+#[tauri::command]
+pub fn scan_cancel() -> bool {
+    ochistka_platform::windows::clamav::cancel_running_scan()
 }
 
 /// Оценка одного файла: проверка пути, сбор признаков и эвристика. Не вердикт.
@@ -84,9 +120,15 @@ pub fn assess_path(path: &str) -> Result<Suspicion, CommandError> {
     Ok(score_suspicion(&facts))
 }
 
+/// Чтение файла идёт в фоновом потоке: недоступный сетевой диск не блокирует окно.
 #[tauri::command]
-pub fn assess_file(path: String) -> Result<Suspicion, CommandError> {
-    assess_path(&path)
+pub async fn assess_file(path: String) -> Result<Suspicion, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || assess_path(&path))
+        .await
+        .map_err(|err| CommandError {
+            kind: "probe".into(),
+            message: err.to_string(),
+        })?
 }
 
 #[tauri::command]
@@ -215,6 +257,18 @@ mod tests {
         let err = scan_with(&FakeScanner { engine_ok: true }, "Downloads").unwrap_err();
         assert_eq!(err.kind, "invalidTarget");
     }
+
+    #[test]
+    fn second_scan_is_rejected_while_one_runs_and_allowed_after() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let first = try_begin_scan(&flag).unwrap();
+        let err = try_begin_scan(&flag).err().unwrap();
+        assert_eq!(err.kind, "probe");
+        assert_eq!(err.message, "проверка уже идёт");
+        drop(first);
+        assert!(try_begin_scan(&flag).is_ok());
+    }
+
     #[test]
     fn assess_rejects_relative_path() {
         assert_eq!(
