@@ -1,0 +1,274 @@
+//! Команда «Оформление»: цвета, прозрачность, тема и обои Windows. Один вход
+//! `appearance_request` с полем `action`. Изменяющие действия требуют `confirmed: true`
+//! (диалог в интерфейсе); реальные записи (реестр HKCU, обои) в тестах не выполняются.
+
+use std::sync::Arc;
+
+use ochistka_core::appearance::{
+    self, AppearanceError, AppearanceStatus, RegistryPort, WallpaperPort,
+};
+use serde::{Deserialize, Serialize};
+use tauri::State;
+
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+pub struct AppearanceErrorInfo {
+    pub kind: String,
+    pub message: String,
+}
+
+impl From<AppearanceError> for AppearanceErrorInfo {
+    fn from(err: AppearanceError) -> Self {
+        let kind = match err {
+            AppearanceError::NotConfirmed => "notConfirmed",
+            AppearanceError::Invalid(_) => "refused",
+            AppearanceError::NoBackup => "noBackup",
+            AppearanceError::Registry(_) => "registry",
+            AppearanceError::Wallpaper(_) => "wallpaper",
+            AppearanceError::Unsupported => "unsupported",
+            AppearanceError::Cancelled => "cancelled",
+        };
+        Self {
+            kind: kind.into(),
+            message: err.to_string(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(
+    tag = "action",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum AppearanceRequest {
+    Status,
+    SetAccent {
+        color: String,
+        confirmed: bool,
+    },
+    SetTransparency {
+        enabled: bool,
+        confirmed: bool,
+    },
+    SetFillTaskbar {
+        enabled: bool,
+        confirmed: bool,
+    },
+    SetTheme {
+        dark: bool,
+        also_system: bool,
+        confirmed: bool,
+    },
+    /// Тёмная или светлая тема только Пуска и панели задач.
+    SetSystemTheme {
+        dark: bool,
+        confirmed: bool,
+    },
+    /// Вернуть сохранённые прежние значения цветов, прозрачности и темы.
+    RestoreAppearance {
+        confirmed: bool,
+    },
+    /// Открывает окно выбора файла и ставит картинку обоями Windows.
+    PickAndApplyWallpaper {
+        confirmed: bool,
+    },
+    RestoreWallpaper {
+        confirmed: bool,
+    },
+}
+
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum AppearanceResponse {
+    Status { status: AppearanceStatus },
+}
+
+pub struct AppearanceState {
+    registry: Arc<dyn RegistryPort>,
+    wallpaper: Arc<dyn WallpaperPort>,
+}
+
+impl AppearanceState {
+    pub fn new(registry: Arc<dyn RegistryPort>, wallpaper: Arc<dyn WallpaperPort>) -> Self {
+        Self {
+            registry,
+            wallpaper,
+        }
+    }
+}
+
+/// Окно выбора картинки. Вне Windows окна нет: `Unsupported`.
+#[cfg(windows)]
+fn pick_image() -> Result<String, AppearanceError> {
+    rfd::FileDialog::new()
+        .set_title("Выберите картинку для обоев")
+        .add_filter("Картинки", &["png", "jpg", "jpeg", "bmp"])
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
+        .ok_or(AppearanceError::Cancelled)
+}
+
+#[cfg(not(windows))]
+fn pick_image() -> Result<String, AppearanceError> {
+    Err(AppearanceError::Unsupported)
+}
+
+/// Выполняет запрос. Отдельная функция: проверяется без окна Tauri.
+pub fn run(
+    reg: &dyn RegistryPort,
+    wallpaper: &dyn WallpaperPort,
+    pick: &dyn Fn() -> Result<String, AppearanceError>,
+    request: AppearanceRequest,
+) -> Result<AppearanceResponse, AppearanceErrorInfo> {
+    use AppearanceRequest as R;
+    match request {
+        R::Status => {}
+        R::SetAccent { color, confirmed } => appearance::set_accent(reg, &color, confirmed)?,
+        R::SetTransparency { enabled, confirmed } => {
+            appearance::set_transparency(reg, enabled, confirmed)?
+        }
+        R::SetFillTaskbar { enabled, confirmed } => {
+            appearance::set_fill_taskbar(reg, enabled, confirmed)?
+        }
+        R::SetTheme {
+            dark,
+            also_system,
+            confirmed,
+        } => appearance::set_theme(reg, dark, also_system, confirmed)?,
+        R::SetSystemTheme { dark, confirmed } => {
+            appearance::set_system_theme(reg, dark, confirmed)?
+        }
+        R::RestoreAppearance { confirmed } => appearance::restore(reg, confirmed)?,
+        R::PickAndApplyWallpaper { confirmed } => {
+            if !confirmed {
+                return Err(AppearanceError::NotConfirmed.into());
+            }
+            let path = pick()?;
+            appearance::apply_wallpaper(reg, wallpaper, &path, true)?;
+        }
+        R::RestoreWallpaper { confirmed } => {
+            appearance::restore_wallpaper(reg, wallpaper, confirmed)?
+        }
+    }
+    Ok(AppearanceResponse::Status {
+        status: appearance::status(reg)?,
+    })
+}
+
+/// Запросы раздела «Оформление». Работа с реестром и окном выбора идёт в фоновом потоке.
+#[tauri::command]
+pub async fn appearance_request(
+    state: State<'_, AppearanceState>,
+    request: AppearanceRequest,
+) -> Result<AppearanceResponse, AppearanceErrorInfo> {
+    let reg = Arc::clone(&state.registry);
+    let wallpaper = Arc::clone(&state.wallpaper);
+    tauri::async_runtime::spawn_blocking(move || run(&*reg, &*wallpaper, &pick_image, request))
+        .await
+        .map_err(|_| AppearanceErrorInfo {
+            kind: "internal".into(),
+            message: "внутренняя ошибка при работе с оформлением".into(),
+        })?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ochistka_core::appearance::RegValue;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct Reg(Mutex<HashMap<(String, String), RegValue>>);
+
+    impl RegistryPort for Reg {
+        fn read(&self, k: &str, n: &str) -> Result<Option<RegValue>, AppearanceError> {
+            Ok(self.0.lock().unwrap().get(&(k.into(), n.into())).cloned())
+        }
+        fn write(&self, k: &str, n: &str, v: &RegValue) -> Result<(), AppearanceError> {
+            self.0
+                .lock()
+                .unwrap()
+                .insert((k.into(), n.into()), v.clone());
+            Ok(())
+        }
+        fn delete(&self, k: &str, n: &str) -> Result<(), AppearanceError> {
+            self.0.lock().unwrap().remove(&(k.into(), n.into()));
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct Wall(Mutex<Option<String>>);
+
+    impl WallpaperPort for Wall {
+        fn current(&self) -> Result<Option<String>, AppearanceError> {
+            Ok(self.0.lock().unwrap().clone())
+        }
+        fn set(&self, p: &str) -> Result<(), AppearanceError> {
+            *self.0.lock().unwrap() = Some(p.into());
+            Ok(())
+        }
+    }
+
+    fn no_pick() -> Result<String, AppearanceError> {
+        panic!("окно выбора не должно открываться")
+    }
+
+    #[test]
+    fn unconfirmed_requests_are_refused_and_do_not_open_dialogs() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        for request in [
+            AppearanceRequest::SetAccent {
+                color: "#FF0000".into(),
+                confirmed: false,
+            },
+            AppearanceRequest::PickAndApplyWallpaper { confirmed: false },
+            AppearanceRequest::RestoreAppearance { confirmed: false },
+        ] {
+            let err = run(&reg, &wall, &no_pick, request).unwrap_err();
+            assert_eq!(err.kind, "notConfirmed");
+        }
+        assert!(reg.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn accent_then_status_reports_it() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        let req = AppearanceRequest::SetAccent {
+            color: "#087FFF".into(),
+            confirmed: true,
+        };
+        let AppearanceResponse::Status { status } = run(&reg, &wall, &no_pick, req).unwrap();
+        assert_eq!(status.accent.as_deref(), Some("#087FFF"));
+        assert!(status.has_backup);
+    }
+
+    #[test]
+    fn picked_wallpaper_is_applied_and_cancel_changes_nothing() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        let pick_ok = || Ok(r"C:\img\a.png".to_string());
+        let req = AppearanceRequest::PickAndApplyWallpaper { confirmed: true };
+        run(&reg, &wall, &pick_ok, req.clone()).unwrap();
+        assert_eq!(wall.current().unwrap().as_deref(), Some(r"C:\img\a.png"));
+        let cancel = || Err(AppearanceError::Cancelled);
+        let err = run(&reg, &wall, &cancel, req).unwrap_err();
+        assert_eq!(err.kind, "cancelled");
+    }
+
+    #[test]
+    fn request_json_shape() {
+        let r: AppearanceRequest = serde_json::from_str(
+            r##"{"action":"setTheme","dark":true,"alsoSystem":false,"confirmed":true}"##,
+        )
+        .unwrap();
+        assert_eq!(
+            r,
+            AppearanceRequest::SetTheme {
+                dark: true,
+                also_system: false,
+                confirmed: true
+            }
+        );
+    }
+}

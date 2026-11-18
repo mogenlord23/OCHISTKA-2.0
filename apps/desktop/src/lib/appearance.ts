@@ -1,5 +1,3 @@
-import { SECTION_COLORS } from './tokens';
-import type { SectionId } from './sections';
 import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 /**
@@ -146,7 +144,7 @@ const ARROW_PATH =
   'M12,7 Q10,6 10,10 L10,48 Q10,51 13,49 L23,40 L31,57 Q33,60 36,58 L41,55 Q43,54 41,51 L32,35 L46,34 Q50,34 47,31 L14,8 Q13,7 12,7 Z';
 
 /** SVG-стрелка с белой обводкой. `uid` делает id узора уникальным на странице. Данные только свои. */
-export function cursorSvg(def: CursorDef, uid: string): string {
+export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
   const { color, secondary, pattern } = def;
   const fill = pattern === 'plain' ? color : `url(#p-${uid})`;
   let defs = '';
@@ -164,41 +162,75 @@ export function cursorSvg(def: CursorDef, uid: string): string {
     defs = `<defs><pattern id="p-${uid}" width="16" height="16" patternUnits="userSpaceOnUse">${body}</pattern></defs>`;
   }
   return (
-    `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" focusable="false">${defs}` +
+    `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false">${defs}` +
     `<path d="${ARROW_PATH}" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
     `<path d="${ARROW_PATH}" fill="${fill}" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></svg>`
   );
 }
 
-const COLOR_NAMES: Record<SectionId, string> = {
-  vpn: 'Розовый',
-  viruses: 'Лаймовый',
-  processes: 'Синий',
-  programs: 'Оранжевый',
-  disks: 'Жёлтый',
-  computer: 'Фиолетовый',
-  design: 'Коралловый',
-};
+/** Акцентные цвета Windows: 53 плитки в порядке экрана владельца (9 в ряду). */
+export const ACCENT_COLORS: readonly string[] = [
+  '#B4FF00',
+  '#FF009D',
+  '#087FFF',
+  '#FF7A00',
+  '#F5FF00',
+  '#CF00FF',
+  '#00FFF0',
+  '#FF244D',
+  '#8AFF00',
+  '#FF00DD',
+  '#00C8FF',
+  '#FF5E00',
+  '#B400FF',
+  '#FFEE00',
+  '#00FF7F',
+  '#E6FF00',
+  '#00F5FF',
+  '#FF3864',
+  '#6DFF00',
+  '#FF6B00',
+  '#D0FF00',
+  '#9D00FF',
+  '#00FFCC',
+  '#FF008C',
+  '#1FFF5C',
+  '#00D9A0',
+  '#22D3FF',
+  '#5A3CFF',
+  '#8A5CFF',
+  '#E63CFF',
+  '#FF5CC8',
+  '#FF4818',
+  '#FFA800',
+  '#B83CFF',
+  '#E0FF00',
+  '#FF3050',
+  '#00FFB4',
+  '#00A8FF',
+  '#FF0070',
+  '#FF9A00',
+  '#78FF00',
+  '#000000',
+  '#FFFFFF',
+  '#808080',
+  '#BEBEBE',
+  '#333333',
+  '#D9BFA6',
+  '#8B4513',
+  '#003366',
+  '#008080',
+  '#800000',
+  '#008000',
+  '#4B0082',
+];
 
-/** Цвета страниц разделов из палитры tokens.ts. */
-const SECTION_SCHEMES: readonly AppearanceTile[] = (Object.keys(SECTION_COLORS) as SectionId[]).map(
-  (id) => ({
-    id,
-    label: COLOR_NAMES[id],
-    description: `Цвет раздела «${COLOR_NAMES[id].toLowerCase()}»`,
-    preview: SECTION_COLORS[id],
-  }),
-);
-
-/** Цветовые плитки старого приложения: основной цвет и второй, по диагонали. */
-const ACID_SCHEMES: readonly AppearanceTile[] = ACID_PAIRS.map(([color, secondary], i) => ({
-  id: `acid-${pad2(i + 1)}`,
-  label: `Пара ${pad2(i + 1)}`,
-  description: `Цвета ${color} и ${secondary}`,
-  preview: `linear-gradient(135deg, ${color} 55%, ${secondary} 55%)`,
+export const COLOR_SCHEMES: readonly AppearanceTile[] = ACCENT_COLORS.map((hex, i) => ({
+  id: `color-${pad2(i + 1)}`,
+  label: `Цвет ${i + 1}`,
+  description: `Цвет ${i + 1}`,
+  preview: hex,
 }));
-
-export const COLOR_SCHEMES: readonly AppearanceTile[] = [...SECTION_SCHEMES, ...ACID_SCHEMES];
 
 export function tilesFor(kind: AppearanceKind): readonly AppearanceTile[] {
   switch (kind) {
@@ -214,4 +246,21 @@ export function tilesFor(kind: AppearanceKind): readonly AppearanceTile[] {
 /** Первый вариант списка считается выбранным по умолчанию. */
 export function defaultTileId(kind: AppearanceKind): string {
   return kind === 'cursor' ? 'cursor-white' : tilesFor(kind)[0].id;
+}
+
+/** Размер курсора приложения и «горячая точка» (кончик стрелки в системе координат 64×64). */
+const APP_CURSOR_SIZE = 32;
+
+/**
+ * Значение CSS `cursor` для схемы: тот же SVG, что на плитке, в виде data-адреса.
+ * Запасной вариант `auto` срабатывает, если браузер не принял картинку.
+ */
+export function cursorCss(def: CursorDef, uid: string): string {
+  const svg = cursorSvg(def, uid, APP_CURSOR_SIZE).replace(
+    '<svg ',
+    '<svg xmlns="http://www.w3.org/2000/svg" ',
+  );
+  const hot = Math.round((11 * APP_CURSOR_SIZE) / 64);
+  const hotY = Math.round((7 * APP_CURSOR_SIZE) / 64);
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hot} ${hotY}, auto`;
 }

@@ -56,7 +56,7 @@ describe('App navigation', () => {
         .getAllByRole('button')
         .map((button) => button.textContent?.trim()),
     ).toEqual(['Обои', 'Курсоры', 'Цвета', 'Настройки приложения']);
-    expect(screen.getByRole('button', { name: /Фото 001/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Обои 1' })).toBeTruthy();
   });
 
   it('has window controls for minimise, maximise and close', () => {

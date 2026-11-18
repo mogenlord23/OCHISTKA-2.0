@@ -1,11 +1,13 @@
 //! Оболочка Tauri: команды и управляющее состояние.
 
+pub mod appearance;
 pub mod commands;
 pub mod disks;
 pub mod hardware;
 pub mod network;
 pub mod processes;
 pub mod programs;
+pub mod tweaks;
 
 use std::sync::Arc;
 
@@ -42,7 +44,12 @@ pub fn run() {
             ochistka_platform::current_programs_port(),
             ochistka_platform::current_cleanup_env(),
         ))
+        .manage({
+            let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
+            appearance::AppearanceState::new(registry, wallpaper)
+        })
         .invoke_handler(tauri::generate_handler![
+            appearance::appearance_request,
             get_system_overview,
             scan_start,
             scan_cancel,
@@ -53,6 +60,10 @@ pub fn run() {
             processes::processes_request,
             programs::programs_request,
             hardware::get_hardware,
+            tweaks::tweaks_overview,
+            tweaks::tweak_set,
+            tweaks::tweaks_revert,
+            tweaks::boost_set_profile,
             network::get_network_adapters,
             network::get_tcp_connections
         ])

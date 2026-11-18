@@ -116,6 +116,23 @@ pub fn current_network_port() -> Box<dyn ochistka_core::network::NetworkPort> {
     Box::new(linux::network::UnsupportedNetwork)
 }
 
+/// Настройки и Boost: на Windows — реестр HKCU и powercfg, на остальных ОС — те же методы с ответом
+/// `Unsupported` (системного кода для них нет).
+pub fn current_tweaks_port() -> Box<dyn ochistka_core::tweaks::TweaksPort> {
+    Box::new(windows::tweaks::WindowsTweaks::new())
+}
+
+/// Порты оформления Windows (реестр HKCU и обои). Вне Windows методы возвращают `Unsupported`.
+pub fn current_appearance_ports() -> (
+    std::sync::Arc<dyn ochistka_core::appearance::RegistryPort>,
+    std::sync::Arc<dyn ochistka_core::appearance::WallpaperPort>,
+) {
+    (
+        std::sync::Arc::new(windows::appearance::WindowsAppearanceRegistry),
+        std::sync::Arc::new(windows::appearance::WindowsWallpaper),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

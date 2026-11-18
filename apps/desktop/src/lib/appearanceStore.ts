@@ -1,4 +1,11 @@
-import { APPEARANCE_KINDS, defaultTileId, tilesFor, type AppearanceKind } from './appearance';
+import {
+  APPEARANCE_KINDS,
+  CURSOR_DEFS,
+  cursorCss,
+  defaultTileId,
+  tilesFor,
+  type AppearanceKind,
+} from './appearance';
 
 /**
  * Выбор оформления хранится в localStorage этого окна. Это удобство одного пользователя:
@@ -105,6 +112,38 @@ export function applyReduceMotion(on: boolean): void {
   try {
     if (on) document.documentElement.dataset.reduceMotion = 'true';
     else delete document.documentElement.dataset.reduceMotion;
+  } catch {
+    /* нет документа: ничего не делаем */
+  }
+}
+
+const CURSOR_STYLE_ID = 'ochistka-app-cursor';
+
+/** Id курсора, который пользователь выбрал сам; `null` — выбора не было, остаётся системный. */
+export function storedCursorId(storage: KeyValueStorage | null = browserStorage()): string | null {
+  try {
+    const raw = storage?.getItem(APPEARANCE_STORAGE_KEY);
+    if (!raw) return null;
+    const value = (JSON.parse(raw) as Record<string, unknown> | null)?.cursor;
+    return isKnown('cursor', value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Делает схему курсора указателем самого приложения (Windows не меняется).
+ * `null` возвращает системный указатель.
+ */
+export function applyAppCursor(id: string | null): void {
+  try {
+    document.getElementById(CURSOR_STYLE_ID)?.remove();
+    const def = CURSOR_DEFS.find((item) => item.id === id);
+    if (!def) return;
+    const style = document.createElement('style');
+    style.id = CURSOR_STYLE_ID;
+    style.textContent = `html, html *:not(input):not(textarea) { cursor: ${cursorCss(def.cursor, 'app')} !important; }`;
+    document.head.appendChild(style);
   } catch {
     /* нет документа: ничего не делаем */
   }

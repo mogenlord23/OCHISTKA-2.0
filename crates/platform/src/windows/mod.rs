@@ -1,5 +1,6 @@
 //! Адаптеры Windows: sysinfo (только чтение), реестр и движок ClamAV (libclamav, см. ADR 0004).
 
+pub mod appearance;
 pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;
@@ -9,6 +10,7 @@ pub mod network;
 pub mod processes;
 pub mod programs;
 pub mod services;
+pub mod tweaks;
 
 use std::sync::{Mutex, OnceLock};
 

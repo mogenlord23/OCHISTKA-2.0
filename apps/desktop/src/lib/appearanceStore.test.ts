@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { APPEARANCE_STORAGE_KEY, defaultChoice, loadChoice, saveChoice } from './appearanceStore';
+import {
+  APPEARANCE_STORAGE_KEY,
+  applyAppCursor,
+  defaultChoice,
+  loadChoice,
+  saveChoice,
+  storedCursorId,
+} from './appearanceStore';
 
 class MemoryStorage {
   private data = new Map<string, string>();
@@ -43,8 +50,11 @@ describe('appearance storage', () => {
 
   it('ignores unknown ids and rejects them on save', () => {
     expect(saveChoice('color', 'nope', storage)).toBe(false);
-    storage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ wallpaper: 'ghost', color: 'vpn' }));
-    expect(loadChoice(storage)).toEqual({ ...defaultChoice(), color: 'vpn' });
+    storage.setItem(
+      APPEARANCE_STORAGE_KEY,
+      JSON.stringify({ wallpaper: 'ghost', color: 'color-03' }),
+    );
+    expect(loadChoice(storage)).toEqual({ ...defaultChoice(), color: 'color-03' });
   });
 
   it('falls back to defaults on broken JSON', () => {
@@ -57,5 +67,19 @@ describe('appearance storage', () => {
     expect(saveChoice('wallpaper', 'solid-black', new BrokenStorage())).toBe(false);
     expect(loadChoice(null)).toEqual(defaultChoice());
     expect(saveChoice('wallpaper', 'solid-black', null)).toBe(false);
+  });
+
+  it('reports a cursor only when the user chose one', () => {
+    expect(storedCursorId(storage)).toBeNull();
+    saveChoice('cursor', 'cursor-red', storage);
+    expect(storedCursorId(storage)).toBe('cursor-red');
+    expect(storedCursorId(null)).toBeNull();
+  });
+
+  it('applies and clears the app cursor style', () => {
+    applyAppCursor('cursor-red');
+    expect(document.getElementById('ochistka-app-cursor')).not.toBeNull();
+    applyAppCursor(null);
+    expect(document.getElementById('ochistka-app-cursor')).toBeNull();
   });
 });

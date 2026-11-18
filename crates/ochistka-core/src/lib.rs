@@ -1,3 +1,4 @@
+pub mod appearance;
 pub mod assess;
 pub mod cleanup;
 pub mod fs;
@@ -13,6 +14,7 @@ pub mod quarantine;
 pub mod readonly;
 pub mod scan;
 pub mod system;
+pub mod tweaks;
 
 #[cfg(test)]
 mod fake_fs;

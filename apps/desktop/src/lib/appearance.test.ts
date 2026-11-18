@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { SECTION_COLORS } from './tokens';
 import {
   APPEARANCE_KINDS,
   COLOR_SCHEMES,
   CURSORS,
   CURSOR_DEFS,
+  cursorCss,
   cursorSvg,
+  ACCENT_COLORS,
   WALLPAPERS,
   defaultTileId,
   tilesFor,
@@ -42,11 +43,17 @@ describe('appearance tiles', () => {
     expect(cursorSvg(CURSOR_DEFS[0].cursor, 'y')).not.toContain('<pattern');
   });
 
-  it('takes colour tiles from the section palette tokens', () => {
-    expect(COLOR_SCHEMES.slice(0, 7).map((tile) => tile.preview)).toEqual(
-      Object.values(SECTION_COLORS),
-    );
-    expect(COLOR_SCHEMES).toHaveLength(7 + 30);
+  it('has 53 accent colours as plain hex swatches, each unique', () => {
+    expect(COLOR_SCHEMES).toHaveLength(53);
+    expect(new Set(ACCENT_COLORS).size).toBe(53);
+    for (const tile of COLOR_SCHEMES) expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
+  });
+
+  it('builds a CSS cursor from the same SVG with a fallback', () => {
+    const css = cursorCss(CURSOR_DEFS[20].cursor, 'app');
+    expect(css).toMatch(/^url\("data:image\/svg\+xml,/);
+    expect(decodeURIComponent(css)).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(css.endsWith(', auto')).toBe(true);
   });
 
   it('defaults to the first tile of each kind', () => {

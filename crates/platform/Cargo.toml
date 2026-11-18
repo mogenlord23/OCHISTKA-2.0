@@ -16,5 +16,9 @@ sysinfo = "0.40.4"
 
 # Реестр Windows: только чтение, только под Windows (безопасная обёртка над WinAPI).
 [target.'cfg(windows)'.dependencies]
+wallpaper = "3.2.0"
 windows-icons = "0.4.0"
 winreg = "0.56.0"
+# Модели дисков (Win32_DiskDrive), только чтение; безопасная обёртка над WMI.
+serde = { version = "1", features = ["derive"] }
+wmi = "0.18.4"
