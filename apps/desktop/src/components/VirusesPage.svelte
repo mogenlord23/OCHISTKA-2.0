@@ -300,7 +300,7 @@
   .scanner,
   .alert,
   .findings li {
-    margin: 0 0 16px;
+    margin: 0 0 14px;
     padding: 16px;
     border-radius: var(--radius-lg);
     background: var(--surface);

@@ -82,10 +82,6 @@ pub struct DiskStatus {
     pub used_bytes: u64,
     pub usage_percent: f32,
     pub kind: DiskKind,
-    /// Короткая модель (2–3 слова) или `None`, если ОС её не отдала.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub model: Option<String>,
 }
 
 impl DiskStatus {
@@ -104,14 +100,7 @@ impl DiskStatus {
             used_bytes,
             usage_percent: usage_percent(used_bytes, total_bytes),
             kind: DiskKind::Unknown,
-            model: None,
         }
-    }
-
-    /// Задаёт короткую модель (см. `disk_model::short_model`).
-    pub fn with_model(mut self, model: Option<String>) -> Self {
-        self.model = model;
-        self
     }
 
     /// Задаёт тип носителя, который читает адаптер ОС.

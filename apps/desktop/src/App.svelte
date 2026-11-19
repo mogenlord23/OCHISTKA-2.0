@@ -1,6 +1,5 @@
 <script lang="ts">
   import Navigation from './components/Navigation.svelte';
-  import PageShell from './components/PageShell.svelte';
   import Subtabs from './components/Subtabs.svelte';
   import TitleBar from './components/TitleBar.svelte';
   import VirusesPage from './components/VirusesPage.svelte';
@@ -22,7 +21,7 @@
     NEUTRAL,
     RADIUS,
     SHELL,
-    BACKDROP,
+    PATTERN,
     TYPE_SCALE,
     textOn,
   } from './lib/tokens';
@@ -67,7 +66,7 @@
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
 
-  let main = $state<HTMLElement | undefined>();
+  let main = $state<HTMLElement>();
   let firstRun = true;
 
   /** Плавная смена страницы: прозрачность и сдвиг 180 мс (только transform и opacity).
@@ -86,8 +85,7 @@
       const sectionChanged = id !== lastId;
       lastId = id;
       void sub;
-      const container = main.firstElementChild ?? main;
-      const targets = Array.from(container.children).filter(
+      const targets = Array.from(main.children).filter(
         (el) => sectionChanged || !el.matches('h1, .lead, .subtabs, footer'),
       );
       for (const el of targets) {
@@ -133,9 +131,7 @@
   style:--text-title={TYPE_SCALE.title}
   style:--text-section={TYPE_SCALE.section}
   style:--text-display={TYPE_SCALE.display}
-  style:--pattern-opacity={BACKDROP.opacity}
-  style:--backdrop-size={BACKDROP.size}
-  style:--backdrop-position={BACKDROP.position}
+  style:--pattern-opacity={PATTERN.opacity}
   style:--window={SHELL.window}
   style:--btn-bg={SHELL.button}
   style:--btn-border={SHELL.buttonBorder}
@@ -145,22 +141,17 @@
   <div class="body">
     <div class="stage">
       <TitleBar {maximized} />
-      <PageShell
-        title={t(section.titleKey)}
-        lead={t(section.leadKey)}
-        footer={t('footer')}
-        header={activeId !== 'vpn'}
-        bind:el={main}
-      >
-        {#snippet tabs()}
-          {#if section.subsections.length > 0}
-            <Subtabs
-              items={section.subsections}
-              active={activeSub}
-              onSelect={(id) => (activeSub = id)}
-            />
-          {/if}
-        {/snippet}
+      <main bind:this={main}>
+        <h1>{t(section.titleKey)}</h1>
+        {#if section.lead}<p class="lead">{section.lead}</p>{/if}
+
+        {#if section.subsections.length > 0}
+          <Subtabs
+            items={section.subsections}
+            active={activeSub}
+            onSelect={(id) => (activeSub = id)}
+          />
+        {/if}
 
         {#if activeId === 'vpn'}
           <VpnPage subsection={activeSub} />
@@ -181,7 +172,9 @@
         {:else}
           <PlaceholderPage />
         {/if}
-      </PageShell>
+
+        <footer>{t('footer')}</footer>
+      </main>
     </div>
 
     <div class="side">
@@ -194,7 +187,13 @@
       >
         <div class="bottom-wrap" class:open={dockOpen} inert={!dockOpen}>
           <div class="bottom">
-            <button type="button" class="pill sound" aria-pressed={soundOn} onclick={toggleSound}>
+            <button
+              type="button"
+              class="pill sound"
+              aria-pressed={soundOn}
+              title={t(soundOn ? 'soundTitleOn' : 'soundTitleOff')}
+              onclick={toggleSound}
+            >
               {t('sound')}
               <span class="state">{t(soundOn ? 'soundOn' : 'soundOff')}</span>
             </button>
@@ -321,22 +320,61 @@
     min-width: 0;
     overflow: hidden;
     background-color: var(--accent);
-    /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px (так же, как в PageShell). */
-    --content-gutter: max(24px, calc((100% - 1480px) / 2));
+    /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
+    --content-gutter: max(22px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: url('./assets/pop-pattern.png') var(--backdrop-position) / var(--backdrop-size)
-      no-repeat;
+    top: 0;
+    left: 0;
+    width: max(2560px, 100vw);
+    height: max(1440px, 100vh);
+    background: url('./assets/pop-pattern.png') 0 0 / 320px 320px;
     opacity: var(--pattern-opacity);
     pointer-events: none;
+    will-change: transform;
   }
 
   .stage > :global(*) {
     position: relative;
+  }
+
+  main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden auto;
+    padding: 0 var(--content-gutter) 10px;
+    overscroll-behavior: contain;
+  }
+
+  h1 {
+    margin: 12px 0 0;
+    font-family: var(--font-heading);
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1.1;
+    text-transform: uppercase;
+    color: var(--page-text);
+  }
+
+  .lead {
+    margin: 4px 0 0;
+    font-size: var(--text-small);
+    font-weight: 700;
+    color: var(--page-text);
+  }
+
+  footer {
+    margin-top: auto;
+    padding-top: 14px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--page-text);
   }
 
   .side {
@@ -344,7 +382,7 @@
     flex-direction: column;
     justify-content: space-between;
     flex: none;
-    width: 112px;
+    width: 110px;
     background: var(--window);
   }
 
@@ -376,7 +414,7 @@
     align-items: center;
     gap: 8px;
     min-height: 0;
-    padding: 0 8px;
+    padding: 0 10px;
     overflow: hidden;
   }
 
@@ -384,38 +422,22 @@
     margin-top: 8px;
   }
 
-  .bottom {
-    padding-bottom: 0;
-  }
-
   .handle {
     display: grid;
     place-items: center;
     width: 48px;
-    height: 24px;
+    height: 20px;
     padding: 0;
     border: 0;
-    border-radius: 12px;
+    border-radius: 10px;
     background: transparent;
     color: var(--muted);
     cursor: pointer;
   }
 
-  /* Зона нажатия шире видимой ручки: 48 x 40 px. */
-  .handle {
-    position: relative;
-  }
-
-  .handle::after {
-    content: '';
-    position: absolute;
-    inset: -8px 0;
-  }
-
   .handle:hover {
     background: var(--rail-hover);
     color: var(--ink);
-    transform: translateY(-2px);
   }
 
   .handle svg {
@@ -433,15 +455,14 @@
     transform: rotate(180deg);
   }
 
-  /* Граница кнопок блока: контраст с панелью >= 3:1 (WCAG 1.4.11). */
   .pill {
-    padding: 8px 8px;
-    border: 1px solid #767676;
+    padding: 5px 10px;
+    border: 1px solid var(--btn-border);
     border-radius: var(--radius-sm);
     background: var(--btn-bg);
     color: var(--ink);
     font: inherit;
-    font-size: var(--text-caption);
+    font-size: 10px;
     font-weight: 800;
     cursor: pointer;
   }
@@ -451,7 +472,7 @@
   }
 
   .pill[aria-pressed='true'] {
-    border-color: var(--ink);
+    border-color: #4a4a4a;
   }
 
   .pill.sound {
@@ -460,7 +481,7 @@
 
   .state {
     display: block;
-    font-size: var(--text-caption);
+    font-size: 9px;
     font-weight: 600;
     color: var(--muted);
     text-transform: none;

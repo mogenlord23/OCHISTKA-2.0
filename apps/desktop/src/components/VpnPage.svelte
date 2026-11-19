@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { t } from '../lib/i18n.svelte';
   import poster from '../assets/pop-art.png';
   import { playHeehee } from '../lib/sound';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
@@ -139,8 +138,8 @@
   </div>
   <div class="column">
     <header class="head">
-      <h1 class="title" data-testid="vpn-title">{tabLabel}</h1>
-      <p class="tagline lead">{t('lead.vpn')}</p>
+      <div class="title" data-testid="vpn-title">{tabLabel}</div>
+      <p class="tagline">Сетевые функции и диагностика · только чтение</p>
     </header>
 
     <div class="tabbar" role="tablist" aria-label="Вкладки VPN">

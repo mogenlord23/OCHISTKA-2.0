@@ -396,14 +396,6 @@ impl ProgramsPort for WindowsPrograms {
         Ok(records)
     }
 
-    fn list_file_names(&self, dir: &str) -> Result<Vec<String>, CoreError> {
-        list_file_names(dir)
-    }
-
-    fn read_small_file(&self, path: &str, max: usize) -> Result<Vec<u8>, CoreError> {
-        read_small_file(path, max)
-    }
-
     #[cfg(windows)]
     fn icon_png_base64(&self, path: &str) -> Result<String, CoreError> {
         let safe = ochistka_core::programs::icons::validate_icon_path(path)
@@ -466,45 +458,6 @@ impl ProgramsPort for WindowsPrograms {
 
 /// Текущее время в формате FILETIME (100-нс интервалы с 1601 года).
 #[cfg_attr(not(windows), allow(dead_code))]
-/// Имена файлов папки (без вложенных папок), только чтение. Путь проверяется как путь установки.
-pub fn list_file_names(dir: &str) -> Result<Vec<String>, CoreError> {
-    let absolute =
-        ochistka_core::programs::icons::valid_location(dir) || Path::new(dir).is_absolute();
-    if !absolute || dir.split(['\\', '/']).any(|part| part == "..") {
-        return Err(CoreError::InvalidTarget("недопустимая папка".into()));
-    }
-    let entries =
-        std::fs::read_dir(dir).map_err(|err| CoreError::Probe(format!("папка: {err}")))?;
-    Ok(entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .collect())
-}
-
-/// Читает небольшой обычный файл целиком; файл больше `max` байт не читается.
-pub fn read_small_file(path: &str, max: usize) -> Result<Vec<u8>, CoreError> {
-    use std::io::Read;
-    if !Path::new(path).is_absolute() || path.split(['\\', '/']).any(|part| part == "..") {
-        return Err(CoreError::InvalidTarget("недопустимый путь".into()));
-    }
-    let file = std::fs::File::open(path).map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
-    let meta = file
-        .metadata()
-        .map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
-    if !meta.is_file() || meta.len() > max as u64 {
-        return Err(CoreError::InvalidTarget(
-            "файл не подходит по размеру".into(),
-        ));
-    }
-    let mut bytes = Vec::with_capacity(meta.len() as usize);
-    file.take(max as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
-    Ok(bytes)
-}
-
-#[cfg(windows)]
 fn filetime_now() -> u64 {
     const UNIX_TO_FILETIME_SECS: u64 = 11_644_473_600;
     let since_unix = std::time::SystemTime::now()
@@ -537,7 +490,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(windows)]
     fn filetime_is_after_2020_and_in_100ns_ticks() {
         // 2020-01-01 в FILETIME.
         assert!(filetime_now() > 132_223_104_000_000_000);
@@ -733,21 +685,5 @@ mod tests {
         let record = store_record("Game.Thing_1.0_x64__abc", &values).expect("record");
         let program = parse_program(&record).expect("program");
         assert_eq!(program.disk_letter.as_deref(), Some("D:"));
-    }
-
-    #[test]
-    fn small_file_reader_respects_the_limit_and_refuses_parent_references() {
-        let dir = temp_dir("small-file");
-        let file = dir.join("a.bin");
-        std::fs::write(&file, [1u8; 10]).unwrap();
-        let path = file.to_string_lossy().to_string();
-        assert_eq!(read_small_file(&path, 10).unwrap().len(), 10);
-        assert!(read_small_file(&path, 9).is_err());
-        assert!(read_small_file("relative.bin", 10).is_err());
-        let sneaky = format!("{}/../a.bin", dir.to_string_lossy());
-        assert!(read_small_file(&sneaky, 10).is_err());
-        let names = list_file_names(&dir.to_string_lossy()).unwrap();
-        assert_eq!(names, vec!["a.bin".to_string()]);
-        std::fs::remove_dir_all(dir).ok();
     }
 }

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
   import AppIcon from './AppIcon.svelte';
-  import VirtualList from './VirtualList.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import {
     commandExePath,
@@ -17,7 +16,6 @@
   import { formatSize } from '../lib/units';
   import {
     getIcon,
-    getProgramIcon,
     listInstalled,
     listStartup,
     measureFolder,
@@ -141,7 +139,8 @@
   }
 
   function iconSource(program: InstalledProgram) {
-    return () => getProgramIcon(program.id);
+    const path = program.iconPath;
+    return path ? () => getIcon(path) : null;
   }
 
   async function measure(program: InstalledProgram) {
@@ -371,63 +370,56 @@
     {:else if loadedInstalled && visible.length === 0}
       <p class="status-line">Ничего не найдено.</p>
     {:else}
-      <VirtualList
-        items={visible}
-        rowHeight={52}
-        itemKey={(program) => program.id}
-        label="Программы"
-        maxHeight="calc(100vh - 480px)"
-      >
-        {#snippet head()}
-          <div class="grid-head" role="row">
-            <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
-            {#each COLUMNS as column (column.key)}
-              {@render sortHead(column)}
-            {/each}
-          </div>
-        {/snippet}
-        {#snippet row(program, index)}
-          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
-          <!-- Клик по строке — удобство для мыши; с клавиатуры строку выбирает кнопка с названием. -->
-          <div
-            class="row"
-            role="row"
-            aria-rowindex={index + 2}
-            class:is-selected={program.id === selectedId}
-            onclick={() => select(program)}
-            oncontextmenu={(event) => openMenu(event, program)}
-          >
-            <span class="c-icon" role="cell">
-              <AppIcon
-                name={program.name}
-                cacheKey={`program:${program.id}`}
-                resolve={iconSource(program)}
-                size={30}
-              />
-            </span>
-            <span class="c-name cut" role="cell">
-              <button
-                type="button"
-                class="name-btn"
-                aria-pressed={program.id === selectedId}
-                onclick={(event) => {
-                  event.stopPropagation();
-                  select(program);
-                }}>{program.name}</button
+      <div class="grid" role="table" aria-label="Программы" aria-rowcount={visible.length + 1}>
+        <div class="grid-head" role="row">
+          <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
+          {#each COLUMNS as column (column.key)}
+            {@render sortHead(column)}
+          {/each}
+        </div>
+        <div class="grid-body" role="rowgroup">
+          {#each visible as program (program.id)}
+            <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+            <!-- Клик по строке — удобство для мыши; с клавиатуры строку выбирает кнопка с названием. -->
+            <div
+              class="row"
+              role="row"
+              class:is-selected={program.id === selectedId}
+              onclick={() => select(program)}
+              oncontextmenu={(event) => openMenu(event, program)}
+            >
+              <span class="c-icon" role="cell">
+                <AppIcon
+                  name={program.name}
+                  cacheKey={program.iconPath}
+                  resolve={iconSource(program)}
+                  size={30}
+                />
+              </span>
+              <span class="c-name cut" role="cell">
+                <button
+                  type="button"
+                  class="name-btn"
+                  aria-pressed={program.id === selectedId}
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    select(program);
+                  }}>{program.name}</button
+                >
+              </span>
+              <span class="c-size" role="cell" class:is-empty={program.sizeBytes === null}
+                >{program.sizeBytes === null ? 'Нет данных' : formatSize(program.sizeBytes)}</span
               >
-            </span>
-            <span class="c-size" role="cell" class:is-empty={program.sizeBytes === null}
-              >{program.sizeBytes === null ? 'Нет данных' : formatSize(program.sizeBytes)}</span
-            >
-            <span class="c-disk" role="cell" class:is-empty={!program.diskLetter}
-              >{program.diskLetter ? `${program.diskLetter}\\` : 'Нет данных'}</span
-            >
-            <span class="c-version cut" role="cell">{program.version ?? '—'}</span>
-            <span class="c-kind" role="cell">{kindLabel(program.kind)}</span>
-            <span class="c-publisher cut" role="cell">{program.publisher ?? '—'}</span>
-          </div>
-        {/snippet}
-      </VirtualList>
+              <span class="c-disk" role="cell" class:is-empty={!program.diskLetter}
+                >{program.diskLetter ? `${program.diskLetter}\\` : 'Нет данных'}</span
+              >
+              <span class="c-version cut" role="cell">{program.version ?? '—'}</span>
+              <span class="c-kind" role="cell">{kindLabel(program.kind)}</span>
+              <span class="c-publisher cut" role="cell">{program.publisher ?? '—'}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
     {/if}
 
     <div class="details" aria-label="Выбранная программа" aria-live="polite">

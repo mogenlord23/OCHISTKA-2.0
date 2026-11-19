@@ -16,7 +16,7 @@ const OUT = process.argv[2];
 if (OUT) fs.mkdirSync(OUT, { recursive: true });
 const SIZES = [
   [1179, 803],
-  [900, 544],
+  [900, 520],
   [1920, 1080],
   [2560, 1440],
 ];

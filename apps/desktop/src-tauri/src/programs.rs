@@ -8,9 +8,7 @@ use std::sync::Arc;
 
 use ochistka_core::fs::CleanupError;
 use ochistka_core::layout::CleanupEnvPort;
-use ochistka_core::programs::icons::{
-    png_data_url, resolve_program_icon, validate_icon_path, IconCache,
-};
+use ochistka_core::programs::icons::{png_data_url, validate_icon_path, IconCache};
 use ochistka_core::programs::startup_state::valid_value_name;
 use ochistka_core::programs::{
     build_inventory, build_startup, measure_folder, uninstall_command_for, validate_measure_path,
@@ -73,10 +71,6 @@ pub enum ProgramsRequest {
     /// Значок файла (exe, dll, ico, lnk) в виде PNG-адреса. Только чтение.
     Icon {
         path: String,
-    },
-    /// Значок программы по `id`: DisplayIcon, логотип пакета Store или основной exe. Только чтение.
-    ProgramIcon {
-        id: String,
     },
     /// Штатное удаление по `id` программы. Без `confirmed` ядро не вызывается.
     Uninstall {
@@ -200,18 +194,6 @@ pub fn run(
                 .ok()
                 .map(|png| png_data_url(&png));
             icons.put(&path, data_url.clone());
-            Ok(ProgramsResponse::Icon { data_url })
-        }
-        ProgramsRequest::ProgramIcon { id } => {
-            if let Some(cached) = icons.get(&format!("program:{id}")) {
-                return Ok(ProgramsResponse::Icon { data_url: cached });
-            }
-            let records = registry.installed_records()?;
-            let data_url = build_inventory(&records)
-                .iter()
-                .find(|program| program.id == id)
-                .and_then(|program| resolve_program_icon(registry, program));
-            icons.put(&format!("program:{id}"), data_url.clone());
             Ok(ProgramsResponse::Icon { data_url })
         }
         ProgramsRequest::Uninstall { id, confirmed } => {
@@ -611,51 +593,5 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fallback, ProgramsResponse::Icon { data_url: None });
-    }
-
-    #[test]
-    fn program_icon_is_found_by_id_from_display_icon_and_cached() {
-        struct WithIcon(std::sync::atomic::AtomicUsize);
-        impl ProgramsPort for WithIcon {
-            fn installed_records(&self) -> Result<Vec<RawProgramRecord>, CoreError> {
-                let mut values = BTreeMap::new();
-                values.insert("DisplayName".into(), RawValue::Text("Tool".into()));
-                values.insert(
-                    "DisplayIcon".into(),
-                    RawValue::Text("\"C:\\Tool\\tool.exe\",0".into()),
-                );
-                Ok(vec![RawProgramRecord {
-                    source: RawSource::Uninstall,
-                    values,
-                }])
-            }
-            fn startup_records(&self) -> Result<Vec<RawStartup>, CoreError> {
-                Ok(Vec::new())
-            }
-            fn icon_png_base64(&self, path: &str) -> Result<String, CoreError> {
-                assert_eq!(path, "C:\\Tool\\tool.exe");
-                self.0.fetch_add(1, Ordering::SeqCst);
-                Ok("QUJD".into())
-            }
-        }
-        let port = WithIcon(Default::default());
-        let cache = IconCache::new(4);
-        let ask = |id: &str| {
-            run(
-                &port,
-                &NoEnv,
-                &AtomicBool::new(false),
-                &cache,
-                ProgramsRequest::ProgramIcon { id: id.into() },
-            )
-            .unwrap()
-        };
-        let expected = ProgramsResponse::Icon {
-            data_url: Some("data:image/png;base64,QUJD".into()),
-        };
-        assert_eq!(ask("tool||"), expected);
-        assert_eq!(ask("tool||"), expected);
-        assert_eq!(port.0.load(Ordering::SeqCst), 1);
-        assert_eq!(ask("unknown"), ProgramsResponse::Icon { data_url: None });
     }
 }

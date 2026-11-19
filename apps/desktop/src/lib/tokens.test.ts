@@ -10,8 +10,6 @@ import {
   TYPE_SCALE,
   contrastRatio,
   textOn,
-  BACKDROP,
-  LAYOUT,
 } from './tokens';
 
 describe('SECTION_COLORS', () => {
@@ -79,7 +77,7 @@ describe('neutral, radius and type tokens', () => {
   });
 
   it('defines the radius scale', () => {
-    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '12px' });
+    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '14px' });
   });
 
   it('defines the type scale', () => {
@@ -103,22 +101,6 @@ describe('PATTERN', () => {
       const dark = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * k));
       const under = '#' + dark.map((v) => v.toString(16).padStart(2, '0')).join('');
       expect(contrastRatio(textOn(color), under)).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-});
-
-describe('BACKDROP (section background pattern)', () => {
-  it('tiles the owner pattern at its native 320 px size with the PATTERN opacity', () => {
-    expect(BACKDROP.size).toBe('320px 320px');
-    expect(BACKDROP.position).toBe('0 0');
-    expect(BACKDROP.opacity).toBe(PATTERN.opacity);
-  });
-});
-
-describe('LAYOUT', () => {
-  it('lies on the 8 px grid', () => {
-    for (const [name, value] of Object.entries(LAYOUT)) {
-      expect(value % 8, name).toBe(0);
     }
   });
 });
