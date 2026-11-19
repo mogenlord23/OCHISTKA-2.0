@@ -29,7 +29,7 @@ describe('appearance tiles', () => {
 
   it('puts the solid styled wallpapers first, then the owner photo set with thumbnails', () => {
     expect(WALLPAPER_PHOTOS).toHaveLength(146);
-    expect(SOLID_WALLPAPERS.length).toBeGreaterThanOrEqual(14);
+    expect(SOLID_WALLPAPERS).toHaveLength(7);
     expect(WALLPAPERS).toHaveLength(SOLID_WALLPAPERS.length + 146);
     expect(WALLPAPERS.slice(0, SOLID_WALLPAPERS.length)).toEqual(SOLID_WALLPAPERS);
     for (const tile of SOLID_WALLPAPERS) {
@@ -40,6 +40,8 @@ describe('appearance tiles', () => {
     expect(SOLID_WALLPAPERS[0].id).toMatch(/^solid-acid-/);
     expect(SOLID_WALLPAPERS.some((t) => t.id === 'solid-black')).toBe(true);
     expect(SOLID_WALLPAPERS.some((t) => t.id === 'solid-white')).toBe(true);
+    expect(SOLID_WALLPAPERS.some((t) => t.id === 'solid-red')).toBe(true);
+    expect(SOLID_WALLPAPERS.filter((t) => t.id.startsWith('solid-acid-'))).toHaveLength(4);
     const photos = WALLPAPERS.slice(SOLID_WALLPAPERS.length);
     expect(photos.every((tile) => tile.thumb && /^photo-[0-9a-f]{16}$/.test(tile.id))).toBe(true);
   });

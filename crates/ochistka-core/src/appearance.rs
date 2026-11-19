@@ -1511,8 +1511,8 @@ mod tests {
     fn solid_tile_is_generated_at_the_screen_size_and_applied() {
         let (reg, mut wp, files) = windows_default();
         wp.screen = Some((1280, 720));
-        let path = apply_wallpaper_tile(&reg, &wp, &files, None, "solid-acid-01", true).unwrap();
-        assert_eq!(path, r"C:\Data\OCHISTKA\Wallpapers\solid-acid-01.png");
+        let path = apply_wallpaper_tile(&reg, &wp, &files, None, "solid-acid-lime", true).unwrap();
+        assert_eq!(path, r"C:\Data\OCHISTKA\Wallpapers\solid-acid-lime.png");
         let bytes = files.files.lock().unwrap()[&path].clone();
         assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
         // IHDR: ширина и высота big-endian со смещения 16.
@@ -1521,7 +1521,7 @@ mod tests {
         assert_eq!(wp.current().unwrap().as_deref(), Some(path.as_str()));
         assert_eq!(
             status(&reg).unwrap().wallpaper_tile.as_deref(),
-            Some("solid-acid-01")
+            Some("solid-acid-lime")
         );
         restore_wallpaper(&reg, &wp, &files, true).unwrap();
         assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
