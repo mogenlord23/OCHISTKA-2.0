@@ -58,8 +58,9 @@
 | Оформление / Обои, Курсоры, Цвета   | Применение к системе                                           | `planned` (не подключено)                                            | `planned` (не подключено)                                        | `planned` (не подключено)                                   |
 | Не распределено                     | Оптимизация, Сеть, Виджеты, Настройки                          | `planned` (место в разделах уточняется)                              | `planned` (та же причина)                                        | `planned` (та же причина)                                   |
 | Оформление: акцент, прозрачность, тема, обои Windows (HKCU, откат) | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
-| Оформление: обои плиткой на рабочий стол Windows (оригиналы из %LOCALAPPDATA%\OCHISTKA\Wallpapers, иначе превью), возврат повторным кликом | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
-| Оформление: схема курсора Windows (.cur 32x32 PNG, HKCU\Control Panel\Cursors, резерв, rundll32 UpdatePerUserSystemParameters); роли Arrow и IBeam | Windows | implemented (не проверено на Windows) | остальные роли (Hand, Wait и др.) и анимированные .ani: planned |
+| Оформление: обои плиткой из набора владельца (146 фото, оригиналы в ресурсах приложения, копия в %LOCALAPPDATA%\OCHISTKA\Wallpapers), возврат прежних обоев повторным кликом | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
+| Оформление: схема курсора Windows (17 ролей, .cur 32/48/64/96/128 со сглаживанием, 11 стилей, 53 схемы; HKCU\Control Panel\Cursors, резерв, rundll32 UpdatePerUserSystemParameters), возврат повторным кликом | Windows | implemented (не проверено на Windows) | анимированные .ani: planned; macOS/Linux: planned |
+| Оформление: цвет Windows плиткой (AccentColor, AccentPalette, ColorPrevalence, заголовки/Пуск/панель задач; снимок прежних значений), возврат повторным кликом | Windows | implemented (не проверено на Windows) | macOS/Linux: planned |
 | Оформление: возврат акцента повторным кликом по цвету | Windows | implemented (не проверено на Windows) | |
 | Оформление: «Скачать оригиналы» обоев | Windows | planned (заглушка пишет причину) | |
 
