@@ -6,6 +6,7 @@ pub mod windows;
 
 pub mod icon_image;
 pub mod icon_store;
+pub mod vpn;
 
 /// Очистка дисков Windows: файловый адаптер и раскладка. Файл лежит в `windows/`, но модуль
 /// объявлен здесь, потому что `windows/mod.rs` ведётся отдельно.

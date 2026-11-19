@@ -6,3 +6,6 @@ apps/desktop/src-tauri/gen/
 .DS_Store
 Thumbs.db
 *.log
+# VPN-ядро (sing-box) скачивается скриптом tools/vpn-core/fetch.ps1, в git не хранится
+apps/desktop/src-tauri/resources/vpn-core/*
+!apps/desktop/src-tauri/resources/vpn-core/README.txt

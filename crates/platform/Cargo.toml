@@ -27,3 +27,4 @@ serde = { version = "1", features = ["derive"] }
 wmi = "0.18.4"
 # Загрузка установщиков драйверов (блокирующий клиент, TLS системы Windows).
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls"] }
+# Также загрузка подписки VPN.

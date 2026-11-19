@@ -33,6 +33,7 @@ export const SECTIONS: readonly Section[] = [
     lead: 'Сетевые функции и диагностика · только чтение',
     subsections: [
       { id: 'vpn', title: 'VPN', titleKey: 'sub.vpn.vpn' },
+      { id: 'routes', title: 'Маршруты и исключения', titleKey: 'sub.vpn.routes' },
       { id: 'advanced', title: 'Дополнительно', titleKey: 'sub.vpn.advanced' },
       { id: 'network', title: 'Сеть', titleKey: 'sub.vpn.network' },
       { id: 'connections', title: 'Соединения', titleKey: 'sub.vpn.connections' },

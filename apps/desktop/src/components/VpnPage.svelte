@@ -1,27 +1,46 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
+  import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
-    IMPORT_REASON,
+    IMPORTING_LABEL,
     NETWORK_STATUS_OFF,
-    VPN_TUN_MODE_REASON,
+    TUN_MODE_REASON,
+    connectUi,
+    displayName,
+    elapsedSince,
     formatElapsed,
-    parseSubscription,
+    formatLatency,
+    importMessage,
+    normalizePasted,
+    prepareImport,
     requestNetworkChange,
-    requestVpnConnect,
-    validateSubscriptionUrl,
-    type ParsedSubscription,
+    statusLine,
   } from '../lib/vpn';
+  import {
+    vpnConnect,
+    vpnDisconnect,
+    vpnImport,
+    vpnMeasureLatency,
+    vpnSelect,
+    vpnSnapshot,
+    vpnStatus,
+    type RoutingRules,
+    type VpnSnapshot,
+  } from '../lib/vpnApi';
+  import { errorMessage } from '../lib/vpnNetwork';
 
   let { subsection }: { subsection: string } = $props();
 
-  type Tab = 'vpn' | 'advanced' | 'network' | 'connections';
+  type Tab = 'vpn' | 'routes' | 'advanced' | 'network' | 'connections';
   const TABS: { id: Tab; label: string }[] = [
     { id: 'vpn', label: 'VPN' },
+    { id: 'routes', label: 'Маршруты и исключения' },
     { id: 'advanced', label: 'Дополнительно' },
     { id: 'network', label: 'Сеть' },
     { id: 'connections', label: 'Соединения' },
@@ -37,42 +56,150 @@
     tab = tabOf(subsection);
   });
   const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
-  let selected = $state(0);
   let fileInput: HTMLInputElement | undefined = $state();
-
-  /** Код страны из флага-эмодзи в начале имени (🇱🇻 → LV); иначе пусто. */
-  function countryCode(name: string): string {
-    const points = [...name].slice(0, 2).map((c) => c.codePointAt(0) ?? 0);
-    if (points.length === 2 && points.every((p) => p >= 0x1f1e6 && p <= 0x1f1ff)) {
-      return points.map((p) => String.fromCharCode(p - 0x1f1e6 + 65)).join('');
-    }
-    return '';
-  }
-
-  function displayName(name: string): string {
-    return countryCode(name) ? [...name].slice(2).join('').trim() : name;
-  }
-
-  async function onFile(event: Event) {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0];
-    if (!file) return;
-    parsed = parseSubscription(await file.text());
-    selected = 0;
-    importMessage = `Серверов: ${parsed.servers.length}. Не распознано строк: ${parsed.unknownCount}.`;
-  }
 
   const ADVANCED = [
     { id: 'zapret', label: 'Zapret', description: 'Обход блокировок DPI', icon: '↗' },
     { id: 'xbox-dns', label: 'Xbox DNS', description: 'DNS-серверы Xbox', icon: 'X' },
   ] as const;
 
-  let urlInput = $state('');
-  let importMessage = $state<string | null>(null);
-  let parsed = $state<ParsedSubscription | null>(null);
+  /** Размер файла подписки не больше 5 МБ (так же ограничивает Rust). */
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-  let connectMessage = $state<string | null>(null);
-  /** Подключение пока не устанавливается, поэтому таймер стоит на нуле. */
-  let elapsedSeconds = $state(0);
+  let snapshot = $state<VpnSnapshot | null>(null);
+  let urlInput = $state('');
+  let importNote = $state<string | null>(null);
+  let importing = $state(false);
+  let measuring = $state(false);
+  let requesting = $state(false);
+  let actionNote = $state<string | null>(null);
+  let nowMs = $state(Date.now());
+  let copied = $state(false);
+
+  const servers = $derived(snapshot?.servers ?? []);
+  const ui = $derived(connectUi(snapshot, requesting || importing));
+  const elapsedSeconds = $derived(
+    snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
+  );
+  const status = $derived(
+    actionNote ??
+      (importing ? IMPORTING_LABEL : statusLine(snapshot?.connection ?? null, ui.reason)),
+  );
+
+  async function refresh() {
+    try {
+      const next = await vpnSnapshot();
+      snapshot = next;
+      if (urlInput === '' && next.subscriptionUrl) urlInput = next.subscriptionUrl;
+    } catch (err) {
+      actionNote = `Не удалось получить состояние VPN: ${errorMessage(err)}`;
+    }
+  }
+
+  onMount(() => {
+    void refresh();
+    const clock = setInterval(() => (nowMs = Date.now()), 1000);
+    // Пока подключено, раз в 3 секунды проверяем, что ядро живо.
+    const poll = setInterval(async () => {
+      if (snapshot?.connection.state !== 'connected') return;
+      try {
+        const connection = await vpnStatus();
+        if (snapshot) snapshot = { ...snapshot, connection };
+      } catch {
+        // Следующий опрос повторит запрос.
+      }
+    }, 3000);
+    return () => {
+      clearInterval(clock);
+      clearInterval(poll);
+    };
+  });
+
+  async function runImport(raw: string) {
+    const prepared = prepareImport(normalizePasted(raw));
+    if (!prepared.ok) {
+      importNote = prepared.reason;
+      return;
+    }
+    importing = true;
+    actionNote = null;
+    importNote = IMPORTING_LABEL;
+    try {
+      const summary = await vpnImport(prepared.input);
+      importNote = importMessage(summary.count, summary.skipped, summary.issues);
+      await refresh();
+    } catch (err) {
+      importNote = errorMessage(err);
+    } finally {
+      importing = false;
+    }
+  }
+
+  function onImport() {
+    void runImport(urlInput);
+  }
+
+  async function onFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      importNote = 'Файл слишком большой: подписка не больше 5 МБ';
+      return;
+    }
+    await runImport(await file.text());
+  }
+
+  async function onSelect(id: string) {
+    if (snapshot) snapshot = { ...snapshot, selected: id };
+    try {
+      await vpnSelect(id);
+    } catch (err) {
+      actionNote = errorMessage(err);
+      await refresh();
+    }
+  }
+
+  async function onMeasure() {
+    measuring = true;
+    try {
+      snapshot = await vpnMeasureLatency();
+    } catch (err) {
+      actionNote = errorMessage(err);
+    } finally {
+      measuring = false;
+    }
+  }
+
+  async function onConnect() {
+    if (ui.disabled || requesting) return;
+    requesting = true;
+    actionNote = null;
+    const connecting = snapshot?.connection.state !== 'connected';
+    try {
+      const connection = connecting ? await vpnConnect() : await vpnDisconnect();
+      if (snapshot) snapshot = { ...snapshot, connection };
+    } catch (err) {
+      actionNote = errorMessage(err);
+      await refresh();
+    } finally {
+      requesting = false;
+    }
+  }
+
+  function onRulesSaved(rules: RoutingRules) {
+    if (snapshot) snapshot = { ...snapshot, rules };
+  }
+
+  async function copyCommand() {
+    try {
+      await navigator.clipboard.writeText(snapshot?.core.fetchCommand ?? '');
+      copied = true;
+    } catch {
+      copied = false;
+    }
+  }
 
   let networkMessages = $state<Record<string, string | null>>({});
   /** Переключатель, для которого ждём подтверждения (id из ADVANCED). */
@@ -97,31 +224,12 @@
     if (event.key === 'Escape') cancelNetworkToggle();
   }
 
-  function onImport() {
-    // Вставленный текст подписки (vless://… и т. п.) разбираем сразу, ссылку — проверяем.
-    const pasted = parseSubscription(
-      urlInput.replace(/\s+(?=(vless|vmess|trojan|ss):\/\/)/g, '\n'),
-    );
-    if (pasted.servers.length > 0) {
-      parsed = pasted;
-      selected = 0;
-      importMessage = `Серверов: ${pasted.servers.length}. Не распознано строк: ${pasted.unknownCount}.`;
-      return;
-    }
-    const result = validateSubscriptionUrl(urlInput);
-    importMessage = result.ok ? IMPORT_REASON : result.reason;
-  }
-
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
   function onPoster() {
     pressed = false;
     requestAnimationFrame(() => (pressed = true));
     playHeehee();
-  }
-
-  function onConnect() {
-    connectMessage = requestVpnConnect().reason;
   }
 </script>
 
@@ -145,7 +253,7 @@
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
-      <p class="tagline">Сетевые функции и диагностика · только чтение</p>
+      <p class="tagline">Подписка, серверы, маршруты · сеть и соединения</p>
     </header>
 
     <div class="tabbar" role="tablist" aria-label="Вкладки VPN">
@@ -167,83 +275,130 @@
           <section class="card">
             <h2>Ссылка подписки / импорта</h2>
             <div class="row">
-              <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
-              <button type="button" onclick={onImport}>Импорт</button>
+              <input
+                bind:value={urlInput}
+                placeholder="https://…"
+                aria-label="Ссылка подписки"
+                onkeydown={(e) => e.key === 'Enter' && onImport()}
+              />
+              <button type="button" disabled={importing} onclick={onImport}
+                >{importing ? 'Загрузка…' : 'Импорт'}</button
+              >
             </div>
             <div class="row tight">
-              <button type="button" onclick={() => fileInput?.click()}>Из файла…</button>
+              <button type="button" disabled={importing} onclick={() => fileInput?.click()}
+                >Из файла…</button
+              >
               <input
                 bind:this={fileInput}
                 class="hidden"
                 type="file"
-                accept=".txt,text/plain"
+                accept=".txt,.json,text/plain,application/json"
                 aria-label="Файл подписки"
                 onchange={onFile}
               />
             </div>
-            {#if importMessage}
-              <p class="note" role="status">{importMessage}</p>
+            {#if importNote}
+              <p class="note" role="status">{importNote}</p>
             {/if}
           </section>
+
+          {#if snapshot && !snapshot.core.available}
+            <section class="card core-missing" role="alert">
+              <h2>VPN-ядро не установлено</h2>
+              <p class="note">
+                {snapshot.core.reason ?? 'Файл ядра не найден.'} Скачай его одной командой из папки проекта:
+              </p>
+              <div class="cmd-row">
+                <code class="cmd">{snapshot.core.fetchCommand}</code>
+                <button type="button" onclick={copyCommand}
+                  >{copied ? 'Скопировано' : 'Копировать'}</button
+                >
+              </div>
+            </section>
+          {/if}
 
           <section class="card connect">
             <div class="power-row">
               <button
                 type="button"
                 class="power"
-                aria-pressed="false"
-                aria-label="Подключить"
+                class:on={ui.pressed}
+                aria-pressed={ui.pressed}
+                aria-busy={ui.busy}
+                aria-label={ui.label}
+                aria-disabled={ui.disabled}
                 onclick={onConnect}
               >
                 <span class="power-knob" aria-hidden="true"></span>
               </button>
               <div class="power-text">
-                <span class="power-label">Подключить</span>
+                <span class="power-label">{ui.label}</span>
                 <span class="timer" aria-label="Время подключения"
                   >{formatElapsed(elapsedSeconds)}</span
                 >
-                <span class="status-line" role="status">{connectMessage ?? 'Не подключено'}</span>
+                <span class="status-line" role="status">{status}</span>
               </div>
             </div>
             <label class="select">
               <span class="hidden">Режим</span>
-              <select disabled aria-describedby="vpn-tun-reason" aria-label="Режим">
-                <option>TUN · весь компьютер</option>
+              <select aria-describedby="vpn-tun-reason" aria-label="Режим">
+                <option value="proxy">Системный прокси · совместимые приложения</option>
+                <option value="tun" disabled>TUN · весь компьютер (скоро)</option>
               </select>
               <span class="chev" aria-hidden="true"></span>
             </label>
-            <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
+            <p class="note" id="vpn-tun-reason">
+              {TUN_MODE_REASON}. Прежние настройки прокси Windows возвращаются при отключении.
+            </p>
           </section>
 
-          <h2 class="list-title">Серверы / {parsed?.servers.length ?? 0}</h2>
+          <div class="list-head">
+            <h2 class="list-title">Серверы / {servers.length}</h2>
+            {#if servers.length > 0}
+              <button type="button" class="small" disabled={measuring} onclick={onMeasure}
+                >{measuring ? 'Проверяем…' : 'Проверить задержку'}</button
+              >
+            {/if}
+          </div>
           <section class="card servers-card">
-            {#if parsed && parsed.servers.length > 0}
+            {#if servers.length > 0}
               <ul class="servers" aria-label="Серверы">
-                {#each parsed.servers as server, index (index)}
+                {#each servers as server (server.id)}
                   <li>
                     <button
                       type="button"
                       class="server"
-                      class:selected={selected === index}
-                      aria-pressed={selected === index}
-                      onclick={() => (selected = index)}
+                      class:selected={snapshot?.selected === server.id}
+                      aria-pressed={snapshot?.selected === server.id}
+                      onclick={() => onSelect(server.id)}
                     >
                       <span class="srv-name">
-                        {#if countryCode(server.name)}<b class="cc">{countryCode(server.name)}</b
-                          >{/if}{displayName(server.name)}
+                        {#if server.country}<b class="cc">{server.country}</b>{/if}{displayName(
+                          server.name,
+                        )}
                       </span>
-                      <span class="scheme">{server.scheme.toUpperCase()}</span>
+                      <span class="meta">
+                        <span class="scheme">{server.protocol.toUpperCase()}</span>
+                        {#if server.measured}
+                          <span class="latency" class:dead={server.latencyMs === null}
+                            >{formatLatency(server)}</span
+                          >
+                        {/if}
+                      </span>
                     </button>
                   </li>
                 {/each}
               </ul>
             {:else}
               <p class="note empty">
-                Серверов пока нет. Вставь ссылку https:// или текст подписки в поле выше, либо
-                выбери файл.
+                Серверов пока нет. Вставь ссылку https:// или список ссылок серверов в поле выше,
+                либо выбери файл.
               </p>
             {/if}
           </section>
+        {:else if tab === 'routes'}
+          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'advanced'}
           {#each ADVANCED as item (item.id)}
             <section class="card tool switch-row">
@@ -338,17 +493,19 @@
     min-height: 0;
   }
 
+  /* Без чёрного фона и без overflow: каждая картинка скруглена сама, поэтому в углах
+     нет чёрной каймы от фона (раньше она просвечивала по краю скругления). Чёрные
+     разделители между картинками нарисованы рамками самих картинок. */
   .poster {
     display: flex;
     flex-direction: column;
-    gap: 8px;
     width: 100%;
     height: 100%;
     padding: 0;
     border: 0;
     border-radius: var(--radius-lg);
-    overflow: hidden;
-    background: var(--black);
+    background: none;
+    box-shadow: none;
     cursor: pointer;
   }
 
@@ -356,7 +513,7 @@
     display: grid;
     flex: none;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 0;
   }
 
   .poster img {
@@ -367,13 +524,26 @@
   }
 
   .band img {
+    box-sizing: border-box;
     aspect-ratio: 1;
     object-fit: cover;
+    border-bottom: 8px solid #000;
+  }
+
+  .band img:first-child {
+    border-top-left-radius: var(--radius-lg);
+    border-right: 4px solid #000;
+  }
+
+  .band img:last-child {
+    border-top-right-radius: var(--radius-lg);
+    border-left: 4px solid #000;
   }
 
   .poster .portrait {
     flex: 1;
     min-height: 0;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     object-fit: cover;
     object-position: 50% 30%;
   }
@@ -424,6 +594,7 @@
   .tab {
     flex: 1;
     min-height: 44px;
+    line-height: 1.15;
     padding: 8px 12px;
     border-radius: var(--radius-md);
     background: transparent;
@@ -508,8 +679,65 @@
   }
 
   .list-title {
-    margin: 8px 0 -2px;
+    margin: 0;
     color: #000;
+  }
+
+  .list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0 -2px;
+  }
+
+  button.small {
+    min-height: 30px;
+    padding: 4px 12px;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .latency {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .latency.dead {
+    color: var(--muted);
+  }
+
+  .core-missing .cmd-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .cmd {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--ink);
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+    user-select: all;
   }
 
   .row {
@@ -580,6 +808,21 @@
     border-radius: 999px;
     background: #2a2a2a;
     box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .power:disabled,
+  .power[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .power.on {
+    background: var(--accent);
+  }
+
+  .power.on .power-knob {
+    left: auto;
+    right: 6px;
   }
 
   .power-knob {

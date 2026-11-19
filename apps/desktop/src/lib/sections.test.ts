@@ -24,10 +24,11 @@ describe('SECTIONS', () => {
     ]);
   });
 
-  it('gives the VPN section its four tabs in order', () => {
+  it('gives the VPN section its five tabs in order', () => {
     const vpn = SECTIONS.find((section) => section.id === 'vpn');
     expect(vpn?.subsections.map((item) => item.title)).toEqual([
       'VPN',
+      'Маршруты и исключения',
       'Дополнительно',
       'Сеть',
       'Соединения',

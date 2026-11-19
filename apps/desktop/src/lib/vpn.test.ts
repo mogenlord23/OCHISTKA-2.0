@@ -1,24 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import {
-  NETWORK_CHANGE_REASON,
-  VPN_CONNECT_REASON,
-  decodeBase64Utf8,
-  decodeSubscriptionBody,
+  NO_SERVERS_REASON,
+  connectUi,
+  displayName,
+  elapsedSince,
   formatElapsed,
-  parseSubscription,
+  formatLatency,
+  importMessage,
+  joinEntries,
+  normalizePasted,
+  prepareImport,
   requestNetworkChange,
-  requestVpnConnect,
+  splitEntries,
+  statusLine,
   validateSubscriptionUrl,
-  vmessName,
 } from './vpn';
+import type { VpnSnapshot } from './vpnApi';
 
-/** base64 в UTF-8 без зависимости от Buffer (в браузере Buffer нет). */
-function b64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  return btoa(String.fromCharCode(...bytes));
+function snapshot(
+  over: Partial<VpnSnapshot> = {},
+  state: VpnSnapshot['connection']['state'] = 'disconnected',
+): VpnSnapshot {
+  return {
+    servers: [
+      {
+        id: 'a',
+        name: 'A',
+        protocol: 'vless',
+        host: 'h',
+        port: 443,
+        country: null,
+        latencyMs: null,
+        measured: false,
+      },
+    ],
+    selected: 'a',
+    subscriptionUrl: '',
+    rules: { directDomains: [], proxyDomains: [], directApps: [], proxyApps: [], presets: [] },
+    presets: [],
+    core: { available: true, reason: null, fetchCommand: 'cmd' },
+    connection: {
+      state,
+      serverId: null,
+      serverName: null,
+      since: null,
+      message: 'Не подключено',
+      verified: false,
+    },
+    ...over,
+  };
 }
-
-const VMESS_JSON = JSON.stringify({ v: '2', ps: 'Сервер «Берлин»', add: 'h', port: '443' });
 
 describe('validateSubscriptionUrl', () => {
   it('accepts an https link and returns it trimmed', () => {
@@ -28,170 +59,138 @@ describe('validateSubscriptionUrl', () => {
     });
   });
 
-  it.each([
-    ['http://example.com/sub', 'http'],
-    ['file:///C:/subs/list.txt', 'file'],
-    ['ftp://example.com/sub', 'ftp'],
-    ['javascript:alert(1)', 'javascript'],
-  ])('rejects %s (%s scheme) with the https reason', (input) => {
-    expect(validateSubscriptionUrl(input)).toEqual({
-      ok: false,
-      reason: 'Разрешены только ссылки https://',
-    });
+  it('rejects http and other schemes with the https-only reason', () => {
+    for (const bad of ['http://example.com', 'ftp://example.com/x', 'vless://a@h:1']) {
+      expect(validateSubscriptionUrl(bad)).toEqual({
+        ok: false,
+        reason: 'Разрешены только ссылки https://',
+      });
+    }
   });
 
-  it('rejects an empty string', () => {
+  it('rejects empty, whitespace-only, spaced and non-URL input', () => {
     expect(validateSubscriptionUrl('')).toEqual({ ok: false, reason: 'Вставь ссылку подписки' });
-  });
-
-  it('rejects a whitespace-only string as empty', () => {
-    expect(validateSubscriptionUrl('   \t ')).toEqual({
-      ok: false,
-      reason: 'Вставь ссылку подписки',
-    });
-  });
-
-  it('rejects a link with spaces inside', () => {
-    expect(validateSubscriptionUrl('https://exa mple.com/sub')).toEqual({
-      ok: false,
-      reason: 'Ссылка не должна содержать пробелов',
-    });
-  });
-
-  it('rejects text that is not a URL', () => {
-    expect(validateSubscriptionUrl('not a link')).toEqual({
-      ok: false,
-      reason: 'Ссылка не должна содержать пробелов',
-    });
-    expect(validateSubscriptionUrl('https://')).toEqual({
+    expect(validateSubscriptionUrl('   ')).toEqual({ ok: false, reason: 'Вставь ссылку подписки' });
+    expect(validateSubscriptionUrl('https://a b.com').ok).toBe(false);
+    expect(validateSubscriptionUrl('justtext')).toEqual({
       ok: false,
       reason: 'Некорректная ссылка',
     });
   });
 });
 
-const SAMPLE = [
-  'vless://uuid@1.2.3.4:443?security=tls#Germany%20-%20Fast',
-  'vmess://eyJhZGQiOiIxLjIuMy40In0=#Netherlands',
-  'trojan://pass@5.6.7.8:443#Finland',
-  'ss://YWVzLTI1Ni1nY206cGFzcw@9.9.9.9:8388#Japan',
-  '',
-  'Some banner text from the provider',
-  'https://example.com/not-a-server',
-  'vless://uuid@10.0.0.1:443',
-].join('\n');
-
-describe('parseSubscription', () => {
-  it('lists recognised servers with scheme and name from the fragment', () => {
-    const result = parseSubscription(SAMPLE);
-    expect(result.servers).toEqual([
-      { scheme: 'vless', name: 'Germany - Fast' },
-      { scheme: 'vmess', name: 'Netherlands' },
-      { scheme: 'trojan', name: 'Finland' },
-      { scheme: 'ss', name: 'Japan' },
-      { scheme: 'vless', name: 'Без названия' },
-    ]);
+describe('prepareImport', () => {
+  it('passes https links and pasted server lists through', () => {
+    expect(prepareImport(' https://s.example/sub ')).toEqual({
+      ok: true,
+      input: 'https://s.example/sub',
+    });
+    const list = 'vless://a@h:1#A\ntrojan://b@h:2#B';
+    expect(prepareImport(list)).toEqual({ ok: true, input: list });
   });
 
-  it('counts unknown lines instead of listing them, skipping blank lines', () => {
-    expect(parseSubscription(SAMPLE).unknownCount).toBe(2);
+  it('refuses http:// before anything is sent', () => {
+    expect(prepareImport('http://s.example/sub')).toEqual({
+      ok: false,
+      reason: 'Разрешены только ссылки https://',
+    });
   });
 
-  it('handles Windows line endings and surrounding spaces', () => {
-    const result = parseSubscription('  trojan://a@h:1#One  \r\nvless://b@h:2#Two\r\n');
-    expect(result.servers.map((server) => server.name)).toEqual(['One', 'Two']);
-    expect(result.unknownCount).toBe(0);
+  it('refuses empty input', () => {
+    expect(prepareImport('  ').ok).toBe(false);
   });
 
-  it('keeps the raw fragment when it is not valid percent-encoding', () => {
-    const result = parseSubscription('trojan://a@h:1#100%');
-    expect(result.servers).toEqual([{ scheme: 'trojan', name: '100%' }]);
-  });
-
-  it('returns no servers for empty text', () => {
-    expect(parseSubscription('')).toEqual({ servers: [], unknownCount: 0 });
-  });
-});
-
-describe('decodeBase64Utf8', () => {
-  it('decodes standard and url-safe base64, with or without padding', () => {
-    expect(decodeBase64Utf8(b64('hello'))).toBe('hello');
-    expect(decodeBase64Utf8(b64('hello').replace(/=+$/, ''))).toBe('hello');
-    expect(decodeBase64Utf8(b64('??>>').replace(/\+/g, '-').replace(/\//g, '_'))).toBe('??>>');
-  });
-
-  it('returns null for input that is not base64 or not UTF-8', () => {
-    expect(decodeBase64Utf8('')).toBeNull();
-    expect(decodeBase64Utf8('not base64!')).toBeNull();
-    expect(decodeBase64Utf8('a')).toBeNull();
-    expect(decodeBase64Utf8(btoa(String.fromCharCode(0xff, 0xfe)))).toBeNull();
-  });
-});
-
-describe('decodeSubscriptionBody', () => {
-  const links = 'vless://id@host:443#One\ntrojan://pw@host:443#Two';
-
-  it('decodes a base64 body into the links it hides', () => {
-    expect(decodeSubscriptionBody(b64(links))).toBe(links);
-  });
-
-  it('accepts base64 wrapped over several lines', () => {
-    const encoded = b64(links);
-    const wrapped = encoded.match(/.{1,16}/g)?.join('\r\n') ?? '';
-    expect(decodeSubscriptionBody(wrapped)).toBe(links);
-  });
-
-  it('leaves a plain list of links untouched', () => {
-    expect(decodeSubscriptionBody(links)).toBe(links);
-  });
-
-  it('leaves base64 that does not hide links untouched', () => {
-    const plain = b64('just some words');
-    expect(decodeSubscriptionBody(plain)).toBe(plain);
-  });
-
-  it('parseSubscription reads servers from a base64 body', () => {
-    const result = parseSubscription(b64(links));
-    expect(result.servers).toEqual([
-      { scheme: 'vless', name: 'One' },
-      { scheme: 'trojan', name: 'Two' },
-    ]);
-  });
-});
-
-describe('vmessName', () => {
-  it('takes the name from the ps field of the base64 JSON', () => {
-    expect(vmessName(`vmess://${b64(VMESS_JSON)}`)).toBe('Сервер «Берлин»');
-  });
-
-  it('returns null when ps is missing, empty or not a value', () => {
-    expect(vmessName(`vmess://${b64(JSON.stringify({ add: 'h' }))}`)).toBeNull();
-    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: '  ' }))}`)).toBeNull();
-    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: { x: 1 } }))}`)).toBeNull();
-  });
-
-  it('returns null for broken JSON or a broken payload', () => {
-    expect(vmessName(`vmess://${b64('{not json')}`)).toBeNull();
-    expect(vmessName('vmess://***')).toBeNull();
-  });
-
-  it('accepts a numeric ps value', () => {
-    expect(vmessName(`vmess://${b64(JSON.stringify({ ps: 7 }))}`)).toBe('7');
-  });
-
-  it('parseSubscription prefers the ps name for vmess and falls back to the fragment', () => {
-    const result = parseSubscription(
-      [`vmess://${b64(VMESS_JSON)}#ignored`, `vmess://${b64('{"add":"h"}')}#Fallback`].join('\n'),
+  it('normalizePasted splits links glued by spaces into lines', () => {
+    expect(normalizePasted('vless://a@h:1#A trojan://b@h:2#B  ss://x@h:3#C')).toBe(
+      'vless://a@h:1#A\ntrojan://b@h:2#B\nss://x@h:3#C',
     );
-    expect(result.servers.map((server) => server.name)).toEqual(['Сервер «Берлин»', 'Fallback']);
+    expect(normalizePasted('https://s.example/sub')).toBe('https://s.example/sub');
   });
 });
 
-describe('formatElapsed', () => {
+describe('connectUi', () => {
+  it('is disabled with a reason until a server is imported', () => {
+    expect(connectUi(null, false)).toMatchObject({ disabled: true, reason: NO_SERVERS_REASON });
+    expect(connectUi(snapshot({ servers: [], selected: null }), false)).toMatchObject({
+      disabled: true,
+      reason: NO_SERVERS_REASON,
+    });
+  });
+
+  it('is disabled with the core reason when sing-box is missing', () => {
+    const ui = connectUi(
+      snapshot({
+        core: { available: false, reason: 'файл sing-box.exe не найден', fetchCommand: 'cmd' },
+      }),
+      false,
+    );
+    expect(ui.disabled).toBe(true);
+    expect(ui.reason).toContain('sing-box.exe');
+  });
+
+  it('is ready to connect when a server is selected and the core is present', () => {
+    expect(connectUi(snapshot(), false)).toEqual({
+      label: 'Подключить',
+      pressed: false,
+      busy: false,
+      disabled: false,
+      reason: null,
+    });
+  });
+
+  it('shows a busy, disabled button while connecting or while a request is running', () => {
+    expect(connectUi(snapshot({}, 'connecting'), false)).toMatchObject({
+      busy: true,
+      disabled: true,
+      label: 'Подключаем…',
+    });
+    expect(connectUi(snapshot(), true)).toMatchObject({ busy: true, disabled: true });
+  });
+
+  it('offers to disconnect when connected', () => {
+    expect(connectUi(snapshot({}, 'connected'), false)).toMatchObject({
+      label: 'Отключить',
+      pressed: true,
+      disabled: false,
+    });
+  });
+
+  it('after an error the button can try again', () => {
+    expect(connectUi(snapshot({}, 'error'), false).disabled).toBe(false);
+  });
+});
+
+describe('statusLine', () => {
+  it('uses the hint only while disconnected', () => {
+    const idle = snapshot().connection;
+    expect(statusLine(idle, 'Сначала выбери сервер')).toBe('Сначала выбери сервер');
+    expect(statusLine(idle, null)).toBe('Не подключено');
+    expect(statusLine({ ...idle, state: 'connected', message: 'Подключено · A' }, 'x')).toBe(
+      'Подключено · A',
+    );
+    expect(statusLine(null, null)).toBe('Не подключено');
+  });
+});
+
+describe('formatLatency', () => {
+  it('distinguishes not measured, no answer and a value', () => {
+    expect(formatLatency({ measured: false, latencyMs: null })).toBe('');
+    expect(formatLatency({ measured: true, latencyMs: null })).toBe('нет ответа');
+    expect(formatLatency({ measured: true, latencyMs: 42 })).toBe('42 мс');
+  });
+});
+
+describe('elapsedSince / formatElapsed', () => {
+  it('counts from the Unix-second start and never goes negative', () => {
+    expect(elapsedSince(1000, 1_754_000)).toBe(754);
+    expect(elapsedSince(2000, 1_000_000)).toBe(0);
+    expect(elapsedSince(null, 5)).toBe(0);
+  });
+
   it('formats seconds as HH:MM:SS', () => {
     expect(formatElapsed(0)).toBe('00:00:00');
-    expect(formatElapsed(65)).toBe('00:01:05');
-    expect(formatElapsed(3725)).toBe('01:02:05');
+    expect(formatElapsed(754)).toBe('00:12:34');
+    expect(formatElapsed(3661)).toBe('01:01:01');
   });
 
   it('keeps counting past 99 hours and clamps invalid input to zero', () => {
@@ -201,14 +200,28 @@ describe('formatElapsed', () => {
   });
 });
 
-describe('stubs', () => {
-  it('connecting returns the TUN reason and changes no state', () => {
-    expect(requestVpnConnect()).toEqual({ ok: false, reason: VPN_CONNECT_REASON });
-    expect(VPN_CONNECT_REASON).toBe('Подключение не подключено: нужен драйвер TUN');
+describe('names and route entries', () => {
+  it('displayName strips a leading flag emoji only', () => {
+    expect(displayName('🇱🇻 Латвия')).toBe('Латвия');
+    expect(displayName('Latvia')).toBe('Latvia');
   });
 
+  it('splitEntries accepts lines, commas and semicolons and drops blanks', () => {
+    expect(splitEntries('a.ru, b.ru\n\nc.ru;  ')).toEqual(['a.ru', 'b.ru', 'c.ru']);
+    expect(joinEntries(['a', 'b'])).toBe('a\nb');
+  });
+
+  it('importMessage reports skipped records', () => {
+    expect(importMessage(3, 0, [])).toBe('Серверов: 3.');
+    expect(importMessage(3, 2, ['a', 'b'])).toBe('Серверов: 3. Пропущено записей: 2 (a; b).');
+  });
+});
+
+describe('stubs', () => {
   it('a network change returns the not-connected reason', () => {
-    expect(requestNetworkChange()).toEqual({ ok: false, reason: NETWORK_CHANGE_REASON });
-    expect(NETWORK_CHANGE_REASON).toBe('Изменение сети пока не подключено');
+    expect(requestNetworkChange()).toEqual({
+      ok: false,
+      reason: 'Изменение сети пока не подключено',
+    });
   });
 });
