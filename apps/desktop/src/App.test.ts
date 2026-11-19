@@ -33,9 +33,9 @@ describe('App navigation', () => {
   it('opens VPN first, with its subsections', () => {
     render(App);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('VPN');
-    const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
-    expect(within(tabs).getByRole('button', { name: 'VPN' })).toBeTruthy();
-    expect(within(tabs).getByRole('button', { name: 'Соединения' })).toBeTruthy();
+    const tabs = screen.getByRole('tablist', { name: 'Вкладки VPN' });
+    expect(within(tabs).getByRole('tab', { name: 'VPN' })).toBeTruthy();
+    expect(within(tabs).getByRole('tab', { name: 'Соединения' })).toBeTruthy();
   });
 
   it('opens the virus section from the rail', async () => {

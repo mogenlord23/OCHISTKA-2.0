@@ -6,6 +6,7 @@
     lead = '',
     tabs,
     footer = '',
+    header = true,
     el = $bindable(),
     children,
   }: {
@@ -13,6 +14,8 @@
     lead?: string;
     tabs?: Snippet;
     footer?: string;
+    /** Раздел рисует собственный заголовок (VPN): шаблон его не дублирует. */
+    header?: boolean;
     el?: HTMLElement;
     children: Snippet;
   } = $props();
@@ -22,9 +25,11 @@
      Сверху фиксированный отступ, по бокам поля, контейнер по центру с предельной шириной. -->
 <main bind:this={el}>
   <div class="container">
-    <h1>{title}</h1>
-    {#if lead}<p class="lead">{lead}</p>{/if}
-    {#if tabs}{@render tabs()}{/if}
+    {#if header}
+      <h1>{title}</h1>
+      {#if lead}<p class="lead">{lead}</p>{/if}
+      {#if tabs}{@render tabs()}{/if}
+    {/if}
     <div class="page-body">
       {@render children()}
     </div>

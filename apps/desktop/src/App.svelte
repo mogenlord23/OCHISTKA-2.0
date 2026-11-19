@@ -149,6 +149,7 @@
         title={t(section.titleKey)}
         lead={t(section.leadKey)}
         footer={t('footer')}
+        header={activeId !== 'vpn'}
         bind:el={main}
       >
         {#snippet tabs()}

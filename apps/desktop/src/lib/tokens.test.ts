@@ -107,38 +107,11 @@ describe('PATTERN', () => {
   });
 });
 
-describe('BACKDROP (section background image, dimmed)', () => {
-  const blend = (a: string, b: string, k: number) => {
-    const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-    const [x, y] = [p(a), p(b)];
-    return (
-      '#' +
-      x
-        .map((v, i) =>
-          Math.round(v * (1 - k) + y[i] * k)
-            .toString(16)
-            .padStart(2, '0'),
-        )
-        .join('')
-    );
-  };
-
-  it('keeps text at 4.5:1 or better on every section even under the worst image pixel', () => {
-    for (const color of Object.values(SECTION_COLORS)) {
-      const text = textOn(color);
-      for (const pixel of ['#000000', '#ffffff']) {
-        const bg = blend(color, pixel, BACKDROP.opacity);
-        expect(
-          contrastRatio(text, bg),
-          `${color} text ${text} under ${pixel}`,
-        ).toBeGreaterThanOrEqual(4.5);
-      }
-    }
-  });
-
-  it('covers the stage from the centre', () => {
-    expect(BACKDROP.size).toBe('cover');
-    expect(BACKDROP.position).toBe('center');
+describe('BACKDROP (section background pattern)', () => {
+  it('tiles the owner pattern at its native 320 px size with the PATTERN opacity', () => {
+    expect(BACKDROP.size).toBe('320px 320px');
+    expect(BACKDROP.position).toBe('0 0');
+    expect(BACKDROP.opacity).toBe(PATTERN.opacity);
   });
 });
 

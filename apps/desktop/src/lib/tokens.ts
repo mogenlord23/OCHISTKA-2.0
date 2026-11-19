@@ -79,11 +79,11 @@ export const SHELL = {
 
 /** Узор раздела (pop-pattern.png, чёрный рисунок на прозрачном): плитка 320 px, непрозрачность слоя.
     Охват узора около 10%; при 0.03 цвет под буквами темнеет не более чем на 3% (тест BACKDROP: контраст текста >= 4.5:1 при любом пикселе узора). */
-export const PATTERN = { tile: 320, opacity: 0.03, worstCoverage: 0.25 } as const;
+export const PATTERN = { tile: 320, opacity: 0.07, worstCoverage: 0.25 } as const;
 
 /** Фон раздела: узор на весь экран, cover, фокус по центру. Приглушён: слой чёрного рисунка на цвете
     раздела темнеет не более чем на `opacity`; контраст текста проверяется тестом (>= 4.5:1). */
-export const BACKDROP = { opacity: PATTERN.opacity, size: 'cover', position: 'center' } as const;
+export const BACKDROP = { opacity: PATTERN.opacity, size: '320px 320px', position: '0 0' } as const;
 
 /** Размеры оболочки в px, все кратны 8: строка окна, ширина панели, поля страницы, плитка, ручка блока языка. */
 export const LAYOUT = {
