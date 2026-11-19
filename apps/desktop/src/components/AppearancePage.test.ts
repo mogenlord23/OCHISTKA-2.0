@@ -303,7 +303,7 @@ describe('AppearancePage colours', () => {
 
   it('the switches sit flush left with the page content', () => {
     render(AppearancePage, { subsection: 'colors' });
-    const boxes = document.querySelectorAll('.checks .switch');
+    const boxes = document.querySelectorAll('.options .switch');
     expect(boxes).toHaveLength(2);
     expect(document.querySelectorAll('.chip, .box.chip')).toHaveLength(0);
   });

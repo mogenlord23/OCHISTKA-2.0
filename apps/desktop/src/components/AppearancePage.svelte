@@ -55,7 +55,7 @@
     },
     color: {
       title: 'Акцентный цвет Windows',
-      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются флажками, но не вместе.',
+      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются переключателями, но не вместе.',
     },
   };
 
@@ -140,7 +140,14 @@
       // оформление пишется один раз, сразу в итоговое значение, и интерфейс не отстаёт.
       if (key && value !== undefined && tokens[key] !== mine) return;
       try {
-        status = await run();
+        const next = await run();
+        // Прозрачность и заливка панели цвет акцента не меняют: выбранный цвет остаётся как был,
+        // палитра не мигает, даже если ответ пришёл без отметки акцента.
+        const keepAccent = key === 'transparency' || key === 'fill';
+        status =
+          keepAccent && status && next.accentTile == null
+            ? { ...next, accentTile: status.accentTile }
+            : next;
       } catch (err) {
         if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
       } finally {
@@ -313,17 +320,22 @@
             >
           </div>
         {:else if kind === 'color'}
-          <div class="checks">
-            <Switch checked={transparencyOn} onchange={toggleTransparency}>
-              <span class="check-text">Эффект прозрачности</span>
-            </Switch>
-            <Switch checked={fillOn} onchange={toggleFill}>
-              <span class="check-text">Залить панель задач и Пуск</span>
-            </Switch>
-          </div>
-          <div class="actions">
+          <!-- Три элемента в одну линию слева направо: одинаковые чёрные карточки. Палитра ниже
+               не зависит от переключателей: список плиток с постоянными ключами, без {#key}. -->
+          <div class="options">
+            <div class="opt">
+              <Switch checked={transparencyOn} onchange={toggleTransparency}>
+                <span class="opt-text">Эффект прозрачности</span>
+              </Switch>
+            </div>
+            <div class="opt">
+              <Switch checked={fillOn} onchange={toggleFill}>
+                <span class="opt-text">Залить панель задач и Пуск</span>
+              </Switch>
+            </div>
             <button
               type="button"
+              class="opt opt-button"
               aria-disabled={!status?.hasBackup}
               class:disabled={!status?.hasBackup}
               onclick={restoreWindows}>Вернуть оформление Windows</button
@@ -455,20 +467,78 @@
     margin: 8px 0;
   }
 
-  /* Флажки одним столбцом по левому краю страницы: квадрат без отступа слева, текст по его
-     центру. Состояние показывается в тот же кадр, без плавного перехода. */
-  .checks {
+  /* Три элемента цвета в одну горизонтальную линию: одинаковые чёрные карточки (высота, отступы,
+     скругление, фон). Переноса строк нет: на узком окне сжимается текст и отступы. */
+  .options {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    flex-wrap: nowrap;
+    gap: 8px;
     margin: 0 0 12px;
     font-size: var(--text-small);
     font-weight: 700;
   }
 
-  .check-text {
-    line-height: 1.2;
+  .opt {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0;
+    border: 1px solid var(--btn-border);
+    border-radius: var(--radius-sm);
+    background: var(--black);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  /* Переключатель занимает всю карточку: нажатие в любом месте карточки переключает. */
+  .opt :global(.switch) {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 42px;
+    padding: 0 14px;
+  }
+
+  .opt-button {
+    justify-content: center;
+    padding: 0 14px;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .opt-button:hover {
+    background: var(--btn-hover);
+  }
+
+  .opt-button.disabled {
+    color: var(--ink-soft);
+    cursor: not-allowed;
+  }
+
+  .opt-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1100px) {
+    .options {
+      gap: 6px;
+      font-size: var(--text-caption);
+    }
+
+    .opt :global(.switch) {
+      gap: 8px;
+      padding: 0 10px;
+    }
+
+    .opt-button {
+      padding: 0 10px;
+    }
   }
 
   /* Плитки фиксированного размера: на любом экране одинаковые. Сетка добавляет колонки и
