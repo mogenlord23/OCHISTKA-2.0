@@ -22,7 +22,7 @@
 | `fewer_offers` | Меньше персональных предложений | `HKCU\...\Privacy` `TailoredExperiencesWithDiagnosticDataEnabled` | 0 | 10, 11 | пользователь | сразу |
 | `extra_tips` | Дополнительные подсказки Windows | `HKCU\...\ContentDeliveryManager` `SoftLandingEnabled`; `HKCU\...\UserProfileEngagement` `ScoobeSystemSettingEnabled` | 0 | 10, 11 | пользователь | сразу |
 | `ads` | Рекламные предложения | `HKCU\...\ContentDeliveryManager` `ContentDeliveryAllowed`, `OemPreInstalledAppsEnabled`, `PreInstalledAppsEnabled`, `PreInstalledAppsEverEnabled`, `SilentInstalledAppsEnabled` | 0 | 10, 11 | пользователь | сразу |
-| `suggestions` | Рекомендации в «Пуске» | `HKCU\...\ContentDeliveryManager` `SystemPaneSuggestionsEnabled`; `HKCU\...\Explorer\Advanced` `Start_IrisRecommendations` (22621+), `Start_AccountNotifications` (22000+) | 0 | 10, 11 | пользователь | сразу |
+| `suggestions` | Рекомендации в «Пуске» (круг 5: добавлен `Start_TrackProgs`; политика `HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent` `DisableWindowsConsumerFeatures`=1 уже включает параметр) | `HKCU\...\ContentDeliveryManager` `SystemPaneSuggestionsEnabled`; `HKCU\...\Explorer\Advanced` `Start_IrisRecommendations` (22621+), `Start_AccountNotifications` (22000+), `Start_TrackProgs` (22621+) | 0 | 10, 11 | пользователь | сразу |
 | `new_outlook` | Не предлагать новый Outlook | `HKCU\Software\Microsoft\Office\16.0\Outlook\Preferences` `UseNewOutlook`; `HKCU\Software\Policies\Microsoft\Office\16.0\Outlook\Options\General` `DoNewOutlookAutoMigration` | 0 | 10, 11 (нужен Office 2016+ / Microsoft 365) | пользователь | сразу |
 
 ## Поиск Windows
@@ -38,7 +38,7 @@
 | id | Параметр | Ключ | Значение | Версии | Права | Вступает |
 |---|---|---|---|---|---|---|
 | `diagnostics` | Минимум диагностики | `HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection` `AllowTelemetry` | 0 (в Home/Pro Windows сводит к минимальному уровню «обязательные») | 10, 11 | администратор | сразу |
-| `ad_id` | Рекламный ID | `HKCU\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo` `Enabled` | 0 | 10, 11 | пользователь | сразу |
+| `ad_id` | Рекламный ID (круг 5: ключ может не существовать, создаётся; политика `HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo` `DisabledByGroupPolicy`=1 уже включает параметр) | `HKCU\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo` `Enabled` | 0 | 10, 11 | пользователь | сразу |
 | `location` | Геолокация приложений | `HKCU\...\CapabilityAccessManager\ConsentStore\location` `Value` (строка) | `Deny` | 10, 11 | пользователь | сразу |
 | `error_reports` | Отчёты об ошибках | `HKCU\Software\Microsoft\Windows\Windows Error Reporting` `Disabled` | 1 | 10, 11 | пользователь | сразу |
 | `feedback` | Запросы отзывов | `HKCU\Software\Microsoft\Siuf\Rules` `NumberOfSIUFInPeriod` | 0 | 10, 11 | пользователь | сразу |
@@ -93,3 +93,21 @@
 ## Информационный блок «Активация Windows»
 
 Не переключатель. Статус: `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -Command` с фиксированным текстом `Get-CimInstance SoftwareLicensingProduct` (WMI, `LicenseStatus`: 1 = активирована, 0 = нет, 2-4 и 6 = льготный период, 5 = уведомление). Кнопка «Открыть параметры активации» запускает `C:\Windows\explorer.exe ms-settings:activation`. Не проверено на Windows.
+
+
+## Круг 5: почему настройки «не получались» и что исправлено
+
+Дата: 2026-11-19 (этап T1). Статус: **implemented, not verified на Windows**; причины найдены чтением кода и поведением Windows, проверены поддельным реестром.
+
+Общие причины (затрагивали все строки):
+1. **Причина отказа терялась в интерфейсе.** Защита `toCommandError` (`lib/api.ts`) не знала видов ошибок `notApplicable` и `needsAdmin`, превращала их в `probe`, и любой отказ показывался фразой «Не получилось изменить настройку». Исправлено: оба вида пропускаются, человеческая причина доходит до строки.
+2. **Число, записанное строкой.** Если параметр хранился как REG_SZ (твикеры, старые версии), чтение как DWORD падало ошибкой и ломало всё применение. Теперь адаптер возвращает `None` для значения другого типа, ядро (`read_flag`) читает строку и разбирает число (десятичное и `0x..`), прежний тип запоминается (`existed = 2`) и возвращается при откате.
+3. **Windows или Проводник перезаписывает значение сразу после записи.** Проверочное чтение теперь идёт после паузы 250 мс (`SystemPort::settle`). Если значение вернулось, всё откатывается, а причина человеческая: «Windows сразу вернула прежнее значение. Скорее всего, эта редакция или сборка Windows не поддерживает параметр».
+4. **Политика компьютера сильнее пользовательского ключа.** Для параметров с политикой (`TweakDef.policies`): если политика уже задана нужным значением, параметр показывается включённым, строка серая, причина «Включено политикой компьютера (администратор или организация): здесь не меняется»; включение ничего не пишет, выключение отказывает с той же причиной. Политика с другим значением не блокирует.
+5. **Защищённый ключ HKCU.** Отказ в доступе к HKCU больше не выдаётся за «нужны права администратора»: «Windows не разрешила записать параметр: раздел реестра защищён (политикой или защитной программой)». В HKLM отказ остаётся «нужны права администратора».
+6. Ключ, которого нет, создаётся при записи (`create_subkey`); при откате значение удаляется, если его не было.
+
+По ключам:
+- `suggestions`: Windows 11 22H2+ хранит переключатели «Пуска» в `Explorer\Advanced`: `Start_IrisRecommendations` (советы и приложения), `Start_AccountNotifications` (уведомления об аккаунте), `Start_TrackProgs` (недавно добавленные и часто используемые). Раньше `Start_TrackProgs` не писался, и список возвращался. Тип DWORD, HKCU, пользователь. Windows 10: только `SystemPaneSuggestionsEnabled`. Эффект: при следующем открытии «Пуска», иногда после перезапуска Проводника.
+- `ad_id`: `HKCU\...\AdvertisingInfo` `Enabled` DWORD 0; ключ `AdvertisingInfo` в HKCU часто отсутствует (создаётся). Если администратор задал политику `DisabledByGroupPolicy`=1, параметр уже выключен политикой (показывается включённым и заблокированным). Запись политики из программы не делается (требует администратора, откат сложнее; решение в decisions.md).
+- Остальные ключи: логика та же (общие причины 1–6); версионные границы не менялись.
