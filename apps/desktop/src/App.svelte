@@ -321,7 +321,7 @@
     overflow: hidden;
     background-color: var(--accent);
     /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
-    --content-gutter: max(22px, calc((100% - 1480px) / 2));
+    --content-gutter: max(24px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -386,7 +386,11 @@
     background: var(--window);
   }
 
+  /* Свёрнутый блок — только стрелка (высота 20 + нижний отступ 8). Раскрытая часть лежит
+     над стрелкой поверх панели и не сдвигает пункты: на низком окне она перекрывает низ
+     панели только пока открыта, а не выталкивает пункты за край. */
   .dock {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -395,7 +399,13 @@
 
   /* Сворачивание: высота блока и прозрачность (маленький блок, поэтому без нагрузки). */
   .bottom-wrap {
+    position: absolute;
+    right: 0;
+    bottom: 28px;
+    left: 0;
+    z-index: 2;
     display: grid;
+    background: var(--window);
     grid-template-rows: 0fr;
     opacity: 0;
     transition:

@@ -457,6 +457,9 @@
     flex: 1;
     gap: 8px;
     min-height: 0;
+    /* Обводка карточек (тень 2px) раньше обрезалась прокруткой: поле 2px внутри, минус снаружи. */
+    margin: -2px;
+    padding: 2px;
     overflow-y: auto;
     animation: pane-in 0.22s ease-out;
   }
