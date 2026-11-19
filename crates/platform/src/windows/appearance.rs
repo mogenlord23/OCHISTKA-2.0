@@ -1,5 +1,5 @@
-//! Оформление Windows: запись в HKCU через `winreg` и смена обоев через крейт `wallpaper`.
-//! Оба — безопасные обёртки, собственного unsafe здесь нет. Реальные записи только под
+//! Оформление Windows: запись в HKCU через `winreg`; обои, курсоры и рассылка о смене цветов —
+//! через `win32_ffi.rs` (единственный модуль с unsafe). Реальные записи только под
 //! `cfg(windows)` и только после подтверждения (проверяется в ядре); в тестах не выполняются.
 //! На других ОС адаптеры возвращают `Unsupported`.
 
@@ -11,12 +11,13 @@ pub struct WindowsAppearanceRegistry;
 pub struct WindowsWallpaper;
 /// Папка `%LOCALAPPDATA%\OCHISTKA` и запись файлов в неё.
 pub struct WindowsAppFiles;
-/// Обновление курсоров через `%SystemRoot%\System32\rundll32.exe` (полный путь, без PATH).
+/// Обновление курсоров: `SystemParametersInfoW(SPI_SETCURSORS)`; рассылка о смене цветов.
 pub struct WindowsCursorRefresh;
 
 #[cfg(windows)]
 mod imp {
     use super::*;
+    use crate::windows::win32_ffi;
     use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_BINARY};
     use winreg::{RegKey, RegValue as RawValue};
 
@@ -75,11 +76,15 @@ mod imp {
 
     impl WallpaperPort for WindowsWallpaper {
         fn current(&self) -> Result<Option<String>, AppearanceError> {
-            Ok(wallpaper::get().ok().filter(|p| !p.is_empty()))
+            Ok(win32_ffi::current_wallpaper())
         }
 
         fn set(&self, path: &str) -> Result<(), AppearanceError> {
-            wallpaper::set_from_path(path).map_err(|e| AppearanceError::Wallpaper(e.to_string()))
+            win32_ffi::set_wallpaper(path).map_err(AppearanceError::Wallpaper)
+        }
+
+        fn screen_size(&self) -> Option<(u32, u32)> {
+            win32_ffi::primary_screen_size()
         }
     }
     impl FilePort for WindowsAppFiles {
@@ -91,6 +96,10 @@ mod imp {
 
         fn exists(&self, path: &str) -> bool {
             std::path::Path::new(path).is_file()
+        }
+
+        fn windows_dir(&self) -> String {
+            Self::system_root()
         }
 
         fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError> {
@@ -114,19 +123,18 @@ mod imp {
 
     impl CursorRefreshPort for WindowsCursorRefresh {
         fn refresh(&self) -> Result<(), AppearanceError> {
-            let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
-            let exe = format!("{root}\\System32\\rundll32.exe");
-            let status = std::process::Command::new(exe)
-                .args(["user32.dll,UpdatePerUserSystemParameters"])
-                .status()
-                .map_err(|e| AppearanceError::Registry(e.to_string()))?;
-            if status.success() {
-                Ok(())
-            } else {
-                Err(AppearanceError::Registry(
-                    "rundll32 завершился с ошибкой".into(),
-                ))
-            }
+            win32_ffi::reload_cursors().map_err(AppearanceError::Registry)
+        }
+
+        fn colors_changed(&self) -> Result<(), AppearanceError> {
+            win32_ffi::broadcast_color_change().map_err(AppearanceError::Registry)
+        }
+    }
+
+    impl WindowsAppFiles {
+        /// `%SystemRoot%` для пути к обоям Windows по умолчанию.
+        pub(super) fn system_root() -> String {
+            std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())
         }
     }
 }

@@ -12,6 +12,8 @@ pub mod processes;
 pub mod programs;
 pub mod services;
 pub mod tweaks;
+#[cfg(windows)]
+pub mod win32_ffi;
 
 use std::sync::{Mutex, OnceLock};
 

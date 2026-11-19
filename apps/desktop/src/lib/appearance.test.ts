@@ -8,6 +8,7 @@ import {
   ACCENT_COLORS,
   ARROW_PATH,
   WALLPAPERS,
+  SOLID_WALLPAPERS,
   defaultTileId,
   tilesFor,
 } from './appearance';
@@ -26,12 +27,21 @@ describe('appearance tiles', () => {
     }
   });
 
-  it('offers exactly the owner photo set, every tile a thumbnail, no solid colours', () => {
+  it('puts the solid styled wallpapers first, then the owner photo set with thumbnails', () => {
     expect(WALLPAPER_PHOTOS).toHaveLength(146);
-    expect(WALLPAPERS).toHaveLength(146);
-    expect(WALLPAPERS.every((tile) => tile.thumb && /^photo-[0-9a-f]{16}$/.test(tile.id))).toBe(
-      true,
-    );
+    expect(SOLID_WALLPAPERS.length).toBeGreaterThanOrEqual(14);
+    expect(WALLPAPERS).toHaveLength(SOLID_WALLPAPERS.length + 146);
+    expect(WALLPAPERS.slice(0, SOLID_WALLPAPERS.length)).toEqual(SOLID_WALLPAPERS);
+    for (const tile of SOLID_WALLPAPERS) {
+      expect(tile.id).toMatch(/^solid-/);
+      expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
+      expect(tile.thumb).toBeUndefined();
+    }
+    expect(SOLID_WALLPAPERS[0].id).toMatch(/^solid-acid-/);
+    expect(SOLID_WALLPAPERS.some((t) => t.id === 'solid-black')).toBe(true);
+    expect(SOLID_WALLPAPERS.some((t) => t.id === 'solid-white')).toBe(true);
+    const photos = WALLPAPERS.slice(SOLID_WALLPAPERS.length);
+    expect(photos.every((tile) => tile.thumb && /^photo-[0-9a-f]{16}$/.test(tile.id))).toBe(true);
   });
 
   it('has 53 cursor schemes in 11 styles: 12 plain and 41 patterned, drawn as SVG', () => {
@@ -68,10 +78,22 @@ describe('appearance tiles', () => {
     }
   });
 
-  it('has 53 accent colours as plain hex swatches, each unique', () => {
-    expect(COLOR_SCHEMES).toHaveLength(53);
-    expect(new Set(ACCENT_COLORS).size).toBe(53);
+  it('has unique accent colours (no near twins), acid first, white and black last', () => {
+    expect(COLOR_SCHEMES).toHaveLength(ACCENT_COLORS.length);
+    expect(ACCENT_COLORS.length).toBeGreaterThanOrEqual(60);
+    expect(new Set(ACCENT_COLORS.map((c) => c.toUpperCase())).size).toBe(ACCENT_COLORS.length);
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    for (let i = 0; i < ACCENT_COLORS.length; i++) {
+      for (let j = i + 1; j < ACCENT_COLORS.length; j++) {
+        const [a, b] = [rgb(ACCENT_COLORS[i]), rgb(ACCENT_COLORS[j])];
+        const distance = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+        expect(distance, `${ACCENT_COLORS[i]} ~ ${ACCENT_COLORS[j]}`).toBeGreaterThanOrEqual(20);
+      }
+    }
     for (const tile of COLOR_SCHEMES) expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
+    expect(ACCENT_COLORS[0]).toBe('#B4FF00');
+    expect(ACCENT_COLORS.slice(-7)).toContain('#FFFFFF');
+    expect(ACCENT_COLORS.at(-1)).toBe('#000000');
   });
 
   it('shares the arrow outline with the Rust cursor renderer', () => {

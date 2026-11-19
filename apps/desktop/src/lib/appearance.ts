@@ -1,4 +1,5 @@
 import cursorShapes from '../../../../crates/ochistka-core/assets/cursor-shapes.json';
+import solidWallpapers from '../../../../crates/ochistka-core/assets/solid-wallpapers.json';
 import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 /**
@@ -55,14 +56,27 @@ export const ACID_PAIRS: readonly (readonly [string, string])[] = [
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** Только набор владельца (146 фото из gallery.json): плитка показывает превью. */
-export const WALLPAPERS: readonly AppearanceTile[] = WALLPAPER_PHOTOS.map((photo) => ({
-  id: photo.id,
-  label: photo.title,
-  description: `${photo.title}, ${photo.width}×${photo.height}`,
-  preview: '#161616',
-  thumb: photo.thumb,
+/** Сплошные обои в стиле приложения: Rust рисует PNG в родном разрешении экрана (тот же JSON). */
+export const SOLID_WALLPAPERS: readonly AppearanceTile[] = (
+  solidWallpapers as { id: string; label: string; color: string }[]
+).map((item) => ({
+  id: item.id,
+  label: item.label,
+  description: `Сплошной цвет, ${item.label.toLowerCase()}`,
+  preview: item.color,
 }));
+
+/** Сначала сплошные обои (кислотные, чёрный, белый…), затем 146 фото владельца из gallery.json. */
+export const WALLPAPERS: readonly AppearanceTile[] = [
+  ...SOLID_WALLPAPERS,
+  ...WALLPAPER_PHOTOS.map((photo) => ({
+    id: photo.id,
+    label: photo.title,
+    description: `${photo.title}, ${photo.width}×${photo.height}`,
+    preview: '#161616',
+    thumb: photo.thumb,
+  })),
+];
 
 export type CursorPattern =
   | 'plain'
@@ -250,7 +264,7 @@ export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
   );
 }
 
-/** Акцентные цвета Windows: 53 плитки в порядке экрана владельца (9 в ряду). */
+/** Акцентные цвета Windows: сначала кислотные, потом обычные, в конце белый, серые и чёрный. Без повторов и близнецов. */
 export const ACCENT_COLORS: readonly string[] = [
   '#B4FF00',
   '#FF009D',
@@ -264,18 +278,12 @@ export const ACCENT_COLORS: readonly string[] = [
   '#FF00DD',
   '#00C8FF',
   '#FF5E00',
-  '#B400FF',
-  '#FFEE00',
   '#00FF7F',
-  '#E6FF00',
-  '#00F5FF',
   '#FF3864',
   '#6DFF00',
-  '#FF6B00',
   '#D0FF00',
   '#9D00FF',
   '#00FFCC',
-  '#FF008C',
   '#1FFF5C',
   '#00D9A0',
   '#22D3FF',
@@ -286,25 +294,47 @@ export const ACCENT_COLORS: readonly string[] = [
   '#FF4818',
   '#FFA800',
   '#B83CFF',
-  '#E0FF00',
-  '#FF3050',
-  '#00FFB4',
   '#00A8FF',
   '#FF0070',
-  '#FF9A00',
-  '#78FF00',
-  '#000000',
-  '#FFFFFF',
-  '#808080',
-  '#BEBEBE',
-  '#333333',
-  '#D9BFA6',
+  '#00E5FF',
+  '#18FFFF',
+  '#FF4081',
+  '#651FFF',
+  '#00FF41',
+  '#FFD600',
+  '#E53935',
+  '#D81B60',
+  '#8E24AA',
+  '#5E35B1',
+  '#3949AB',
+  '#1E88E5',
+  '#039BE5',
+  '#00ACC1',
+  '#00897B',
+  '#43A047',
+  '#7CB342',
+  '#C0CA33',
+  '#FDD835',
+  '#6D4C41',
   '#8B4513',
   '#003366',
-  '#008080',
   '#800000',
   '#008000',
   '#4B0082',
+  '#D9BFA6',
+  '#FF8A80',
+  '#2E7D32',
+  '#0D47A1',
+  '#B71C1C',
+  '#006064',
+  '#BCAAA4',
+  '#455A64',
+  '#FFFFFF',
+  '#E0E0E0',
+  '#BEBEBE',
+  '#808080',
+  '#2B2B2B',
+  '#000000',
 ];
 
 export const COLOR_SCHEMES: readonly AppearanceTile[] = ACCENT_COLORS.map((hex, i) => ({

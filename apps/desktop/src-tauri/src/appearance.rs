@@ -1,6 +1,7 @@
-//! Команда «Оформление»: цвета, прозрачность, тема и обои Windows. Один вход
+//! Команда «Оформление»: цвета, прозрачность, обои и курсоры Windows. Один вход
 //! `appearance_request` с полем `action`. Изменяющие действия требуют `confirmed: true`
-//! (диалог в интерфейсе); реальные записи (реестр HKCU, обои) в тестах не выполняются.
+//! (интерфейс всегда шлёт его: клик по плитке и есть действие, всё обратимо); реальные
+//! записи (реестр HKCU, обои) в тестах не выполняются.
 
 use std::sync::Arc;
 
@@ -55,17 +56,7 @@ pub enum AppearanceRequest {
         enabled: bool,
         confirmed: bool,
     },
-    SetTheme {
-        dark: bool,
-        also_system: bool,
-        confirmed: bool,
-    },
-    /// Тёмная или светлая тема только Пуска и панели задач.
-    SetSystemTheme {
-        dark: bool,
-        confirmed: bool,
-    },
-    /// Вернуть сохранённые прежние значения цветов, прозрачности и темы.
+    /// Вернуть сохранённые прежние значения цветов и прозрачности.
     RestoreAppearance {
         confirmed: bool,
     },
@@ -176,6 +167,14 @@ pub fn run(
         refresh,
         resources,
     } = *ports;
+    let colors_touched = matches!(
+        request,
+        R::SetAccent { .. }
+            | R::SetTransparency { .. }
+            | R::SetFillTaskbar { .. }
+            | R::RestoreAppearance { .. }
+            | R::RestoreAccent { .. }
+    );
     match request {
         R::Status => {}
         R::SetAccent { color, confirmed } => appearance::set_accent(reg, &color, confirmed)?,
@@ -185,24 +184,16 @@ pub fn run(
         R::SetFillTaskbar { enabled, confirmed } => {
             appearance::set_fill_taskbar(reg, enabled, confirmed)?
         }
-        R::SetTheme {
-            dark,
-            also_system,
-            confirmed,
-        } => appearance::set_theme(reg, dark, also_system, confirmed)?,
-        R::SetSystemTheme { dark, confirmed } => {
-            appearance::set_system_theme(reg, dark, confirmed)?
-        }
         R::RestoreAppearance { confirmed } => appearance::restore(reg, confirmed)?,
         R::PickAndApplyWallpaper { confirmed } => {
             if !confirmed {
                 return Err(AppearanceError::NotConfirmed.into());
             }
             let path = pick()?;
-            appearance::apply_wallpaper(reg, wallpaper, &path, true)?;
+            appearance::apply_wallpaper(reg, wallpaper, files, &path, true)?;
         }
         R::RestoreWallpaper { confirmed } => {
-            appearance::restore_wallpaper(reg, wallpaper, confirmed)?
+            appearance::restore_wallpaper(reg, wallpaper, files, confirmed)?
         }
         R::ApplyWallpaperTile { id, confirmed } => {
             appearance::apply_wallpaper_tile(reg, wallpaper, files, resources, &id, confirmed)?;
@@ -229,6 +220,10 @@ pub fn run(
         R::RestoreCursorScheme { confirmed } => {
             appearance::restore_cursor_scheme(reg, refresh, confirmed)?
         }
+    }
+    if colors_touched {
+        // Одна рассылка на запрос; сбой рассылки не отменяет уже записанное оформление.
+        let _ = refresh.colors_changed();
     }
     let status = appearance::status(reg)?;
     Ok(AppearanceResponse::Status { status })
@@ -405,6 +400,8 @@ mod tests {
         }
         fn exists(&self, path: &str) -> bool {
             path.starts_with(r"C:\App\wallpapers\")
+                || path == r"C:\old.jpg"
+                || path.starts_with(r"C:\D\Backup\")
         }
         fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
             Ok(())
@@ -438,7 +435,11 @@ mod tests {
         let restore = AppearanceRequest::RestoreWallpaper { confirmed: true };
         let AppearanceResponse::Status { status } = run(&ports, &no_pick, restore).unwrap();
         assert_eq!(status.wallpaper_tile, None);
-        assert_eq!(wall.current().unwrap().as_deref(), Some(r"C:\old.jpg"));
+        assert_eq!(
+            wall.current().unwrap().as_deref(),
+            Some(r"C:\D\Backup\wallpaper-previous.jpg"),
+            "возвращается копия прежнего файла, а не исходный путь"
+        );
     }
 
     #[test]
@@ -447,19 +448,66 @@ mod tests {
         assert_eq!(plain_path(std::path::Path::new("/opt/app")), "/opt/app");
     }
 
+    #[derive(Default)]
+    struct CountingRefresh(Mutex<(u32, u32)>);
+    impl CursorRefreshPort for CountingRefresh {
+        fn refresh(&self) -> Result<(), AppearanceError> {
+            self.0.lock().unwrap().0 += 1;
+            Ok(())
+        }
+        fn colors_changed(&self) -> Result<(), AppearanceError> {
+            self.0.lock().unwrap().1 += 1;
+            Ok(())
+        }
+    }
+
     #[test]
-    fn request_json_shape() {
-        let r: AppearanceRequest = serde_json::from_str(
-            r##"{"action":"setTheme","dark":true,"alsoSystem":false,"confirmed":true}"##,
+    fn colour_requests_broadcast_exactly_once_and_others_never() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        let refresh = CountingRefresh::default();
+        let ports = Ports {
+            reg: &reg,
+            wallpaper: &wall,
+            files: &NoFiles,
+            refresh: &refresh,
+            resources: None,
+        };
+        for (request, broadcasts) in [
+            (
+                AppearanceRequest::SetAccent {
+                    color: "#087FFF".into(),
+                    confirmed: true,
+                },
+                1,
+            ),
+            (
+                AppearanceRequest::SetTransparency {
+                    enabled: true,
+                    confirmed: true,
+                },
+                1,
+            ),
+            (
+                AppearanceRequest::SetFillTaskbar {
+                    enabled: true,
+                    confirmed: true,
+                },
+                1,
+            ),
+            (AppearanceRequest::RestoreAppearance { confirmed: true }, 1),
+            (AppearanceRequest::Status, 0),
+        ] {
+            let before = refresh.0.lock().unwrap().1;
+            run(&ports, &no_pick, request).unwrap();
+            assert_eq!(refresh.0.lock().unwrap().1 - before, broadcasts);
+        }
+    }
+
+    #[test]
+    fn theme_requests_are_gone() {
+        assert!(serde_json::from_str::<AppearanceRequest>(
+            r#"{"action":"setTheme","dark":true,"alsoSystem":false,"confirmed":true}"#
         )
-        .unwrap();
-        assert_eq!(
-            r,
-            AppearanceRequest::SetTheme {
-                dark: true,
-                also_system: false,
-                confirmed: true
-            }
-        );
+        .is_err());
     }
 }

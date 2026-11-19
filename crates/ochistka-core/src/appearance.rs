@@ -50,17 +50,33 @@ pub trait FilePort: Send + Sync {
     fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError>;
     /// Копирует файл `from` в `to`, создавая папки. Существующий файл заменяется.
     fn copy(&self, from: &str, to: &str) -> Result<(), AppearanceError>;
+    /// Папка Windows (`%SystemRoot%`), откуда берутся обои по умолчанию.
+    fn windows_dir(&self) -> String {
+        r"C:\Windows".into()
+    }
 }
 
-/// Просит Windows перечитать курсоры: `%SystemRoot%\System32\rundll32.exe user32.dll,UpdatePerUserSystemParameters`.
+/// Просит Windows перечитать курсоры (`SystemParametersInfoW(SPI_SETCURSORS)`) и сообщает
+/// системе о смене цветов.
 pub trait CursorRefreshPort: Send + Sync {
     fn refresh(&self) -> Result<(), AppearanceError>;
+    /// Одно широковещательное `WM_SETTINGCHANGE` («ImmersiveColorSet») с коротким таймаутом.
+    /// Больше ничего не перезапускается: ни проводник, ни повторные рассылки.
+    fn colors_changed(&self) -> Result<(), AppearanceError> {
+        Ok(())
+    }
 }
 
 /// Обои рабочего стола Windows.
 pub trait WallpaperPort: Send + Sync {
+    /// Полный путь к текущему файлу обоев (`SPI_GETDESKWALLPAPER`); `None` — обоев нет.
     fn current(&self) -> Result<Option<String>, AppearanceError>;
+    /// Ставит обои; пустая строка убирает картинку.
     fn set(&self, path: &str) -> Result<(), AppearanceError>;
+    /// Размер основного экрана в пикселях: по нему рисуются сплошные обои.
+    fn screen_size(&self) -> Option<(u32, u32)> {
+        None
+    }
 }
 
 const DWM: &str = r"Software\Microsoft\Windows\DWM";
@@ -69,20 +85,28 @@ const ACCENT: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent
 /// Резервная ветка: прежние значения до первого изменения.
 pub const BACKUP_KEY: &str = r"Software\OCHISTKA\Backup\Appearance";
 const BACKUP_DONE: &str = "Created";
-const BACKUP_WALLPAPER: &str = "PreviousWallpaper";
+/// Прежние обои: путь к копии в `Backup`, пусто (обоев не было) или `@default` (обои Windows).
+const BACKUP_WALLPAPER: &str = "PreviousWallpaperFile";
+const PREVIOUS_DEFAULT: &str = "@default";
+/// Ветка рабочего стола: положение обоев и качество импорта JPEG.
+const DESKTOP: &str = r"Control Panel\Desktop";
+/// Значения ветки рабочего стола, которые ставит смена обоев (прежние сохраняются).
+const DESKTOP_TARGETS: [&str; 3] = ["WallpaperStyle", "TileWallpaper", "JPEGImportQuality"];
+const DESKTOP_SNAPSHOT: &str = "Desktop.";
+/// Прозрачность и заливка панели задач включены нами (значение — снимок прежнего в `Toggle.*`).
+const APPLIED_TRANSPARENCY: &str = "AppliedTransparency";
+const APPLIED_FILL: &str = "AppliedFill";
+const TOGGLE_SNAPSHOT: &str = "Toggle.";
 /// Какая плитка обоев сейчас поставлена (`custom` — свой файл).
 const APPLIED_WALLPAPER: &str = "AppliedWallpaper";
 /// Акцентный цвет `#RRGGBB`, поставленный плиткой.
 const APPLIED_ACCENT: &str = "AppliedAccent";
 /// Идентификаторы значений цвета Windows внутри `TARGETS`: их плитка цвета снимает и возвращает.
-const ACCENT_IDS: [&str; 7] = [
+const ACCENT_IDS: [&str; 4] = [
     "dwmAccent",
     "dwmColorization",
-    "dwmPrevalence",
     "accentMenu",
-    "accentStart",
     "accentPalette",
-    "prevalence",
 ];
 /// Снимок цвета перед плиткой: `Accent.<id>` или `Accent.<id>.absent`.
 const ACCENT_SNAPSHOT: &str = "Accent.";
@@ -134,35 +158,22 @@ const TARGETS: &[Target] = &[
         key: PERSONALIZE,
         name: "EnableTransparency",
     },
-    Target {
-        id: "appsLight",
-        key: PERSONALIZE,
-        name: "AppsUseLightTheme",
-    },
-    Target {
-        id: "systemLight",
-        key: PERSONALIZE,
-        name: "SystemUsesLightTheme",
-    },
 ];
 
 fn target(id: &str) -> &'static Target {
     TARGETS.iter().find(|t| t.id == id).expect("известная цель")
 }
 
-/// Текущее состояние для интерфейса. `None` — в реестре значения нет.
+/// Текущее состояние для интерфейса.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppearanceStatus {
     /// Акцентный цвет в виде `#RRGGBB`.
     pub accent: Option<String>,
-    pub transparency: Option<bool>,
-    /// `true` — тёмная тема приложений.
-    pub dark_apps: Option<bool>,
-    /// `true` — тёмная тема Пуска и панели задач.
-    pub dark_system: Option<bool>,
-    /// Цвет акцента на Пуске и панели задач.
-    pub fill_taskbar: Option<bool>,
+    /// Эффект прозрачности включён из OCHISTKA (по умолчанию «выключено»).
+    pub transparency_on: bool,
+    /// Заливка панели задач и Пуска включена из OCHISTKA.
+    pub fill_on: bool,
     /// Есть сохранённые прежние значения: можно вернуть оформление.
     pub has_backup: bool,
     /// Есть сохранённый прежний фон рабочего стола.
@@ -231,10 +242,8 @@ fn has_backup(reg: &dyn RegistryPort) -> Result<bool, AppearanceError> {
 pub fn status(reg: &dyn RegistryPort) -> Result<AppearanceStatus, AppearanceError> {
     Ok(AppearanceStatus {
         accent: dword(reg, "dwmAccent")?.map(hex_from_abgr),
-        transparency: dword(reg, "transparency")?.map(|v| v != 0),
-        dark_apps: dword(reg, "appsLight")?.map(|v| v == 0),
-        dark_system: dword(reg, "systemLight")?.map(|v| v == 0),
-        fill_taskbar: dword(reg, "prevalence")?.map(|v| v != 0),
+        transparency_on: reg.read(BACKUP_KEY, APPLIED_TRANSPARENCY)?.is_some(),
+        fill_on: reg.read(BACKUP_KEY, APPLIED_FILL)?.is_some(),
         has_backup: has_backup(reg)?,
         has_previous_wallpaper: reg.read(BACKUP_KEY, BACKUP_WALLPAPER)?.is_some(),
         wallpaper_tile: text(reg, BACKUP_KEY, APPLIED_WALLPAPER)?,
@@ -286,7 +295,9 @@ pub fn accent_palette(r: u8, g: u8, b: u8) -> Vec<u8> {
     out
 }
 
-/// Цвет Windows: акцент, цвет заголовков окон, Пуска и панели задач. `hex` — `#RRGGBB`.
+/// Акцентный цвет Windows. `hex` — `#RRGGBB`. Меняются только `AccentColor`, `AccentPalette`,
+/// `ColorizationColor` и `AccentColorMenu`; `ColorPrevalence` (заливка Пуска и панели задач)
+/// не трогается: она включается отдельным переключателем.
 /// Перед первой плиткой прежние значения снимаются и возвращаются `restore_accent`.
 pub fn set_accent(
     reg: &dyn RegistryPort,
@@ -297,20 +308,17 @@ pub fn set_accent(
     let (r, g, b) = parse_hex(hex)?;
     ensure_backup(reg)?;
     if reg.read(BACKUP_KEY, APPLIED_ACCENT)?.is_none() {
-        snapshot_accent(reg)?;
+        snapshot(reg, &ACCENT_IDS, ACCENT_SNAPSHOT)?;
     }
     write_dword(reg, "dwmAccent", abgr(r, g, b))?;
     write_dword(reg, "dwmColorization", argb(r, g, b))?;
     write_dword(reg, "accentMenu", abgr(r, g, b))?;
-    write_dword(reg, "accentStart", abgr(r, g, b))?;
     let palette = target("accentPalette");
     reg.write(
         palette.key,
         palette.name,
         &RegValue::Binary(accent_palette(r, g, b)),
     )?;
-    write_dword(reg, "dwmPrevalence", 1)?;
-    write_dword(reg, "prevalence", 1)?;
     reg.write(
         BACKUP_KEY,
         APPLIED_ACCENT,
@@ -318,15 +326,36 @@ pub fn set_accent(
     )
 }
 
-fn snapshot_accent(reg: &dyn RegistryPort) -> Result<(), AppearanceError> {
-    for t in TARGETS.iter().filter(|t| ACCENT_IDS.contains(&t.id)) {
-        let name = format!("{ACCENT_SNAPSHOT}{}", t.id);
+/// Снимает прежние значения целей `ids` в резерв под именами `<prefix><id>[.absent]`.
+fn snapshot(reg: &dyn RegistryPort, ids: &[&str], prefix: &str) -> Result<(), AppearanceError> {
+    for id in ids {
+        let t = target(id);
+        let name = format!("{prefix}{id}");
         reg.delete(BACKUP_KEY, &name)?;
         reg.delete(BACKUP_KEY, &format!("{name}.absent"))?;
         match reg.read(t.key, t.name)? {
             Some(value) => reg.write(BACKUP_KEY, &name, &value)?,
             None => reg.write(BACKUP_KEY, &format!("{name}.absent"), &RegValue::Dword(1))?,
         }
+    }
+    Ok(())
+}
+
+/// Возвращает значения целей `ids` из снимка и стирает сам снимок.
+fn restore_snapshot(
+    reg: &dyn RegistryPort,
+    ids: &[&str],
+    prefix: &str,
+) -> Result<(), AppearanceError> {
+    for id in ids {
+        let t = target(id);
+        let name = format!("{prefix}{id}");
+        match reg.read(BACKUP_KEY, &name)? {
+            Some(value) => reg.write(t.key, t.name, &value)?,
+            None => reg.delete(t.key, t.name)?,
+        }
+        reg.delete(BACKUP_KEY, &name)?;
+        reg.delete(BACKUP_KEY, &format!("{name}.absent"))?;
     }
     Ok(())
 }
@@ -338,63 +367,56 @@ pub fn restore_accent(reg: &dyn RegistryPort, confirmed: bool) -> Result<(), App
     if reg.read(BACKUP_KEY, APPLIED_ACCENT)?.is_none() {
         return Ok(());
     }
-    for t in TARGETS.iter().filter(|t| ACCENT_IDS.contains(&t.id)) {
-        match reg.read(BACKUP_KEY, &format!("{ACCENT_SNAPSHOT}{}", t.id))? {
-            Some(value) => reg.write(t.key, t.name, &value)?,
-            None => reg.delete(t.key, t.name)?,
-        }
-    }
+    restore_snapshot(reg, &ACCENT_IDS, ACCENT_SNAPSHOT)?;
     reg.delete(BACKUP_KEY, APPLIED_ACCENT)
 }
 
+/// Включает или выключает переключатель: при включении запоминает прежние значения `ids` и
+/// пишет `1`, при выключении возвращает прежние. Выключение без включения ничего не делает.
+fn toggle(
+    reg: &dyn RegistryPort,
+    ids: &[&str],
+    marker: &str,
+    enabled: bool,
+) -> Result<(), AppearanceError> {
+    let prefix = format!("{TOGGLE_SNAPSHOT}{marker}.");
+    let applied = reg.read(BACKUP_KEY, marker)?.is_some();
+    if enabled {
+        ensure_backup(reg)?;
+        if !applied {
+            snapshot(reg, ids, &prefix)?;
+            reg.write(BACKUP_KEY, marker, &RegValue::Dword(1))?;
+        }
+        for id in ids {
+            write_dword(reg, id, 1)?;
+        }
+        Ok(())
+    } else if applied {
+        restore_snapshot(reg, ids, &prefix)?;
+        reg.delete(BACKUP_KEY, marker)
+    } else {
+        Ok(())
+    }
+}
+
+/// Эффект прозрачности: включение запоминает прежнее значение, повторный клик возвращает его.
 pub fn set_transparency(
     reg: &dyn RegistryPort,
     enabled: bool,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
-    ensure_backup(reg)?;
-    write_dword(reg, "transparency", u32::from(enabled))
+    toggle(reg, &["transparency"], APPLIED_TRANSPARENCY, enabled)
 }
 
-/// Цвет акцента на Пуске и панели задач (и в заголовках окон).
+/// Цвет акцента на Пуске, панели задач и в заголовках окон (`ColorPrevalence`).
 pub fn set_fill_taskbar(
     reg: &dyn RegistryPort,
     enabled: bool,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
-    ensure_backup(reg)?;
-    write_dword(reg, "prevalence", u32::from(enabled))?;
-    write_dword(reg, "dwmPrevalence", u32::from(enabled))
-}
-
-/// Тёмная или светлая тема приложений; при `also_system` — ещё и Пуска с панелью задач.
-pub fn set_theme(
-    reg: &dyn RegistryPort,
-    dark: bool,
-    also_system: bool,
-    confirmed: bool,
-) -> Result<(), AppearanceError> {
-    need_confirm(confirmed)?;
-    ensure_backup(reg)?;
-    let light = u32::from(!dark);
-    write_dword(reg, "appsLight", light)?;
-    if also_system {
-        write_dword(reg, "systemLight", light)?;
-    }
-    Ok(())
-}
-
-/// Тёмная или светлая тема только Пуска и панели задач.
-pub fn set_system_theme(
-    reg: &dyn RegistryPort,
-    dark: bool,
-    confirmed: bool,
-) -> Result<(), AppearanceError> {
-    need_confirm(confirmed)?;
-    ensure_backup(reg)?;
-    write_dword(reg, "systemLight", u32::from(!dark))
+    toggle(reg, &["prevalence", "dwmPrevalence"], APPLIED_FILL, enabled)
 }
 
 /// Возвращает значения, сохранённые до первого изменения.
@@ -409,7 +431,10 @@ pub fn restore(reg: &dyn RegistryPort, confirmed: bool) -> Result<(), Appearance
             None => reg.delete(t.key, t.name)?,
         }
     }
-    reg.delete(BACKUP_KEY, APPLIED_ACCENT)
+    for marker in [APPLIED_ACCENT, APPLIED_TRANSPARENCY, APPLIED_FILL] {
+        reg.delete(BACKUP_KEY, marker)?;
+    }
+    Ok(())
 }
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp"];
@@ -439,48 +464,146 @@ pub fn validate_image_path(path: &str) -> Result<(), AppearanceError> {
     Ok(())
 }
 
+/// Папка резерва в данных приложения: копия прежних обоев.
+fn backup_dir(files: &dyn FilePort) -> Result<String, AppearanceError> {
+    Ok(format!("{}\\Backup", files.data_dir()?))
+}
+
+fn same_path(a: &str, b: &str) -> bool {
+    a.replace('/', "\\")
+        .eq_ignore_ascii_case(&b.replace('/', "\\"))
+}
+
+fn extension(path: &str) -> String {
+    let name = path.rsplit(['\\', '/']).next().unwrap_or("");
+    match name.rsplit_once('.') {
+        Some((_, ext))
+            if !ext.is_empty() && ext.len() <= 5 && ext.chars().all(char::is_alphanumeric) =>
+        {
+            ext.to_ascii_lowercase()
+        }
+        // `TranscodedWallpaper` без расширения: Windows распознаёт картинку по содержимому.
+        _ => "jpg".into(),
+    }
+}
+
+/// Перед первой сменой копирует текущий файл обоев в `Backup\wallpaper-previous.<ext>` и
+/// запоминает прежние значения ветки рабочего стола. Повторно не перезаписывает.
+/// Копия нужна потому, что Windows хранит текущие обои в `TranscodedWallpaper` и перезаписывает
+/// этот файл при следующей смене: путь к нему прежние обои уже не вернёт.
+fn ensure_wallpaper_backup(
+    reg: &dyn RegistryPort,
+    wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
+) -> Result<(), AppearanceError> {
+    if reg.read(BACKUP_KEY, BACKUP_WALLPAPER)?.is_some() {
+        return Ok(());
+    }
+    for name in DESKTOP_TARGETS {
+        let id = format!("{DESKTOP_SNAPSHOT}{name}");
+        reg.delete(BACKUP_KEY, &id)?;
+        reg.delete(BACKUP_KEY, &format!("{id}.absent"))?;
+        match reg.read(DESKTOP, name)? {
+            Some(value) => reg.write(BACKUP_KEY, &id, &value)?,
+            None => reg.write(BACKUP_KEY, &format!("{id}.absent"), &RegValue::Dword(1))?,
+        }
+    }
+    let current = wallpaper.current()?.filter(|p| !p.is_empty());
+    let previous = match current {
+        None => String::new(),
+        Some(path) => {
+            let ours = [wallpapers_dir(files)?, backup_dir(files)?]
+                .iter()
+                .any(|dir| {
+                    path.to_ascii_lowercase()
+                        .starts_with(&dir.to_ascii_lowercase())
+                });
+            if ours && !path.to_ascii_lowercase().contains("wallpaper-previous") {
+                // Фон уже поставлен нами раньше (старая версия без копии): вернём обои Windows.
+                PREVIOUS_DEFAULT.into()
+            } else if !files.exists(&path) {
+                PREVIOUS_DEFAULT.into()
+            } else {
+                let copy = format!(
+                    "{}\\wallpaper-previous.{}",
+                    backup_dir(files)?,
+                    extension(&path)
+                );
+                if !same_path(&copy, &path) {
+                    files.copy(&path, &copy)?;
+                }
+                copy
+            }
+        }
+    };
+    reg.write(BACKUP_KEY, BACKUP_WALLPAPER, &RegValue::Text(previous))
+}
+
 /// Ставит картинку обоями Windows. Прежний фон запоминается один раз.
 pub fn apply_wallpaper(
     reg: &dyn RegistryPort,
     wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
     path: &str,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
-    apply_wallpaper_as(reg, wallpaper, path, "custom", confirmed)
+    apply_wallpaper_as(reg, wallpaper, files, path, "custom", confirmed)
 }
 
-/// То же, но с запоминанием плитки, из которой взята картинка.
+/// То же, но с запоминанием плитки, из которой взята картинка. Перед сменой выставляются
+/// «Заполнить» (`WallpaperStyle=10`), без мозаики и `JPEGImportQuality=100`: иначе Windows
+/// пережимает картинку в JPEG с качеством 85 и обои выглядят размытыми.
 pub fn apply_wallpaper_as(
     reg: &dyn RegistryPort,
     wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
     path: &str,
     tile: &str,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
     validate_image_path(path)?;
-    if reg.read(BACKUP_KEY, BACKUP_WALLPAPER)?.is_none() {
-        let previous = wallpaper.current()?.unwrap_or_default();
-        reg.write(BACKUP_KEY, BACKUP_WALLPAPER, &RegValue::Text(previous))?;
-    }
+    ensure_wallpaper_backup(reg, wallpaper, files)?;
+    reg.write(DESKTOP, "WallpaperStyle", &RegValue::Text("10".into()))?;
+    reg.write(DESKTOP, "TileWallpaper", &RegValue::Text("0".into()))?;
+    reg.write(DESKTOP, "JPEGImportQuality", &RegValue::Dword(100))?;
     wallpaper.set(path)?;
     reg.write(BACKUP_KEY, APPLIED_WALLPAPER, &RegValue::Text(tile.into()))
 }
 
-/// Возвращает прежний фон. Записи о нём удаляются: следующая смена запомнит новый.
-/// Если вернуть нечего, ничего не делает.
+/// Возвращает прежний фон: значения ветки рабочего стола и сохранённую копию файла.
+/// Записи о нём удаляются: следующая смена запомнит новый. Если вернуть нечего, ничего не делает.
+/// Нет копии (файл удалён) — ставятся обои Windows по умолчанию.
 pub fn restore_wallpaper(
     reg: &dyn RegistryPort,
     wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
     let Some(RegValue::Text(previous)) = reg.read(BACKUP_KEY, BACKUP_WALLPAPER)? else {
         return Ok(());
     };
-    if !previous.is_empty() {
-        wallpaper.set(&previous)?;
+    for name in DESKTOP_TARGETS {
+        let id = format!("{DESKTOP_SNAPSHOT}{name}");
+        match reg.read(BACKUP_KEY, &id)? {
+            Some(value) => reg.write(DESKTOP, name, &value)?,
+            None => reg.delete(DESKTOP, name)?,
+        }
+        reg.delete(BACKUP_KEY, &id)?;
+        reg.delete(BACKUP_KEY, &format!("{id}.absent"))?;
     }
+    let default = format!("{}\\Web\\Wallpaper\\Windows\\img0.jpg", files.windows_dir());
+    let target = if previous.is_empty() {
+        String::new()
+    } else if previous != PREVIOUS_DEFAULT && files.exists(&previous) {
+        previous
+    } else if files.exists(&default) {
+        default
+    } else {
+        String::new()
+    };
+    wallpaper.set(&target)?;
     reg.delete(BACKUP_KEY, BACKUP_WALLPAPER)?;
     reg.delete(BACKUP_KEY, APPLIED_WALLPAPER)
 }
@@ -498,10 +621,14 @@ pub fn wallpapers_dir(files: &dyn FilePort) -> Result<String, AppearanceError> {
     Ok(format!("{}\\Wallpapers", files.data_dir()?))
 }
 
-/// Плитка обоев: оригинал (набор «Offline» владельца) лежит в ресурсах установки
-/// (`<resource_dir>\wallpapers\<id>.jpg`). Он копируется в `%LOCALAPPDATA%\OCHISTKA\Wallpapers`
-/// и ставится через `WallpaperPort`; прежний фон запоминается один раз.
-/// Возвращает путь к скопированному файлу.
+/// Размер сплошных обоев, если размер экрана неизвестен.
+const FALLBACK_SCREEN: (u32, u32) = (3840, 2160);
+
+/// Плитка обоев. `solid-*` рисуется в Rust в родном разрешении основного экрана (PNG);
+/// остальные: оригинал (набор «Offline» владельца) лежит в ресурсах установки
+/// (`<resource_dir>\wallpapers\<id>.jpg`), копируется в `%LOCALAPPDATA%\OCHISTKA\Wallpapers`.
+/// Копия ставится через `WallpaperPort`; прежний фон запоминается один раз.
+/// Возвращает путь к файлу.
 pub fn apply_wallpaper_tile(
     reg: &dyn RegistryPort,
     wallpaper: &dyn WallpaperPort,
@@ -513,6 +640,14 @@ pub fn apply_wallpaper_tile(
     need_confirm(confirmed)?;
     if !is_safe_id(id) {
         return Err(AppearanceError::Invalid("недопустимое имя обоев".into()));
+    }
+    if id.starts_with("solid-") {
+        let (w, h) = wallpaper.screen_size().unwrap_or(FALLBACK_SCREEN);
+        let png = crate::appearance_wallpaper::render_solid(id, w, h)?;
+        let target = format!("{}\\{id}.png", wallpapers_dir(files)?);
+        files.write(&target, &png)?;
+        apply_wallpaper_as(reg, wallpaper, files, &target, id, true)?;
+        return Ok(target);
     }
     let resource_dir = resource_dir
         .map(|d| d.trim_end_matches(['\\', '/']))
@@ -526,7 +661,7 @@ pub fn apply_wallpaper_tile(
     }
     let target = format!("{}\\{id}.jpg", wallpapers_dir(files)?);
     files.copy(&source, &target)?;
-    apply_wallpaper_as(reg, wallpaper, &target, id, true)?;
+    apply_wallpaper_as(reg, wallpaper, files, &target, id, true)?;
     Ok(target)
 }
 
@@ -573,8 +708,12 @@ pub struct CursorSpec<'a> {
     pub pattern: &'a str,
 }
 
-/// Ставит схему курсора Windows: рисует `.cur`, пишет `HKCU\Control Panel\Cursors`, обновляет.
-/// Анимированные схемы (`.ani`) не поддерживаются: в таблице таких пока нет.
+/// Результат рисования одной роли: роль, расширение файла и его байты.
+type RenderedCursor =
+    Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>;
+
+/// Ставит схему курсора Windows: рисует `.cur` (для «Фоновой работы» и «Занят» — анимированные
+/// `.ani`), пишет `HKCU\Control Panel\Cursors` и просит Windows перечитать курсоры.
 pub fn apply_cursor_scheme(
     reg: &dyn RegistryPort,
     files: &dyn FilePort,
@@ -587,16 +726,57 @@ pub fn apply_cursor_scheme(
         return Err(AppearanceError::Invalid("недопустимое имя схемы".into()));
     }
     let pattern = crate::appearance_cursor::Pattern::parse(spec.pattern)?;
-    // Сначала рисуем всё: ошибка в данных не должна оставить реестр наполовину изменённым.
+    // Сначала рисуем всё (параллельно: роли независимы): ошибка в данных не должна оставить
+    // реестр наполовину изменённым.
+    let rendered: Vec<RenderedCursor> = std::thread::scope(|scope| {
+        let handles: Vec<_> = crate::appearance_cursor::Role::ALL
+            .into_iter()
+            .map(|role| {
+                scope.spawn(move || {
+                    let (ext, bytes) = if role.is_animated() {
+                        (
+                            "ani",
+                            crate::appearance_cursor::build_ani(
+                                role,
+                                pattern,
+                                spec.color,
+                                spec.secondary,
+                            )?,
+                        )
+                    } else {
+                        (
+                            "cur",
+                            crate::appearance_cursor::build_cur(
+                                role,
+                                pattern,
+                                spec.color,
+                                spec.secondary,
+                            )?,
+                        )
+                    };
+                    Ok((role, ext, bytes))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join().unwrap_or_else(|_| {
+                    Err(AppearanceError::Invalid(
+                        "не удалось нарисовать курсор".into(),
+                    ))
+                })
+            })
+            .collect()
+    });
     let mut cursors = Vec::new();
-    for role in crate::appearance_cursor::Role::ALL {
-        let bytes = crate::appearance_cursor::build_cur(role, pattern, spec.color, spec.secondary)?;
-        cursors.push((role, bytes));
+    for item in rendered {
+        cursors.push(item?);
     }
     let dir = format!("{}\\Cursors\\{}", files.data_dir()?, spec.id);
     let mut paths = Vec::new();
-    for (role, bytes) in &cursors {
-        let path = format!("{dir}\\{}.cur", role.registry_name());
+    for (role, ext, bytes) in &cursors {
+        let path = format!("{dir}\\{}.{ext}", role.registry_name());
         files.write(&path, bytes)?;
         paths.push((role.registry_name(), path));
     }
@@ -604,6 +784,7 @@ pub fn apply_cursor_scheme(
     for (name, path) in paths {
         reg.write(CURSORS_KEY, name, &RegValue::Text(path))?;
     }
+    // Имя схемы (значение по умолчанию ветки) и «Scheme Source» = 1: пользовательская схема.
     reg.write(
         CURSORS_KEY,
         "",
@@ -697,6 +878,7 @@ mod tests {
     #[derive(Default)]
     struct FakeWallpaper {
         path: Mutex<Option<String>>,
+        screen: Option<(u32, u32)>,
     }
 
     impl WallpaperPort for FakeWallpaper {
@@ -706,6 +888,9 @@ mod tests {
         fn set(&self, path: &str) -> Result<(), AppearanceError> {
             *self.path.lock().unwrap() = Some(path.into());
             Ok(())
+        }
+        fn screen_size(&self) -> Option<(u32, u32)> {
+            self.screen
         }
     }
 
@@ -729,10 +914,6 @@ mod tests {
         );
         assert_eq!(
             set_transparency(&reg, true, false),
-            Err(AppearanceError::NotConfirmed)
-        );
-        assert_eq!(
-            set_theme(&reg, true, false, false),
             Err(AppearanceError::NotConfirmed)
         );
         assert_eq!(
@@ -779,45 +960,102 @@ mod tests {
 
     #[test]
     fn backup_is_not_overwritten_by_second_change() {
-        let reg = FakeReg::with(&[(PERSONALIZE, "EnableTransparency", RegValue::Dword(1))]);
-        set_transparency(&reg, false, true).unwrap();
+        let reg = FakeReg::with(&[(PERSONALIZE, "EnableTransparency", RegValue::Dword(0))]);
         set_transparency(&reg, true, true).unwrap();
         set_transparency(&reg, false, true).unwrap();
+        set_transparency(&reg, true, true).unwrap();
         assert_eq!(
             reg.get(BACKUP_KEY, "transparency"),
+            Some(RegValue::Dword(0))
+        );
+    }
+
+    #[test]
+    fn transparency_toggle_is_off_by_default_and_second_click_restores() {
+        let reg = FakeReg::with(&[(PERSONALIZE, "EnableTransparency", RegValue::Dword(0))]);
+        assert!(!status(&reg).unwrap().transparency_on);
+        set_transparency(&reg, true, true).unwrap();
+        assert!(status(&reg).unwrap().transparency_on);
+        assert_eq!(
+            reg.get(PERSONALIZE, "EnableTransparency"),
             Some(RegValue::Dword(1))
         );
-    }
-
-    #[test]
-    fn theme_changes_system_only_when_asked() {
-        let reg = FakeReg::with(&[
-            (PERSONALIZE, "AppsUseLightTheme", RegValue::Dword(1)),
-            (PERSONALIZE, "SystemUsesLightTheme", RegValue::Dword(1)),
-        ]);
-        set_theme(&reg, true, false, true).unwrap();
-        let s = status(&reg).unwrap();
-        assert_eq!((s.dark_apps, s.dark_system), (Some(true), Some(false)));
-        set_theme(&reg, true, true, true).unwrap();
-        assert_eq!(status(&reg).unwrap().dark_system, Some(true));
-        set_theme(&reg, false, true, true).unwrap();
-        let s = status(&reg).unwrap();
-        assert_eq!((s.dark_apps, s.dark_system), (Some(false), Some(false)));
-    }
-
-    #[test]
-    fn system_theme_leaves_apps_alone() {
-        let reg = FakeReg::with(&[
-            (PERSONALIZE, "AppsUseLightTheme", RegValue::Dword(1)),
-            (PERSONALIZE, "SystemUsesLightTheme", RegValue::Dword(1)),
-        ]);
+        // Повторное включение не затирает снимок.
+        set_transparency(&reg, true, true).unwrap();
+        set_transparency(&reg, false, true).unwrap();
+        assert!(!status(&reg).unwrap().transparency_on);
         assert_eq!(
-            set_system_theme(&reg, true, false),
-            Err(AppearanceError::NotConfirmed)
+            reg.get(PERSONALIZE, "EnableTransparency"),
+            Some(RegValue::Dword(0))
         );
-        set_system_theme(&reg, true, true).unwrap();
-        let s = status(&reg).unwrap();
-        assert_eq!((s.dark_apps, s.dark_system), (Some(false), Some(true)));
+        // Выключение без включения ничего не пишет.
+        let before = reg.writes.lock().unwrap().len();
+        set_transparency(&reg, false, true).unwrap();
+        assert_eq!(reg.writes.lock().unwrap().len(), before);
+    }
+
+    #[test]
+    fn fill_toggle_sets_both_prevalence_values_and_reverts_absent_ones() {
+        let reg = FakeReg::with(&[(DWM, "ColorPrevalence", RegValue::Dword(0))]);
+        set_fill_taskbar(&reg, true, true).unwrap();
+        assert!(status(&reg).unwrap().fill_on);
+        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(1)));
+        assert_eq!(
+            reg.get(PERSONALIZE, "ColorPrevalence"),
+            Some(RegValue::Dword(1))
+        );
+        set_fill_taskbar(&reg, false, true).unwrap();
+        assert!(!status(&reg).unwrap().fill_on);
+        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(0)));
+        assert_eq!(
+            reg.get(PERSONALIZE, "ColorPrevalence"),
+            None,
+            "значения не было: удалено"
+        );
+    }
+
+    #[test]
+    fn colour_pick_never_touches_prevalence_or_theme() {
+        let reg = FakeReg::with(&[
+            (DWM, "ColorPrevalence", RegValue::Dword(0)),
+            (PERSONALIZE, "ColorPrevalence", RegValue::Dword(0)),
+            (PERSONALIZE, "AppsUseLightTheme", RegValue::Dword(1)),
+        ]);
+        set_accent(&reg, "#087FFF", true).unwrap();
+        set_accent(&reg, "#FF009D", true).unwrap();
+        restore_accent(&reg, true).unwrap();
+        let written = reg.writes.lock().unwrap().clone();
+        for (key, name) in &written {
+            if key != BACKUP_KEY {
+                assert!(
+                    [
+                        "AccentColor",
+                        "ColorizationColor",
+                        "AccentColorMenu",
+                        "AccentPalette"
+                    ]
+                    .contains(&name.as_str()),
+                    "лишняя запись {key}\\{name}"
+                );
+            }
+        }
+        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(0)));
+        assert_eq!(
+            reg.get(PERSONALIZE, "ColorPrevalence"),
+            Some(RegValue::Dword(0))
+        );
+    }
+
+    #[test]
+    fn accent_restore_keeps_a_fill_toggle_set_in_between() {
+        let reg = FakeReg::with(&[(PERSONALIZE, "ColorPrevalence", RegValue::Dword(0))]);
+        set_accent(&reg, "#087FFF", true).unwrap();
+        set_fill_taskbar(&reg, true, true).unwrap();
+        restore_accent(&reg, true).unwrap();
+        assert_eq!(
+            reg.get(PERSONALIZE, "ColorPrevalence"),
+            Some(RegValue::Dword(1))
+        );
     }
 
     #[test]
@@ -827,9 +1065,11 @@ mod tests {
             (PERSONALIZE, "EnableTransparency", RegValue::Dword(1)),
         ]);
         set_accent(&reg, "#FF8000", true).unwrap();
-        set_transparency(&reg, false, true).unwrap();
+        set_transparency(&reg, true, true).unwrap();
         set_fill_taskbar(&reg, true, true).unwrap();
         restore(&reg, true).unwrap();
+        let s = status(&reg).unwrap();
+        assert!(!s.fill_on && !s.transparency_on && s.accent_tile.is_none());
         assert_eq!(
             reg.get(DWM, "AccentColor"),
             Some(RegValue::Dword(0xFF11_2233))
@@ -856,28 +1096,6 @@ mod tests {
         assert!(validate_image_path("a.png").is_err());
         assert!(validate_image_path(r"C:\x\a.exe").is_err());
         assert!(validate_image_path(r"C:\x\noext").is_err());
-    }
-
-    #[test]
-    fn wallpaper_remembers_previous_once_and_restores() {
-        let reg = FakeReg::default();
-        let wp = FakeWallpaper::default();
-        wp.set(r"C:\old.png").unwrap();
-        assert_eq!(
-            apply_wallpaper(&reg, &wp, r"C:\a.png", false),
-            Err(AppearanceError::NotConfirmed)
-        );
-        apply_wallpaper(&reg, &wp, r"C:\a.png", true).unwrap();
-        apply_wallpaper(&reg, &wp, r"C:\b.png", true).unwrap();
-        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\b.png"));
-        assert!(status(&reg).unwrap().has_previous_wallpaper);
-        restore_wallpaper(&reg, &wp, true).unwrap();
-        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\old.png"));
-        assert!(!status(&reg).unwrap().has_previous_wallpaper);
-        // Повторное возвращение ничего не меняет.
-        wp.set(r"C:\other.png").unwrap();
-        restore_wallpaper(&reg, &wp, true).unwrap();
-        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\other.png"));
     }
 
     #[derive(Default)]
@@ -951,6 +1169,17 @@ mod tests {
             ))
         );
         assert!(files.exists(r"C:\Data\OCHISTKA\Cursors\cursor-red\IBeam.cur"));
+        // «Занят» и «Фоновая работа» анимированные; пути абсолютные.
+        for role in ["Wait", "AppStarting"] {
+            let path = format!(r"C:\Data\OCHISTKA\Cursors\cursor-red\{role}.ani");
+            assert_eq!(reg.get(CUR, role), Some(RegValue::Text(path.clone())));
+            assert_eq!(&files.files.lock().unwrap()[&path][8..12], b"ACON");
+        }
+        assert_eq!(
+            reg.get(CUR, ""),
+            Some(RegValue::Text("OCHISTKA cursor-red".into()))
+        );
+        assert_eq!(reg.get(CUR, "Scheme Source"), Some(RegValue::Dword(1)));
         assert_eq!(
             status(&reg).unwrap().cursor_scheme.as_deref(),
             Some("cursor-red")
@@ -994,6 +1223,10 @@ mod tests {
 
     const RES: &str = r"C:\Program Files\OCHISTKA";
     const COPY: &str = r"C:\Data\OCHISTKA\Wallpapers\photo-1.jpg";
+    const TRANSCODED: &str =
+        r"C:\Users\u\AppData\Roaming\Microsoft\Windows\Themes\TranscodedWallpaper";
+    const BACKUP_COPY: &str = r"C:\Data\OCHISTKA\Backup\wallpaper-previous.jpg";
+    const DEFAULT_IMG: &str = r"C:\Windows\Web\Wallpaper\Windows\img0.jpg";
 
     fn bundled(files: &FakeFiles, id: &str) {
         files
@@ -1001,13 +1234,25 @@ mod tests {
             .unwrap();
     }
 
+    /// Windows после установки: текущие обои лежат в `TranscodedWallpaper`.
+    fn windows_default() -> (FakeReg, FakeWallpaper, FakeFiles) {
+        let reg = FakeReg::with(&[
+            (DESKTOP, "WallpaperStyle", RegValue::Text("2".into())),
+            (DESKTOP, "TileWallpaper", RegValue::Text("0".into())),
+        ]);
+        let wp = FakeWallpaper::default();
+        wp.set(TRANSCODED).unwrap();
+        let files = FakeFiles::default();
+        files.write(TRANSCODED, b"original").unwrap();
+        files.write(DEFAULT_IMG, b"img0").unwrap();
+        bundled(&files, "photo-1");
+        bundled(&files, "photo-2");
+        (reg, wp, files)
+    }
+
     #[test]
     fn wallpaper_tile_copies_bundled_original_and_applies_the_copy() {
-        let reg = FakeReg::default();
-        let wp = FakeWallpaper::default();
-        let files = FakeFiles::default();
-        bundled(&files, "photo-1");
-        wp.set(r"C:\old.jpg").unwrap();
+        let (reg, wp, files) = windows_default();
         // Без подтверждения ничего не копируется и не ставится.
         assert_eq!(
             apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", false),
@@ -1022,32 +1267,163 @@ mod tests {
             status(&reg).unwrap().wallpaper_tile.as_deref(),
             Some("photo-1")
         );
-        // Прежний фон запомнен и возвращается повторным кликом.
+    }
+
+    #[test]
+    fn apply_sets_fill_style_and_lossless_jpeg_import() {
+        let (reg, wp, files) = windows_default();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        assert_eq!(
+            reg.get(DESKTOP, "WallpaperStyle"),
+            Some(RegValue::Text("10".into()))
+        );
+        assert_eq!(
+            reg.get(DESKTOP, "TileWallpaper"),
+            Some(RegValue::Text("0".into()))
+        );
+        assert_eq!(
+            reg.get(DESKTOP, "JPEGImportQuality"),
+            Some(RegValue::Dword(100))
+        );
+    }
+
+    #[test]
+    fn previous_wallpaper_file_is_copied_before_windows_overwrites_it() {
+        let (reg, wp, files) = windows_default();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
         assert_eq!(
             reg.get(BACKUP_KEY, BACKUP_WALLPAPER),
-            Some(RegValue::Text(r"C:\old.jpg".into()))
+            Some(RegValue::Text(BACKUP_COPY.into()))
         );
-        restore_wallpaper(&reg, &wp, true).unwrap();
-        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\old.jpg"));
-        assert_eq!(status(&reg).unwrap().wallpaper_tile, None);
+        assert_eq!(files.files.lock().unwrap()[BACKUP_COPY], b"original");
+        assert!(status(&reg).unwrap().has_previous_wallpaper);
+        // Windows перезаписывает TranscodedWallpaper новыми обоями.
+        files.write(TRANSCODED, b"new wallpaper").unwrap();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-2", true).unwrap();
+        assert_eq!(files.files.lock().unwrap()[BACKUP_COPY], b"original");
+    }
+
+    #[test]
+    fn restore_brings_back_the_copy_and_the_desktop_values() {
+        let (reg, wp, files) = windows_default();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        files.write(TRANSCODED, b"new wallpaper").unwrap();
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
+        assert_eq!(files.files.lock().unwrap()[BACKUP_COPY], b"original");
+        assert_eq!(
+            reg.get(DESKTOP, "WallpaperStyle"),
+            Some(RegValue::Text("2".into()))
+        );
+        assert_eq!(
+            reg.get(DESKTOP, "TileWallpaper"),
+            Some(RegValue::Text("0".into()))
+        );
+        assert_eq!(
+            reg.get(DESKTOP, "JPEGImportQuality"),
+            None,
+            "значения не было: убрано"
+        );
+        let s = status(&reg).unwrap();
+        assert_eq!(s.wallpaper_tile, None);
+        assert!(!s.has_previous_wallpaper);
+        // Повторное возвращение ничего не меняет.
+        wp.set(r"C:\other.png").unwrap();
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\other.png"));
     }
 
     #[test]
     fn second_tile_keeps_the_very_first_previous_wallpaper() {
-        let reg = FakeReg::default();
-        let wp = FakeWallpaper::default();
-        let files = FakeFiles::default();
-        bundled(&files, "photo-1");
-        bundled(&files, "photo-2");
-        wp.set(r"C:\old.jpg").unwrap();
+        let (reg, wp, files) = windows_default();
         apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
         apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-2", true).unwrap();
         assert_eq!(
             status(&reg).unwrap().wallpaper_tile.as_deref(),
             Some("photo-2")
         );
-        restore_wallpaper(&reg, &wp, true).unwrap();
-        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\old.jpg"));
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
+    }
+
+    #[test]
+    fn restoring_twice_in_a_row_backs_up_the_restored_copy_without_self_copy() {
+        let (reg, wp, files) = windows_default();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        // Текущие обои теперь — сама копия: новая резервная копия не должна её затирать.
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-2", true).unwrap();
+        assert_eq!(files.files.lock().unwrap()[BACKUP_COPY], b"original");
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
+    }
+
+    #[test]
+    fn lost_copy_falls_back_to_windows_default_and_no_wallpaper_stays_none() {
+        let (reg, wp, files) = windows_default();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        files.files.lock().unwrap().remove(BACKUP_COPY);
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(DEFAULT_IMG));
+
+        // Обоев не было (сплошной цвет): возвращается пустая строка.
+        let reg = FakeReg::default();
+        let wp = FakeWallpaper::default();
+        let files = FakeFiles::default();
+        bundled(&files, "photo-1");
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(""));
+    }
+
+    #[test]
+    fn our_own_old_wallpaper_is_not_taken_for_the_previous_one() {
+        let (reg, wp, files) = windows_default();
+        let ours = r"C:\Data\OCHISTKA\Wallpapers\photo-9.jpg";
+        files.write(ours, b"ours").unwrap();
+        wp.set(ours).unwrap();
+        apply_wallpaper_tile(&reg, &wp, &files, Some(RES), "photo-1", true).unwrap();
+        assert_eq!(
+            reg.get(BACKUP_KEY, BACKUP_WALLPAPER),
+            Some(RegValue::Text(PREVIOUS_DEFAULT.into()))
+        );
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(DEFAULT_IMG));
+    }
+
+    #[test]
+    fn custom_picture_goes_through_the_same_backup_and_restore() {
+        let (reg, wp, files) = windows_default();
+        files.write(r"C:\img\mine.png", b"png").unwrap();
+        apply_wallpaper(&reg, &wp, &files, r"C:\img\mine.png", true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(r"C:\img\mine.png"));
+        assert_eq!(
+            status(&reg).unwrap().wallpaper_tile.as_deref(),
+            Some("custom")
+        );
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
+    }
+
+    #[test]
+    fn solid_tile_is_generated_at_the_screen_size_and_applied() {
+        let (reg, mut wp, files) = windows_default();
+        wp.screen = Some((1280, 720));
+        let path = apply_wallpaper_tile(&reg, &wp, &files, None, "solid-acid-01", true).unwrap();
+        assert_eq!(path, r"C:\Data\OCHISTKA\Wallpapers\solid-acid-01.png");
+        let bytes = files.files.lock().unwrap()[&path].clone();
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+        // IHDR: ширина и высота big-endian со смещения 16.
+        assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 1280);
+        assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 720);
+        assert_eq!(wp.current().unwrap().as_deref(), Some(path.as_str()));
+        assert_eq!(
+            status(&reg).unwrap().wallpaper_tile.as_deref(),
+            Some("solid-acid-01")
+        );
+        restore_wallpaper(&reg, &wp, &files, true).unwrap();
+        assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
+        assert!(apply_wallpaper_tile(&reg, &wp, &files, None, "solid-nope", true).is_err());
     }
 
     #[test]
@@ -1078,12 +1454,11 @@ mod tests {
     }
 
     #[test]
-    fn colour_tile_sets_accent_prevalence_and_palette_then_restores_all() {
+    fn colour_tile_sets_accent_and_palette_then_restores_all() {
         let old_palette = vec![1u8; 32];
         let reg = FakeReg::with(&[
             (DWM, "AccentColor", RegValue::Dword(0xFF11_2233)),
             (DWM, "ColorPrevalence", RegValue::Dword(0)),
-            (PERSONALIZE, "ColorPrevalence", RegValue::Dword(0)),
             (
                 ACCENT,
                 "AccentPalette",
@@ -1091,10 +1466,10 @@ mod tests {
             ),
         ]);
         set_accent(&reg, "#087FFF", true).unwrap();
-        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(1)));
+        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(0)));
         assert_eq!(
-            reg.get(PERSONALIZE, "ColorPrevalence"),
-            Some(RegValue::Dword(1))
+            reg.get(ACCENT, "AccentColorMenu"),
+            Some(RegValue::Dword(0xFFFF_7F08))
         );
         assert_eq!(
             reg.get(ACCENT, "AccentPalette"),
@@ -1106,11 +1481,6 @@ mod tests {
         assert_eq!(
             reg.get(DWM, "AccentColor"),
             Some(RegValue::Dword(0xFF11_2233))
-        );
-        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(0)));
-        assert_eq!(
-            reg.get(PERSONALIZE, "ColorPrevalence"),
-            Some(RegValue::Dword(0))
         );
         assert_eq!(
             reg.get(ACCENT, "AccentPalette"),

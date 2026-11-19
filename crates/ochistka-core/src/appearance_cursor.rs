@@ -144,6 +144,11 @@ impl Role {
         }
     }
 
+    /// Роли с анимацией (`.ani`): «Фоновая работа» и «Занят».
+    pub fn is_animated(self) -> bool {
+        matches!(self, Role::AppStarting | Role::Wait)
+    }
+
     /// Горячая точка в сетке 64×64.
     fn hotspot(self) -> (f64, f64) {
         match self {
@@ -371,6 +376,8 @@ fn segment_distance(px: f64, py: f64, a: Pt, b: Pt) -> f64 {
 enum Ink {
     Black,
     Second,
+    /// Второй цвет, приглушённый (дорожка под бегущей дугой).
+    SecondFaint,
 }
 
 enum Kind {
@@ -418,8 +425,21 @@ fn dot(cx: f64, cy: f64, r: f64, color: Ink) -> Item {
     ink(Geo::Fill(vec![circle(cx, cy, r)]), color)
 }
 
-/// Все элементы рисунка роли в сетке 64×64 в порядке отрисовки.
-fn items(role: Role) -> Vec<Item> {
+/// Дуга окружности от `start` градусов длиной `span`, ломаная для `Geo::Stroke`.
+fn arc(cx: f64, cy: f64, r: f64, start: f64, span: f64) -> Vec<Pt> {
+    let steps = (span / 6.0).ceil().max(2.0) as usize;
+    (0..=steps)
+        .map(|k| {
+            let a = (start + span * k as f64 / steps as f64).to_radians();
+            (cx + r * a.cos(), cy + r * a.sin())
+        })
+        .collect()
+}
+
+/// Все элементы рисунка роли в сетке 64×64 в порядке отрисовки. `phase` (0..1) — кадр
+/// анимации «Занят» и «Фоновая работа»: оборот бегущей дуги.
+fn items(role: Role, phase: f64) -> Vec<Item> {
+    let turn = phase * 360.0;
     let arrow = || shape(flatten_path(&arrow_path()));
     let size_arrow = |angle: f64| {
         let mut polys = flatten_path(
@@ -464,7 +484,11 @@ fn items(role: Role) -> Vec<Item> {
         }
         Role::AppStarting => {
             let mut v = vec![arrow()];
-            v.extend(badge(vec![dot(46.0, 16.0, 3.4, Ink::Black)]));
+            v.extend(badge(vec![line(
+                &arc(46.0, 16.0, 5.2, turn - 90.0, 240.0),
+                3.0,
+                Ink::Black,
+            )]));
             v
         }
         Role::Pin => {
@@ -507,15 +531,12 @@ fn items(role: Role) -> Vec<Item> {
             shape(vec![circle(32.0, 32.0, 21.0)]),
             line(&[(18.0, 18.0), (46.0, 46.0)], 6.0, Ink::Black),
         ],
-        Role::Wait => {
-            let mut ring = circle(32.0, 32.0, 13.0);
-            ring.push(ring[0]);
-            vec![
-                shape(vec![circle(32.0, 32.0, 21.0)]),
-                ink(Geo::Stroke(ring, 7.0), Ink::Second),
-                dot(32.0, 19.0, 3.0, Ink::Black),
-            ]
-        }
+        Role::Wait => vec![
+            shape(vec![circle(32.0, 32.0, 21.0)]),
+            // Дорожка и бегущая дуга второго цвета.
+            line(&arc(32.0, 32.0, 13.0, 0.0, 360.0), 7.0, Ink::SecondFaint),
+            line(&arc(32.0, 32.0, 13.0, turn - 90.0, 110.0), 7.0, Ink::Second),
+        ],
         Role::SizeWe => size_arrow(0.0),
         Role::SizeNs => size_arrow(90.0),
         Role::SizeNwse => size_arrow(45.0),
@@ -623,6 +644,18 @@ pub fn render(
     secondary: &str,
     size: usize,
 ) -> Result<Vec<u8>, AppearanceError> {
+    render_frame(role, pattern, color, secondary, size, 0.0)
+}
+
+/// То же для кадра анимации: `phase` от 0 до 1 — доля оборота.
+pub fn render_frame(
+    role: Role,
+    pattern: Pattern,
+    color: &str,
+    secondary: &str,
+    size: usize,
+    phase: f64,
+) -> Result<Vec<u8>, AppearanceError> {
     let (r, g, b) = parse_hex(color)?;
     let (r2, g2, b2) = parse_hex(secondary)?;
     let main = [f64::from(r), f64::from(g), f64::from(b)];
@@ -652,10 +685,10 @@ pub fn render(
     let cover = |sd: f64, grow: f64| (0.5 - (sd - grow) * k).clamp(0.0, 1.0);
     let ink_rgb = |ink: Ink| match ink {
         Ink::Black => [0.0; 3],
-        Ink::Second => second,
+        Ink::Second | Ink::SecondFaint => second,
     };
 
-    for item in items(role) {
+    for item in items(role, phase) {
         let (x0, y0, x1, y1) = item.geo.bounds();
         let margin = 4.0;
         for py in 0..size {
@@ -693,7 +726,14 @@ pub fn render(
                         over(dst, [0.0; 3], cover(sd, 1.0));
                         over(dst, second, cover(sd, -1.0));
                     }
-                    Kind::Draw(color) => over(dst, ink_rgb(color), cover(sd, 0.0)),
+                    Kind::Draw(color) => {
+                        let strength = if matches!(color, Ink::SecondFaint) {
+                            0.3
+                        } else {
+                            1.0
+                        };
+                        over(dst, ink_rgb(color), cover(sd, 0.0) * strength);
+                    }
                 }
             }
         }
@@ -750,6 +790,27 @@ fn dib_frame(rgba: &[u8], size: usize) -> Vec<u8> {
     out
 }
 
+/// Файл курсора из готовых кадров (DIB): каталог с горячими точками и сами кадры.
+fn cur_file(role: Role, frames: &[(usize, Vec<u8>)]) -> Vec<u8> {
+    let mut cur = vec![0, 0, 2, 0];
+    cur.extend_from_slice(&(frames.len() as u16).to_le_bytes());
+    let mut offset = 6 + 16 * frames.len();
+    for (size, data) in frames {
+        let (hx, hy) = hotspot(role, *size);
+        // Для курсора в полях «плоскости» и «глубина» каталога лежит горячая точка.
+        cur.extend_from_slice(&[*size as u8, *size as u8, 0, 0]);
+        cur.extend_from_slice(&hx.to_le_bytes());
+        cur.extend_from_slice(&hy.to_le_bytes());
+        cur.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        cur.extend_from_slice(&(offset as u32).to_le_bytes());
+        offset += data.len();
+    }
+    for (_, data) in frames {
+        cur.extend_from_slice(data);
+    }
+    cur
+}
+
 /// Файл `.cur` со всеми кадрами `CURSOR_SIZES` и горячей точкой каждого кадра.
 pub fn build_cur(
     role: Role,
@@ -762,22 +823,89 @@ pub fn build_cur(
         let rgba = render(role, pattern, color, secondary, size)?;
         frames.push((size, dib_frame(&rgba, size)));
     }
-    let mut cur = vec![0, 0, 2, 0];
-    cur.extend_from_slice(&(frames.len() as u16).to_le_bytes());
-    let mut offset = 6 + 16 * frames.len();
-    for (size, data) in &frames {
-        let (hx, hy) = hotspot(role, *size);
-        cur.extend_from_slice(&[*size as u8, *size as u8, 0, 0]);
-        cur.extend_from_slice(&hx.to_le_bytes());
-        cur.extend_from_slice(&hy.to_le_bytes());
-        cur.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        cur.extend_from_slice(&(offset as u32).to_le_bytes());
-        offset += data.len();
+    Ok(cur_file(role, &frames))
+}
+
+/// Размеры кадров анимации: достаточно трёх, чтобы файл не рос.
+pub const ANI_SIZES: [usize; 3] = [32, 48, 64];
+/// Кадров на оборот.
+pub const ANI_FRAMES: usize = 16;
+
+/// Длительность кадра в «джиффи» (1/60 с): «Занят» крутится спокойнее, чем «Фоновая работа».
+fn ani_jiffies(role: Role) -> u32 {
+    if role == Role::Wait {
+        4
+    } else {
+        3
     }
-    for (_, data) in frames {
-        cur.extend_from_slice(&data);
+}
+
+fn riff_chunk(out: &mut Vec<u8>, id: &[u8; 4], data: &[u8]) {
+    out.extend_from_slice(id);
+    out.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    out.extend_from_slice(data);
+    if data.len() % 2 == 1 {
+        out.push(0);
     }
-    Ok(cur)
+}
+
+fn riff_list(out: &mut Vec<u8>, kind: &[u8; 4], body: &[u8]) {
+    let mut data = kind.to_vec();
+    data.extend_from_slice(body);
+    riff_chunk(out, b"LIST", &data);
+}
+
+/// Анимированный курсор `.ani` (RIFF `ACON`): заголовок `anih`, длительности `rate`,
+/// порядок `seq ` и список `fram` из кадров-значков (каждый — полный `.cur`).
+/// Годится только для ролей с `is_animated`.
+pub fn build_ani(
+    role: Role,
+    pattern: Pattern,
+    color: &str,
+    secondary: &str,
+) -> Result<Vec<u8>, AppearanceError> {
+    if !role.is_animated() {
+        return Err(AppearanceError::Invalid("эта роль не анимированная".into()));
+    }
+    let mut icons = Vec::new();
+    for frame in 0..ANI_FRAMES {
+        let phase = frame as f64 / ANI_FRAMES as f64;
+        let mut dibs = Vec::new();
+        for size in ANI_SIZES {
+            let rgba = render_frame(role, pattern, color, secondary, size, phase)?;
+            dibs.push((size, dib_frame(&rgba, size)));
+        }
+        icons.push(cur_file(role, &dibs));
+    }
+    let n = ANI_FRAMES as u32;
+    // anih: размер заголовка, кадры, шаги, ширина, высота, глубина, плоскости, скорость, флаги
+    // (1 — кадры это значки, 2 — есть порядок `seq `).
+    let mut anih = Vec::new();
+    for v in [36, n, n, 32, 32, 32, 1, ani_jiffies(role), 3] {
+        anih.extend_from_slice(&u32::to_le_bytes(v));
+    }
+    let rate: Vec<u8> = (0..n)
+        .flat_map(|_| ani_jiffies(role).to_le_bytes())
+        .collect();
+    let seq: Vec<u8> = (0..n).flat_map(u32::to_le_bytes).collect();
+    let mut info = Vec::new();
+    riff_chunk(&mut info, b"INAM", b"OCHISTKA\0");
+    riff_chunk(&mut info, b"IART", b"OCHISTKA\0");
+    let mut fram = Vec::new();
+    for icon in &icons {
+        riff_chunk(&mut fram, b"icon", icon);
+    }
+    let mut body = b"ACON".to_vec();
+    riff_list(&mut body, b"INFO", &info);
+    riff_chunk(&mut body, b"anih", &anih);
+    riff_chunk(&mut body, b"rate", &rate);
+    riff_chunk(&mut body, b"seq ", &seq);
+    riff_list(&mut body, b"fram", &fram);
+    let mut out = Vec::new();
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    out.extend_from_slice(&body);
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -898,6 +1026,110 @@ mod tests {
         let v = shapes();
         assert_eq!(v["grid"].as_f64(), Some(64.0));
         assert!(v["arrow"].as_str().unwrap().starts_with("M12,7"));
+    }
+
+    /// Проверяет один `.cur`: тип 2, каталог, кадры 32 бита с маской AND и удвоенной высотой.
+    fn check_cur(cur: &[u8], role: Role) -> usize {
+        assert_eq!(&cur[..4], &[0, 0, 2, 0]);
+        let count = le16(cur, 4);
+        let mut end = 6 + 16 * count;
+        for i in 0..count {
+            let e = 6 + 16 * i;
+            let size = cur[e] as usize;
+            assert_eq!(cur[e + 1] as usize, size);
+            let (hx, hy) = hotspot(role, size);
+            assert_eq!(
+                (le16(cur, e + 4), le16(cur, e + 6)),
+                (hx as usize, hy as usize)
+            );
+            assert!(
+                le16(cur, e + 4) < size && le16(cur, e + 6) < size,
+                "горячая точка в кадре"
+            );
+            let (len, offset) = (le32(cur, e + 8), le32(cur, e + 12));
+            assert_eq!(offset, end);
+            let mask = size.div_ceil(32) * 4 * size;
+            assert_eq!(
+                len,
+                40 + size * size * 4 + mask,
+                "заголовок + BGRA + маска AND"
+            );
+            assert_eq!(le32(cur, offset + 8), size * 2, "высота удвоена");
+            assert_eq!(le16(cur, offset + 14), 32);
+            assert_eq!(le32(cur, offset + 16), 0, "BI_RGB");
+            end += len;
+        }
+        assert_eq!(cur.len(), end);
+        count
+    }
+
+    #[test]
+    fn every_role_builds_a_valid_cur() {
+        for role in Role::ALL {
+            let cur = build_cur(role, Pattern::Plain, "#B4FF00", "#FF009D").unwrap();
+            assert_eq!(check_cur(&cur, role), CURSOR_SIZES.len(), "{role:?}");
+        }
+    }
+
+    #[test]
+    fn ani_is_a_well_formed_riff_acon_with_rotating_frames() {
+        let ani = build_ani(Role::Wait, Pattern::Stripes, "#B4FF00", "#FF009D").unwrap();
+        assert_eq!(&ani[..4], b"RIFF");
+        assert_eq!(le32(&ani, 4), ani.len() - 8, "размер RIFF");
+        assert_eq!(&ani[8..12], b"ACON");
+        // Обходим фрагменты верхнего уровня; нечётные размеры дополняются нулём.
+        let mut at = 12;
+        let mut seen = Vec::new();
+        let mut frames = Vec::new();
+        while at < ani.len() {
+            let id = String::from_utf8_lossy(&ani[at..at + 4]).to_string();
+            let len = le32(&ani, at + 4);
+            let data = &ani[at + 8..at + 8 + len];
+            match id.as_str() {
+                "anih" => {
+                    assert_eq!(len, 36);
+                    assert_eq!(le32(data, 0), 36);
+                    assert_eq!(le32(data, 4), ANI_FRAMES, "кадры");
+                    assert_eq!(le32(data, 8), ANI_FRAMES, "шаги");
+                    assert_eq!(le32(data, 32), 3, "значки + seq");
+                    assert!(le32(data, 28) > 0, "скорость");
+                }
+                "rate" => assert_eq!(len, 4 * ANI_FRAMES),
+                "seq " => {
+                    assert_eq!(len, 4 * ANI_FRAMES);
+                    assert_eq!(le32(data, 4 * 5), 5);
+                }
+                "LIST" if &data[..4] == b"fram" => {
+                    let mut p = 4;
+                    while p < data.len() {
+                        assert_eq!(&data[p..p + 4], b"icon");
+                        let l = le32(data, p + 4);
+                        frames.push(data[p + 8..p + 8 + l].to_vec());
+                        p += 8 + l + l % 2;
+                    }
+                }
+                "LIST" => assert_eq!(&data[..4], b"INFO"),
+                other => panic!("лишний фрагмент {other}"),
+            }
+            seen.push(id);
+            at += 8 + len + len % 2;
+        }
+        assert_eq!(at, ani.len());
+        assert_eq!(seen, ["LIST", "anih", "rate", "seq ", "LIST"]);
+        assert_eq!(frames.len(), ANI_FRAMES);
+        for f in &frames {
+            assert_eq!(check_cur(f, Role::Wait), ANI_SIZES.len());
+        }
+        assert_ne!(frames[0], frames[4], "кадры различаются (дуга вращается)");
+        assert_eq!(frames[0].len(), frames[7].len());
+    }
+
+    #[test]
+    fn both_busy_roles_animate_and_others_refuse_ani() {
+        let ani = build_ani(Role::AppStarting, Pattern::Plain, "#087FFF", "#F5FF00").unwrap();
+        assert_eq!(&ani[8..12], b"ACON");
+        assert!(Role::ALL.iter().filter(|r| r.is_animated()).count() == 2);
+        assert!(build_ani(Role::Arrow, Pattern::Plain, "#000000", "#000000").is_err());
     }
 
     #[test]

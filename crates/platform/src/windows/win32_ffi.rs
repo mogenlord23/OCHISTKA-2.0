@@ -1,0 +1,97 @@
+//! Единственное место в `crates/platform`, где есть `unsafe` для вызовов Win32 (крейт `windows`):
+//! обновление курсоров, рассылка о смене цветов, чтение и смена обоев, размер экрана.
+//! Каждая функция самодостаточна и безопасна снаружи; в каждом `unsafe` есть `SAFETY`.
+
+use ::windows::core::PCWSTR;
+use ::windows::Win32::Foundation::{LPARAM, WPARAM};
+use ::windows::Win32::Graphics::Gdi::{EnumDisplaySettingsW, DEVMODEW, ENUM_CURRENT_SETTINGS};
+use ::windows::Win32::UI::WindowsAndMessaging::{
+    SendMessageTimeoutW, SystemParametersInfoW, HWND_BROADCAST, SMTO_ABORTIFHUNG, SPIF_SENDCHANGE,
+    SPIF_UPDATEINIFILE, SPI_GETDESKWALLPAPER, SPI_SETCURSORS, SPI_SETDESKWALLPAPER,
+    WM_SETTINGCHANGE,
+};
+
+fn wide(text: &str) -> Vec<u16> {
+    text.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// `SystemParametersInfoW(SPI_SETCURSORS)`: система перечитывает схему курсоров из
+/// `HKCU\Control Panel\Cursors` и рассылает уведомление.
+pub fn reload_cursors() -> Result<(), String> {
+    // SAFETY: SPI_SETCURSORS не использует pvParam, uiParam равен 0 по документации.
+    unsafe {
+        SystemParametersInfoW(
+            SPI_SETCURSORS,
+            0,
+            None,
+            SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
+        )
+    }
+    .map_err(|e| e.to_string())
+}
+
+/// Одно `WM_SETTINGCHANGE` с «ImmersiveColorSet» всем окнам; ждём не дольше 200 мс на окно,
+/// зависшие окна пропускаются.
+pub fn broadcast_color_change() -> Result<(), String> {
+    let area = wide("ImmersiveColorSet");
+    // SAFETY: `area` живёт до конца вызова; SendMessageTimeoutW синхронный и не хранит указатель.
+    // Результат не важен: ноль — таймаут или зависшее окно, оформление уже записано в реестр.
+    let _ = unsafe {
+        SendMessageTimeoutW(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            WPARAM(0),
+            LPARAM(area.as_ptr() as isize),
+            SMTO_ABORTIFHUNG,
+            200,
+            None,
+        )
+    };
+    Ok(())
+}
+
+/// Полный путь к текущим обоям (`SPI_GETDESKWALLPAPER`); `None`, если обоев нет.
+pub fn current_wallpaper() -> Option<String> {
+    let mut buffer = vec![0u16; 1024];
+    // SAFETY: буфер на 1024 u16; uiParam — его длина в символах; запись внутри буфера.
+    unsafe {
+        SystemParametersInfoW(
+            SPI_GETDESKWALLPAPER,
+            buffer.len() as u32,
+            Some(buffer.as_mut_ptr().cast()),
+            Default::default(),
+        )
+    }
+    .ok()?;
+    let end = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
+    let path = String::from_utf16_lossy(&buffer[..end]);
+    (!path.is_empty()).then_some(path)
+}
+
+/// Ставит обои (`SPI_SETDESKWALLPAPER`, значение сохраняется в профиле). Пустая строка убирает
+/// картинку. Положение («Заполнить») система берёт из реестра, он выставлен заранее.
+pub fn set_wallpaper(path: &str) -> Result<(), String> {
+    let mut text = wide(path);
+    // SAFETY: `text` заканчивается нулём и живёт до конца вызова; система копирует строку.
+    unsafe {
+        SystemParametersInfoW(
+            SPI_SETDESKWALLPAPER,
+            0,
+            Some(text.as_mut_ptr().cast()),
+            SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
+        )
+    }
+    .map_err(|e| e.to_string())
+}
+
+/// Физический размер основного экрана в пикселях (не зависит от масштаба интерфейса).
+pub fn primary_screen_size() -> Option<(u32, u32)> {
+    let mut mode = DEVMODEW {
+        dmSize: std::mem::size_of::<DEVMODEW>() as u16,
+        ..Default::default()
+    };
+    // SAFETY: `mode` инициализирован с верным `dmSize`; пустое имя устройства — основной экран.
+    let ok = unsafe { EnumDisplaySettingsW(PCWSTR::null(), ENUM_CURRENT_SETTINGS, &mut mode) };
+    (ok.as_bool() && mode.dmPelsWidth > 0 && mode.dmPelsHeight > 0)
+        .then_some((mode.dmPelsWidth, mode.dmPelsHeight))
+}
