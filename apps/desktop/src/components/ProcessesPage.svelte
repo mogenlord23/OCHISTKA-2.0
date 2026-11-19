@@ -11,6 +11,7 @@
   import { ariaSort, nextSort, type SortState } from '../lib/sortState';
   import { formatMemory } from '../lib/units';
   import { getIcon } from '../lib/programsApi';
+  import { prefetchProcessIcons } from '../lib/processIcons';
   import {
     endTask,
     exePath,
@@ -61,6 +62,7 @@
     listing = true;
     try {
       processes = await listProcesses();
+      prefetchProcessIcons(processes);
       updatedAt = new Date().toLocaleTimeString('ru-RU');
       listError = null;
     } catch (err) {

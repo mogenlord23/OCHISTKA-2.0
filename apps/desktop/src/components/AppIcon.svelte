@@ -35,6 +35,11 @@
     }
     let cancelled = false;
     const start = () => {
+      const ready = cachedIcon(key);
+      if (ready !== undefined) {
+        url = ready;
+        return;
+      }
       void loadIcon(key, source).then((value) => {
         if (!cancelled) url = value;
       });
