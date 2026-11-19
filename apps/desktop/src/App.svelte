@@ -244,8 +244,8 @@
 </div>
 
 <style>
-  /* Окно непрозрачное (tauri.conf.json: transparent=false): так оно быстро меняет размер в WebView2.
-     Углы скругляет сама Windows 11. */
+  /* Окно прозрачное (tauri.conf.json: transparent, без тени). Скруглён только корень приложения;
+     плавность изменения размера даёт contain (корень, сцена, прокручиваемая область). */
   :global(html),
   :global(body) {
     margin: 0;
@@ -298,10 +298,16 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     contain: layout paint;
     font-family: var(--font-body, system-ui, sans-serif);
     background: var(--window);
+  }
+
+  /* Развёрнутое окно: углы квадратные, от края до края. */
+  .shell[data-maximized='true'] {
+    border-radius: 0;
   }
 
   /* Видимый фокус с клавиатуры, двойное кольцо. Внешнее (цвет текста страницы) читается
@@ -331,7 +337,7 @@
     overflow: hidden;
     background-color: var(--accent);
     /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
-    --content-gutter: max(24px, calc((100% - 1480px) / 2));
+    --content-gutter: max(22px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -403,6 +409,8 @@
      панели только пока открыта, а не выталкивает пункты за край. */
   .dock {
     position: relative;
+    z-index: 10;
+    background-color: var(--window);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -415,19 +423,24 @@
     right: 0;
     bottom: 28px;
     left: 0;
-    z-index: 2;
+    z-index: 10;
     display: grid;
-    background: var(--window);
+    /* Сплошной фон окна: раскрытый док целиком закрывает пункты под собой (без просвета). Прозрачность
+       не анимируется, иначе в середине анимации цвет выбранной плитки просвечивает. */
+    background-color: var(--window);
     grid-template-rows: 0fr;
-    opacity: 0;
+    visibility: hidden;
     transition:
       grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
-      opacity 160ms ease;
+      visibility 0s linear 220ms;
   }
 
   .bottom-wrap.open {
     grid-template-rows: 1fr;
-    opacity: 1;
+    visibility: visible;
+    transition:
+      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
+      visibility 0s;
   }
 
   .bottom {
