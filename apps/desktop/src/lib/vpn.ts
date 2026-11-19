@@ -51,6 +51,15 @@ export function normalizePasted(input: string): string {
   return input.replace(/\s+(?=(vless|vmess|trojan|ss|hysteria2|hy2|tuic):\/\/)/gi, '\n');
 }
 
+export const PREPARING_LABEL = 'Подготовка VPN…';
+export const RETRY_LABEL = 'Повторить';
+export const PREPARE_FAILED_PREFIX = 'Не удалось подготовить VPN';
+
+/** Подпись на кнопке во время подготовки: «Подготовка VPN… 42%». */
+export function preparingLabel(percent: number | null): string {
+  return percent && percent > 0 ? `${PREPARING_LABEL} ${Math.min(100, percent)}%` : PREPARING_LABEL;
+}
+
 export interface ConnectUi {
   label: string;
   pressed: boolean;
@@ -61,25 +70,32 @@ export interface ConnectUi {
 }
 
 /** Состояние главной кнопки «Подключить» по снимку и занятости (импорт, ожидание ответа). */
-export function connectUi(snapshot: VpnSnapshot | null, busy: boolean): ConnectUi {
+export function connectUi(
+  snapshot: VpnSnapshot | null,
+  busy: boolean,
+  options: { preparing?: number | null; retry?: boolean } = {},
+): ConnectUi {
   const state = snapshot?.connection.state ?? 'disconnected';
+  if (options.preparing !== undefined && options.preparing !== null) {
+    return {
+      label: preparingLabel(options.preparing),
+      pressed: false,
+      busy: true,
+      disabled: true,
+      reason: null,
+    };
+  }
   if (state === 'connecting' || (busy && state !== 'connected')) {
     return { label: 'Подключаем…', pressed: false, busy: true, disabled: true, reason: null };
   }
   if (state === 'connected') {
     return { label: 'Отключить', pressed: true, busy, disabled: busy, reason: null };
   }
-  const base = { label: 'Подключить', pressed: false, busy: false };
+  const base = { label: options.retry ? RETRY_LABEL : 'Подключить', pressed: false, busy: false };
   if (!snapshot || snapshot.servers.length === 0 || snapshot.selected === null) {
     return { ...base, disabled: true, reason: NO_SERVERS_REASON };
   }
-  if (!snapshot.core.available) {
-    return {
-      ...base,
-      disabled: true,
-      reason: `VPN-ядро не найдено${snapshot.core.reason ? `: ${snapshot.core.reason}` : ''}`,
-    };
-  }
+  // Файлы VPN, если их ещё нет, приложение скачивает само при нажатии: кнопка доступна.
   return { ...base, disabled: false, reason: null };
 }
 

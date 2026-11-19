@@ -4,7 +4,12 @@ import VpnPage from './VpnPage.svelte';
 import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON, TUN_MODE_REASON } from '../lib/vpn';
 
 const invokeMock = vi.hoisted(() => vi.fn());
-vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock,
+  Channel: class {
+    onmessage: (event: unknown) => void = () => {};
+  },
+}));
 
 type Handler = (args: Record<string, unknown> | undefined) => unknown;
 
@@ -40,11 +45,7 @@ function makeSnapshot(over: Record<string, unknown> = {}) {
     presets: [
       { id: 'ru-direct', title: 'Российские сайты напрямую', description: 'Зоны .ru, Яндекс, VK' },
     ],
-    core: {
-      available: true,
-      reason: null,
-      fetchCommand: 'powershell -File tools\\vpn-core\\fetch.ps1',
-    },
+    core: { available: true },
     connection: {
       state: 'disconnected',
       serverId: null,
@@ -208,24 +209,66 @@ describe('VpnPage: подключение и серверы', () => {
     expect(screen.getByLabelText('Время подключения').textContent).toBe('00:00:00');
   });
 
-  it('shows the missing core with the exact fetch command and disables connecting', async () => {
-    await openLoaded(
-      makeSnapshot({
-        servers: SERVERS,
-        selected: 's1',
-        core: {
-          available: false,
-          reason: 'файл sing-box.exe не найден',
-          fetchCommand: 'powershell -File fetch.ps1',
-        },
-      }),
-    );
-    expect(screen.getByText('VPN-ядро не установлено')).toBeTruthy();
-    expect(screen.getByText('powershell -File fetch.ps1')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Подключить' }).getAttribute('aria-disabled')).toBe(
-      'true',
-    );
-    expect(screen.getByText(/VPN-ядро не найдено: файл sing-box.exe не найден/)).toBeTruthy();
+  it('first connect prepares VPN with progress on the button and shows no technical words', async () => {
+    const connected = {
+      state: 'connected',
+      serverId: 's1',
+      serverName: 'Латвия',
+      since: Math.floor(Date.now() / 1000),
+      message: 'Подключено',
+      verified: true,
+    };
+    let finish: (v: unknown) => void = () => {};
+    let progress: (event: unknown) => void = () => {};
+    let available = false;
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === 'vpn_snapshot')
+        return Promise.resolve(
+          makeSnapshot({ servers: SERVERS, selected: 's1', core: { available } }),
+        );
+      if (cmd === 'vpn_connect') {
+        progress = (args?.onProgress as { onmessage: (e: unknown) => void }).onmessage;
+        return new Promise((resolve) => {
+          finish = (v) => {
+            available = true;
+            resolve(v);
+          };
+        });
+      }
+      return Promise.resolve(null);
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    expect(document.body.textContent).not.toMatch(/ядр/i);
+    const button = screen.getByRole('button', { name: 'Подключить' });
+    expect(button.getAttribute('aria-disabled')).toBe('false');
+    await fireEvent.click(button);
+    expect(await screen.findByRole('button', { name: 'Подготовка VPN…' })).toBeTruthy();
+    progress({ percent: 42 });
+    expect(await screen.findByRole('button', { name: 'Подготовка VPN… 42%' })).toBeTruthy();
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('42');
+    finish(connected);
+    expect(await screen.findByRole('button', { name: 'Отключить' })).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('a failed preparation says to check the internet and offers to retry', async () => {
+    backend({
+      vpn_snapshot: () =>
+        makeSnapshot({ servers: SERVERS, selected: 's1', core: { available: false } }),
+      vpn_connect: () =>
+        Promise.reject({
+          kind: 'prepare',
+          message: 'Не удалось подготовить VPN: проверьте интернет',
+        }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
+    expect(await screen.findByText('Не удалось подготовить VPN: проверьте интернет')).toBeTruthy();
+    const retry = await screen.findByRole('button', { name: 'Повторить' });
+    expect(retry.getAttribute('aria-disabled')).toBe('false');
+    expect(document.body.textContent).not.toMatch(/ядр/i);
   });
 
   it('connect calls the backend, then shows the disconnect state and the status', async () => {
@@ -259,12 +302,12 @@ describe('VpnPage: подключение и серверы', () => {
     backend({
       vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
       vpn_connect: () =>
-        Promise.reject({ kind: 'probe', message: 'VPN-ядро не приняло параметры сервера' }),
+        Promise.reject({ kind: 'probe', message: 'VPN не принял параметры сервера' }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
-    expect(await screen.findByText('VPN-ядро не приняло параметры сервера')).toBeTruthy();
+    expect(await screen.findByText('VPN не принял параметры сервера')).toBeTruthy();
     const again = await screen.findByRole('button', { name: 'Подключить' });
     expect(again.getAttribute('aria-disabled')).toBe('false');
   });

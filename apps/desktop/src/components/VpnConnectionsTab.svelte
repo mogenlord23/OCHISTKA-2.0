@@ -124,7 +124,7 @@
     height: min(calc(100vh - 330px), 640px);
     min-height: 160px;
     overflow: auto;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
     contain: layout paint;

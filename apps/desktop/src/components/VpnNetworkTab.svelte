@@ -84,7 +84,7 @@
 
   .card {
     padding: 16px 18px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
   }

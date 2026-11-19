@@ -38,7 +38,7 @@ function snapshot(
     subscriptionUrl: '',
     rules: { directDomains: [], proxyDomains: [], directApps: [], proxyApps: [], presets: [] },
     presets: [],
-    core: { available: true, reason: null, fetchCommand: 'cmd' },
+    core: { available: true },
     connection: {
       state,
       serverId: null,
@@ -117,15 +117,22 @@ describe('connectUi', () => {
     });
   });
 
-  it('is disabled with the core reason when sing-box is missing', () => {
-    const ui = connectUi(
-      snapshot({
-        core: { available: false, reason: 'файл sing-box.exe не найден', fetchCommand: 'cmd' },
-      }),
-      false,
-    );
-    expect(ui.disabled).toBe(true);
-    expect(ui.reason).toContain('sing-box.exe');
+  it('stays available when the files are missing: the app fetches them on connect', () => {
+    const ui = connectUi(snapshot({ core: { available: false } }), false);
+    expect(ui).toMatchObject({ disabled: false, label: 'Подключить', reason: null });
+  });
+
+  it('shows the preparation percent on the button and the retry label after a failure', () => {
+    expect(connectUi(snapshot(), true, { preparing: 0 })).toMatchObject({
+      label: 'Подготовка VPN…',
+      busy: true,
+      disabled: true,
+    });
+    expect(connectUi(snapshot(), true, { preparing: 42 }).label).toBe('Подготовка VPN… 42%');
+    expect(connectUi(snapshot(), false, { retry: true })).toMatchObject({
+      label: 'Повторить',
+      disabled: false,
+    });
   });
 
   it('is ready to connect when a server is selected and the core is present', () => {
