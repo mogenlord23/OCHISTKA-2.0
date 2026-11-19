@@ -2547,6 +2547,7 @@ dependencies = [
  "ochistka-core",
  "reqwest",
  "serde",
+ "serde_json",
  "sysinfo",
  "url",
  "windows",

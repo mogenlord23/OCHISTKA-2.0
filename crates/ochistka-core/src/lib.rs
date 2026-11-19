@@ -9,6 +9,7 @@ pub mod hardware;
 pub mod heuristic;
 pub mod inventory;
 pub mod layout;
+pub mod netinfo;
 pub mod network;
 pub mod policy;
 pub mod processes;

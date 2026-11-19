@@ -4,6 +4,7 @@ pub mod linux;
 pub mod macos;
 pub mod windows;
 
+pub mod geo;
 pub mod icon_image;
 pub mod icon_store;
 pub mod os_status;

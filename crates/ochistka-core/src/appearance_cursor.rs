@@ -462,9 +462,7 @@ fn items(role: Role, phase: f64) -> Vec<Item> {
     let turn = phase * 360.0;
     let arrow = || shape(flatten_path(&arrow_path()));
     let size_arrow = |angle: f64| {
-        let mut polys = flatten_path(
-            RESIZE_ARROW,
-        );
+        let mut polys = flatten_path(RESIZE_ARROW);
         for poly in &mut polys {
             rotate(poly, angle, (32.0, 32.0));
         }
@@ -556,7 +554,14 @@ fn items(role: Role, phase: f64) -> Vec<Item> {
         Role::Wait => {
             // Дорожка и бегущая дуга второго цвета.
             let mut v = vec![shape(vec![circle(32.0, 32.0, 21.0)])];
-            v.extend(spinner(32.0, 32.0, 13.0, turn, Ink::SecondFaint, Ink::Second));
+            v.extend(spinner(
+                32.0,
+                32.0,
+                13.0,
+                turn,
+                Ink::SecondFaint,
+                Ink::Second,
+            ));
             v
         }
         Role::SizeWe => size_arrow(0.0),

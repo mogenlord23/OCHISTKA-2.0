@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use ochistka_core::assess::Suspicion;
 use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
+use ochistka_core::netinfo::{GeoConsent, GeoInfo};
 use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::speedtest::{SpeedEvent, SpeedFailure, SpeedPhase, SpeedResult};
@@ -59,6 +60,8 @@ fn export_all_into(dir: &Path) {
     HardwareOverview::export_all(&cfg).unwrap();
     NetworkAdapter::export_all(&cfg).unwrap();
     TcpConnection::export_all(&cfg).unwrap();
+    GeoInfo::export_all(&cfg).unwrap();
+    GeoConsent::export_all(&cfg).unwrap();
     TweaksOverview::export_all(&cfg).unwrap();
     TweakState::export_all(&cfg).unwrap();
     BoostState::export_all(&cfg).unwrap();

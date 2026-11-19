@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import SpeedTest from './SpeedTest.svelte';
+  import GeoCards from './GeoCards.svelte';
   import { formatBytes } from '../lib/format';
   import {
     NETWORK_REFRESH_MS,
@@ -30,6 +31,7 @@
 </script>
 
 <SpeedTest />
+<GeoCards />
 
 {#if error}
   <p class="state" role="alert">{error}</p>

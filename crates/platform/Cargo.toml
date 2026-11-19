@@ -13,6 +13,7 @@ libclamav = []
 image = { version = "0.25", default-features = false, features = ["png"] }
 netstat2 = "0.11.2"
 ochistka-core = { path = "../ochistka-core" }
+serde_json = "1"
 sysinfo = "0.40.4"
 url = "2"
 
