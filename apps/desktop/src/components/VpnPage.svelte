@@ -62,8 +62,18 @@
   let fileInput: HTMLInputElement | undefined = $state();
 
   const ADVANCED = [
-    { id: 'zapret', label: 'Zapret', description: 'Помогает открывать заблокированные сайты', icon: '↗' },
-    { id: 'xbox-dns', label: 'Xbox DNS', description: 'Свои DNS-серверы для Xbox и игр', icon: 'X' },
+    {
+      id: 'zapret',
+      label: 'Zapret',
+      description: 'Помогает открывать заблокированные сайты',
+      icon: '↗',
+    },
+    {
+      id: 'xbox-dns',
+      label: 'Xbox DNS',
+      description: 'Свои DNS-серверы для Xbox и игр',
+      icon: 'X',
+    },
   ] as const;
 
   /** Состояние инструментов. Пока оба не реализованы: Switch выключен и недоступен, без имитации. */
