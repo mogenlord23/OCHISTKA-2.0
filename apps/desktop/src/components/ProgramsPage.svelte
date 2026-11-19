@@ -708,7 +708,7 @@
     max-height: calc(100vh - 440px);
     min-height: 180px;
     overflow: auto;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: #111;
     color: var(--ink);
     font-size: var(--text-small);
@@ -748,7 +748,7 @@
     gap: 6px;
     padding: 6px 4px;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     background: none;
     color: var(--accent);
     font-size: 10px;
@@ -790,7 +790,7 @@
     position: relative;
     height: 52px;
     padding: 0 12px 0 2px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     font-weight: 600;
     cursor: default;
     transition: background 120ms ease;
@@ -835,7 +835,7 @@
   .name-btn:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
   }
   .cut {
     min-width: 0;
@@ -864,7 +864,7 @@
   .pill {
     display: inline-block;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: color-mix(in srgb, #b4ff00 16%, #111);
     color: #b4ff00;
     font-size: 11px;

@@ -11,13 +11,8 @@ import { describe, expect, it } from 'vitest';
 const SRC = join(__dirname);
 
 /** Файлы, которые ещё переносят на токены (владельцы блоков B и C). Список только сокращается. */
-const PENDING = new Set<string>([
-  'AppearancePage.svelte',
-  'DriversPage.svelte',
-  'ProcessesPage.svelte',
-  'ProgramsPage.svelte',
-]);
-const PENDING_PREFIX = ['Vpn'];
+const PENDING = new Set<string>([]);
+const PENDING_PREFIX: string[] = [];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

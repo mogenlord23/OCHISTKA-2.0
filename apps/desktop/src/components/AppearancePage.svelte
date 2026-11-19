@@ -607,7 +607,7 @@
     min-width: 56px;
     min-height: 36px;
     border: 1px solid #343434;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--ink);
     font: inherit;
@@ -625,7 +625,7 @@
     width: 52px;
     height: 30px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: #3a3a3a;
     cursor: pointer;
     transition: background 160ms ease;

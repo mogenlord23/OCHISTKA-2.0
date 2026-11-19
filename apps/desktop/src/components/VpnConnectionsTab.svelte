@@ -189,7 +189,7 @@
 
   .state-chip {
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: #222;
     color: var(--accent);
     font-size: 0.7rem;

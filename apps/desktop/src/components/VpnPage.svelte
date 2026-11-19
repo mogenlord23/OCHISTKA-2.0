@@ -795,7 +795,7 @@
     height: 48px;
     min-height: 0;
     padding: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: #2a2a2a;
     box-shadow: 0 0 0 2px var(--accent);
   }
@@ -1013,7 +1013,7 @@
     width: 100px;
     height: 44px;
     padding: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: #2a2a2a;
     box-shadow: 0 0 0 2px #fff;
   }
