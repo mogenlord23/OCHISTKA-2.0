@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Check from './Check.svelte';
   import {
     COLOR_SCHEMES,
     cursorSvg,
@@ -53,7 +54,7 @@
     },
     color: {
       title: 'Акцентный цвет Windows',
-      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются переключателями ниже.',
+      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются флажками ниже, вместе они не работают.',
     },
   };
 
@@ -118,14 +119,25 @@
     key: keyof Optimistic | null,
     value: Optimistic[keyof Optimistic] | undefined,
     run: () => Promise<AppearanceStatus>,
+    /** Взаимоисключающий флажок: гаснет сразу, без отдельной команды (бэкенд делает это сам). */
+    also: Partial<Optimistic> = {},
   ) {
     message = null;
     const mine = key ? ++tokens[key] : 0;
     if (key && value !== undefined) (optimistic as Record<string, unknown>)[key] = value;
+    const partners = Object.keys(also) as (keyof Optimistic)[];
+    const partnerTokens = partners.map((name) => ++tokens[name]);
+    for (const name of partners) (optimistic as Record<string, unknown>)[name] = also[name];
     const settle = () => {
       if (key && tokens[key] === mine) delete optimistic[key];
+      partners.forEach((name, i) => {
+        if (tokens[name] === partnerTokens[i]) delete optimistic[name];
+      });
     };
     queue = queue.then(async () => {
+      // Команда, которую уже перебил более новый клик по тому же выбору, в Windows не уходит:
+      // оформление пишется один раз, сразу в итоговое значение, и интерфейс не отстаёт.
+      if (key && value !== undefined && tokens[key] !== mine) return;
       try {
         status = await run();
       } catch (err) {
@@ -162,12 +174,22 @@
 
   function toggleTransparency() {
     const enabled = !transparencyOn;
-    optimisticRun('transparency', enabled, () => setTransparency(enabled));
+    optimisticRun(
+      'transparency',
+      enabled,
+      () => setTransparency(enabled),
+      enabled ? { fill: false } : {},
+    );
   }
 
   function toggleFill() {
     const enabled = !fillOn;
-    optimisticRun('fill', enabled, () => setFillTaskbar(enabled));
+    optimisticRun(
+      'fill',
+      enabled,
+      () => setFillTaskbar(enabled),
+      enabled ? { transparency: false } : {},
+    );
   }
 
   function restoreWindows() {
@@ -222,22 +244,6 @@
     return () => observer.disconnect();
   });
 </script>
-
-{#snippet chip(label: string, on: boolean, onclick: (e: Event) => void, disabled = false)}
-  <button
-    type="button"
-    class="chip"
-    aria-pressed={on}
-    aria-disabled={disabled}
-    class:disabled
-    onclick={(event) => {
-      if (!disabled) onclick(event);
-    }}
-  >
-    <span class="box" class:on aria-hidden="true"></span>
-    <span class="chip-text">{label}</span>
-  </button>
-{/snippet}
 
 <section class="appearance" aria-label="Оформление">
   {#key subsection}
@@ -300,10 +306,21 @@
             >
           </div>
         {:else if kind === 'color'}
-          <div class="chips">
-            {@render chip('Эффект прозрачности', transparencyOn, toggleTransparency)}
-            {@render chip('Залить панель задач и Пуск', fillOn, toggleFill)}
-            {@render chip('Вернуть оформление Windows', false, restoreWindows, !status?.hasBackup)}
+          <div class="checks">
+            <Check controlled checked={transparencyOn} onchange={toggleTransparency}>
+              <span class="check-text">Эффект прозрачности</span>
+            </Check>
+            <Check controlled checked={fillOn} onchange={toggleFill}>
+              <span class="check-text">Залить панель задач и Пуск</span>
+            </Check>
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              aria-disabled={!status?.hasBackup}
+              class:disabled={!status?.hasBackup}
+              onclick={restoreWindows}>Вернуть оформление Windows</button
+            >
           </div>
         {/if}
 
@@ -322,7 +339,10 @@
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
                 onclick={() => pick(tile.id)}
               >
-                {#if tile.thumb}
+                {#if tile.id.startsWith('solid-')}
+                  <!-- Узор фона приложения поверх цвета: так же рисуются сами обои -->
+                  <span class="pattern" aria-hidden="true"></span>
+                {:else if tile.thumb}
                   <img
                     src={tile.thumb}
                     alt=""
@@ -336,12 +356,6 @@
                   <span class="cursor" aria-hidden="true"
                     >{@html cursorSvg(cursor, tile.id, 64)}</span
                   >
-                  <!-- Превью анимации «Занят»: бегущая дуга второго цвета крутится при наведении -->
-                  <span
-                    class="spin"
-                    aria-hidden="true"
-                    style:--spin={cursor.pattern === 'neon' ? cursor.color : cursor.secondary}
-                  ></span>
                 {/if}
               </button>
             </li>
@@ -402,8 +416,7 @@
     color: #ff8a8a;
   }
 
-  .actions,
-  .chips {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -424,8 +437,7 @@
     cursor: pointer;
   }
 
-  .actions button.disabled,
-  .chip.disabled {
+  .actions button.disabled {
     color: var(--ink-soft);
     cursor: not-allowed;
   }
@@ -436,52 +448,25 @@
     margin: 8px 0;
   }
 
-  /* Строка настроек: тёмные скруглённые плашки с квадратным индикатором, как на экране владельца. */
-  .chip {
+  /* Флажки одним столбцом по левому краю страницы: квадрат без отступа слева, текст по его
+     центру. Состояние показывается в тот же кадр, без плавного перехода. */
+  .checks {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 52px;
-    padding: 8px 20px 8px 14px;
-    border: 2px solid #2a2a2a;
-    border-radius: 14px;
-    background: #121212;
-    color: var(--ink);
-    font: inherit;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 12px;
     font-size: var(--text-small);
-    font-weight: 800;
-    text-align: left;
-    cursor: pointer;
-    transition: transform 140ms ease;
+    font-weight: 700;
   }
 
-  .chip:hover:not(.disabled) {
-    transform: translateY(-2px);
+  .checks :global(.box),
+  .checks :global(svg) {
+    transition: none;
   }
 
-  /* Нажатие: плашка на миг «вдавливается». Диалогов нет, клик и есть действие. */
-  .chip:active:not(.disabled) {
-    transform: scale(0.96);
-  }
-
-  .chip:focus-visible {
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-  }
-
-  .box {
-    flex: none;
-    width: 26px;
-    height: 26px;
-    border: 3px solid #4a4a4a;
-    border-radius: 8px;
-    background: #1c1c1c;
-    box-shadow: inset 0 0 0 3px #1c1c1c;
-  }
-
-  .box.on {
-    border-color: var(--accent, #f83c5c);
-    background: var(--accent, #f83c5c);
+  .check-text {
+    line-height: 1.2;
   }
 
   /* Плитки фиксированного размера: на любом экране одинаковые. Сетка добавляет колонки и
@@ -526,7 +511,7 @@
     padding: 0;
     overflow: hidden;
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background-origin: border-box;
     background-repeat: no-repeat;
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
@@ -541,7 +526,7 @@
   }
 
   .grid-color .tile {
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     box-shadow: inset 0 0 0 3px #111;
   }
 
@@ -580,26 +565,13 @@
     height: 100%;
   }
 
-  .spin {
+  /* Узор фона приложения на плитке сплошных обоев (тот же pop-pattern, чуть заметнее). */
+  .pattern {
     position: absolute;
-    right: 8px;
-    bottom: 8px;
-    width: 16px;
-    height: 16px;
-    border: 3px solid rgb(255 255 255 / 18%);
-    border-top-color: var(--spin, #fff);
-    border-radius: 50%;
-    animation: spin 700ms linear infinite paused;
-  }
-
-  .tile:hover .spin {
-    animation-play-state: running;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    inset: 0;
+    background: url('../assets/pop-pattern.png') 0 0 / 48px 48px;
+    opacity: 0.14;
+    pointer-events: none;
   }
 
   .cursor :global(svg) {
@@ -682,17 +654,13 @@
   @media (prefers-reduced-motion: reduce) {
     .pane,
     .tile,
-    .chip,
-    .spin,
     .switch,
     .knob {
       animation: none;
       transition: none;
     }
 
-    .tile:hover,
-    .chip:hover:not(.disabled),
-    .chip:active:not(.disabled) {
+    .tile:hover {
       transform: none;
     }
   }
