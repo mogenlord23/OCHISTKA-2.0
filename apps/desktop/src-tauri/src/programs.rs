@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use ochistka_core::fs::CleanupError;
 use ochistka_core::layout::CleanupEnvPort;
-use ochistka_core::programs::icons::{png_data_url, validate_icon_path, IconCache};
+use ochistka_core::programs::icons::{IconCache, IconContext, IconStore};
 use ochistka_core::programs::startup_state::valid_value_name;
 use ochistka_core::programs::{
     build_inventory, build_startup, measure_folder, uninstall_command_for, validate_measure_path,
@@ -72,6 +72,15 @@ pub enum ProgramsRequest {
     Icon {
         path: String,
     },
+    /// Значки пачкой для списка программ по `id`: DisplayIcon, логотип Store, основной exe.
+    /// Только чтение. Интерфейс просит пачки по несколько штук сразу после загрузки списка.
+    ProgramIcons {
+        ids: Vec<String>,
+    },
+    /// Значки пачкой по путям (exe процессов). Только чтение.
+    PathIcons {
+        paths: Vec<String>,
+    },
     /// Штатное удаление по `id` программы. Без `confirmed` ядро не вызывается.
     Uninstall {
         id: String,
@@ -103,6 +112,10 @@ pub enum ProgramsResponse {
     Icon {
         data_url: Option<String>,
     },
+    /// Результат пачки: ключ (`id` или путь, как в запросе) и адрес PNG или `null`.
+    IconBatch {
+        items: Vec<IconBatchItem>,
+    },
     /// Удаление запущено: окно деинсталлятора открыто, результат он покажет сам.
     UninstallStarted,
     StartupChanged {
@@ -111,6 +124,17 @@ pub enum ProgramsResponse {
     },
 }
 
+/// Один значок из пачки.
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IconBatchItem {
+    pub key: String,
+    pub data_url: Option<String>,
+}
+
+/// Сколько значков разрешено просить за один запрос.
+const MAX_BATCH: usize = 32;
+
 /// Состояние раздела: порт реестра, среда для файлов, флаг отмены и занятости подсчёта.
 pub struct ProgramsState {
     registry: Arc<dyn ProgramsPort>,
@@ -118,16 +142,22 @@ pub struct ProgramsState {
     cancel: Arc<AtomicBool>,
     busy: Arc<AtomicBool>,
     icons: Arc<IconCache>,
+    icon_store: Arc<dyn IconStore>,
 }
 
 impl ProgramsState {
-    pub fn new(registry: Box<dyn ProgramsPort>, env: Box<dyn CleanupEnvPort>) -> Self {
+    pub fn new(
+        registry: Box<dyn ProgramsPort>,
+        env: Box<dyn CleanupEnvPort>,
+        icon_store: Box<dyn IconStore>,
+    ) -> Self {
         Self {
             registry: Arc::from(registry),
             env: Arc::from(env),
             cancel: Arc::new(AtomicBool::new(false)),
             busy: Arc::new(AtomicBool::new(false)),
-            icons: Arc::new(IconCache::new(512)),
+            icons: Arc::new(IconCache::new(3000)),
+            icon_store: Arc::from(icon_store),
         }
     }
 }
@@ -152,12 +182,23 @@ fn begin_measure(busy: &Arc<AtomicBool>, cancel: &AtomicBool) -> Result<BusyGuar
     Ok(BusyGuard(Arc::clone(busy)))
 }
 
+fn limited(items: Vec<String>) -> Result<Vec<String>, ProgramsError> {
+    if items.len() > MAX_BATCH {
+        return Err(ProgramsError {
+            kind: "refused".into(),
+            message: format!("за один запрос можно просить не больше {MAX_BATCH} значков"),
+        });
+    }
+    Ok(items)
+}
+
 /// Выполняет запрос. Отдельная функция: её можно проверить без окна Tauri.
 pub fn run(
     registry: &dyn ProgramsPort,
     env: &dyn CleanupEnvPort,
     cancel: &AtomicBool,
     icons: &IconCache,
+    store: &dyn IconStore,
     request: ProgramsRequest,
 ) -> Result<ProgramsResponse, ProgramsError> {
     match request {
@@ -181,20 +222,63 @@ pub fn run(
         }
         ProgramsRequest::StopMeasure => Ok(ProgramsResponse::Stopped),
         ProgramsRequest::Icon { path } => {
-            let path = validate_icon_path(&path).map_err(|message| ProgramsError {
-                kind: "refused".into(),
-                message,
-            })?;
-            if let Some(cached) = icons.get(&path) {
-                return Ok(ProgramsResponse::Icon { data_url: cached });
-            }
-            // Неудача (нет файла, нет значка, чужая ОС) не ошибка: кэшируем и рисуем букву.
-            let data_url = registry
-                .icon_png_base64(&path)
-                .ok()
-                .map(|png| png_data_url(&png));
-            icons.put(&path, data_url.clone());
+            let ctx = IconContext {
+                port: registry,
+                store,
+                memory: icons,
+            };
+            // Неудача (нет файла, нет значка, чужая ОС) не ошибка: рисуем букву.
+            let data_url = ctx
+                .icon_for_untrusted_path(&path)
+                .map_err(|message| ProgramsError {
+                    kind: "refused".into(),
+                    message,
+                })?;
             Ok(ProgramsResponse::Icon { data_url })
+        }
+        ProgramsRequest::ProgramIcons { ids } => {
+            let ids = limited(ids)?;
+            let ctx = IconContext {
+                port: registry,
+                store,
+                memory: icons,
+            };
+            let programs = build_inventory(&registry.installed_records()?);
+            let items = ids
+                .into_iter()
+                .map(|id| {
+                    let key = format!("program:{id}");
+                    let data_url = match icons.get(&key) {
+                        Some(known) => known,
+                        None => {
+                            let found = programs
+                                .iter()
+                                .find(|program| program.id == id)
+                                .and_then(|program| ctx.program_icon(program));
+                            icons.put(&key, found.clone());
+                            found
+                        }
+                    };
+                    IconBatchItem { key: id, data_url }
+                })
+                .collect();
+            Ok(ProgramsResponse::IconBatch { items })
+        }
+        ProgramsRequest::PathIcons { paths } => {
+            let paths = limited(paths)?;
+            let ctx = IconContext {
+                port: registry,
+                store,
+                memory: icons,
+            };
+            let items = paths
+                .into_iter()
+                .map(|path| IconBatchItem {
+                    data_url: ctx.icon_for_untrusted_path(&path).ok().flatten(),
+                    key: path,
+                })
+                .collect();
+            Ok(ProgramsResponse::IconBatch { items })
         }
         ProgramsRequest::Uninstall { id, confirmed } => {
             if !confirmed {
@@ -259,9 +343,17 @@ pub async fn programs_request(
     let env = Arc::clone(&state.env);
     let cancel = Arc::clone(&state.cancel);
     let icons = Arc::clone(&state.icons);
+    let store = Arc::clone(&state.icon_store);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        run(registry.as_ref(), env.as_ref(), &cancel, &icons, request)
+        run(
+            registry.as_ref(),
+            env.as_ref(),
+            &cancel,
+            &icons,
+            store.as_ref(),
+            request,
+        )
     })
     .await
     .map_err(|err| ProgramsError {
@@ -275,6 +367,7 @@ mod tests {
     use super::*;
     use ochistka_core::fs::FsPort;
     use ochistka_core::layout::Layout;
+    use ochistka_core::programs::icons::NoIconStore;
     use ochistka_core::programs::{RawProgramRecord, RawSource, RawStartup, RawValue};
     use std::collections::BTreeMap;
 
@@ -325,6 +418,7 @@ mod tests {
             &NoEnv,
             &cancel,
             &IconCache::new(4),
+            &NoIconStore,
             ProgramsRequest::ListInstalled,
         )
         .unwrap();
@@ -345,6 +439,7 @@ mod tests {
             &NoEnv,
             &cancel,
             &IconCache::new(4),
+            &NoIconStore,
             ProgramsRequest::ListStartup,
         )
         .unwrap();
@@ -365,6 +460,7 @@ mod tests {
             &NoEnv,
             &cancel,
             &IconCache::new(4),
+            &NoIconStore,
             ProgramsRequest::MeasureFolder {
                 path: "App\\x".into(),
             },
@@ -381,6 +477,7 @@ mod tests {
             &NoEnv,
             &cancel,
             &IconCache::new(4),
+            &NoIconStore,
             ProgramsRequest::MeasureFolder {
                 path: "C:\\Apps\\Tool".into(),
             },
@@ -477,6 +574,7 @@ mod tests {
             &NoEnv,
             &AtomicBool::new(false),
             &IconCache::new(4),
+            &NoIconStore,
             request,
         )
     }
@@ -564,6 +662,7 @@ mod tests {
                 &NoEnv,
                 &AtomicBool::new(false),
                 &cache,
+                &NoIconStore,
                 ProgramsRequest::Icon { path: path.into() },
             )
         };
@@ -587,11 +686,103 @@ mod tests {
             &NoEnv,
             &AtomicBool::new(false),
             &cache,
+            &NoIconStore,
             ProgramsRequest::Icon {
                 path: "C:\\B\\b.exe".into(),
             },
         )
         .unwrap();
         assert_eq!(fallback, ProgramsResponse::Icon { data_url: None });
+    }
+
+    #[test]
+    fn program_icon_batch_resolves_by_id_caches_and_limits_size() {
+        struct WithIcon(std::sync::atomic::AtomicUsize);
+        impl ProgramsPort for WithIcon {
+            fn installed_records(&self) -> Result<Vec<RawProgramRecord>, CoreError> {
+                let mut values = BTreeMap::new();
+                values.insert("DisplayName".into(), RawValue::Text("Tool".into()));
+                values.insert(
+                    "DisplayIcon".into(),
+                    RawValue::Text("\"%ProgramFiles%\\Tool\\tool.exe\",0".into()),
+                );
+                Ok(vec![RawProgramRecord {
+                    source: RawSource::Uninstall,
+                    values,
+                }])
+            }
+            fn startup_records(&self) -> Result<Vec<RawStartup>, CoreError> {
+                Ok(Vec::new())
+            }
+            fn env_var(&self, name: &str) -> Option<String> {
+                (name == "ProgramFiles").then(|| "C:\\PF".to_string())
+            }
+            fn icon_png_base64(&self, path: &str) -> Result<String, CoreError> {
+                assert_eq!(path, "C:\\PF\\Tool\\tool.exe");
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Ok("QUJD".into())
+            }
+        }
+        let port = WithIcon(Default::default());
+        let cache = IconCache::new(8);
+        let ask = |ids: Vec<String>| {
+            run(
+                &port,
+                &NoEnv,
+                &AtomicBool::new(false),
+                &cache,
+                &NoIconStore,
+                ProgramsRequest::ProgramIcons { ids },
+            )
+        };
+        let expected = ProgramsResponse::IconBatch {
+            items: vec![
+                IconBatchItem {
+                    key: "tool||".into(),
+                    data_url: Some("data:image/png;base64,QUJD".into()),
+                },
+                IconBatchItem {
+                    key: "unknown".into(),
+                    data_url: None,
+                },
+            ],
+        };
+        let ids = vec!["tool||".to_string(), "unknown".to_string()];
+        assert_eq!(ask(ids.clone()).unwrap(), expected);
+        assert_eq!(ask(ids).unwrap(), expected);
+        assert_eq!(port.0.load(Ordering::SeqCst), 1, "second batch is cached");
+        let too_many = (0..=MAX_BATCH).map(|i| i.to_string()).collect();
+        assert_eq!(ask(too_many).unwrap_err().kind, "refused");
+    }
+
+    #[test]
+    fn path_icon_batch_skips_unsafe_paths_without_failing_the_batch() {
+        let port = Counting::default();
+        let response = run(
+            &port,
+            &NoEnv,
+            &AtomicBool::new(false),
+            &IconCache::new(4),
+            &NoIconStore,
+            ProgramsRequest::PathIcons {
+                paths: vec!["calc.exe".into(), "C:\\A\\a.exe".into()],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            response,
+            ProgramsResponse::IconBatch {
+                items: vec![
+                    IconBatchItem {
+                        key: "calc.exe".into(),
+                        data_url: None
+                    },
+                    IconBatchItem {
+                        key: "C:\\A\\a.exe".into(),
+                        data_url: Some("data:image/png;base64,QUJD".into())
+                    },
+                ]
+            }
+        );
     }
 }

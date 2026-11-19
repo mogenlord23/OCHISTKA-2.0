@@ -4,6 +4,9 @@ pub mod linux;
 pub mod macos;
 pub mod windows;
 
+pub mod icon_image;
+pub mod icon_store;
+
 /// Очистка дисков Windows: файловый адаптер и раскладка. Файл лежит в `windows/`, но модуль
 /// объявлен здесь, потому что `windows/mod.rs` ведётся отдельно.
 #[path = "windows/cleanup.rs"]
@@ -98,6 +101,11 @@ pub fn current_programs_port() -> Box<dyn ProgramsPort> {
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn current_programs_port() -> Box<dyn ProgramsPort> {
     Box::new(linux::programs::UnsupportedPrograms)
+}
+
+/// Дисковый кэш значков программ и процессов (папка данных приложения).
+pub fn current_icon_store() -> Box<dyn ochistka_core::programs::icons::IconStore> {
+    Box::new(icon_store::DiskIconStore::default())
 }
 
 /// Сеть (адаптеры и TCP-соединения), только чтение: Windows — sysinfo и netstat2, остальные ОС — заглушка.

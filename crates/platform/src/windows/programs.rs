@@ -9,6 +9,9 @@ use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
 
+use ochistka_core::programs::icons::FileStamp;
+#[cfg(windows)]
+use ochistka_core::programs::icons::{base64_encode, ICON_PX};
 #[cfg_attr(not(windows), allow(unused_imports))]
 use ochistka_core::programs::uninstall::UninstallCommand;
 #[cfg_attr(not(windows), allow(unused_imports))]
@@ -396,6 +399,22 @@ impl ProgramsPort for WindowsPrograms {
         Ok(records)
     }
 
+    fn list_file_names(&self, dir: &str) -> Result<Vec<String>, CoreError> {
+        list_file_names(dir)
+    }
+
+    fn read_small_file(&self, path: &str, max: usize) -> Result<Vec<u8>, CoreError> {
+        read_small_file(path, max)
+    }
+
+    fn file_stamp(&self, path: &str) -> Option<FileStamp> {
+        file_stamp(path)
+    }
+
+    fn env_var(&self, name: &str) -> Option<String> {
+        std::env::var(name).ok().filter(|value| !value.is_empty())
+    }
+
     #[cfg(windows)]
     fn icon_png_base64(&self, path: &str) -> Result<String, CoreError> {
         let safe = ochistka_core::programs::icons::validate_icon_path(path)
@@ -403,8 +422,21 @@ impl ProgramsPort for WindowsPrograms {
         if !Path::new(&safe).is_file() {
             return Err(CoreError::InvalidTarget("файл значка не найден".into()));
         }
-        windows_icons::get_icon_base64_by_path_with_size(&safe, windows_icons::IconSize::Medium)
-            .map_err(|err| CoreError::Probe(format!("значок: {err}")))
+        // Самый крупный доступный размер (256, затем 96 и 48), дальше плавное уменьшение
+        // до ICON_PX (плитка x2 для HiDPI). Пустой значок пробуем следующим размером.
+        for size in [
+            windows_icons::IconSize::ExtraLarge,
+            windows_icons::IconSize::Large,
+            windows_icons::IconSize::Medium,
+        ] {
+            let Ok(image) = windows_icons::get_icon_by_path_with_size(&safe, size) else {
+                continue;
+            };
+            if let Some(png) = crate::icon_image::icon_png(&image, ICON_PX) {
+                return Ok(base64_encode(&png));
+            }
+        }
+        Err(CoreError::Probe("у файла нет значка".into()))
     }
 
     #[cfg(windows)]
@@ -454,6 +486,59 @@ impl ProgramsPort for WindowsPrograms {
     fn startup_records(&self) -> Result<Vec<RawStartup>, CoreError> {
         Err(unsupported())
     }
+}
+
+/// Имена файлов папки (без вложенных папок), только чтение. Путь проверяется как путь установки.
+pub fn list_file_names(dir: &str) -> Result<Vec<String>, CoreError> {
+    let absolute =
+        ochistka_core::programs::icons::valid_location(dir) || Path::new(dir).is_absolute();
+    if !absolute || dir.contains('%') || dir.split(['\\', '/']).any(|part| part == "..") {
+        return Err(CoreError::InvalidTarget("недопустимая папка".into()));
+    }
+    let entries =
+        std::fs::read_dir(dir).map_err(|err| CoreError::Probe(format!("папка: {err}")))?;
+    Ok(entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect())
+}
+
+/// Читает небольшой обычный файл целиком; файл больше `max` байт не читается.
+pub fn read_small_file(path: &str, max: usize) -> Result<Vec<u8>, CoreError> {
+    use std::io::Read;
+    if !Path::new(path).is_absolute() || path.split(['\\', '/']).any(|part| part == "..") {
+        return Err(CoreError::InvalidTarget("недопустимый путь".into()));
+    }
+    let file = std::fs::File::open(path).map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
+    let meta = file
+        .metadata()
+        .map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
+    if !meta.is_file() || meta.len() > max as u64 {
+        return Err(CoreError::InvalidTarget(
+            "файл не подходит по размеру".into(),
+        ));
+    }
+    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    file.take(max as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|err| CoreError::Probe(format!("файл: {err}")))?;
+    Ok(bytes)
+}
+
+/// Время изменения (секунды) и размер файла для ключа кэша значков.
+pub fn file_stamp(path: &str) -> Option<FileStamp> {
+    let meta = std::fs::metadata(path).ok()?;
+    let modified_secs = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    Some(FileStamp {
+        modified_secs,
+        len: meta.len(),
+    })
 }
 
 /// Текущее время в формате FILETIME (100-нс интервалы с 1601 года).
@@ -518,6 +603,45 @@ mod tests {
             raw_args: String::new(),
         };
         assert!(port.run_uninstaller(&command).is_err());
+    }
+
+    #[test]
+    fn small_file_reader_respects_the_limit_and_refuses_parent_references() {
+        let dir = temp_dir("small-file");
+        let file = dir.join("a.bin");
+        std::fs::write(&file, b"12345").unwrap();
+        let path = file.to_string_lossy().to_string();
+        assert_eq!(read_small_file(&path, 10).unwrap(), b"12345");
+        assert!(read_small_file(&path, 4).is_err());
+        assert!(read_small_file(&format!("{}/../a.bin", dir.display()), 10).is_err());
+        assert!(read_small_file("relative.bin", 10).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn folder_listing_returns_files_only_and_refuses_bad_paths() {
+        let dir = temp_dir("list-files");
+        std::fs::write(dir.join("Tool.exe"), b"x").unwrap();
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        let listed = list_file_names(&dir.to_string_lossy()).unwrap();
+        assert_eq!(listed, vec!["Tool.exe".to_string()]);
+        assert!(list_file_names("relative").is_err());
+        assert!(list_file_names(&format!("{}/../x", dir.display())).is_err());
+        assert!(list_file_names("%ProgramFiles%").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn file_stamp_changes_with_content_size_and_is_none_for_missing_files() {
+        let dir = temp_dir("stamp");
+        let file = dir.join("a.exe");
+        std::fs::write(&file, b"1").unwrap();
+        let first = file_stamp(&file.to_string_lossy()).unwrap();
+        std::fs::write(&file, b"12").unwrap();
+        let second = file_stamp(&file.to_string_lossy()).unwrap();
+        assert_ne!(first.len, second.len);
+        assert!(file_stamp(&dir.join("none.exe").to_string_lossy()).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

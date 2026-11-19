@@ -2537,6 +2537,7 @@ dependencies = [
 name = "ochistka-platform"
 version = "0.1.0"
 dependencies = [
+ "image",
  "netstat2",
  "ochistka-core",
  "serde",
