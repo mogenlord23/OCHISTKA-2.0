@@ -44,10 +44,19 @@ pub fn run() {
             ochistka_platform::current_programs_port(),
             ochistka_platform::current_cleanup_env(),
         ))
-        .manage({
+        .setup(|app| {
+            use tauri::Manager;
             let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
             let (files, refresh) = ochistka_platform::current_appearance_system_ports();
-            appearance::AppearanceState::new(registry, wallpaper, files, refresh)
+            let resources = app
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|dir| appearance::plain_path(&dir));
+            app.manage(appearance::AppearanceState::new(
+                registry, wallpaper, files, refresh, resources,
+            ));
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             appearance::appearance_request,

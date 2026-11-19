@@ -17,7 +17,6 @@ const STATUS = {
   wallpaperTile: null as string | null,
   accentTile: null as string | null,
   cursorScheme: null as string | null,
-  originalsMissing: true,
 };
 
 /** Состояние «Windows» в тесте: команды меняют его так же, как ядро. */
@@ -82,13 +81,34 @@ describe('AppearancePage wallpapers', () => {
     expect(tile.classList.contains('selected')).toBe(false);
   });
 
-  it('solid tiles send their colour, photo tiles send no colour', async () => {
+  it('a photo tile sends only its id: the backend copies the bundled original', async () => {
     render(AppearancePage, { subsection: 'wallpapers' });
     await fireEvent.click(screen.getByRole('button', { name: 'Обои 1' }));
     await waitFor(() => expect(actions()).toContain('applyWallpaperTile'));
-    const solid = requests().find((r) => r.action === 'applyWallpaperTile');
-    expect(solid?.solidColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    expect(solid?.confirmed).toBe(true);
+    const request = requests().find((r) => r.action === 'applyWallpaperTile');
+    expect(request).toEqual({
+      action: 'applyWallpaperTile',
+      id: 'photo-6e9353eef7d201d5',
+      confirmed: true,
+    });
+  });
+
+  it('keeps one selected tile per group and restores the selection after a remount', async () => {
+    const first = render(AppearancePage, { subsection: 'wallpapers' });
+    const a = screen.getByRole('button', { name: 'Обои 2' });
+    const b = screen.getByRole('button', { name: 'Обои 3' });
+    await fireEvent.click(a);
+    await waitFor(() => expect(a.getAttribute('aria-pressed')).toBe('true'));
+    await fireEvent.click(b);
+    await waitFor(() => expect(b.getAttribute('aria-pressed')).toBe('true'));
+    expect(a.getAttribute('aria-pressed')).toBe('false');
+    expect(document.querySelectorAll('.grid .tile.selected')).toHaveLength(1);
+    // «Перезапуск»: страница создаётся заново и читает выбор из Windows.
+    first.unmount();
+    render(AppearancePage, { subsection: 'wallpapers' });
+    const again = screen.getByRole('button', { name: 'Обои 3' });
+    await waitFor(() => expect(again.getAttribute('aria-pressed')).toBe('true'));
+    expect(document.querySelectorAll('.grid .tile.selected')).toHaveLength(1);
   });
 
   it('lazy-loads wallpaper images and pages the grid', () => {
@@ -114,24 +134,12 @@ describe('AppearancePage wallpapers', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Вернуть прежний фон' }));
     expect(actions()).not.toContain('restoreWallpaper');
   });
-
-  it('offers «Скачать оригиналы» only while originals are missing', async () => {
-    render(AppearancePage, { subsection: 'wallpapers' });
-    const button = await screen.findByRole('button', { name: 'Скачать оригиналы' });
-    await fireEvent.click(button);
-    await waitFor(() => expect(actions()).toContain('downloadOriginals'));
-    cleanup();
-    windows = { ...STATUS, originalsMissing: false };
-    render(AppearancePage, { subsection: 'wallpapers' });
-    await waitFor(() => expect(actions().filter((a) => a === 'status')).toHaveLength(2));
-    expect(screen.queryByRole('button', { name: 'Скачать оригиналы' })).toBeNull();
-  });
 });
 
 describe('AppearancePage cursors', () => {
-  it('draws 35 tiles; click sets the Windows scheme, second click restores', async () => {
+  it('draws 53 tiles; click sets the Windows scheme, second click restores', async () => {
     render(AppearancePage, { subsection: 'cursors' });
-    expect(document.querySelectorAll('.grid-cursor .tile')).toHaveLength(35);
+    expect(document.querySelectorAll('.grid-cursor .tile')).toHaveLength(53);
     const tile = screen.getByRole('button', { name: 'Курсор 6' });
     await fireEvent.click(tile);
     await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('true'));

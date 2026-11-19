@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ochistka_core::appearance::{
     self, AppearanceError, AppearanceStatus, CursorRefreshPort, CursorSpec, FilePort, RegistryPort,
-    WallpaperPort, WallpaperSource,
+    WallpaperPort,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -42,11 +42,7 @@ impl From<AppearanceError> for AppearanceErrorInfo {
     rename_all_fields = "camelCase"
 )]
 pub enum AppearanceRequest {
-    Status {
-        /// Id любых обоев из галереи: по нему видно, есть ли оригиналы.
-        #[serde(default)]
-        sample_id: Option<String>,
-    },
+    Status,
     SetAccent {
         color: String,
         confirmed: bool,
@@ -80,11 +76,9 @@ pub enum AppearanceRequest {
     RestoreWallpaper {
         confirmed: bool,
     },
-    /// Плитка обоев: оригинал из папки приложения или превью, если оригинала нет.
+    /// Плитка обоев: оригинал из ресурсов приложения копируется в данные и ставится обоями.
     ApplyWallpaperTile {
         id: String,
-        solid_color: Option<String>,
-        thumb_base64: Option<String>,
         confirmed: bool,
     },
     /// Повторный клик по выбранному цвету: вернуть прежний акцент.
@@ -102,10 +96,6 @@ pub enum AppearanceRequest {
     RestoreCursorScheme {
         confirmed: bool,
     },
-    /// Заглушка «Скачать оригиналы»: пишет причину, ничего не скачивает.
-    DownloadOriginals {
-        confirmed: bool,
-    },
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -119,6 +109,8 @@ pub struct AppearanceState {
     wallpaper: Arc<dyn WallpaperPort>,
     files: Arc<dyn FilePort>,
     refresh: Arc<dyn CursorRefreshPort>,
+    /// Папка ресурсов установки: в ней `wallpapers\<id>.jpg`.
+    resources: Option<String>,
 }
 
 impl AppearanceState {
@@ -127,14 +119,22 @@ impl AppearanceState {
         wallpaper: Arc<dyn WallpaperPort>,
         files: Arc<dyn FilePort>,
         refresh: Arc<dyn CursorRefreshPort>,
+        resources: Option<String>,
     ) -> Self {
         Self {
             registry,
             wallpaper,
             files,
             refresh,
+            resources,
         }
     }
+}
+
+/// Путь без префикса `\\?\`, который Tauri кладёт в пути ресурсов на Windows.
+pub fn plain_path(path: &std::path::Path) -> String {
+    let text = path.to_string_lossy();
+    text.strip_prefix("\\\\?\\").unwrap_or(&text).to_string()
 }
 
 /// Порты, с которыми работает `run`.
@@ -143,6 +143,7 @@ pub struct Ports<'a> {
     pub wallpaper: &'a dyn WallpaperPort,
     pub files: &'a dyn FilePort,
     pub refresh: &'a dyn CursorRefreshPort,
+    pub resources: Option<&'a str>,
 }
 
 /// Окно выбора картинки. Вне Windows окна нет: `Unsupported`.
@@ -173,10 +174,10 @@ pub fn run(
         wallpaper,
         files,
         refresh,
+        resources,
     } = *ports;
-    let mut sample = None;
     match request {
-        R::Status { sample_id } => sample = sample_id,
+        R::Status => {}
         R::SetAccent { color, confirmed } => appearance::set_accent(reg, &color, confirmed)?,
         R::SetTransparency { enabled, confirmed } => {
             appearance::set_transparency(reg, enabled, confirmed)?
@@ -203,25 +204,8 @@ pub fn run(
         R::RestoreWallpaper { confirmed } => {
             appearance::restore_wallpaper(reg, wallpaper, confirmed)?
         }
-        R::ApplyWallpaperTile {
-            id,
-            solid_color,
-            thumb_base64,
-            confirmed,
-        } => {
-            let source = appearance::apply_wallpaper_tile(
-                reg,
-                wallpaper,
-                files,
-                &id,
-                solid_color.as_deref(),
-                thumb_base64.as_deref(),
-                confirmed,
-            )?;
-            if let WallpaperSource::Thumbnail(path) = source {
-                // Оригинала нет: для пользователя это не ошибка, только запись в журнал.
-                eprintln!("обои {id}: оригинала нет, поставлено превью {path}");
-            }
+        R::ApplyWallpaperTile { id, confirmed } => {
+            appearance::apply_wallpaper_tile(reg, wallpaper, files, resources, &id, confirmed)?;
         }
         R::RestoreAccent { confirmed } => appearance::restore_accent(reg, confirmed)?,
         R::ApplyCursorScheme {
@@ -245,18 +229,8 @@ pub fn run(
         R::RestoreCursorScheme { confirmed } => {
             appearance::restore_cursor_scheme(reg, refresh, confirmed)?
         }
-        R::DownloadOriginals { confirmed } => {
-            if !confirmed {
-                return Err(AppearanceError::NotConfirmed.into());
-            }
-            let path = appearance::note_originals_download(files)?;
-            eprintln!("скачивание оригиналов обоев не подключено, причина записана в {path}");
-        }
     }
-    let mut status = appearance::status(reg)?;
-    if let Some(id) = sample {
-        status.originals_missing = appearance::originals_missing(files, &id);
-    }
+    let status = appearance::status(reg)?;
     Ok(AppearanceResponse::Status { status })
 }
 
@@ -270,12 +244,14 @@ pub async fn appearance_request(
     let wallpaper = Arc::clone(&state.wallpaper);
     let files = Arc::clone(&state.files);
     let refresh = Arc::clone(&state.refresh);
+    let resources = state.resources.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let ports = Ports {
             reg: &*reg,
             wallpaper: &*wallpaper,
             files: &*files,
             refresh: &*refresh,
+            resources: resources.as_deref(),
         };
         run(&ports, &pick_image, request)
     })
@@ -337,6 +313,9 @@ mod tests {
         fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
             Ok(())
         }
+        fn copy(&self, _: &str, _: &str) -> Result<(), AppearanceError> {
+            Ok(())
+        }
     }
     struct NoRefresh;
     impl CursorRefreshPort for NoRefresh {
@@ -356,6 +335,7 @@ mod tests {
             wallpaper: wall,
             files: &NoFiles,
             refresh: &NoRefresh,
+            resources: None,
         };
         run(&ports, pick, request)
     }
@@ -408,7 +388,7 @@ mod tests {
     #[test]
     fn status_request_works_without_fields_and_cursor_request_parses() {
         let r: AppearanceRequest = serde_json::from_str(r#"{"action":"status"}"#).unwrap();
-        assert_eq!(r, AppearanceRequest::Status { sample_id: None });
+        assert_eq!(r, AppearanceRequest::Status);
         let r: AppearanceRequest = serde_json::from_str(
             r##"{"action":"applyCursorScheme","id":"cursor-red","color":"#FF0000","secondary":"#FF0000","pattern":"plain","confirmed":true}"##,
         )
@@ -416,6 +396,55 @@ mod tests {
         let (reg, wall) = (Reg::default(), Wall::default());
         let AppearanceResponse::Status { status } = go(&reg, &wall, &no_pick, r).unwrap();
         assert_eq!(status.cursor_scheme.as_deref(), Some("cursor-red"));
+    }
+
+    struct BundledFiles;
+    impl FilePort for BundledFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            Ok(r"C:\D".into())
+        }
+        fn exists(&self, path: &str) -> bool {
+            path.starts_with(r"C:\App\wallpapers\")
+        }
+        fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
+            Ok(())
+        }
+        fn copy(&self, _: &str, _: &str) -> Result<(), AppearanceError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn wallpaper_tile_applies_then_second_request_restores_previous() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        wall.set(r"C:\old.jpg").unwrap();
+        let ports = Ports {
+            reg: &reg,
+            wallpaper: &wall,
+            files: &BundledFiles,
+            refresh: &NoRefresh,
+            resources: Some(r"C:\App"),
+        };
+        let apply = AppearanceRequest::ApplyWallpaperTile {
+            id: "photo-1".into(),
+            confirmed: true,
+        };
+        let AppearanceResponse::Status { status } = run(&ports, &no_pick, apply).unwrap();
+        assert_eq!(status.wallpaper_tile.as_deref(), Some("photo-1"));
+        assert_eq!(
+            wall.current().unwrap().as_deref(),
+            Some(r"C:\D\Wallpapers\photo-1.jpg")
+        );
+        let restore = AppearanceRequest::RestoreWallpaper { confirmed: true };
+        let AppearanceResponse::Status { status } = run(&ports, &no_pick, restore).unwrap();
+        assert_eq!(status.wallpaper_tile, None);
+        assert_eq!(wall.current().unwrap().as_deref(), Some(r"C:\old.jpg"));
+    }
+
+    #[test]
+    fn plain_path_drops_the_extended_prefix() {
+        assert_eq!(plain_path(std::path::Path::new(r"\\?\C:\App")), r"C:\App");
+        assert_eq!(plain_path(std::path::Path::new("/opt/app")), "/opt/app");
     }
 
     #[test]

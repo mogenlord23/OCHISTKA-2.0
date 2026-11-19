@@ -17,8 +17,8 @@ pub struct WindowsCursorRefresh;
 #[cfg(windows)]
 mod imp {
     use super::*;
-    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE};
-    use winreg::RegKey;
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_BINARY};
+    use winreg::{RegKey, RegValue as RawValue};
 
     fn err(e: std::io::Error) -> AppearanceError {
         AppearanceError::Registry(e.to_string())
@@ -30,6 +30,11 @@ mod imp {
             let Ok(sub) = root.open_subkey_with_flags(key, KEY_READ) else {
                 return Ok(None);
             };
+            if let Ok(raw) = sub.get_raw_value(name) {
+                if raw.vtype == REG_BINARY {
+                    return Ok(Some(RegValue::Binary(raw.bytes.into_owned())));
+                }
+            }
             if let Ok(v) = sub.get_value::<u32, _>(name) {
                 return Ok(Some(RegValue::Dword(v)));
             }
@@ -44,6 +49,13 @@ mod imp {
             match value {
                 RegValue::Dword(v) => sub.set_value(name, v),
                 RegValue::Text(s) => sub.set_value(name, s),
+                RegValue::Binary(bytes) => sub.set_raw_value(
+                    name,
+                    &RawValue {
+                        bytes: bytes.clone().into(),
+                        vtype: REG_BINARY,
+                    },
+                ),
             }
             .map_err(err)
         }
@@ -88,6 +100,15 @@ mod imp {
                 std::fs::create_dir_all(parent).map_err(io)?;
             }
             std::fs::write(p, bytes).map_err(io)
+        }
+
+        fn copy(&self, from: &str, to: &str) -> Result<(), AppearanceError> {
+            let target = std::path::Path::new(to);
+            let io = |e: std::io::Error| AppearanceError::Wallpaper(e.to_string());
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).map_err(io)?;
+            }
+            std::fs::copy(from, target).map(|_| ()).map_err(io)
         }
     }
 
@@ -142,6 +163,9 @@ mod imp {
             false
         }
         fn write(&self, _: &str, _: &[u8]) -> Result<(), AppearanceError> {
+            Err(AppearanceError::Unsupported)
+        }
+        fn copy(&self, _: &str, _: &str) -> Result<(), AppearanceError> {
             Err(AppearanceError::Unsupported)
         }
     }

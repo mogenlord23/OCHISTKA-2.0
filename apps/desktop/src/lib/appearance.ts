@@ -1,7 +1,8 @@
+import cursorShapes from '../../../../crates/ochistka-core/assets/cursor-shapes.json';
 import { WALLPAPER_PHOTOS } from './appearanceWallpapers';
 
 /**
- * Варианты оформления: фото владельца (превью), сплошные цвета, SVG-курсоры и цвета.
+ * Варианты оформления: фото владельца (превью), SVG-курсоры и цвета Windows.
  * Данные портированы из старого приложения. Выбор плитки применяется к Windows через команды ядра.
  */
 
@@ -54,34 +55,37 @@ export const ACID_PAIRS: readonly (readonly [string, string])[] = [
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** Сплошные обои старого приложения: каждая третья пара и два «узора» (чёрный, белый). */
-const SOLID_WALLPAPERS: readonly { id: string; label: string; color: string }[] = [
-  ...ACID_PAIRS.filter((_, i) => i % 3 === 0).map(([color], k) => ({
-    id: `solid-acid-${pad2(k * 3 + 1)}`,
-    label: `Цвет ${color}`,
-    color,
-  })),
-  { id: 'solid-black', label: 'Чёрный', color: '#080808' },
-  { id: 'solid-white', label: 'Белый', color: '#FFFFFF' },
-];
+/** Только набор владельца (146 фото из gallery.json): плитка показывает превью. */
+export const WALLPAPERS: readonly AppearanceTile[] = WALLPAPER_PHOTOS.map((photo) => ({
+  id: photo.id,
+  label: photo.title,
+  description: `${photo.title}, ${photo.width}×${photo.height}`,
+  preview: '#161616',
+  thumb: photo.thumb,
+}));
 
-export const WALLPAPERS: readonly AppearanceTile[] = [
-  ...SOLID_WALLPAPERS.map((s) => ({
-    id: s.id,
-    label: s.label,
-    description: `Сплошной цвет ${s.color}`,
-    preview: s.color,
-  })),
-  ...WALLPAPER_PHOTOS.map((photo) => ({
-    id: photo.id,
-    label: photo.title,
-    description: `${photo.title}, ${photo.width}×${photo.height}`,
-    preview: '#161616',
-    thumb: photo.thumb,
-  })),
-];
+export type CursorPattern =
+  | 'plain'
+  | 'stripes'
+  | 'dots'
+  | 'checker'
+  | 'cross'
+  | 'gradient'
+  | 'split'
+  | 'zigzag'
+  | 'rings'
+  | 'diamonds'
+  | 'neon';
 
-export type CursorPattern = 'plain' | 'stripes' | 'dots' | 'checker' | 'cross';
+/** Стили заливки, добавленные к старым (в том же порядке, что `Pattern::ALL` в Rust). */
+const NEW_PATTERNS: readonly CursorPattern[] = [
+  'gradient',
+  'split',
+  'zigzag',
+  'rings',
+  'diamonds',
+  'neon',
+];
 
 /** Описание курсора: цвета и узор заливки. Тот же рисунок Rust превращает в `.cur`. */
 export interface CursorDef {
@@ -114,9 +118,15 @@ const PATTERN_NAMES: Record<CursorPattern, string> = {
   dots: 'точки',
   checker: 'шахматка',
   cross: 'сетка',
+  gradient: 'градиент',
+  split: 'диагональ',
+  zigzag: 'зигзаг',
+  rings: 'кольца',
+  diamonds: 'ромбы',
+  neon: 'неон',
 };
 
-/** 35 курсоров: 12 однотонных и 23 узорчатых (пары 5–27 старой таблицы). */
+/** 53 курсора: 35 из старого приложения (12 однотонных, 23 узорчатых) и 18 новых стилей. */
 export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = [
   ...PLAIN_CURSORS.map((c) => ({
     id: c.id,
@@ -136,59 +146,107 @@ export const CURSOR_DEFS: readonly (AppearanceTile & { cursor: CursorDef })[] = 
       cursor: { color, secondary, pattern },
     };
   }),
+  ...NEW_PATTERNS.flatMap((pattern, i) =>
+    [0, 1, 2].map((j) => {
+      const index = (i * 4 + j * 10 + 1) % ACID_PAIRS.length;
+      const [color, secondary] = ACID_PAIRS[index];
+      return {
+        id: `cursor-${pattern}-${j + 1}`,
+        label: `${PATTERN_NAMES[pattern]} ${color}`,
+        description: `Курсор: ${PATTERN_NAMES[pattern]}, ${color} и ${secondary}`,
+        preview: '#161616',
+        cursor: { color, secondary, pattern },
+      };
+    }),
+  ),
 ];
 
 export const CURSORS: readonly AppearanceTile[] = CURSOR_DEFS;
 
-/** Контур стрелки в сетке 32×32: те же точки и центровка, что в `appearance_cursor.rs`. */
-const ARROW_BASE: readonly (readonly [number, number])[] = [
-  [0, 0],
-  [0, 16.5],
-  [3.8, 12.8],
-  [6.6, 19.4],
-  [9.2, 18.3],
-  [6.4, 11.8],
-  [11.6, 11.8],
-];
+/** Путь стрелки в сетке 64×64: тот же файл читает Rust, когда рисует `.cur`. */
+export const ARROW_PATH: string = cursorShapes.arrow;
 
-/** Контур по центру холста 32×32; остриё (первая точка) — горячая точка курсора. */
-export const ARROW_POINTS: readonly (readonly [number, number])[] = (() => {
-  const scaled = ARROW_BASE.map(([x, y]) => [x * 1.15, y * 1.15] as const);
-  const xs = scaled.map((p) => p[0]);
-  const ys = scaled.map((p) => p[1]);
-  const dx = (32 - (Math.max(...xs) - Math.min(...xs))) / 2 - Math.min(...xs);
-  const dy = (32 - (Math.max(...ys) - Math.min(...ys))) / 2 - Math.min(...ys);
-  return scaled.map(([x, y]) => [x + dx, y + dy] as const);
-})();
+/** Сдвиг, который ставит стрелку (рамка 10…47 × 6…60) в центр сетки 64×64. */
+const ARROW_SHIFT = 'translate(3.5 -1)';
+
+/** Содержимое `<defs>` с заливкой узора `id`; пустая строка для однотонного и неона. */
+function paintDefs(pattern: CursorPattern, color: string, second: string, id: string): string {
+  const tile = (w: number, h: number, body: string) =>
+    `<pattern id="${id}" width="${w}" height="${h}" patternUnits="userSpaceOnUse">` +
+    `<rect width="${w}" height="${h}" fill="${color}"/>${body}</pattern>`;
+  switch (pattern) {
+    case 'stripes':
+      return tile(
+        16,
+        16,
+        `<polygon points="5.1,0 14.9,0 0,14.9 0,5.1" fill="${second}"/>` +
+          `<polygon points="5.1,16 16,5.1 16,14.9 14.9,16" fill="${second}"/>`,
+      );
+    case 'dots':
+      return tile(
+        16,
+        16,
+        `<circle cx="4" cy="4" r="3" fill="${second}"/><circle cx="12" cy="12" r="2" fill="#fff"/>`,
+      );
+    case 'checker':
+      return tile(
+        16,
+        16,
+        `<rect width="8" height="8" fill="${second}"/><rect x="8" y="8" width="8" height="8" fill="${second}"/>`,
+      );
+    case 'cross':
+      return tile(
+        16,
+        16,
+        `<rect y="5.5" width="16" height="5" fill="${second}"/><rect x="7" width="2" height="16" fill="#fff"/>`,
+      );
+    case 'zigzag':
+      return tile(
+        12,
+        14,
+        `<polygon points="0,-6 6,0 12,-6 12,-1 6,5 0,-1" fill="${second}"/>` +
+          `<polygon points="0,8 6,14 12,8 12,13 6,19 0,13" fill="${second}"/>`,
+      );
+    case 'diamonds':
+      return tile(16, 16, `<polygon points="8,3 13,8 8,13 3,8" fill="${second}"/>`);
+    case 'gradient':
+      return (
+        `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="58">` +
+        `<stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="${second}"/></linearGradient>`
+      );
+    case 'split':
+      return (
+        `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64">` +
+        `<stop offset="0.453" stop-color="${color}"/><stop offset="0.453" stop-color="${second}"/></linearGradient>`
+      );
+    case 'rings':
+      return (
+        `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="10.5" cy="7" r="10" spreadMethod="repeat">` +
+        `<stop offset="0.4" stop-color="${second}"/><stop offset="0.4" stop-color="${color}"/></radialGradient>`
+      );
+    default:
+      return '';
+  }
+}
 
 /**
- * SVG-стрелка 32×32: белая внешняя линия, чёрная тонкая линия, заливка с узором. Это тот же
- * рисунок, что Rust кладёт в `.cur`. `uid` делает id узора уникальным на странице.
+ * SVG-стрелка 64×64: белая внешняя линия, тонкий контур, заливка с узором. Те же фигуры, шаг
+ * узора и толщины линий, что Rust кладёт в `.cur`. `uid` делает id узора уникальным на странице.
  */
 export function cursorSvg(def: CursorDef, uid: string, size = 64): string {
   const { color, secondary, pattern } = def;
-  const points = ARROW_POINTS.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
-  const fill = pattern === 'plain' ? color : `url(#p-${uid})`;
-  let defs = '';
-  if (pattern !== 'plain') {
-    let body = `<rect width="8" height="8" fill="${color}"/>`;
-    let transform = '';
-    if (pattern === 'stripes') {
-      transform = ' patternTransform="rotate(-45)"';
-      body += `<rect width="8" height="3" fill="${secondary}"/>`;
-    } else if (pattern === 'dots') {
-      body += `<circle cx="2" cy="2" r="1.5" fill="${secondary}"/><circle cx="6" cy="6" r="1" fill="#fff"/>`;
-    } else if (pattern === 'checker') {
-      body += `<rect width="4" height="4" fill="${secondary}"/><rect x="4" y="4" width="4" height="4" fill="${secondary}"/>`;
-    } else {
-      body += `<rect y="2.75" width="8" height="2.5" fill="${secondary}"/><rect x="3.5" width="1" height="8" fill="#fff"/>`;
-    }
-    defs = `<defs><pattern id="p-${uid}" width="8" height="8" patternUnits="userSpaceOnUse"${transform}>${body}</pattern></defs>`;
-  }
+  const id = `p-${uid}`;
+  const neon = pattern === 'neon';
+  const defs = paintDefs(pattern, color, secondary, id);
+  const fill = neon ? '#121216' : defs ? `url(#${id})` : color;
+  const stroke = neon ? color : '#000';
   return (
-    `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true" focusable="false">${defs}` +
-    `<polygon points="${points}" fill="#fff" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>` +
-    `<polygon points="${points}" fill="${fill}" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>`
+    `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false">` +
+    (defs ? `<defs>${defs}</defs>` : '') +
+    `<g transform="${ARROW_SHIFT}">` +
+    `<path d="${ARROW_PATH}" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
+    `<path d="${ARROW_PATH}" fill="${fill}" stroke="${stroke}" stroke-width="2.4" stroke-linejoin="round"/>` +
+    `</g></svg>`
   );
 }
 

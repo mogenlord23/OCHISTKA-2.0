@@ -6,7 +6,6 @@
     appearanceStatus,
     applyCursorScheme,
     applyWallpaperTile,
-    downloadOriginals,
     isCancelled,
     pickAndApplyWallpaper,
     restoreAccent,
@@ -21,7 +20,6 @@
     type AppearanceStatus,
   } from '../lib/appearanceApi';
   import { applyReduceMotion, loadSettings, saveSettings } from '../lib/appearanceStore';
-  import { thumbBase64 } from '../lib/appearanceWallpapers';
   import { i18n } from '../lib/i18n.svelte';
 
   let { subsection }: { subsection: string } = $props();
@@ -97,13 +95,7 @@
     message = null;
     try {
       if (kind === 'wallpaper') {
-        status = selected
-          ? await restoreWallpaper()
-          : await applyWallpaperTile(
-              id,
-              tile.thumb ? undefined : tile.preview,
-              tile.thumb ? await thumbBase64(tile.thumb) : undefined,
-            );
+        status = selected ? await restoreWallpaper() : await applyWallpaperTile(id);
       } else if (kind === 'cursor') {
         const def = cursorById.get(id);
         if (!def) return;
@@ -142,7 +134,7 @@
 
   async function refreshStatus() {
     try {
-      status = await appearanceStatus(tilesFor('wallpaper').find((t) => t.thumb)?.id);
+      status = await appearanceStatus();
     } catch {
       status = null;
     }
@@ -336,11 +328,6 @@
                 if (status?.hasPreviousWallpaper) void act(restoreWallpaper);
               }}>Вернуть прежний фон</button
             >
-            {#if status?.originalsMissing}
-              <button type="button" onclick={() => void act(downloadOriginals)}
-                >Скачать оригиналы</button
-              >
-            {/if}
           </div>
         {:else if kind === 'color'}
           <div class="chips">
