@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  /** Единый флажок приложения: скруглённый квадрат как в «Оформление → Цвета».
+  /** Флажок множественного выбора в списках (категории очистки, найденные файлы). Без галочки:
+      выбран = заливка цветом раздела, не выбран = тёмный квадрат с обводкой. Для «включить / выключить»
+      есть Switch.svelte (ADR 0012).
       Внутри настоящий input[type=checkbox] (клавиатура, скринридер, фокус).
       Размер задаётся от шрифта рядом стоящего текста (1.2em, от 18 до 22 px). */
   let {
@@ -40,9 +42,7 @@
 {#snippet control()}
   <span class="control">
     <input type="checkbox" checked={!!checked} {disabled} onchange={handle} />
-    <span class="box" class:on={!!checked}>
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7" /></svg>
-    </span>
+    <span class="box" class:on={!!checked}></span>
   </span>
 {/snippet}
 
@@ -97,7 +97,6 @@
     border: 2px solid #4a4a4a;
     border-radius: var(--radius-xs);
     background: #1c1c1c;
-    box-shadow: inset 0 0 0 2px #1c1c1c;
     transition:
       background-color 140ms ease,
       border-color 140ms ease,
@@ -108,23 +107,6 @@
     border-color: var(--accent, #f83c5c);
     background: var(--accent, #f83c5c);
     box-shadow: none;
-  }
-
-  svg {
-    width: 80%;
-    height: 80%;
-    fill: none;
-    stroke: var(--page-text, #fff);
-    stroke-width: 2.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 16;
-    stroke-dashoffset: 16;
-    transition: stroke-dashoffset 180ms ease 40ms;
-  }
-
-  .box.on svg {
-    stroke-dashoffset: 0;
   }
 
   input:hover:not(:disabled) + .box {
@@ -152,8 +134,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .box,
-    svg {
+    .box {
       transition: none;
     }
 

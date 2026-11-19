@@ -383,7 +383,7 @@ describe('VpnPage: маршруты и исключения', () => {
     await fireEvent.input(screen.getByLabelText('Приложения через VPN'), {
       target: { value: 'chrome.exe' },
     });
-    await fireEvent.click(screen.getByRole('checkbox', { name: /Российские сайты/ }));
+    await fireEvent.click(screen.getByRole('switch', { name: /Российские сайты/ }));
     await fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(await screen.findByText(/Сохранено/)).toBeTruthy();
     expect(calls('vpn_set_rules')[0]?.[1]).toEqual({
@@ -422,8 +422,8 @@ describe('VpnPage: маршруты и исключения', () => {
       'steam.exe',
     );
     expect(
-      (screen.getByRole('checkbox', { name: /Российские сайты/ }) as HTMLInputElement).checked,
-    ).toBe(true);
+      screen.getByRole('switch', { name: /Российские сайты/ }).getAttribute('aria-checked'),
+    ).toBe('true');
     await fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(await screen.findByText('«http://x»: нужен домен без https:// и пути')).toBeTruthy();
   });
@@ -458,8 +458,8 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.getAllByText('Дополнительный инструмент')).toHaveLength(2);
     for (const name of ['Zapret', 'Xbox DNS']) {
-      const sw = screen.getByRole('checkbox', { name }) as HTMLInputElement;
-      expect(sw.checked).toBe(false);
+      const sw = screen.getByRole('switch', { name });
+      expect(sw.getAttribute('aria-checked')).toBe('false');
       expect(sw.closest('.switch-row')?.textContent).toContain('выключено');
     }
   });
@@ -472,7 +472,7 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
   it('has no confirmation dialog and the tools are disabled with a reason', () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     for (const name of ['Zapret', 'Xbox DNS']) {
-      expect((screen.getByRole('checkbox', { name }) as HTMLInputElement).disabled).toBe(true);
+      expect((screen.getByRole('switch', { name }) as HTMLButtonElement).disabled).toBe(true);
     }
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(2);
@@ -492,7 +492,7 @@ describe('VpnPage: вкладки', () => {
   it('clicking a tab switches the content and the title', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await fireEvent.click(screen.getByRole('tab', { name: 'Дополнительно' }));
-    expect(screen.getByRole('checkbox', { name: 'Xbox DNS' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Xbox DNS' })).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.queryByText('Ссылка подписки / импорта')).toBeNull();
   });

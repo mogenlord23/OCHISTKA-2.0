@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Check from './Check.svelte';
+  import Switch from './Switch.svelte';
   import { joinEntries, splitEntries } from '../lib/vpn';
   import { vpnSetRules, type RoutingRules, type VpnSnapshot } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
@@ -75,8 +75,7 @@
       {#each snapshot.presets as preset (preset.id)}
         <li>
           <label class="preset">
-            <Check
-              bare
+            <Switch
               checked={presets.includes(preset.id)}
               onchange={(next) => togglePreset(preset.id, next)}
             />

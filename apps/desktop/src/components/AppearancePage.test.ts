@@ -203,15 +203,17 @@ describe('AppearancePage cursors', () => {
   });
 });
 
+const checked = (el: HTMLElement) => el.getAttribute('aria-checked') === 'true';
+
 describe('AppearancePage colours', () => {
   it('shows only the two toggles and the restore button, no theme controls', async () => {
     render(AppearancePage, { subsection: 'colors' });
     for (const name of ['Эффект прозрачности', 'Залить панель задач и Пуск']) {
-      expect(screen.getByRole('checkbox', { name })).toBeTruthy();
+      expect(screen.getByRole('switch', { name })).toBeTruthy();
     }
     // «Вернуть оформление Windows» — обычная кнопка, не флажок.
     expect(screen.getByRole('button', { name: 'Вернуть оформление Windows' })).toBeTruthy();
-    expect(screen.queryByRole('checkbox', { name: 'Вернуть оформление Windows' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Вернуть оформление Windows' })).toBeNull();
     for (const gone of ['Тёмный режим', 'Светлый режим', 'Режим для Пуска']) {
       expect(screen.queryByRole('button', { name: gone })).toBeNull();
     }
@@ -219,7 +221,9 @@ describe('AppearancePage colours', () => {
     // По умолчанию оба переключателя выключены.
     await waitFor(() => expect(actions()).toContain('status'));
     for (const name of ['Эффект прозрачности', 'Залить панель задач и Пуск']) {
-      expect((screen.getByRole('checkbox', { name }) as HTMLInputElement).checked).toBe(false);
+      expect(
+        (screen.getByRole('switch', { name }) as HTMLElement).getAttribute('aria-checked'),
+      ).toBe('false');
     }
   });
 
@@ -242,12 +246,12 @@ describe('AppearancePage colours', () => {
 
   it('toggles apply on click without a dialog and revert on the second click', async () => {
     render(AppearancePage, { subsection: 'colors' });
-    const fill = screen.getByRole('checkbox', {
+    const fill = screen.getByRole('switch', {
       name: 'Залить панель задач и Пуск',
-    }) as HTMLInputElement;
+    }) as HTMLElement;
     await fireEvent.click(fill);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(fill.checked).toBe(true);
+    expect(fill.getAttribute('aria-checked')).toBe('true');
     await waitFor(() =>
       expect(requests()).toContainEqual({
         action: 'setFillTaskbar',
@@ -256,7 +260,7 @@ describe('AppearancePage colours', () => {
       }),
     );
     await fireEvent.click(fill);
-    expect(fill.checked).toBe(false);
+    expect(fill.getAttribute('aria-checked')).toBe('false');
     await waitFor(() =>
       expect(requests()).toContainEqual({
         action: 'setFillTaskbar',
@@ -264,30 +268,30 @@ describe('AppearancePage colours', () => {
         confirmed: true,
       }),
     );
-    const transparency = screen.getByRole('checkbox', {
+    const transparency = screen.getByRole('switch', {
       name: 'Эффект прозрачности',
-    }) as HTMLInputElement;
+    }) as HTMLElement;
     await fireEvent.click(transparency);
-    expect(transparency.checked).toBe(true);
+    expect(transparency.getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('transparency and taskbar fill switch each other off, and both can be off', async () => {
     render(AppearancePage, { subsection: 'colors' });
-    const transparency = screen.getByRole('checkbox', {
+    const transparency = screen.getByRole('switch', {
       name: 'Эффект прозрачности',
-    }) as HTMLInputElement;
-    const fill = screen.getByRole('checkbox', {
+    }) as HTMLElement;
+    const fill = screen.getByRole('switch', {
       name: 'Залить панель задач и Пуск',
-    }) as HTMLInputElement;
+    }) as HTMLElement;
     await fireEvent.click(transparency);
-    expect([transparency.checked, fill.checked]).toEqual([true, false]);
+    expect([checked(transparency), checked(fill)]).toEqual([true, false]);
     await fireEvent.click(fill);
-    expect([transparency.checked, fill.checked]).toEqual([false, true]);
+    expect([checked(transparency), checked(fill)]).toEqual([false, true]);
     await fireEvent.click(transparency);
-    expect([transparency.checked, fill.checked]).toEqual([true, false]);
+    expect([checked(transparency), checked(fill)]).toEqual([true, false]);
     await fireEvent.click(transparency);
-    expect([transparency.checked, fill.checked]).toEqual([false, false]);
+    expect([checked(transparency), checked(fill)]).toEqual([false, false]);
     // Гашение второго флажка отдельной командой не идёт: это делает та же запись в Windows.
     await waitFor(() => expect(actions()).toContain('setTransparency'));
     expect(requests()).not.toContainEqual({
@@ -297,9 +301,9 @@ describe('AppearancePage colours', () => {
     });
   });
 
-  it('the checkboxes sit flush left with the page content', () => {
+  it('the switches sit flush left with the page content', () => {
     render(AppearancePage, { subsection: 'colors' });
-    const boxes = document.querySelectorAll('.checks .check');
+    const boxes = document.querySelectorAll('.checks .switch');
     expect(boxes).toHaveLength(2);
     expect(document.querySelectorAll('.chip, .box.chip')).toHaveLength(0);
   });
@@ -320,14 +324,14 @@ describe('AppearancePage colours', () => {
     render(AppearancePage, { subsection: 'colors' });
     await waitFor(() => expect(actions()).toContain('status'));
     const pending = hang();
-    const toggle = screen.getByRole('checkbox', {
+    const toggle = screen.getByRole('switch', {
       name: 'Эффект прозрачности',
-    }) as HTMLInputElement;
+    }) as HTMLElement;
     await fireEvent.click(toggle);
-    expect(toggle.checked).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
     pending.fail({ kind: 'unsupported', message: 'Эта функция доступна только в Windows' });
     expect(await screen.findByText('Эта функция доступна только в Windows')).toBeTruthy();
-    await waitFor(() => expect(toggle.checked).toBe(false));
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'));
   });
 });
 

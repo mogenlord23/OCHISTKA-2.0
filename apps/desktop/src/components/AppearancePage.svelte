@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Check from './Check.svelte';
+  import Switch from './Switch.svelte';
   import {
     COLOR_SCHEMES,
     cursorSvg,
@@ -307,12 +307,12 @@
           </div>
         {:else if kind === 'color'}
           <div class="checks">
-            <Check controlled checked={transparencyOn} onchange={toggleTransparency}>
+            <Switch checked={transparencyOn} onchange={toggleTransparency}>
               <span class="check-text">Эффект прозрачности</span>
-            </Check>
-            <Check controlled checked={fillOn} onchange={toggleFill}>
+            </Switch>
+            <Switch checked={fillOn} onchange={toggleFill}>
               <span class="check-text">Залить панель задач и Пуск</span>
-            </Check>
+            </Switch>
           </div>
           <div class="actions">
             <button
@@ -458,11 +458,6 @@
     margin: 0 0 12px;
     font-size: var(--text-small);
     font-weight: 700;
-  }
-
-  .checks :global(.box),
-  .checks :global(svg) {
-    transition: none;
   }
 
   .check-text {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Check from './Check.svelte';
+  import Switch from './Switch.svelte';
   import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
@@ -402,7 +402,7 @@
                   ></span
                 >
               </div>
-              <Check checked={false} disabled label={item.label} />
+              <Switch checked={false} disabled label={item.label} />
             </section>
           {/each}
         {:else if tab === 'network'}
