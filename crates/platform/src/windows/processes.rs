@@ -1,9 +1,9 @@
-//! Адаптер процессов на sysinfo (чтение и завершение по PID). Службы читаются из реестра
-//! (см. `services.rs`).
+//! Адаптер процессов на sysinfo (чтение и завершение по PID). Службы — в `services.rs`.
 
 use std::sync::Mutex;
 
-use ochistka_core::processes::{ProcessError, ProcessInfo, ProcessPort, ServiceInfo};
+use ochistka_core::processes::{ProcessError, ProcessInfo, ProcessPort};
+use ochistka_core::reveal::RevealError;
 use ochistka_core::system::clamp_percent;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
@@ -110,8 +110,8 @@ impl ProcessPort for WindowsProcessPort {
         })
     }
 
-    fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError> {
-        super::services::list()
+    fn reveal(&self, path: &str) -> Result<(), RevealError> {
+        super::explorer::reveal(path)
     }
 }
 
@@ -147,15 +147,5 @@ mod tests {
     fn kill_of_missing_pid_reports_false() {
         let port = WindowsProcessPort::new();
         assert_eq!(port.kill(u32::MAX), Ok(false));
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn services_report_unsupported_outside_windows() {
-        let port = WindowsProcessPort::new();
-        assert!(matches!(
-            port.services(),
-            Err(ProcessError::Unsupported { .. })
-        ));
     }
 }

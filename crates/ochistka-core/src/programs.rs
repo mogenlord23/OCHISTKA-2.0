@@ -208,6 +208,13 @@ pub trait ProgramsPort: Send + Sync {
     ) -> Result<StartupToggle, CoreError> {
         Err(unsupported_here("Управление автозагрузкой"))
     }
+    /// Показывает файл или папку в Проводнике (путь проверяет ядро). По умолчанию — `Unsupported`.
+    fn reveal_in_explorer(&self, _path: &str) -> Result<(), crate::reveal::RevealError> {
+        Err(crate::reveal::RevealError::Unsupported {
+            feature: "Проводник".into(),
+            os: "этой ОС".into(),
+        })
+    }
     /// Папка Windows для `msiexec.exe`. По умолчанию `C:\Windows`.
     fn system_root(&self) -> String {
         DEFAULT_SYSTEM_ROOT.to_string()

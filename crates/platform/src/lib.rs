@@ -73,6 +73,22 @@ pub fn current_process_port() -> Box<dyn ochistka_core::processes::ProcessPort> 
     Box::new(linux::processes::UnsupportedProcessPort)
 }
 
+/// Порт служб: Windows — реестр и `sc.exe`, остальные ОС — заглушка `Unsupported`.
+#[cfg(target_os = "windows")]
+pub fn current_service_backend() -> Box<dyn ochistka_core::services::ServiceBackend> {
+    Box::new(windows::services::WindowsServices::new())
+}
+
+#[cfg(target_os = "macos")]
+pub fn current_service_backend() -> Box<dyn ochistka_core::services::ServiceBackend> {
+    Box::new(macos::services::UnsupportedServiceBackend)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn current_service_backend() -> Box<dyn ochistka_core::services::ServiceBackend> {
+    Box::new(linux::services::UnsupportedServiceBackend)
+}
+
 /// Комплектующие (видеокарты, плата): Windows — sysinfo, остальные ОС — заглушка `Unsupported`.
 #[cfg(target_os = "windows")]
 pub fn current_hardware_port() -> Box<dyn HardwarePort> {

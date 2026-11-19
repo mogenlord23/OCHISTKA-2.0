@@ -42,6 +42,15 @@ impl From<CoreError> for ProgramsError {
     }
 }
 
+impl From<ochistka_core::reveal::RevealError> for ProgramsError {
+    fn from(err: ochistka_core::reveal::RevealError) -> Self {
+        Self {
+            kind: "reveal".to_string(),
+            message: err.to_string(),
+        }
+    }
+}
+
 impl From<CleanupError> for ProgramsError {
     fn from(err: CleanupError) -> Self {
         let kind = match err {
@@ -82,6 +91,10 @@ pub enum ProgramsRequest {
     PathIcons {
         paths: Vec<String>,
     },
+    /// «Показать в Проводнике»: папка установки или файл. Путь проверяет ядро.
+    Reveal {
+        path: String,
+    },
     /// Штатное удаление по `id` программы. Без `confirmed` ядро не вызывается.
     Uninstall {
         id: String,
@@ -117,6 +130,7 @@ pub enum ProgramsResponse {
     IconBatch {
         items: Vec<IconBatchItem>,
     },
+    Revealed,
     /// Удаление запущено: окно деинсталлятора открыто, результат он покажет сам.
     UninstallStarted,
     StartupChanged {
@@ -280,6 +294,10 @@ pub fn run(
                 })
                 .collect();
             Ok(ProgramsResponse::IconBatch { items })
+        }
+        ProgramsRequest::Reveal { path } => {
+            registry.reveal_in_explorer(&path)?;
+            Ok(ProgramsResponse::Revealed)
         }
         ProgramsRequest::Uninstall { id, confirmed } => {
             if !confirmed {
@@ -520,6 +538,7 @@ mod tests {
     struct Counting {
         uninstalls: std::sync::atomic::AtomicUsize,
         toggles: std::sync::atomic::AtomicUsize,
+        reveals: std::sync::atomic::AtomicUsize,
         icon_calls: std::sync::atomic::AtomicUsize,
     }
 
@@ -555,6 +574,12 @@ mod tests {
             Ok(())
         }
 
+        fn reveal_in_explorer(&self, path: &str) -> Result<(), ochistka_core::reveal::RevealError> {
+            ochistka_core::reveal::normalize_path(path)?;
+            self.reveals.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
         fn set_startup_enabled(
             &self,
             _source: StartupSource,
@@ -567,6 +592,28 @@ mod tests {
                 enabled: enable,
             })
         }
+    }
+
+    #[test]
+    fn reveal_goes_through_validation_and_reports_human_reason() {
+        let port = Counting::default();
+        let ok = call(
+            &port,
+            ProgramsRequest::Reveal {
+                path: r"C:\Program Files\Tool".into(),
+            },
+        );
+        assert_eq!(ok, Ok(ProgramsResponse::Revealed));
+        let err = call(
+            &port,
+            ProgramsRequest::Reveal {
+                path: "tool".into(),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err.kind, "reveal");
+        assert!(err.message.contains("неполный"));
+        assert_eq!(port.reveals.load(Ordering::SeqCst), 1);
     }
 
     fn call(port: &Counting, request: ProgramsRequest) -> Result<ProgramsResponse, ProgramsError> {

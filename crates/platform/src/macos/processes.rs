@@ -1,7 +1,8 @@
 //! Заглушка процессов для macOS: пока не реализовано, возвращает `Unsupported`.
 //! Причина: «Недоступно на macOS в этой версии».
 
-use ochistka_core::processes::{ProcessError, ProcessInfo, ProcessPort, ServiceInfo};
+use ochistka_core::processes::{ProcessError, ProcessInfo, ProcessPort};
+use ochistka_core::reveal::RevealError;
 
 pub struct UnsupportedProcessPort;
 
@@ -25,8 +26,11 @@ impl ProcessPort for UnsupportedProcessPort {
     fn kill(&self, _pid: u32) -> Result<bool, ProcessError> {
         Err(unsupported())
     }
-    fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError> {
-        Err(unsupported())
+    fn reveal(&self, _path: &str) -> Result<(), RevealError> {
+        Err(RevealError::Unsupported {
+            feature: "Проводник".into(),
+            os: std::env::consts::OS.into(),
+        })
     }
 }
 
@@ -43,8 +47,8 @@ mod tests {
             Err(ProcessError::Unsupported { .. })
         ));
         assert!(matches!(
-            port.services(),
-            Err(ProcessError::Unsupported { .. })
+            port.reveal("/x"),
+            Err(RevealError::Unsupported { .. })
         ));
     }
 }

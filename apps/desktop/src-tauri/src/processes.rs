@@ -3,7 +3,7 @@
 
 use std::sync::OnceLock;
 
-use ochistka_core::processes::{self, ProcessError, ProcessInfo, ProcessPort, ServiceInfo};
+use ochistka_core::processes::{self, ProcessError, ProcessInfo, ProcessPort};
 use serde::{Deserialize, Serialize};
 
 /// Ошибка для интерфейса: `kind` — тип для ветвления, `message` — текст на русском.
@@ -26,6 +26,8 @@ impl From<ProcessError> for ProcessesError {
             ProcessError::NotConnected(_) => "notConnected",
             ProcessError::Unsupported { .. } => "unsupported",
             ProcessError::Probe(_) => "probe",
+            ProcessError::NoPath(_) => "noPath",
+            ProcessError::Reveal(_) => "reveal",
         };
         Self {
             kind: kind.to_string(),
@@ -51,7 +53,10 @@ pub enum ProcessesRequest {
         start_time_unix: u64,
         confirmed: bool,
     },
-    Services,
+    /// «Расположение файла»: Проводник с выделенным exe процесса.
+    RevealExe {
+        pid: u32,
+    },
 }
 
 /// Ответы интерфейсу: тип ответа в поле `type`.
@@ -61,7 +66,7 @@ pub enum ProcessesResponse {
     List { processes: Vec<ProcessInfo> },
     ExePath { path: Option<String> },
     Ended { pid: u32 },
-    Services { services: Vec<ServiceInfo> },
+    Revealed { path: String },
 }
 
 /// Порт текущей ОС. Создаётся один раз: sysinfo хранит предыдущий замер для расчёта CPU.
@@ -92,8 +97,8 @@ pub fn run_request(
             processes::end_task(port, pid, start_time_unix, confirmed, own_pid)?;
             ProcessesResponse::Ended { pid }
         }
-        ProcessesRequest::Services => ProcessesResponse::Services {
-            services: port.services()?,
+        ProcessesRequest::RevealExe { pid } => ProcessesResponse::Revealed {
+            path: processes::reveal_exe(port, pid)?,
         },
     })
 }
@@ -108,6 +113,7 @@ pub async fn processes_request(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ochistka_core::reveal::RevealError;
 
     #[test]
     fn end_task_without_confirmation_is_refused_by_backend() {
@@ -137,6 +143,15 @@ mod tests {
         );
     }
 
+    #[test]
+    fn reveal_request_parses_and_maps_missing_path_to_no_path_kind() {
+        let request: ProcessesRequest =
+            serde_json::from_str(r#"{"action":"revealExe","pid":4}"#).unwrap();
+        assert_eq!(request, ProcessesRequest::RevealExe { pid: 4 });
+        let err = ProcessesError::from(ProcessError::NoPath("нет".into()));
+        assert_eq!(err.kind, "noPath");
+    }
+
     /// Порт, который не должен вызываться в тестах отказа.
     struct NoOsPort;
 
@@ -153,7 +168,7 @@ mod tests {
         fn kill(&self, _pid: u32) -> Result<bool, ProcessError> {
             panic!("ОС не должна вызываться")
         }
-        fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError> {
+        fn reveal(&self, _path: &str) -> Result<(), RevealError> {
             panic!("ОС не должна вызываться")
         }
     }

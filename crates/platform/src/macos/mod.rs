@@ -10,6 +10,7 @@ pub mod cleanup;
 pub mod drivers;
 pub mod processes;
 pub mod programs;
+pub mod services;
 
 pub struct MacosSystemInfo;
 

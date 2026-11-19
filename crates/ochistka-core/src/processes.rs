@@ -3,6 +3,7 @@
 //! Все правила безопасности завершения живут здесь, как чистые функции: порт платформы
 //! только выполняет системный вызов после того, как ядро разрешило действие.
 
+use crate::reveal::{no_path_reason, RevealError};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -21,16 +22,6 @@ pub struct ProcessInfo {
     pub memory_bytes: u64,
     /// Время запуска в секундах Unix. Нужно, чтобы не завершить новый процесс с тем же PID.
     pub start_time_unix: u64,
-}
-
-/// Служба Windows только для чтения. `start_type` — подпись режима запуска из реестра
-/// (Автоматически, Вручную, Отключена и т. д.); состояние «работает/остановлена» не читается.
-#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ServiceInfo {
-    pub name: String,
-    pub display_name: String,
-    pub start_type: String,
 }
 
 /// Ошибки раздела «Процессы». Текст сообщения уже на русском.
@@ -56,6 +47,11 @@ pub enum ProcessError {
     Unsupported { feature: String, os: String },
     #[error("ошибка чтения процессов: {0}")]
     Probe(String),
+    /// У процесса нет пути к файлу; внутри объяснение для человека.
+    #[error("{0}")]
+    NoPath(String),
+    #[error(transparent)]
+    Reveal(#[from] RevealError),
 }
 
 /// Порт процессов. Реализации живут в `crates/platform`.
@@ -68,8 +64,20 @@ pub trait ProcessPort: Send + Sync {
     fn start_time(&self, pid: u32) -> Result<Option<u64>, ProcessError>;
     /// Завершает процесс. `Ok(false)`, если ОС отказала.
     fn kill(&self, pid: u32) -> Result<bool, ProcessError>;
-    /// Список служб (только чтение). На не-Windows — `Unsupported`.
-    fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError>;
+    /// Показывает файл в Проводнике (путь уже проверен ядром). Без ожидания закрытия окна.
+    fn reveal(&self, path: &str) -> Result<(), RevealError>;
+}
+
+/// «Расположение файла»: путь процесса из системы, проверка пути, открытие Проводника.
+/// Возвращает путь, который показали. Нет пути или файла — понятная причина.
+pub fn reveal_exe(port: &dyn ProcessPort, pid: u32) -> Result<String, ProcessError> {
+    let raw = port
+        .exe_path(pid)?
+        .filter(|path| !path.trim().is_empty())
+        .ok_or_else(|| ProcessError::NoPath(no_path_reason(pid)))?;
+    let path = crate::reveal::normalize_path(&raw)?;
+    port.reveal(&path)?;
+    Ok(path)
 }
 
 /// Правила завершения без обращения к ОС. Порядок важен: сначала подтверждение,
@@ -190,6 +198,8 @@ mod tests {
         start: Option<u64>,
         kill_ok: bool,
         kills: Mutex<Vec<u32>>,
+        revealed: Mutex<Vec<String>>,
+        exe: Option<String>,
     }
 
     impl ProcessPort for FakePort {
@@ -197,7 +207,7 @@ mod tests {
             Ok(Vec::new())
         }
         fn exe_path(&self, _pid: u32) -> Result<Option<String>, ProcessError> {
-            Ok(None)
+            Ok(self.exe.clone())
         }
         fn start_time(&self, _pid: u32) -> Result<Option<u64>, ProcessError> {
             Ok(self.start)
@@ -206,8 +216,9 @@ mod tests {
             self.kills.lock().unwrap().push(pid);
             Ok(self.kill_ok)
         }
-        fn services(&self) -> Result<Vec<ServiceInfo>, ProcessError> {
-            Err(ProcessError::NotConnected("нет".into()))
+        fn reveal(&self, path: &str) -> Result<(), RevealError> {
+            self.revealed.lock().unwrap().push(path.to_string());
+            Ok(())
         }
     }
 
@@ -216,7 +227,41 @@ mod tests {
             start,
             kill_ok,
             kills: Mutex::new(Vec::new()),
+            revealed: Mutex::new(Vec::new()),
+            exe: None,
         }
+    }
+
+    #[test]
+    fn reveal_shows_the_normalized_exe_path() {
+        let mut p = port(None, true);
+        p.exe = Some(r#""C:\Program Files\App\app.exe""#.into());
+        assert_eq!(reveal_exe(&p, 10).unwrap(), r"C:\Program Files\App\app.exe");
+        assert_eq!(
+            *p.revealed.lock().unwrap(),
+            vec![r"C:\Program Files\App\app.exe"]
+        );
+    }
+
+    #[test]
+    fn reveal_without_path_gives_a_human_reason_and_never_opens_explorer() {
+        let p = port(None, true);
+        let err = reveal_exe(&p, 4).unwrap_err();
+        assert!(matches!(&err, ProcessError::NoPath(m) if m.contains("системный")));
+        let err = reveal_exe(&p, 1234).unwrap_err();
+        assert!(matches!(&err, ProcessError::NoPath(m) if m.contains("защищён")));
+        assert!(p.revealed.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn reveal_refuses_a_relative_path_from_the_system() {
+        let mut p = port(None, true);
+        p.exe = Some("app.exe".into());
+        assert!(matches!(
+            reveal_exe(&p, 10),
+            Err(ProcessError::Reveal(RevealError::NotAbsolute))
+        ));
+        assert!(p.revealed.lock().unwrap().is_empty());
     }
 
     #[test]

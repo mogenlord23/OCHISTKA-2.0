@@ -439,6 +439,10 @@ impl ProgramsPort for WindowsPrograms {
         Err(CoreError::Probe("у файла нет значка".into()))
     }
 
+    fn reveal_in_explorer(&self, path: &str) -> Result<(), ochistka_core::reveal::RevealError> {
+        super::explorer::reveal(path)
+    }
+
     #[cfg(windows)]
     fn run_uninstaller(&self, command: &UninstallCommand) -> Result<(), CoreError> {
         use std::os::windows::process::CommandExt;

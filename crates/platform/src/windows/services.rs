@@ -1,33 +1,23 @@
-//! Список служб Windows только для чтения. Источник — ветка `Services` реестра (HKLM), которую
-//! читает `winreg`: безопасная обёртка без собственного unsafe. Состояние «работает» здесь
-//! не видно: его отдаёт только Service Control Manager, а вызовы SCM потребовали бы FFI.
+//! Службы Windows: чтение из реестра (`winreg`, безопасная обёртка) и управление через
+//! `sc.exe` по абсолютному пути `C:\Windows\System32\sc.exe` с ограничением по времени.
+//! Выбор и причины: docs/adr/0013-services-control.md. Правила (чёрный список, подтверждения,
+//! проверка результата) живут в `ochistka_core::services`; здесь только вызовы ОС.
 
 use std::collections::BTreeMap;
 
-use ochistka_core::processes::{ProcessError, ServiceInfo};
 use ochistka_core::programs::RawValue;
+use ochistka_core::services::{RawService, ScOutput, ServiceBackend, ServiceError};
 
-/// Подпись режима запуска по значению `Start` из реестра.
-pub fn start_type_label(start: Option<u32>) -> &'static str {
-    match start {
-        Some(0) => "Загрузка драйвера",
-        Some(1) => "Системная",
-        Some(2) => "Автоматически",
-        Some(3) => "Вручную",
-        Some(4) => "Отключена",
-        _ => "Неизвестно",
-    }
-}
-
-/// Разбирает одну запись службы. Драйверы (`Type` без битов служб 0x10 и 0x20) пропускаем.
+/// Разбирает одну запись службы. Драйверы (`Type` без битов служб 0x10 и 0x20) и шаблоны
+/// пользовательских служб (бит 0x40: настоящие службы создаются с суффиксом) пропускаем.
 /// Отображаемое имя-ссылка (`@...`) или пустое заменяется именем ключа.
-pub fn parse_service(key_name: &str, values: &BTreeMap<String, RawValue>) -> Option<ServiceInfo> {
+pub fn parse_service(key_name: &str, values: &BTreeMap<String, RawValue>) -> Option<RawService> {
     let service_type = match values.get("Type") {
         Some(RawValue::Number(value)) => *value,
         Some(RawValue::Text(text)) => text.trim().parse::<u32>().ok()?,
         None => return None,
     };
-    if service_type & 0x30 == 0 {
+    if service_type & 0x30 == 0 || service_type & 0x40 != 0 {
         return None;
     }
     let name = key_name.trim();
@@ -46,16 +36,18 @@ pub fn parse_service(key_name: &str, values: &BTreeMap<String, RawValue>) -> Opt
         Some(RawValue::Number(value)) => Some(*value),
         _ => None,
     };
-    Some(ServiceInfo {
+    let delayed = matches!(values.get("DelayedAutostart"), Some(RawValue::Number(1)));
+    Some(RawService {
         name: name.to_string(),
         display_name,
-        start_type: start_type_label(start).to_string(),
+        start,
+        delayed,
     })
 }
 
-/// Список служб: разбор, сортировка по имени без учёта регистра.
-pub fn build_services(raw: &[(String, BTreeMap<String, RawValue>)]) -> Vec<ServiceInfo> {
-    let mut services: Vec<ServiceInfo> = raw
+/// Список служб из записей реестра: разбор и сортировка по имени без учёта регистра.
+pub fn build_services(raw: &[(String, BTreeMap<String, RawValue>)]) -> Vec<RawService> {
+    let mut services: Vec<RawService> = raw
         .iter()
         .filter_map(|(name, values)| parse_service(name, values))
         .collect();
@@ -63,50 +55,192 @@ pub fn build_services(raw: &[(String, BTreeMap<String, RawValue>)]) -> Vec<Servi
     services
 }
 
+/// Путь к `sc.exe` из папки Windows, без поиска по PATH.
+pub fn sc_path(system_root: Option<&str>) -> String {
+    let root = system_root
+        .map(|root| root.trim_end_matches(['\\', '/']))
+        .filter(|root| !root.is_empty())
+        .unwrap_or(r"C:\Windows");
+    format!(r"{root}\System32\sc.exe")
+}
+
+pub struct WindowsServices;
+
+impl WindowsServices {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for WindowsServices {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(windows)]
-pub fn list() -> Result<Vec<ServiceInfo>, ProcessError> {
-    use winreg::enums::{RegType, HKEY_LOCAL_MACHINE, KEY_READ};
+mod imp {
+    use super::*;
+    use std::io::Read;
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+    use winreg::enums::{RegType, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE};
     use winreg::types::FromRegValue;
     use winreg::RegKey;
 
     const SERVICES_PATH: &str = r"SYSTEM\CurrentControlSet\Services";
+    const BACKUP_ROOT: &str = r"Software\OCHISTKA\ServiceStartBackup";
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    /// Одна команда `sc` не должна занимать больше этого времени.
+    const SC_TIMEOUT: Duration = Duration::from_secs(20);
 
-    let root = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let services = root
-        .open_subkey_with_flags(SERVICES_PATH, KEY_READ)
-        .map_err(|err| ProcessError::Probe(err.to_string()))?;
-    let mut raw = Vec::new();
-    for key_name in services.enum_keys().flatten() {
-        let Ok(sub) = services.open_subkey_with_flags(&key_name, KEY_READ) else {
-            continue;
-        };
-        let mut values = BTreeMap::new();
-        for item in sub.enum_values() {
-            let Ok((value_name, value)) = item else {
-                continue;
-            };
-            let parsed = match value.vtype {
-                RegType::REG_SZ | RegType::REG_EXPAND_SZ => {
-                    String::from_reg_value(&value).ok().map(RawValue::Text)
+    impl ServiceBackend for WindowsServices {
+        fn registry_entries(&self) -> Result<Vec<RawService>, ServiceError> {
+            let root = RegKey::predef(HKEY_LOCAL_MACHINE);
+            let services = root
+                .open_subkey_with_flags(SERVICES_PATH, KEY_READ)
+                .map_err(|err| ServiceError::Probe(err.to_string()))?;
+            let mut raw = Vec::new();
+            for key_name in services.enum_keys().flatten() {
+                let Ok(sub) = services.open_subkey_with_flags(&key_name, KEY_READ) else {
+                    continue;
+                };
+                let mut values = BTreeMap::new();
+                for item in sub.enum_values() {
+                    let Ok((value_name, value)) = item else {
+                        continue;
+                    };
+                    let parsed = match value.vtype {
+                        RegType::REG_SZ | RegType::REG_EXPAND_SZ => {
+                            String::from_reg_value(&value).ok().map(RawValue::Text)
+                        }
+                        RegType::REG_DWORD => {
+                            u32::from_reg_value(&value).ok().map(RawValue::Number)
+                        }
+                        _ => None,
+                    };
+                    if let Some(parsed) = parsed {
+                        values.insert(value_name, parsed);
+                    }
                 }
-                RegType::REG_DWORD => u32::from_reg_value(&value).ok().map(RawValue::Number),
-                _ => None,
+                raw.push((key_name, values));
+            }
+            Ok(build_services(&raw))
+        }
+
+        fn sc(&self, args: &[&str]) -> Result<ScOutput, ServiceError> {
+            let root = std::env::var("SystemRoot").ok();
+            let mut child = Command::new(sc_path(root.as_deref()))
+                .args(args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .map_err(|err| {
+                    ServiceError::Failed(format!("Не удалось запустить sc.exe: {err}"))
+                })?;
+            let mut stdout = child.stdout.take();
+            // Вывод читаем в отдельном потоке, чтобы переполнение трубы не остановило sc.
+            let reader = std::thread::spawn(move || {
+                let mut bytes = Vec::new();
+                if let Some(pipe) = stdout.as_mut() {
+                    let _ = pipe.read_to_end(&mut bytes);
+                }
+                bytes
+            });
+            let started = Instant::now();
+            let status = loop {
+                match child.try_wait() {
+                    Ok(Some(status)) => break status,
+                    Ok(None) if started.elapsed() > SC_TIMEOUT => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(ServiceError::Failed(
+                            "Windows слишком долго не отвечает на команду службы.".into(),
+                        ));
+                    }
+                    Ok(None) => std::thread::sleep(Duration::from_millis(25)),
+                    Err(err) => return Err(ServiceError::Failed(format!("Ошибка sc.exe: {err}"))),
+                }
             };
-            if let Some(parsed) = parsed {
-                values.insert(value_name, parsed);
+            let bytes = reader.join().unwrap_or_default();
+            Ok(ScOutput {
+                code: status.code().unwrap_or(-1),
+                stdout: String::from_utf8_lossy(&bytes).into_owned(),
+            })
+        }
+
+        fn is_elevated(&self) -> bool {
+            // Открытие ключа служб на запись ничего не меняет: без прав администратора оно отклоняется.
+            RegKey::predef(HKEY_LOCAL_MACHINE)
+                .open_subkey_with_flags(SERVICES_PATH, KEY_WRITE)
+                .is_ok()
+        }
+
+        fn saved_start(&self, name: &str) -> Option<u32> {
+            RegKey::predef(HKEY_CURRENT_USER)
+                .open_subkey_with_flags(BACKUP_ROOT, KEY_READ)
+                .ok()?
+                .get_value::<u32, _>(name)
+                .ok()
+        }
+
+        fn save_start(&self, name: &str, code: u32) -> Result<(), ServiceError> {
+            let (key, _) = RegKey::predef(HKEY_CURRENT_USER)
+                .create_subkey(BACKUP_ROOT)
+                .map_err(|err| {
+                    ServiceError::Failed(format!("Не удалось запомнить прежнее значение: {err}"))
+                })?;
+            key.set_value(name, &code).map_err(|err| {
+                ServiceError::Failed(format!("Не удалось запомнить прежнее значение: {err}"))
+            })
+        }
+
+        fn clear_saved_start(&self, name: &str) {
+            if let Ok(key) =
+                RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(BACKUP_ROOT, KEY_WRITE)
+            {
+                let _ = key.delete_value(name);
             }
         }
-        raw.push((key_name, values));
+
+        fn wait_ms(&self, ms: u64) {
+            std::thread::sleep(Duration::from_millis(ms));
+        }
     }
-    Ok(build_services(&raw))
 }
 
 #[cfg(not(windows))]
-pub fn list() -> Result<Vec<ServiceInfo>, ProcessError> {
-    Err(ProcessError::Unsupported {
-        feature: "Службы".into(),
-        os: std::env::consts::OS.into(),
-    })
+mod imp {
+    use super::*;
+
+    fn unsupported() -> ServiceError {
+        ServiceError::Unsupported {
+            feature: "Службы".into(),
+            os: std::env::consts::OS.into(),
+        }
+    }
+
+    impl ServiceBackend for WindowsServices {
+        fn registry_entries(&self) -> Result<Vec<RawService>, ServiceError> {
+            Err(unsupported())
+        }
+        fn sc(&self, _args: &[&str]) -> Result<ScOutput, ServiceError> {
+            Err(unsupported())
+        }
+        fn is_elevated(&self) -> bool {
+            false
+        }
+        fn saved_start(&self, _name: &str) -> Option<u32> {
+            None
+        }
+        fn save_start(&self, _name: &str, _code: u32) -> Result<(), ServiceError> {
+            Err(unsupported())
+        }
+        fn clear_saved_start(&self, _name: &str) {}
+    }
 }
 
 #[cfg(test)]
@@ -125,25 +259,18 @@ mod tests {
     }
 
     #[test]
-    fn start_values_map_to_russian_labels() {
-        assert_eq!(start_type_label(Some(2)), "Автоматически");
-        assert_eq!(start_type_label(Some(3)), "Вручную");
-        assert_eq!(start_type_label(Some(4)), "Отключена");
-        assert_eq!(start_type_label(Some(9)), "Неизвестно");
-        assert_eq!(start_type_label(None), "Неизвестно");
-    }
-
-    #[test]
-    fn service_keeps_display_name_and_start_label() {
+    fn service_keeps_display_name_start_and_delay_flag() {
         let entry = values(&[
             ("Type", RawValue::Number(0x10)),
-            ("Start", RawValue::Number(3)),
+            ("Start", RawValue::Number(2)),
+            ("DelayedAutostart", RawValue::Number(1)),
             ("DisplayName", text("Диспетчер печати")),
         ]);
         let service = parse_service("Spooler", &entry).expect("service");
         assert_eq!(service.name, "Spooler");
         assert_eq!(service.display_name, "Диспетчер печати");
-        assert_eq!(service.start_type, "Вручную");
+        assert_eq!(service.start, Some(2));
+        assert!(service.delayed);
     }
 
     #[test]
@@ -154,16 +281,19 @@ mod tests {
         ]);
         let service = parse_service("WSearch", &entry).expect("service");
         assert_eq!(service.display_name, "WSearch");
-        assert_eq!(service.start_type, "Неизвестно");
+        assert_eq!(service.start, None);
+        assert!(!service.delayed);
     }
 
     #[test]
-    fn drivers_are_not_listed_as_services() {
+    fn drivers_and_user_service_templates_are_not_listed() {
         let driver = values(&[
             ("Type", RawValue::Number(1)),
             ("Start", RawValue::Number(3)),
         ]);
         assert!(parse_service("disk", &driver).is_none());
+        let template = values(&[("Type", RawValue::Number(0x60))]);
+        assert!(parse_service("CDPUserSvc", &template).is_none());
     }
 
     #[test]
@@ -193,9 +323,21 @@ mod tests {
         assert_eq!(names, vec!["Alpha".to_string(), "zeta".to_string()]);
     }
 
+    #[test]
+    fn sc_is_always_an_absolute_path_in_the_windows_folder() {
+        assert_eq!(sc_path(None), r"C:\Windows\System32\sc.exe");
+        assert_eq!(sc_path(Some(r"D:\WINNT\")), r"D:\WINNT\System32\sc.exe");
+        assert_eq!(sc_path(Some("")), r"C:\Windows\System32\sc.exe");
+    }
+
     #[cfg(not(windows))]
     #[test]
-    fn service_list_reports_unsupported_outside_windows() {
-        assert!(matches!(list(), Err(ProcessError::Unsupported { .. })));
+    fn service_backend_reports_unsupported_outside_windows() {
+        let backend = WindowsServices::new();
+        assert!(matches!(
+            backend.registry_entries(),
+            Err(ServiceError::Unsupported { .. })
+        ));
+        assert!(!backend.is_elevated());
     }
 }

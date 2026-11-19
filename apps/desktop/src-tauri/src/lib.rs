@@ -8,6 +8,7 @@ pub mod hardware;
 pub mod network;
 pub mod processes;
 pub mod programs;
+pub mod services;
 pub mod tweaks;
 pub mod vpn;
 
@@ -77,6 +78,7 @@ pub fn run() {
             disks::disks_request,
             processes::processes_request,
             programs::programs_request,
+            services::services_request,
             hardware::get_hardware,
             drivers::drivers_catalog,
             drivers::driver_install,
