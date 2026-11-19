@@ -234,10 +234,33 @@
 
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
-  function onPoster() {
+  let posterEl: HTMLButtonElement | null = null;
+
+  /** Один запуск анимации и звука на одно нажатие. Повторное нажатие перезапускает цикл. */
+  function playPoster() {
     pressed = false;
+    // Чтение размера заставляет браузер применить снятый класс: анимация начнётся заново.
+    void posterEl?.offsetWidth;
     pressed = true;
     playHeehee();
+  }
+
+  /** Мышь и касание срабатывают при нажатии (мгновенно). */
+  function onPosterDown(event: PointerEvent) {
+    if (event.button === 0) playPoster();
+  }
+
+  /** Клик с мыши уже обработан при нажатии; сюда доходит только клавиатура (detail === 0). */
+  function onPosterClick(event: MouseEvent) {
+    if (event.detail === 0) playPoster();
+  }
+
+  /** Колесо над постером не прокручивает страницу. Слушатель не пассивный, иначе
+      preventDefault игнорируется. */
+  function noWheelScroll(node: HTMLElement) {
+    const stop = (event: WheelEvent) => event.preventDefault();
+    node.addEventListener('wheel', stop, { passive: false });
+    return { destroy: () => node.removeEventListener('wheel', stop) };
   }
 </script>
 
@@ -248,7 +271,10 @@
       class="poster"
       class:pressed
       aria-label="Постер"
-      onclick={onPoster}
+      bind:this={posterEl}
+      use:noWheelScroll
+      onpointerdown={onPosterDown}
+      onclick={onPosterClick}
       onanimationend={() => (pressed = false)}
     >
       <span class="band">
@@ -517,6 +543,16 @@
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     object-fit: cover;
     object-position: 50% 30%;
+  }
+
+  /* Нажатие уже играет собственную анимацию: общее сжатие кнопки на постере
+     не добавляется, иначе получался двойной цикл. */
+  .poster:active:not(:disabled) {
+    transform: none;
+  }
+
+  .poster {
+    overscroll-behavior: contain;
   }
 
   .poster.pressed {

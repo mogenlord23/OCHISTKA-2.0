@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VpnPage from './VpnPage.svelte';
+import * as sound from '../lib/sound';
 import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON, TUN_MODE_REASON } from '../lib/vpn';
 
 const invokeMock = vi.hoisted(() => vi.fn());
@@ -84,6 +85,39 @@ async function openLoaded(snapshot = makeSnapshot({ servers: SERVERS, selected: 
   render(VpnPage, { props: { subsection: 'vpn' } });
   await screen.findByText(`Серверы / ${snapshot.servers.length}`);
 }
+
+describe('VpnPage: постер', () => {
+  it('one mouse press plays one animation cycle and one sound (no second one on click)', async () => {
+    const heehee = vi.spyOn(sound, 'playHeehee').mockImplementation(() => {});
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const poster = screen.getByRole('button', { name: 'Постер' });
+    await fireEvent.pointerDown(poster, { button: 0 });
+    expect(poster.classList.contains('pressed')).toBe(true);
+    // Следом приходит click с detail 1: ничего нового он не запускает.
+    await fireEvent.click(poster, { detail: 1 });
+    expect(heehee).toHaveBeenCalledTimes(1);
+    await fireEvent.animationEnd(poster);
+    expect(poster.classList.contains('pressed')).toBe(false);
+    heehee.mockRestore();
+  });
+
+  it('the keyboard (click with detail 0) also plays exactly once', async () => {
+    const heehee = vi.spyOn(sound, 'playHeehee').mockImplementation(() => {});
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const poster = screen.getByRole('button', { name: 'Постер' });
+    await fireEvent.click(poster, { detail: 0 });
+    expect(heehee).toHaveBeenCalledTimes(1);
+    heehee.mockRestore();
+  });
+
+  it('the wheel over the poster does not scroll the page', async () => {
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const poster = screen.getByRole('button', { name: 'Постер' });
+    const wheel = new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true });
+    poster.dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+  });
+});
 
 describe('VpnPage: подписка и импорт', () => {
   it('shows the subscription card with an enabled import button', async () => {
