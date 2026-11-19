@@ -64,41 +64,19 @@
 </nav>
 
 <style>
-  /* Пункты фиксированной высоты на сетке 8 px; первый пункт центрирован на линии Y=32
-     (центр строки заголовка окна). Вертикальный зазор растёт с высотой окна. */
+  /* Пункт — квадрат (как в 0.5.5): иконка и подпись внутри, сторона до 84 px.
+     Верх первого квадрата на линии верха кнопок окна (Y=12: строка 64 px, кнопки 40 px).
+     На низком окне сторона уменьшается, чтобы все 7 пунктов помещались без прокрутки. */
   .rail {
-    --item-h: 56px;
     --gap: 8px;
+    --tile: clamp(52px, calc((100vh - 160px) / 7 - var(--gap)), 84px);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: calc(32px - var(--item-h) / 2) 10px 0;
+    padding: 12px 0 0;
     background: var(--window);
-  }
-
-  @media (min-height: 640px) {
-    .rail {
-      --gap: 16px;
-    }
-  }
-
-  @media (min-height: 780px) {
-    .rail {
-      --gap: 24px;
-    }
-  }
-
-  @media (min-height: 1000px) {
-    .rail {
-      --gap: 32px;
-    }
-  }
-
-  @media (max-height: 599px) {
-    .rail {
-      --item-h: 48px;
-    }
   }
 
   .item {
@@ -107,9 +85,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    height: var(--item-h);
-    padding: 0 4px;
+    gap: 6px;
+    width: var(--tile);
+    height: var(--tile);
+    padding: 0;
     border: 0;
     border-radius: var(--radius-md);
     background: transparent;
@@ -132,8 +111,8 @@
 
   svg {
     flex: none;
-    width: 24px;
-    height: 24px;
+    width: calc(var(--tile) * 0.36);
+    height: calc(var(--tile) * 0.36);
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
