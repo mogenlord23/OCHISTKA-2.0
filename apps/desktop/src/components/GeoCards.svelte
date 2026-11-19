@@ -74,23 +74,28 @@
       </span>
     </div>
   </div>
-  <div class="actions">
-    {#if geo.consent}
-      <button type="button" disabled={geo.loading} onclick={() => void lookupGeo()}
-        >{geo.loading ? 'Определяем…' : 'Обновить'}</button
-      >
-      <button type="button" class="ghost" onclick={() => void revokeGeo()}
-        >Отозвать разрешение</button
-      >
-    {:else}
-      <button type="button" disabled={geo.consent === null} onclick={() => void determineGeo()}
-        >Определить</button
-      >
-      <span class="note">{GEO_CONSENT_TEXT}</span>
-    {/if}
+  <div class="panel">
+    <div class="actions">
+      {#if geo.consent}
+        <button type="button" class="btn" disabled={geo.loading} onclick={() => void lookupGeo()}
+          >{geo.loading ? 'Определяем…' : 'Обновить'}</button
+        >
+        <button type="button" class="btn" onclick={() => void revokeGeo()}
+          >Отозвать разрешение</button
+        >
+      {:else}
+        <button
+          type="button"
+          class="btn go"
+          disabled={geo.consent === null}
+          onclick={() => void determineGeo()}>Определить</button
+        >
+        <span class="note">{GEO_CONSENT_TEXT}</span>
+      {/if}
+    </div>
+    {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
+    <p class="note">{GEO_VPN_NOTE} Данные примерные.</p>
   </div>
-  {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
-  <p class="note">{GEO_VPN_NOTE} Данные примерные.</p>
 </section>
 
 <style>
@@ -154,6 +159,47 @@
     color: var(--muted);
   }
 
+  .btn {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 6px 18px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--btn-bg);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .btn.go {
+    background: var(--accent);
+    color: #000;
+    box-shadow: none;
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    box-shadow: 0 0 0 2px #000;
+  }
+
   .actions {
     display: flex;
     align-items: center;
@@ -167,8 +213,7 @@
   .note {
     margin: 0;
     font-size: var(--text-caption);
-    color: var(--ink);
-    opacity: 0.85;
+    color: var(--muted);
   }
 
   .note.error {
