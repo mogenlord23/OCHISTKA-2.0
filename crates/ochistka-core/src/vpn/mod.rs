@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod country;
+pub mod engine;
 pub mod fetch;
 pub mod latency;
 pub mod parse;
@@ -23,8 +24,10 @@ pub enum VpnError {
     Fetch(String),
     #[error("{0}")]
     Parse(String),
-    #[error("VPN-движок не найден: {0}")]
+    #[error("VPN не готов: {0}")]
     CoreMissing(String),
+    #[error("Не удалось подготовить VPN: {0}")]
+    Prepare(String),
     #[error("{0}")]
     Engine(String),
     #[error("Не удалось изменить системный прокси: {0}")]

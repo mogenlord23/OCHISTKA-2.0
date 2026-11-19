@@ -4,10 +4,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use ochistka_core::vpn::engine::PrepareProgress;
 use ochistka_core::vpn::routes::RoutingRules;
 use ochistka_core::vpn::service::{ConnectionStatus, ImportSummary, VpnService, VpnSnapshot};
 use ochistka_core::vpn::sysproxy::SystemProxy;
 use ochistka_core::vpn::VpnError;
+use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::commands::CommandError;
@@ -19,6 +21,7 @@ impl From<VpnError> for CommandError {
     fn from(err: VpnError) -> Self {
         let kind = match err {
             VpnError::CoreMissing(_) => "engineMissing",
+            VpnError::Prepare(_) => "prepare",
             VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) => "invalidTarget",
             _ => "probe",
         };
@@ -125,8 +128,16 @@ pub async fn vpn_measure_latency(state: State<'_, VpnState>) -> Result<VpnSnapsh
 }
 
 #[tauri::command]
-pub async fn vpn_connect(state: State<'_, VpnState>) -> Result<ConnectionStatus, CommandError> {
-    blocking(&state, |s| s.connect()).await
+pub async fn vpn_connect(
+    state: State<'_, VpnState>,
+    on_progress: Channel<PrepareProgress>,
+) -> Result<ConnectionStatus, CommandError> {
+    blocking(&state, move |s| {
+        s.connect_with(&mut |event| {
+            let _ = on_progress.send(event);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
@@ -145,6 +156,13 @@ mod tests {
         assert_eq!(e.message, "Разрешены только ссылки https://");
         let e: CommandError = VpnError::CoreMissing("x".into()).into();
         assert_eq!(e.kind, "engineMissing");
+    }
+
+    #[test]
+    fn preparation_failure_maps_to_its_own_kind() {
+        let e: CommandError = VpnError::Prepare("проверьте интернет".into()).into();
+        assert_eq!(e.kind, "prepare");
+        assert_eq!(e.message, "Не удалось подготовить VPN: проверьте интернет");
     }
 
     #[test]

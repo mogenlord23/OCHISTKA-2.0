@@ -45,7 +45,8 @@
   let listing = false;
 
   /** Сортировка по клику на заголовок. `null` — по имени, как в списке Windows. */
-  let sort = $state<SortState<ProcessSortKey> | null>(null);
+  /** При открытии: по загрузке CPU от большего к меньшему; дальше сортирует пользователь. */
+  let sort = $state<SortState<ProcessSortKey> | null>({ key: 'cpu', dir: 'desc' });
   const COLUMNS: Array<{ key: ProcessSortKey; label: string; cls: string; first: 'asc' | 'desc' }> =
     [
       { key: 'name', label: 'Процесс', cls: 'c-name', first: 'asc' },

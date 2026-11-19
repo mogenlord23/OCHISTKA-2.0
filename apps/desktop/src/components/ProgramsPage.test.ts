@@ -106,8 +106,15 @@ describe('ProgramsPage installed programs', () => {
     expect(await screen.findByText(/Запущено удаление «Google Chrome»/)).toBeTruthy();
   });
 
-  it('sorts by size: largest first, then smallest, unknown size always last', async () => {
-    mountInstalled();
+  it('opens sorted by size, largest first, unknown size last; the user can flip it', async () => {
+    const SMALL: InstalledProgram = {
+      ...CHROME,
+      name: 'Small Tool',
+      id: 'small',
+      sizeBytes: 10 * 1024,
+    };
+    vi.mocked(listInstalled).mockResolvedValue([NO_PATH, SMALL, CHROME]);
+    render(ProgramsPage, { subsection: 'installed' });
     await screen.findByText('Google Chrome');
     const names = () =>
       screen
@@ -116,15 +123,17 @@ describe('ProgramsPage installed programs', () => {
         .map((row) => within(row).getAllByRole('button')[0].textContent?.trim());
     const sizeHead = () =>
       within(screen.getByRole('columnheader', { name: /^Размер/ })).getByRole('button');
+    expect(names()).toEqual(['Google Chrome', 'Small Tool', 'Old Tool']);
+    expect(screen.getByRole('columnheader', { name: /^Размер/ }).getAttribute('aria-sort')).toBe(
+      'descending',
+    );
     await fireEvent.click(sizeHead());
-    expect(names()).toEqual(['Google Chrome', 'Old Tool']);
-    await fireEvent.click(sizeHead());
-    expect(names()).toEqual(['Google Chrome', 'Old Tool']);
+    expect(names()).toEqual(['Small Tool', 'Google Chrome', 'Old Tool']);
     expect(screen.getByRole('columnheader', { name: /^Размер/ }).getAttribute('aria-sort')).toBe(
       'ascending',
     );
     await fireEvent.click(screen.getByRole('button', { name: /^Программа/ }));
-    expect(names()).toEqual(['Google Chrome', 'Old Tool']);
+    expect(names()).toEqual(['Google Chrome', 'Old Tool', 'Small Tool']);
   });
 
   it('shows sizes in human units and «Нет данных» for unknown values', async () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Check from './Check.svelte';
   import { joinEntries, splitEntries } from '../lib/vpn';
   import { vpnSetRules, type RoutingRules, type VpnSnapshot } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
@@ -74,10 +75,10 @@
       {#each snapshot.presets as preset (preset.id)}
         <li>
           <label class="preset">
-            <input
-              type="checkbox"
+            <Check
+              bare
               checked={presets.includes(preset.id)}
-              onchange={(e) => togglePreset(preset.id, e.currentTarget.checked)}
+              onchange={(next) => togglePreset(preset.id, next)}
             />
             <span class="preset-text">
               <span class="preset-title">{preset.title}</span>
@@ -150,7 +151,7 @@
 <style>
   .card {
     padding: 16px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
   }
@@ -194,16 +195,8 @@
   .preset {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 10px;
     cursor: pointer;
-  }
-
-  .preset input {
-    flex: none;
-    width: 20px;
-    height: 20px;
-    margin: 2px 0 0;
-    accent-color: var(--accent);
   }
 
   .preset-text {

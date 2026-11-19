@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import DriversPage from './DriversPage.svelte';
 import { getHardware } from '../lib/api';
 import {
@@ -78,8 +78,34 @@ describe('DriversPage', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'AMD' }));
     expect(screen.queryByText('NVIDIA App')).toBeNull();
     expect(screen.getByText('AMD Adrenalin')).toBeTruthy();
-    await fireEvent.click(screen.getByRole('button', { name: 'Все' }));
+    // Повторное нажатие на выбранную плитку снимает выбор: снова видны все драйверы.
+    await fireEvent.click(screen.getByRole('button', { name: 'AMD' }));
     expect(screen.getByText('NVIDIA App')).toBeTruthy();
+    expect(screen.getByText('AMD Adrenalin')).toBeTruthy();
+  });
+
+  it('has no «Все» tile and exactly the seven vendor tiles, selection is instant', async () => {
+    render(DriversPage);
+    await screen.findByText('NVIDIA App');
+    expect(screen.queryByRole('button', { name: 'Все' })).toBeNull();
+    const tiles = within(screen.getByRole('list', { name: 'Производители' })).getAllByRole(
+      'button',
+    );
+    const names = tiles.map((t) => t.querySelector('span')?.textContent);
+    expect(names).toEqual([
+      'NVIDIA',
+      'AMD',
+      'Intel',
+      'Realtek',
+      'Wi-Fi / Bluetooth',
+      'USB',
+      'Производители ПК',
+    ]);
+    const nvidia = screen.getByRole('button', { name: 'NVIDIA' });
+    await fireEvent.click(nvidia);
+    expect(nvidia.getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(nvidia);
+    expect(nvidia.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('shows no URL text and no copy-link button', async () => {

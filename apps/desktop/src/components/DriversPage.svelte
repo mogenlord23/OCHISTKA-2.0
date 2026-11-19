@@ -130,17 +130,6 @@
   </p>
 
   <ul class="vendors" aria-label="Производители">
-    <li>
-      <button
-        type="button"
-        class="vendor"
-        aria-pressed={selected === null}
-        onclick={() => (selected = null)}
-      >
-        <VendorLogo vendor="all" />
-        <span>Все</span>
-      </button>
-    </li>
     {#each layout.ordered as id (id)}
       <li>
         <button
@@ -215,9 +204,11 @@
     color: var(--page-text);
   }
 
+  /* Плитки производителей: одинаковые квадраты, ровная сетка. */
   .vendors {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 136px);
+    justify-content: start;
     gap: 8px;
     margin: 0;
     padding: 0;
@@ -225,33 +216,46 @@
   }
 
   .vendor {
+    position: relative;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    width: 150px;
-    min-height: 124px;
-    padding: 14px 8px;
-    border: 1px solid transparent;
+    width: 136px;
+    aspect-ratio: 1;
+    padding: 18px 8px 8px;
+    border: 0;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
     color: var(--ink, #fafafa);
     font: inherit;
     font-size: var(--text-caption);
     text-align: center;
     cursor: pointer;
-    transition:
-      transform 160ms ease,
-      border-color 160ms ease;
+    transition: transform 160ms ease;
   }
 
   .vendor:hover {
-    transform: translateY(-2px);
+    transform: scale(1.05);
   }
 
-  .vendor[aria-pressed='true'] {
-    border-color: var(--btn-border, #cf00ff);
+  .vendor:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  /* Выбранная плитка: белая рамка внутри, как у обоев и курсоров. */
+  .vendor[aria-pressed='true']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px solid #fff;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
+    pointer-events: none;
   }
 
   .mine {

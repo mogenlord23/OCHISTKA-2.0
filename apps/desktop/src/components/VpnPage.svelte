@@ -9,6 +9,7 @@
   import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
     IMPORTING_LABEL,
+    PREPARE_FAILED_PREFIX,
     NETWORK_STATUS_OFF,
     TUN_MODE_REASON,
     connectUi,
@@ -74,16 +75,22 @@
   let requesting = $state(false);
   let actionNote = $state<string | null>(null);
   let nowMs = $state(Date.now());
-  let copied = $state(false);
+  /** Проценты подготовки VPN при первом подключении; `null`, когда подготовки нет. */
+  let preparing = $state<number | null>(null);
+  let retry = $state(false);
 
   const servers = $derived(snapshot?.servers ?? []);
-  const ui = $derived(connectUi(snapshot, requesting || importing));
+  const ui = $derived(connectUi(snapshot, requesting || importing, { preparing, retry }));
   const elapsedSeconds = $derived(
     snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
   );
   const status = $derived(
     actionNote ??
-      (importing ? IMPORTING_LABEL : statusLine(snapshot?.connection ?? null, ui.reason)),
+      (preparing !== null
+        ? 'Скачиваем нужные файлы: это нужно один раз'
+        : importing
+          ? IMPORTING_LABEL
+          : statusLine(snapshot?.connection ?? null, ui.reason)),
   );
 
   async function refresh() {
@@ -99,7 +106,7 @@
   onMount(() => {
     void refresh();
     const clock = setInterval(() => (nowMs = Date.now()), 1000);
-    // Пока подключено, раз в 3 секунды проверяем, что ядро живо.
+    // Пока подключено, раз в 3 секунды проверяем, что VPN жив.
     const poll = setInterval(async () => {
       if (snapshot?.connection.state !== 'connected') return;
       try {
@@ -176,29 +183,35 @@
     if (ui.disabled || requesting) return;
     requesting = true;
     actionNote = null;
+    retry = false;
     const connecting = snapshot?.connection.state !== 'connected';
+    // Подготовка начинается только если файлов VPN ещё нет: до первого ответа показываем её.
+    if (connecting && snapshot && !snapshot.core.available) preparing = 0;
     try {
-      const connection = connecting ? await vpnConnect() : await vpnDisconnect();
-      if (snapshot) snapshot = { ...snapshot, connection };
+      const connection = connecting
+        ? await vpnConnect((percent) => {
+            if (preparing !== null) preparing = percent;
+          })
+        : await vpnDisconnect();
+      if (snapshot) {
+        snapshot = {
+          ...snapshot,
+          connection,
+          core: connecting ? { available: true } : snapshot.core,
+        };
+      }
     } catch (err) {
       actionNote = errorMessage(err);
+      retry = actionNote.startsWith(PREPARE_FAILED_PREFIX);
       await refresh();
     } finally {
+      preparing = null;
       requesting = false;
     }
   }
 
   function onRulesSaved(rules: RoutingRules) {
     if (snapshot) snapshot = { ...snapshot, rules };
-  }
-
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(snapshot?.core.fetchCommand ?? '');
-      copied = true;
-    } catch {
-      copied = false;
-    }
   }
 
   let networkMessages = $state<Record<string, string | null>>({});
@@ -303,21 +316,6 @@
             {/if}
           </section>
 
-          {#if snapshot && !snapshot.core.available}
-            <section class="card core-missing" role="alert">
-              <h2>VPN-ядро не установлено</h2>
-              <p class="note">
-                {snapshot.core.reason ?? 'Файл ядра не найден.'} Скачай его одной командой из папки проекта:
-              </p>
-              <div class="cmd-row">
-                <code class="cmd">{snapshot.core.fetchCommand}</code>
-                <button type="button" onclick={copyCommand}
-                  >{copied ? 'Скопировано' : 'Копировать'}</button
-                >
-              </div>
-            </section>
-          {/if}
-
           <section class="card connect">
             <div class="power-row">
               <button
@@ -334,6 +332,18 @@
               </button>
               <div class="power-text">
                 <span class="power-label">{ui.label}</span>
+                {#if preparing !== null}
+                  <span
+                    class="prepare-bar"
+                    role="progressbar"
+                    aria-label="Подготовка VPN"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={preparing}
+                  >
+                    <span class="prepare-fill" style:width={`${preparing}%`}></span>
+                  </span>
+                {/if}
                 <span class="timer" aria-label="Время подключения"
                   >{formatElapsed(elapsedSeconds)}</span
                 >
@@ -665,7 +675,7 @@
 
   .card {
     padding: 16px 16px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
   }
@@ -718,26 +728,6 @@
 
   .latency.dead {
     color: var(--muted);
-  }
-
-  .core-missing .cmd-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .cmd {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    background: var(--black);
-    color: var(--ink);
-    font-family: Consolas, 'Courier New', monospace;
-    font-size: 0.75rem;
-    overflow-wrap: anywhere;
-    user-select: all;
   }
 
   .row {
@@ -849,6 +839,23 @@
     color: var(--ink);
   }
 
+  .prepare-bar {
+    display: block;
+    width: 100%;
+    height: 6px;
+    border-radius: var(--radius-sm);
+    background: #2a2a2a;
+    box-shadow: 0 0 0 2px #000;
+    overflow: hidden;
+  }
+
+  .prepare-fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s ease;
+  }
+
   .timer {
     font-variant-numeric: tabular-nums;
     font-size: 1.6rem;
@@ -903,7 +910,7 @@
   }
 
   .servers-card::-webkit-scrollbar-thumb {
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: var(--accent);
   }
 
@@ -963,7 +970,7 @@
     place-items: center;
     width: 58px;
     height: 58px;
-    border-radius: 16px;
+    border-radius: var(--radius-md);
     background: var(--accent);
     color: #000;
     font-size: 1.5rem;
@@ -1033,7 +1040,7 @@
   .dialog {
     width: min(420px, calc(100vw - 32px));
     padding: 20px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: var(--surface);
     color: var(--ink);
   }

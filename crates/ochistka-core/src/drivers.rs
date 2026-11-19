@@ -130,7 +130,7 @@ pub static CATALOG: &[CatalogEntry] = &[
         "nvidia",
         "PhysX System Software",
         "Дополнительная библиотека для старых игр, которым нужен NVIDIA PhysX.",
-        "https://www.nvidia.com/en-us/drivers/physx/",
+        "https://www.nvidia.com/en-us/drivers/physx/physx-9-21-0713-driver/",
         None,
         false,
     ),
@@ -219,7 +219,7 @@ pub static CATALOG: &[CatalogEntry] = &[
         "bluetooth",
         "Intel · Bluetooth",
         "Выберите пакет под свой адаптер и версию Windows.",
-        "https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-for-windows-10-and-windows-11.html",
+        "https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html",
         None,
         true,
     ),
@@ -246,7 +246,7 @@ pub static CATALOG: &[CatalogEntry] = &[
         "usb",
         "USB / контроллеры",
         "Стандартные USB-драйверы входят в Windows. Для контроллера платы возьмите пакет производителя.",
-        "https://support.microsoft.com/windows/get-updates-for-windows-drivers",
+        "https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows",
         None,
         true,
     ),
@@ -700,6 +700,20 @@ mod tests {
         assert!(validate_redirect("https://downloadmirror.intel.com/x.exe").is_ok());
         assert!(validate_redirect("https://evil.com/x.exe").is_err());
         assert!(validate_redirect("http://downloadmirror.intel.com/x.exe").is_err());
+    }
+
+    /// Адреса, которые при проверке (docs/status/drivers-links.md) вели в ошибку 404.
+    #[test]
+    fn catalog_has_no_known_dead_links() {
+        for item in CATALOG {
+            for dead in [
+                "https://www.nvidia.com/en-us/drivers/physx/",
+                "https://support.microsoft.com/windows/get-updates-for-windows-drivers",
+                "download/18649/intel-wireless-bluetooth-for-windows-10-and-windows-11.html",
+            ] {
+                assert_ne!(item.page_url, dead, "{}", item.id);
+            }
+        }
     }
 
     #[test]
