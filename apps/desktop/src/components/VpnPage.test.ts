@@ -458,8 +458,8 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.getAllByText('Дополнительный инструмент')).toHaveLength(2);
     for (const name of ['Zapret', 'Xbox DNS']) {
-      const sw = screen.getByRole('switch', { name }) as HTMLButtonElement;
-      expect(sw.getAttribute('aria-checked')).toBe('false');
+      const sw = screen.getByRole('checkbox', { name }) as HTMLInputElement;
+      expect(sw.checked).toBe(false);
       expect(sw.closest('.switch-row')?.textContent).toContain('выключено');
     }
   });
@@ -469,40 +469,13 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.queryByText(/GoodbyeDPI/i)).toBeNull();
   });
 
-  it('clicking a switch opens a confirmation dialog and changes nothing yet', async () => {
+  it('has no confirmation dialog and the tools are disabled with a reason', () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
-    const zapret = screen.getByRole('switch', { name: 'Zapret' });
-    await fireEvent.click(zapret);
-    const dialog = screen.getByRole('dialog', { name: 'Включить Zapret?' });
-    expect(dialog).toBeTruthy();
-    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
-    expect(zapret.getAttribute('aria-checked')).toBe('false');
-  });
-
-  it('confirming runs the stub: shows the network reason and leaves the switch off', async () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const xbox = screen.getByRole('switch', { name: 'Xbox DNS' });
-    await fireEvent.click(xbox);
-    await fireEvent.click(screen.getByRole('button', { name: 'Включить' }));
+    for (const name of ['Zapret', 'Xbox DNS']) {
+      expect((screen.getByRole('checkbox', { name }) as HTMLInputElement).disabled).toBe(true);
+    }
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByText(NETWORK_CHANGE_REASON)).toBeTruthy();
-    expect(xbox.getAttribute('aria-checked')).toBe('false');
-  });
-
-  it('cancelling closes the dialog and shows no network reason', async () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await fireEvent.click(screen.getByRole('switch', { name: 'Zapret' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
-  });
-
-  it('Escape closes the dialog without any change', async () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await fireEvent.click(screen.getByRole('switch', { name: 'Zapret' }));
-    await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByText(NETWORK_CHANGE_REASON)).toBeNull();
+    expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(2);
   });
 });
 
@@ -519,7 +492,7 @@ describe('VpnPage: вкладки', () => {
   it('clicking a tab switches the content and the title', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await fireEvent.click(screen.getByRole('tab', { name: 'Дополнительно' }));
-    expect(screen.getByRole('switch', { name: 'Xbox DNS' })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Xbox DNS' })).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.queryByText('Ссылка подписки / импорта')).toBeNull();
   });

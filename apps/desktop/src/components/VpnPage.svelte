@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Check from './Check.svelte';
   import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
@@ -214,34 +215,11 @@
     if (snapshot) snapshot = { ...snapshot, rules };
   }
 
-  let networkMessages = $state<Record<string, string | null>>({});
-  /** Переключатель, для которого ждём подтверждения (id из ADVANCED). */
-  let pendingNetwork = $state<(typeof ADVANCED)[number] | null>(null);
-
-  function askNetworkToggle(item: (typeof ADVANCED)[number]) {
-    pendingNetwork = item;
-  }
-
-  function cancelNetworkToggle() {
-    pendingNetwork = null;
-  }
-
-  function confirmNetworkToggle() {
-    const target = pendingNetwork;
-    if (!target) return;
-    pendingNetwork = null;
-    networkMessages = { ...networkMessages, [target.id]: requestNetworkChange().reason };
-  }
-
-  function onDialogKey(event: KeyboardEvent) {
-    if (event.key === 'Escape') cancelNetworkToggle();
-  }
-
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
   function onPoster() {
     pressed = false;
-    requestAnimationFrame(() => (pressed = true));
+    pressed = true;
     playHeehee();
   }
 </script>
@@ -419,48 +397,14 @@
                 <span class="tool-label">Дополнительный инструмент</span>
                 <span class="switch-title">{item.label}</span>
                 <span class="note"
-                  >Запуск и изменение сетевых настроек отключены.<span class="hidden">
+                  >Пока недоступно: появится в одном из следующих обновлений.<span class="hidden">
                     Состояние: {NETWORK_STATUS_OFF}</span
                   ></span
                 >
-                {#if networkMessages[item.id]}
-                  <p class="note" role="status">{networkMessages[item.id]}</p>
-                {/if}
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked="false"
-                aria-label={item.label}
-                onclick={() => askNetworkToggle(item)}
-              >
-                <span class="knob"></span>
-              </button>
+              <Check checked={false} disabled label={item.label} />
             </section>
           {/each}
-          {#if pendingNetwork}
-            <div class="backdrop">
-              <div
-                class="dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="network-title"
-                aria-describedby="network-text"
-                tabindex="-1"
-                onkeydown={onDialogKey}
-              >
-                <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
-                <p id="network-text">
-                  {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока
-                  это заглушка: ничего не изменится.
-                </p>
-                <div class="dialog-actions">
-                  <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
-                  <button type="button" onclick={confirmNetworkToggle}>Включить</button>
-                </div>
-              </div>
-            </div>
-          {/if}
         {:else if tab === 'network'}
           <VpnNetworkTab />
         {:else}
@@ -1006,54 +950,6 @@
 
   .tool-text .note {
     margin: 0;
-  }
-
-  [role='switch'] {
-    position: relative;
-    width: 100px;
-    height: 44px;
-    padding: 0;
-    border-radius: var(--radius-pill);
-    background: #2a2a2a;
-    box-shadow: 0 0 0 2px #fff;
-  }
-
-  .knob {
-    position: absolute;
-    top: 6px;
-    left: 7px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #fff;
-  }
-
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-  }
-
-  .dialog {
-    width: min(420px, calc(100vw - 32px));
-    padding: 20px;
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    color: var(--ink);
-  }
-
-  .dialog h3 {
-    margin: 0 0 8px;
-  }
-
-  .dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
   }
 
   @media (max-width: 760px) {
