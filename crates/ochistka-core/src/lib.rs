@@ -1,5 +1,6 @@
 pub mod appearance;
 pub mod appearance_cursor;
+pub mod appearance_wallpaper;
 pub mod assess;
 pub mod cleanup;
 pub mod fs;

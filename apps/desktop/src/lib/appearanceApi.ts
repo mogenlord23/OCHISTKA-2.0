@@ -9,10 +9,10 @@ export interface AppearanceErrorInfo {
 /** Состояние оформления Windows. `null` — в реестре значения нет. */
 export interface AppearanceStatus {
   accent: string | null;
-  transparency: boolean | null;
-  darkApps: boolean | null;
-  darkSystem: boolean | null;
-  fillTaskbar: boolean | null;
+  /** Эффект прозрачности включён из OCHISTKA (по умолчанию выключено). */
+  transparencyOn: boolean;
+  /** Заливка панели задач и Пуска включена из OCHISTKA. */
+  fillOn: boolean;
   hasBackup: boolean;
   hasPreviousWallpaper: boolean;
   /** Плитка обоев, поставленная из OCHISTKA; `custom` — свой файл. */
@@ -28,8 +28,6 @@ type Request =
   | { action: 'setAccent'; color: string; confirmed: boolean }
   | { action: 'setTransparency'; enabled: boolean; confirmed: boolean }
   | { action: 'setFillTaskbar'; enabled: boolean; confirmed: boolean }
-  | { action: 'setTheme'; dark: boolean; alsoSystem: boolean; confirmed: boolean }
-  | { action: 'setSystemTheme'; dark: boolean; confirmed: boolean }
   | { action: 'restoreAppearance'; confirmed: boolean }
   | { action: 'pickAndApplyWallpaper'; confirmed: boolean }
   | { action: 'restoreWallpaper'; confirmed: boolean }
@@ -74,10 +72,6 @@ export const setTransparency = (enabled: boolean) =>
   call({ action: 'setTransparency', enabled, confirmed: true });
 export const setFillTaskbar = (enabled: boolean) =>
   call({ action: 'setFillTaskbar', enabled, confirmed: true });
-export const setTheme = (dark: boolean) =>
-  call({ action: 'setTheme', dark, alsoSystem: true, confirmed: true });
-export const setSystemTheme = (dark: boolean) =>
-  call({ action: 'setSystemTheme', dark, confirmed: true });
 export const restoreAppearance = () => call({ action: 'restoreAppearance', confirmed: true });
 export const pickAndApplyWallpaper = () =>
   call({ action: 'pickAndApplyWallpaper', confirmed: true });

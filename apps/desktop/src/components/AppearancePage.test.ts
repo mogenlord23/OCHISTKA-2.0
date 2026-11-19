@@ -5,13 +5,12 @@ const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
 
 import AppearancePage from './AppearancePage.svelte';
+import { COLOR_SCHEMES, SOLID_WALLPAPERS } from '../lib/appearance';
 
 const STATUS = {
   accent: '#FF009D',
-  transparency: true,
-  darkApps: true,
-  darkSystem: false,
-  fillTaskbar: false,
+  transparencyOn: false,
+  fillOn: false,
   hasBackup: false,
   hasPreviousWallpaper: false,
   wallpaperTile: null as string | null,
@@ -42,6 +41,15 @@ function fakeWindows(request: Record<string, unknown>) {
     case 'restoreAccent':
       windows = { ...windows, accentTile: null };
       break;
+    case 'setTransparency':
+      windows = { ...windows, transparencyOn: request.enabled as boolean, hasBackup: true };
+      break;
+    case 'setFillTaskbar':
+      windows = { ...windows, fillOn: request.enabled as boolean, hasBackup: true };
+      break;
+    case 'restoreAppearance':
+      windows = { ...windows, transparencyOn: false, fillOn: false, accentTile: null };
+      break;
   }
   return { type: 'status', status: windows };
 }
@@ -58,13 +66,28 @@ afterEach(() => {
   cleanup();
 });
 
+/** Команда, которую тест завершает сам: так видно, что рамка не ждёт ответа. */
+function hang() {
+  let settle: (value: unknown) => void = () => {};
+  let fail: (reason: unknown) => void = () => {};
+  invokeMock.mockReset();
+  invokeMock.mockImplementation(
+    () =>
+      new Promise((resolve, reject) => {
+        settle = resolve;
+        fail = reject;
+      }),
+  );
+  return { settle: (v: unknown) => settle(v), fail: (e: unknown) => fail(e) };
+}
+
 const requests = () => invokeMock.mock.calls.map((call) => call[1].request);
 const actions = () => requests().map((r) => r.action);
 
 describe('AppearancePage wallpapers', () => {
   it('click sets the Windows wallpaper, outline only, second click restores', async () => {
     render(AppearancePage, { subsection: 'wallpapers' });
-    const tile = screen.getByRole('button', { name: 'Обои 12' });
+    const tile = screen.getByRole('button', { name: 'Обои 30' });
     expect(tile.getAttribute('aria-pressed')).toBe('false');
     await fireEvent.click(tile);
     await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('true'));
@@ -83,7 +106,9 @@ describe('AppearancePage wallpapers', () => {
 
   it('a photo tile sends only its id: the backend copies the bundled original', async () => {
     render(AppearancePage, { subsection: 'wallpapers' });
-    await fireEvent.click(screen.getByRole('button', { name: 'Обои 1' }));
+    await fireEvent.click(
+      screen.getByRole('button', { name: `Обои ${SOLID_WALLPAPERS.length + 1}` }),
+    );
     await waitFor(() => expect(actions()).toContain('applyWallpaperTile'));
     const request = requests().find((r) => r.action === 'applyWallpaperTile');
     expect(request).toEqual({
@@ -95,8 +120,8 @@ describe('AppearancePage wallpapers', () => {
 
   it('keeps one selected tile per group and restores the selection after a remount', async () => {
     const first = render(AppearancePage, { subsection: 'wallpapers' });
-    const a = screen.getByRole('button', { name: 'Обои 2' });
-    const b = screen.getByRole('button', { name: 'Обои 3' });
+    const a = screen.getByRole('button', { name: 'Обои 18' });
+    const b = screen.getByRole('button', { name: 'Обои 19' });
     await fireEvent.click(a);
     await waitFor(() => expect(a.getAttribute('aria-pressed')).toBe('true'));
     await fireEvent.click(b);
@@ -106,7 +131,7 @@ describe('AppearancePage wallpapers', () => {
     // «Перезапуск»: страница создаётся заново и читает выбор из Windows.
     first.unmount();
     render(AppearancePage, { subsection: 'wallpapers' });
-    const again = screen.getByRole('button', { name: 'Обои 3' });
+    const again = screen.getByRole('button', { name: 'Обои 19' });
     await waitFor(() => expect(again.getAttribute('aria-pressed')).toBe('true'));
     expect(document.querySelectorAll('.grid .tile.selected')).toHaveLength(1);
   });
@@ -159,76 +184,132 @@ describe('AppearancePage cursors', () => {
 });
 
 describe('AppearancePage colours', () => {
-  it('shows the option chips and 53 swatches', async () => {
+  it('shows only the two toggles and the restore button, no theme controls', async () => {
     render(AppearancePage, { subsection: 'colors' });
     for (const name of [
       'Эффект прозрачности',
-      'Залить Пуск и всю панель задач',
-      'Режим для Пуска',
-      'Тёмный режим',
-      'Светлый режим',
+      'Залить панель задач и Пуск',
       'Вернуть оформление Windows',
     ]) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
-    expect(document.querySelectorAll('.grid-color .tile')).toHaveLength(53);
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Тёмный режим' }).getAttribute('aria-pressed'),
-      ).toBe('true'),
-    );
+    for (const gone of ['Тёмный режим', 'Светлый режим', 'Режим для Пуска']) {
+      expect(screen.queryByRole('button', { name: gone })).toBeNull();
+    }
+    expect(document.querySelectorAll('.grid-color .tile')).toHaveLength(COLOR_SCHEMES.length);
+    // По умолчанию оба переключателя выключены.
+    await waitFor(() => expect(actions()).toContain('status'));
+    for (const name of ['Эффект прозрачности', 'Залить панель задач и Пуск']) {
+      expect(screen.getByRole('button', { name }).getAttribute('aria-pressed')).toBe('false');
+    }
   });
 
   it('a colour click sets the Windows accent, a second click restores it', async () => {
     render(AppearancePage, { subsection: 'colors' });
-    const tile = screen.getByRole('button', { name: 'Цвет 3' });
+    const index = COLOR_SCHEMES.findIndex((tile) => tile.preview === '#087FFF');
+    const tile = screen.getByRole('button', { name: `Цвет ${index + 1}` });
     await fireEvent.click(tile);
     await waitFor(() =>
       expect(requests()).toContainEqual({ action: 'setAccent', color: '#087FFF', confirmed: true }),
     );
     await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('true'));
     expect(screen.queryByRole('dialog')).toBeNull();
+    // Выбор цвета не трогает заливку панели задач.
+    expect(actions()).not.toContain('setFillTaskbar');
     await fireEvent.click(tile);
     await waitFor(() => expect(actions()).toContain('restoreAccent'));
     await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('false'));
   });
 
-  it('light mode asks, then sets theme for apps and system', async () => {
+  it('toggles apply on click without a dialog and revert on the second click', async () => {
     render(AppearancePage, { subsection: 'colors' });
-    await fireEvent.click(screen.getByRole('button', { name: 'Светлый режим' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    const fill = screen.getByRole('button', { name: 'Залить панель задач и Пуск' });
+    await fireEvent.click(fill);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fill.getAttribute('aria-pressed')).toBe('true');
     await waitFor(() =>
       expect(requests()).toContainEqual({
-        action: 'setTheme',
-        dark: false,
-        alsoSystem: true,
+        action: 'setFillTaskbar',
+        enabled: true,
         confirmed: true,
       }),
     );
+    await fireEvent.click(fill);
+    expect(fill.getAttribute('aria-pressed')).toBe('false');
+    await waitFor(() =>
+      expect(requests()).toContainEqual({
+        action: 'setFillTaskbar',
+        enabled: false,
+        confirmed: true,
+      }),
+    );
+    const transparency = screen.getByRole('button', { name: 'Эффект прозрачности' });
+    await fireEvent.click(transparency);
+    expect(transparency.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('restore is available only with a backup', async () => {
+  it('restore is available only with a backup and needs no confirmation', async () => {
     windows = { ...STATUS, hasBackup: true };
     render(AppearancePage, { subsection: 'colors' });
     const restore = screen.getByRole('button', { name: 'Вернуть оформление Windows' });
     await waitFor(() => expect(restore.getAttribute('aria-disabled')).toBe('false'));
     await fireEvent.click(restore);
-    await fireEvent.click(screen.getByRole('button', { name: 'Вернуть' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() =>
       expect(requests()).toContainEqual({ action: 'restoreAppearance', confirmed: true }),
     );
   });
 
-  it('shows the backend error text', async () => {
+  it('a toggle reverts and shows the backend error when the command fails', async () => {
     render(AppearancePage, { subsection: 'colors' });
-    invokeMock.mockReset();
-    invokeMock.mockRejectedValue({
-      kind: 'unsupported',
-      message: 'Эта функция доступна только в Windows',
-    });
-    await fireEvent.click(screen.getByRole('button', { name: 'Эффект прозрачности' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    await waitFor(() => expect(actions()).toContain('status'));
+    const pending = hang();
+    const toggle = screen.getByRole('button', { name: 'Эффект прозрачности' });
+    await fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    pending.fail({ kind: 'unsupported', message: 'Эта функция доступна только в Windows' });
     expect(await screen.findByText('Эта функция доступна только в Windows')).toBeTruthy();
+    await waitFor(() => expect(toggle.getAttribute('aria-pressed')).toBe('false'));
+  });
+});
+
+describe('AppearancePage instant selection', () => {
+  it('the outline appears before the command resolves and stays when it succeeds', async () => {
+    render(AppearancePage, { subsection: 'cursors' });
+    const pending = hang();
+    const tile = screen.getByRole('button', { name: 'Курсор 4' });
+    await fireEvent.click(tile);
+    expect(tile.getAttribute('aria-pressed')).toBe('true');
+    expect(tile.classList.contains('selected')).toBe(true);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    pending.settle(fakeWindows({ action: 'applyCursorScheme', id: 'cursor-red' }));
+    await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('true'));
+  });
+
+  it('the outline is removed and a short error shown when the command fails', async () => {
+    render(AppearancePage, { subsection: 'wallpapers' });
+    const pending = hang();
+    const tile = screen.getByRole('button', { name: 'Обои 2' });
+    await fireEvent.click(tile);
+    expect(tile.getAttribute('aria-pressed')).toBe('true');
+    pending.fail({ kind: 'wallpaper', message: 'Не удалось сменить обои: нет доступа' });
+    expect(await screen.findByText('Не удалось сменить обои: нет доступа')).toBeTruthy();
+    await waitFor(() => expect(tile.getAttribute('aria-pressed')).toBe('false'));
+  });
+
+  it('a second click works at once and commands run in click order', async () => {
+    render(AppearancePage, { subsection: 'colors' });
+    const pending = hang();
+    const a = screen.getByRole('button', { name: 'Цвет 1' });
+    const b = screen.getByRole('button', { name: 'Цвет 2' });
+    await fireEvent.click(a);
+    await fireEvent.click(b);
+    expect(a.getAttribute('aria-pressed')).toBe('false');
+    expect(b.getAttribute('aria-pressed')).toBe('true');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    pending.settle(fakeWindows({ action: 'setAccent', color: COLOR_SCHEMES[0].preview }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
   });
 });
 

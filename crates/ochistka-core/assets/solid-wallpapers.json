@@ -1,0 +1,18 @@
+[
+  { "id": "solid-acid-01", "label": "Кислотный лайм", "color": "#B4FF00", "pattern": "none" },
+  { "id": "solid-acid-04", "label": "Кислотный оранжевый", "color": "#FF7A00", "pattern": "none" },
+  { "id": "solid-acid-07", "label": "Кислотная бирюза", "color": "#00FFF0", "pattern": "dots" },
+  { "id": "solid-acid-10", "label": "Кислотный розовый", "color": "#FF009D", "pattern": "lines" },
+  { "id": "solid-acid-13", "label": "Кислотный жёлтый", "color": "#F5FF00", "pattern": "grid" },
+  { "id": "solid-acid-16", "label": "Кислотная фуксия", "color": "#FF00DD", "pattern": "grid" },
+  { "id": "solid-acid-19", "label": "Кислотный фиолетовый", "color": "#B400FF", "pattern": "dots" },
+  { "id": "solid-acid-22", "label": "Кислотный лимон", "color": "#E6FF00", "pattern": "lines" },
+  { "id": "solid-acid-25", "label": "Кислотный зелёный", "color": "#6DFF00", "pattern": "grid" },
+  { "id": "solid-acid-28", "label": "Кислотный пурпур", "color": "#9D00FF", "pattern": "grid" },
+  { "id": "solid-black", "label": "Чёрный", "color": "#080808", "pattern": "none" },
+  { "id": "solid-white", "label": "Белый", "color": "#FFFFFF", "pattern": "none" },
+  { "id": "solid-gray", "label": "Серый", "color": "#808080", "pattern": "none" },
+  { "id": "solid-graphite", "label": "Графит", "color": "#1C1C1E", "pattern": "dots" },
+  { "id": "solid-navy", "label": "Тёмно-синий", "color": "#0A2A66", "pattern": "none" },
+  { "id": "solid-blood", "label": "Бордовый", "color": "#860000", "pattern": "none" }
+]

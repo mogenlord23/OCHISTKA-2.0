@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { cursorSvg, CURSOR_DEFS, tilesFor, type AppearanceKind } from '../lib/appearance';
+  import {
+    COLOR_SCHEMES,
+    cursorSvg,
+    CURSOR_DEFS,
+    tilesFor,
+    type AppearanceKind,
+  } from '../lib/appearance';
   import {
     appearanceErrorMessage,
     appearanceStatus,
@@ -14,8 +20,6 @@
     restoreWallpaper,
     setAccent,
     setFillTaskbar,
-    setSystemTheme,
-    setTheme,
     setTransparency,
     type AppearanceStatus,
   } from '../lib/appearanceApi';
@@ -49,81 +53,142 @@
     },
     color: {
       title: 'Акцентный цвет Windows',
-      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и светлый или тёмный режим настраиваются отдельно.',
+      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются переключателями ниже.',
     },
   };
 
-  /** Действие, ожидающее подтверждения: текст диалога и сама операция. */
-  interface Pending {
-    title: string;
-    text: string;
-    confirm: string;
-    run: () => Promise<AppearanceStatus>;
+  /** Мгновенный выбор: плитка или переключатель выглядят выбранными сразу, система догоняет. */
+  interface Optimistic {
+    wallpaper?: string | null;
+    cursor?: string | null;
+    color?: string | null;
+    transparency?: boolean;
+    fill?: boolean;
   }
 
-  let busy = false;
   let reduceMotion = $state(loadSettings().reduceMotion);
   let visible = $state(PAGE_SIZE);
   let sentinel = $state<HTMLElement | null>(null);
   let status = $state<AppearanceStatus | null>(null);
-  let pending = $state<Pending | null>(null);
+  let optimistic = $state<Optimistic>({});
   let message = $state<{ kind: 'error'; text: string } | null>(null);
-  let cancelButton = $state<HTMLButtonElement | null>(null);
-  let dialogReturnFocus: HTMLElement | null = null;
+  /** Команды идут в Windows по одной, в порядке кликов, а интерфейс не ждёт. */
+  let queue: Promise<void> = Promise.resolve();
+  const tokens: Record<keyof Optimistic, number> = {
+    wallpaper: 0,
+    cursor: 0,
+    color: 0,
+    transparency: 0,
+    fill: 0,
+  };
 
   const isSettings = $derived(subsection === 'settings');
   const kind = $derived<AppearanceKind>(KIND_BY_SUBSECTION[subsection] ?? 'wallpaper');
   const tiles = $derived(tilesFor(kind));
-  /** Выбор читается из Windows: поставленные из OCHISTKA обои, схема курсора и акцент. */
+  const accentTileId = (accent: string | null | undefined) =>
+    COLOR_SCHEMES.find((tile) => tile.preview.toUpperCase() === accent)?.id ?? null;
+  /** Выбор читается из Windows (поставленные из OCHISTKA обои, схема курсора и акцент). */
   const selectedId = $derived(
     kind === 'wallpaper'
-      ? status?.wallpaperTile
+      ? optimistic.wallpaper !== undefined
+        ? optimistic.wallpaper
+        : status?.wallpaperTile
       : kind === 'cursor'
-        ? status?.cursorScheme
-        : tiles.find((tile) => tile.preview.toUpperCase() === status?.accentTile)?.id,
+        ? optimistic.cursor !== undefined
+          ? optimistic.cursor
+          : status?.cursorScheme
+        : optimistic.color !== undefined
+          ? optimistic.color
+          : accentTileId(status?.accentTile),
+  );
+  const transparencyOn = $derived(optimistic.transparency ?? status?.transparencyOn ?? false);
+  const fillOn = $derived(optimistic.fill ?? status?.fillOn ?? false);
+  const canRestoreWallpaper = $derived(
+    Boolean(status?.hasPreviousWallpaper) || (optimistic.wallpaper ?? null) !== null,
   );
   const shown = $derived(kind === 'wallpaper' ? tiles.slice(0, visible) : tiles);
   const cursorById = new Map(CURSOR_DEFS.map((def) => [def.id, def.cursor]));
 
-  /** Клик по плитке ставит значение в Windows, повторный клик по выбранной возвращает прежнее. */
-  async function pick(id: string) {
-    if (busy) return;
+  /**
+   * Мгновенно ставит `optimistic[key]`, потом в фоне выполняет команду. Успех: берём статус из
+   * ответа. Ошибка: убираем мгновенный выбор (рамка возвращается) и показываем короткое сообщение.
+   * Отмена окна выбора файла ошибкой не считается.
+   */
+  function optimisticRun(
+    key: keyof Optimistic | null,
+    value: Optimistic[keyof Optimistic] | undefined,
+    run: () => Promise<AppearanceStatus>,
+  ) {
+    message = null;
+    const mine = key ? ++tokens[key] : 0;
+    if (key && value !== undefined) (optimistic as Record<string, unknown>)[key] = value;
+    const settle = () => {
+      if (key && tokens[key] === mine) delete optimistic[key];
+    };
+    queue = queue.then(async () => {
+      try {
+        status = await run();
+      } catch (err) {
+        if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
+      } finally {
+        settle();
+      }
+    });
+  }
+
+  /** Клик по плитке: рамка сразу; повторный клик по выбранной возвращает прежнее. */
+  function pick(id: string) {
     const tile = tiles.find((item) => item.id === id);
     if (!tile) return;
     const selected = id === selectedId;
-    busy = true;
-    message = null;
-    try {
-      if (kind === 'wallpaper') {
-        status = selected ? await restoreWallpaper() : await applyWallpaperTile(id);
-      } else if (kind === 'cursor') {
-        const def = cursorById.get(id);
-        if (!def) return;
-        status = selected
-          ? await restoreCursorScheme()
-          : await applyCursorScheme(id, def.color, def.secondary, def.pattern);
-      } else {
-        status = selected ? await restoreAccent() : await setAccent(tile.preview);
-      }
-    } catch (err) {
-      if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
-    } finally {
-      busy = false;
+    if (kind === 'wallpaper') {
+      optimisticRun('wallpaper', selected ? null : id, () =>
+        selected ? restoreWallpaper() : applyWallpaperTile(id),
+      );
+    } else if (kind === 'cursor') {
+      const def = cursorById.get(id);
+      if (!def) return;
+      optimisticRun('cursor', selected ? null : id, () =>
+        selected
+          ? restoreCursorScheme()
+          : applyCursorScheme(id, def.color, def.secondary, def.pattern),
+      );
+    } else {
+      optimisticRun('color', selected ? null : id, () =>
+        selected ? restoreAccent() : setAccent(tile.preview),
+      );
     }
   }
 
-  /** Действия без вопросов: сам клик по кнопке и есть действие, всё обратимо. */
-  async function act(run: () => Promise<AppearanceStatus>) {
-    if (busy) return;
-    busy = true;
+  function toggleTransparency() {
+    const enabled = !transparencyOn;
+    optimisticRun('transparency', enabled, () => setTransparency(enabled));
+  }
+
+  function toggleFill() {
+    const enabled = !fillOn;
+    optimisticRun('fill', enabled, () => setFillTaskbar(enabled));
+  }
+
+  function restoreWindows() {
+    if (!status?.hasBackup) return;
+    optimistic.color = null;
+    optimistic.transparency = false;
+    optimistic.fill = false;
+    for (const key of ['color', 'transparency', 'fill'] as const) tokens[key] += 1;
+    const mine = { ...tokens };
     message = null;
-    try {
-      status = await run();
-    } catch (err) {
-      if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
-    } finally {
-      busy = false;
-    }
+    queue = queue.then(async () => {
+      try {
+        status = await restoreAppearance();
+      } catch (err) {
+        if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
+      } finally {
+        for (const key of ['color', 'transparency', 'fill'] as const) {
+          if (tokens[key] === mine[key]) delete optimistic[key];
+        }
+      }
+    });
   }
 
   function toggleMotion() {
@@ -139,103 +204,6 @@
       status = null;
     }
   }
-
-  function ask(item: Pending, from?: EventTarget | null) {
-    message = null;
-    dialogReturnFocus = from instanceof HTMLElement ? from : null;
-    pending = item;
-  }
-
-  function closeDialog() {
-    pending = null;
-    queueMicrotask(() => dialogReturnFocus?.focus());
-  }
-
-  async function confirmPending() {
-    const item = pending;
-    if (!item) return;
-    closeDialog();
-    try {
-      status = await item.run();
-    } catch (err) {
-      if (!isCancelled(err)) message = { kind: 'error', text: appearanceErrorMessage(err) };
-    }
-  }
-
-  const KEEP =
-    'Прежнее значение сохранится, его можно вернуть кнопкой «Вернуть оформление Windows».';
-
-  function askTransparency(event: Event) {
-    const enabled = !(status?.transparency ?? true);
-    ask(
-      {
-        title: enabled ? 'Включить эффект прозрачности?' : 'Выключить эффект прозрачности?',
-        text: `Изменится настройка прозрачности Windows. ${KEEP}`,
-        confirm: 'Изменить',
-        run: () => setTransparency(enabled),
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askFill(event: Event) {
-    const enabled = !(status?.fillTaskbar ?? false);
-    ask(
-      {
-        title: enabled ? 'Залить Пуск и панель задач?' : 'Убрать заливку Пуска и панели задач?',
-        text: `Акцентный цвет ${enabled ? 'появится' : 'уберётся'} на Пуске и панели задач. ${KEEP}`,
-        confirm: 'Изменить',
-        run: () => setFillTaskbar(enabled),
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askStartMode(event: Event) {
-    const dark = !(status?.darkSystem ?? false);
-    ask(
-      {
-        title: dark ? 'Тёмный режим для Пуска?' : 'Светлый режим для Пуска?',
-        text: `Изменится тема Пуска и панели задач. Приложения не затрагиваются. ${KEEP}`,
-        confirm: 'Изменить',
-        run: () => setSystemTheme(dark),
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askTheme(dark: boolean, event: Event) {
-    ask(
-      {
-        title: dark ? 'Включить тёмный режим?' : 'Включить светлый режим?',
-        text: `Изменится тема приложений, Пуска и панели задач Windows. ${KEEP}`,
-        confirm: 'Изменить',
-        run: () => setTheme(dark),
-      },
-      event.currentTarget,
-    );
-  }
-
-  function askRestore(event: Event) {
-    if (!status?.hasBackup) return;
-    ask(
-      {
-        title: 'Вернуть оформление Windows?',
-        text: 'Цвета, прозрачность и тема вернутся к значениям, которые были до первого изменения из OCHISTKA.',
-        confirm: 'Вернуть',
-        run: restoreAppearance,
-      },
-      event.currentTarget,
-    );
-  }
-
-  function onDialogKey(event: KeyboardEvent) {
-    if (event.key === 'Escape') closeDialog();
-  }
-
-  $effect(() => {
-    if (pending && cancelButton) cancelButton.focus();
-  });
 
   onMount(() => {
     void refreshStatus();
@@ -317,28 +285,25 @@
 
         {#if kind === 'wallpaper'}
           <div class="actions">
-            <button type="button" onclick={() => void act(pickAndApplyWallpaper)}
+            <button
+              type="button"
+              onclick={() => optimisticRun('wallpaper', undefined, pickAndApplyWallpaper)}
               >Добавить свои обои…</button
             >
             <button
               type="button"
-              aria-disabled={!status?.hasPreviousWallpaper}
-              class:disabled={!status?.hasPreviousWallpaper}
+              aria-disabled={!canRestoreWallpaper}
+              class:disabled={!canRestoreWallpaper}
               onclick={() => {
-                if (status?.hasPreviousWallpaper) void act(restoreWallpaper);
+                if (canRestoreWallpaper) optimisticRun('wallpaper', null, restoreWallpaper);
               }}>Вернуть прежний фон</button
             >
           </div>
         {:else if kind === 'color'}
           <div class="chips">
-            {@render chip('Эффект прозрачности', status?.transparency ?? true, askTransparency)}
-            {@render chip('Залить Пуск и всю панель задач', status?.fillTaskbar ?? false, askFill)}
-            {@render chip('Режим для Пуска', status?.darkSystem ?? false, askStartMode)}
-          </div>
-          <div class="chips">
-            {@render chip('Тёмный режим', status?.darkApps === true, (e) => askTheme(true, e))}
-            {@render chip('Светлый режим', status?.darkApps === false, (e) => askTheme(false, e))}
-            {@render chip('Вернуть оформление Windows', false, askRestore, !status?.hasBackup)}
+            {@render chip('Эффект прозрачности', transparencyOn, toggleTransparency)}
+            {@render chip('Залить панель задач и Пуск', fillOn, toggleFill)}
+            {@render chip('Вернуть оформление Windows', false, restoreWindows, !status?.hasBackup)}
           </div>
         {/if}
 
@@ -355,7 +320,7 @@
                 aria-label="{ACCESSIBLE_NAME[kind]} {index + 1}"
                 style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
-                onclick={() => void pick(tile.id)}
+                onclick={() => pick(tile.id)}
               >
                 {#if tile.thumb}
                   <img
@@ -371,6 +336,12 @@
                   <span class="cursor" aria-hidden="true"
                     >{@html cursorSvg(cursor, tile.id, 64)}</span
                   >
+                  <!-- Превью анимации «Занят»: бегущая дуга второго цвета крутится при наведении -->
+                  <span
+                    class="spin"
+                    aria-hidden="true"
+                    style:--spin={cursor.pattern === 'neon' ? cursor.color : cursor.secondary}
+                  ></span>
                 {/if}
               </button>
             </li>
@@ -386,29 +357,6 @@
       {/if}
     </div>
   {/key}
-
-  {#if pending}
-    <div class="backdrop">
-      <div
-        class="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="appearance-dialog-title"
-        aria-describedby="appearance-dialog-text"
-        tabindex="-1"
-        onkeydown={onDialogKey}
-      >
-        <h3 id="appearance-dialog-title">{pending.title}</h3>
-        <p id="appearance-dialog-text">{pending.text}</p>
-        <div class="dialog-actions">
-          <button type="button" bind:this={cancelButton} onclick={closeDialog}>Отмена</button>
-          <button type="button" class="primary" onclick={() => void confirmPending()}
-            >{pending.confirm}</button
-          >
-        </div>
-      </div>
-    </div>
-  {/if}
 </section>
 
 <style>
@@ -463,8 +411,7 @@
   }
 
   .actions button,
-  .more button,
-  .dialog button {
+  .more button {
     min-height: 44px;
     padding: 10px 14px;
     border: 1px solid var(--btn-border, #343434);
@@ -510,6 +457,11 @@
 
   .chip:hover:not(.disabled) {
     transform: translateY(-2px);
+  }
+
+  /* Нажатие: плашка на миг «вдавливается». Диалогов нет, клик и есть действие. */
+  .chip:active:not(.disabled) {
+    transform: scale(0.96);
   }
 
   .chip:focus-visible {
@@ -628,6 +580,28 @@
     height: 100%;
   }
 
+  .spin {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 16px;
+    height: 16px;
+    border: 3px solid rgb(255 255 255 / 18%);
+    border-top-color: var(--spin, #fff);
+    border-radius: 50%;
+    animation: spin 700ms linear infinite paused;
+  }
+
+  .tile:hover .spin {
+    animation-play-state: running;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .cursor :global(svg) {
     display: block;
     width: 64px;
@@ -705,58 +679,11 @@
     transform: translateX(22px);
   }
 
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-  }
-
-  .dialog {
-    width: min(440px, calc(100vw - 32px));
-    padding: 20px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    color: var(--ink);
-    animation: dialog-in 160ms cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  .dialog h3 {
-    margin: 0 0 8px;
-  }
-
-  .dialog p {
-    margin: 0;
-  }
-
-  .dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  .dialog button.primary {
-    border-color: transparent;
-    background: var(--ink);
-    color: var(--black);
-  }
-
-  @keyframes dialog-in {
-    from {
-      opacity: 0;
-      transform: translateY(6px) scale(0.98);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .pane,
-    .dialog,
     .tile,
     .chip,
+    .spin,
     .switch,
     .knob {
       animation: none;
@@ -764,7 +691,8 @@
     }
 
     .tile:hover,
-    .chip:hover:not(.disabled) {
+    .chip:hover:not(.disabled),
+    .chip:active:not(.disabled) {
       transform: none;
     }
   }
