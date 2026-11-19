@@ -13,6 +13,7 @@
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
+  import { navigation } from './lib/navigation.svelte';
   import { watchMaximized } from './lib/windowState';
   import { attachChromeGuards } from './lib/chromeGuards';
   import {
@@ -117,6 +118,11 @@
     });
   });
   let lastId: SectionId = 'vpn';
+
+  /** «Показать процесс» из другого раздела: открываем «Процессы». */
+  $effect(() => {
+    if (navigation.processPid !== null) select('processes');
+  });
 
   function select(id: SectionId) {
     activeId = id;

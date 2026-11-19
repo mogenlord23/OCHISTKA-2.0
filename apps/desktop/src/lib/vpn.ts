@@ -168,6 +168,21 @@ export function toolSwitchProps(tool: ToolModel) {
   };
 }
 
+/** Короткое состояние инструмента для подписи у кнопки: только то, что подтверждено. */
+export function toolStateText(tool: ToolModel): string {
+  if (!tool.available) return 'Выключено · недоступно';
+  switch (tool.status) {
+    case 'on':
+      return 'Включено';
+    case 'pending':
+      return 'Подождите…';
+    case 'error':
+      return 'Ошибка';
+    default:
+      return 'Выключено';
+  }
+}
+
 /** Результат попытки: успех только после проверки; при ошибке откат в «выкл» и фраза. */
 export function applyToolResult(
   tool: ToolModel,

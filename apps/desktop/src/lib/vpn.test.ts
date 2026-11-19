@@ -14,6 +14,7 @@ import {
   NETWORK_CHANGE_REASON,
   TOOL_UNAVAILABLE,
   applyToolResult,
+  toolStateText,
   toolSwitchProps,
   type ToolModel,
   splitEntries,
@@ -272,5 +273,16 @@ describe('tool switches (Zapret, Xbox DNS)', () => {
     const failed = applyToolResult(tool, { ok: false, reason: 'Не вышло' }, true);
     expect(failed).toMatchObject({ status: 'error', reason: 'Не вышло' });
     expect(toolSwitchProps(failed).checked).toBe(false);
+  });
+});
+
+describe('toolStateText', () => {
+  it('shows only confirmed states', () => {
+    expect(toolStateText(TOOL_UNAVAILABLE)).toBe('Выключено · недоступно');
+    const base = { ...TOOL_UNAVAILABLE, available: true, reason: null };
+    expect(toolStateText({ ...base, status: 'off' })).toBe('Выключено');
+    expect(toolStateText({ ...base, status: 'on' })).toBe('Включено');
+    expect(toolStateText({ ...base, status: 'pending' })).toBe('Подождите…');
+    expect(toolStateText({ ...base, status: 'error' })).toBe('Ошибка');
   });
 });

@@ -17,6 +17,7 @@
   import { getIcon } from '../lib/programsApi';
   import { prefetchProcessIcons } from '../lib/processIcons';
   import { cachedList, rememberList } from '../lib/listCache';
+  import { takeProcessRequest } from '../lib/navigation.svelte';
   import {
     endTask,
     exePath,
@@ -33,7 +34,9 @@
   const cachedProcesses = cachedList<ProcessInfo>('processes');
   let processes = $state<ProcessInfo[]>(cachedProcesses ?? []);
   let query = $state('');
-  let selectedPid = $state<number | null>(null);
+  /** Запрос из другого раздела («Показать процесс»): выбираем процесс и прокручиваем к нему. */
+  const requestedPid = takeProcessRequest();
+  let selectedPid = $state<number | null>(requestedPid);
   let listError = $state<ProcessesErrorInfo | null>(null);
   let actionError = $state<ProcessesErrorInfo | null>(null);
   let notice = $state('');
@@ -78,6 +81,19 @@
       listing = false;
     }
   }
+
+  /** Выбор пришёл из другого раздела: один раз прокручиваем список к выбранной строке. */
+  let scrollPending = requestedPid !== null;
+  $effect(() => {
+    if (!scrollPending || visible.length === 0) return;
+    void tick().then(() => {
+      const row = document.querySelector('.row.is-selected');
+      if (row && typeof row.scrollIntoView === 'function') {
+        row.scrollIntoView({ block: 'center' });
+        scrollPending = false;
+      }
+    });
+  });
 
   // Список обновляется раз в REFRESH_MS, пока открыт подраздел «Процессы».
   $effect(() => {

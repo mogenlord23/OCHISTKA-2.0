@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  connectionKey,
+  connectionMenuItems,
+  endpointText,
   formatEndpoint,
   formatRate,
   nextSort,
@@ -73,5 +76,41 @@ describe('sortConnections', () => {
     expect(
       sortConnections(list, { key: 'local', direction: 'asc' }).map((c) => c.localPort),
     ).toEqual([9, 20, 100]);
+  });
+});
+
+describe('соединения: ключ и действия меню', () => {
+  it('key is stable and distinguishes endpoints and pid', () => {
+    const a = conn({ localPort: 1, remotePort: 2 });
+    expect(connectionKey(a)).toBe(connectionKey({ ...a }));
+    expect(connectionKey(a)).not.toBe(connectionKey({ ...a, remotePort: 3 }));
+    expect(connectionKey(a)).not.toBe(connectionKey({ ...a, pid: 9 }));
+  });
+
+  it('offers only real actions; process actions need a known process', () => {
+    const withProcess = connectionMenuItems(conn({ pid: 42 }));
+    expect(withProcess.map((i) => i.id)).toEqual([
+      'copy-remote',
+      'copy-local',
+      'show-process',
+      'open-location',
+    ]);
+    expect(withProcess.every((i) => !i.disabled)).toBe(true);
+    const without = connectionMenuItems(conn({ pid: null }));
+    expect(without.filter((i) => i.disabled).map((i) => i.id)).toEqual([
+      'show-process',
+      'open-location',
+    ]);
+    expect(without.find((i) => i.id === 'show-process')?.reason).toBeTruthy();
+    expect(
+      connectionMenuItems(conn({ pid: 0 })).find((i) => i.id === 'open-location')?.disabled,
+    ).toBe(true);
+  });
+
+  it('copies the address with brackets for IPv6', () => {
+    expect(endpointText(conn({ remoteAddr: '1.2.3.4', remotePort: 443 }), 'remote')).toBe(
+      '1.2.3.4:443',
+    );
+    expect(endpointText(conn({ localAddr: '::1', localPort: 8 }), 'local')).toBe('[::1]:8');
   });
 });

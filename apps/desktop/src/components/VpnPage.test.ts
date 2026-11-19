@@ -502,14 +502,25 @@ describe('VpnPage: «Дополнительно», блоки «Маршруты
 });
 
 describe('VpnPage: маршруты и «Дополнительно»', () => {
-  it('shows Zapret and Xbox DNS switches, both off with status text', () => {
+  it('shows Zapret and Xbox DNS switches, both off with status text', async () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
-    expect(screen.getAllByText('Дополнительный инструмент')).toHaveLength(2);
+    // Порядок: Zapret, Xbox DNS, Маршруты и исключения; имя в кнопке не дублируется.
+    await screen.findByText('Маршруты');
+    const order = ['Zapret', 'Xbox DNS', 'Маршруты'].map(
+      (text) => screen.getAllByText(text, { exact: true })[0],
+    );
+    for (let i = 0; i < order.length - 1; i++) {
+      expect(
+        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    expect(screen.getAllByText('Zapret', { exact: true })).toHaveLength(1);
+    expect(screen.getAllByText('Xbox DNS', { exact: true })).toHaveLength(1);
     for (const name of ['Zapret', 'Xbox DNS']) {
       const sw = screen.getByRole('switch', { name });
       expect(sw.getAttribute('aria-checked')).toBe('false');
-      expect(sw.closest('.switch-row')?.textContent).toContain('выключено');
+      expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
     }
   });
 

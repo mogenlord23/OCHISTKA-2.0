@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Switch from './Switch.svelte';
   import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
@@ -11,7 +10,6 @@
   import {
     IMPORTING_LABEL,
     PREPARE_FAILED_PREFIX,
-    NETWORK_STATUS_OFF,
     TUN_MODE_REASON,
     connectUi,
     displayName,
@@ -22,7 +20,7 @@
     normalizePasted,
     prepareImport,
     TOOL_UNAVAILABLE,
-    toolSwitchProps,
+    toolStateText,
     type ToolModel,
     statusLine,
   } from '../lib/vpn';
@@ -66,17 +64,15 @@
       id: 'zapret',
       label: 'Zapret',
       description: 'Помогает открывать заблокированные сайты',
-      icon: '↗',
     },
     {
       id: 'xbox-dns',
       label: 'Xbox DNS',
       description: 'Свои DNS-серверы для Xbox и игр',
-      icon: 'X',
     },
   ] as const;
 
-  /** Состояние инструментов. Пока оба не реализованы: Switch выключен и недоступен, без имитации. */
+  /** Состояние инструментов. Пока оба не реализованы: кнопка выключена и недоступна, без имитации. */
   const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
     zapret: TOOL_UNAVAILABLE,
     'xbox-dns': TOOL_UNAVAILABLE,
@@ -429,25 +425,29 @@
             {/if}
           </section>
         {:else if tab === 'advanced'}
-          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
           {#each ADVANCED as item (item.id)}
             {@const tool = TOOLS[item.id]}
             <section class="card tool switch-row">
-              <span class="tool-icon" class:glyph={item.icon === 'X'} aria-hidden="true"
-                >{item.icon}</span
+              <button
+                type="button"
+                role="switch"
+                class="power tool-power"
+                class:on={tool.available && tool.status === 'on'}
+                aria-checked={tool.available && tool.status === 'on'}
+                aria-busy={tool.available && tool.status === 'pending'}
+                aria-label={item.label}
+                disabled={!tool.available || tool.status === 'pending'}
               >
+                <span class="power-knob" aria-hidden="true"></span>
+              </button>
               <div class="tool-text">
-                <span class="tool-label">Дополнительный инструмент</span>
                 <span class="switch-title">{item.label}</span>
-                <span class="note"
-                  >{item.description}. {tool.reason ?? ''}<span class="hidden">
-                    Состояние: {NETWORK_STATUS_OFF}</span
-                  ></span
-                >
+                <span class="tool-state">{toolStateText(tool)}</span>
+                <span class="note">{item.description}.{tool.reason ? ` ${tool.reason}` : ''}</span>
               </div>
-              <Switch {...toolSwitchProps(tool)} label={item.label} />
             </section>
           {/each}
+          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'network'}
           <VpnNetworkTab />
         {:else}
@@ -961,22 +961,16 @@
     padding: 22px 20px;
   }
 
-  .tool-icon {
-    display: grid;
-    flex-shrink: 0;
-    place-items: center;
-    width: 58px;
-    height: 58px;
-    border-radius: var(--radius-md);
-    background: var(--accent);
-    color: #000;
-    font-size: 1.5rem;
-    font-weight: 900;
+  .tool-power {
+    align-self: center;
   }
 
-  .tool-icon.glyph {
-    font-family: 'Arial Black', sans-serif;
-    font-size: 1.6rem;
+  .tool-state {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
   }
 
   .tool-text {
@@ -985,14 +979,6 @@
     flex-direction: column;
     gap: 3px;
     min-width: 0;
-  }
-
-  .tool-label {
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink);
   }
 
   .switch-title {

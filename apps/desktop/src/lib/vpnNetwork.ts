@@ -80,3 +80,46 @@ export function sortConnections(
 export function formatEndpoint(addr: string, port: number): string {
   return addr.includes(':') ? `[${addr}]:${port}` : `${addr}:${port}`;
 }
+
+/** Устойчивый ключ соединения: по нему держится выбор строки при обновлении списка. */
+export function connectionKey(c: TcpConnection): string {
+  return `${c.localAddr}:${c.localPort}>${c.remoteAddr}:${c.remotePort}#${c.pid ?? ''}`;
+}
+
+export type ConnectionAction = 'copy-remote' | 'copy-local' | 'show-process' | 'open-location';
+
+export interface ConnectionMenuItem {
+  id: ConnectionAction;
+  label: string;
+  disabled?: boolean;
+  reason?: string | null;
+}
+
+/** Только настоящие действия. Нет процесса — пункты про процесс недоступны, с причиной. */
+export function connectionMenuItems(c: TcpConnection): ConnectionMenuItem[] {
+  const hasProcess = c.pid !== null && c.pid > 0;
+  const noProcess = 'Процесс для этого соединения не определён';
+  return [
+    { id: 'copy-remote', label: 'Копировать удалённый адрес' },
+    { id: 'copy-local', label: 'Копировать локальный адрес' },
+    {
+      id: 'show-process',
+      label: 'Показать процесс',
+      disabled: !hasProcess,
+      reason: hasProcess ? null : noProcess,
+    },
+    {
+      id: 'open-location',
+      label: 'Открыть расположение файла',
+      disabled: !hasProcess,
+      reason: hasProcess ? null : noProcess,
+    },
+  ];
+}
+
+/** Строка адреса для копирования. */
+export function endpointText(c: TcpConnection, which: 'remote' | 'local'): string {
+  return which === 'remote'
+    ? formatEndpoint(c.remoteAddr, c.remotePort)
+    : formatEndpoint(c.localAddr, c.localPort);
+}
