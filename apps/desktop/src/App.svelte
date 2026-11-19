@@ -450,6 +450,15 @@
       visibility 0s;
   }
 
+  /* Низкое окно: раскрытая карточка целиком закрывает последнюю плитку панели (её верх на 588 px),
+     чтобы выбранная плитка не торчала полоской над карточкой. */
+  @media (max-height: 760px) {
+    .bottom-wrap.open {
+      min-height: 96px;
+      align-content: end;
+    }
+  }
+
   .bottom {
     display: flex;
     flex-direction: column;
