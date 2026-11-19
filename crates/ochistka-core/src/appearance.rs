@@ -25,9 +25,10 @@ pub enum AppearanceError {
     Invalid(String),
     #[error("Сохранённого оформления нет: сначала что-нибудь измените")]
     NoBackup,
-    #[error("Не удалось работать с реестром: {0}")]
+    /// Подробности (`{0}`) нужны для журнала; человеку показывается только фраза без техники.
+    #[error("Windows не приняла изменение. Попробуйте ещё раз.")]
     Registry(String),
-    #[error("Не удалось сменить обои: {0}")]
+    #[error("Не получилось сменить обои. Попробуйте ещё раз или выберите другие.")]
     Wallpaper(String),
     #[error("Эта функция доступна только в Windows")]
     Unsupported,
@@ -406,6 +407,10 @@ pub fn set_transparency(
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
+    if enabled {
+        // Прозрачность и заливка панели взаимоисключающие: включаем одну, выключаем другую.
+        toggle(reg, &["prevalence", "dwmPrevalence"], APPLIED_FILL, false)?;
+    }
     toggle(reg, &["transparency"], APPLIED_TRANSPARENCY, enabled)
 }
 
@@ -416,6 +421,9 @@ pub fn set_fill_taskbar(
     confirmed: bool,
 ) -> Result<(), AppearanceError> {
     need_confirm(confirmed)?;
+    if enabled {
+        toggle(reg, &["transparency"], APPLIED_TRANSPARENCY, false)?;
+    }
     toggle(reg, &["prevalence", "dwmPrevalence"], APPLIED_FILL, enabled)
 }
 
@@ -781,8 +789,8 @@ pub fn apply_cursor_scheme(
         paths.push((role.registry_name(), path));
     }
     ensure_cursor_backup(reg)?;
-    for (name, path) in paths {
-        reg.write(CURSORS_KEY, name, &RegValue::Text(path))?;
+    for (name, path) in &paths {
+        reg.write(CURSORS_KEY, name, &RegValue::Text(path.clone()))?;
     }
     // Имя схемы (значение по умолчанию ветки) и «Scheme Source» = 1: пользовательская схема.
     reg.write(
@@ -791,12 +799,33 @@ pub fn apply_cursor_scheme(
         &RegValue::Text(format!("OCHISTKA {}", spec.id)),
     )?;
     reg.write(CURSORS_KEY, "Scheme Source", &RegValue::Dword(1))?;
+    // Настоящий успех — значения реестра читаются назад такими, какими записаны. Код ошибки
+    // системы для этого не годится: у Windows «успешно завершено» бывает и в ответе-ошибке.
+    verify_cursor_registry(reg, &paths)?;
     reg.write(
         CURSOR_BACKUP_KEY,
         APPLIED_SCHEME,
         &RegValue::Text(spec.id.into()),
     )?;
     refresh.refresh()
+}
+
+/// Читает `HKCU\Control Panel\Cursors` и сверяет пути записанной схемы.
+fn verify_cursor_registry(
+    reg: &dyn RegistryPort,
+    paths: &[(&'static str, String)],
+) -> Result<(), AppearanceError> {
+    for (name, path) in paths {
+        match reg.read(CURSORS_KEY, name)? {
+            Some(RegValue::Text(now)) if now == *path => {}
+            _ => {
+                return Err(AppearanceError::Registry(format!(
+                    "значение курсора {name} не записалось"
+                )))
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Возвращает прежнюю схему курсоров. Без поставленной схемы ничего не делает.
@@ -1221,6 +1250,79 @@ mod tests {
         assert!(reg.writes.lock().unwrap().is_empty());
     }
 
+    /// Реестр, который молча теряет записи схемы курсоров: чтение назад это замечает.
+    struct ForgetfulReg(FakeReg);
+
+    impl RegistryPort for ForgetfulReg {
+        fn read(&self, key: &str, name: &str) -> Result<Option<RegValue>, AppearanceError> {
+            self.0.read(key, name)
+        }
+        fn write(&self, key: &str, name: &str, value: &RegValue) -> Result<(), AppearanceError> {
+            if key == CUR && name == "Arrow" {
+                return Ok(());
+            }
+            self.0.write(key, name, value)
+        }
+        fn delete(&self, key: &str, name: &str) -> Result<(), AppearanceError> {
+            self.0.delete(key, name)
+        }
+    }
+
+    #[test]
+    fn cursor_scheme_is_verified_by_reading_the_registry_back() {
+        let reg = ForgetfulReg(FakeReg::default());
+        let (files, refresh) = (FakeFiles::default(), FakeRefresh::default());
+        let result = apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-red"), true);
+        assert!(matches!(result, Err(AppearanceError::Registry(_))));
+        assert_eq!(
+            *refresh.0.lock().unwrap(),
+            0,
+            "Windows не просим обновляться"
+        );
+        assert_eq!(reg.0.get(CURSOR_BACKUP_KEY, APPLIED_SCHEME), None);
+    }
+
+    #[test]
+    fn errors_show_a_human_sentence_without_codes_or_registry_words() {
+        for err in [
+            AppearanceError::Registry("Операция успешно завершена. (os error 0)".into()),
+            AppearanceError::Wallpaper("os error 5".into()),
+        ] {
+            let text = err.to_string();
+            assert!(
+                !text.contains("реестр") && !text.contains("os error"),
+                "{text}"
+            );
+            assert!(!text.contains("завершена"), "{text}");
+        }
+    }
+
+    #[test]
+    fn transparency_and_taskbar_fill_exclude_each_other_in_one_request() {
+        let reg = FakeReg::with(&[
+            (PERSONALIZE, "EnableTransparency", RegValue::Dword(0)),
+            (DWM, "ColorPrevalence", RegValue::Dword(0)),
+        ]);
+        set_transparency(&reg, true, true).unwrap();
+        assert!(status(&reg).unwrap().transparency_on);
+        set_fill_taskbar(&reg, true, true).unwrap();
+        let on = status(&reg).unwrap();
+        assert!(on.fill_on && !on.transparency_on);
+        assert_eq!(
+            reg.get(PERSONALIZE, "EnableTransparency"),
+            Some(RegValue::Dword(0)),
+            "прозрачность вернулась к прежнему значению"
+        );
+        set_transparency(&reg, true, true).unwrap();
+        let on = status(&reg).unwrap();
+        assert!(on.transparency_on && !on.fill_on);
+        assert_eq!(reg.get(DWM, "ColorPrevalence"), Some(RegValue::Dword(0)));
+        // Оба можно выключить.
+        set_transparency(&reg, false, true).unwrap();
+        let off = status(&reg).unwrap();
+        assert!(!off.transparency_on && !off.fill_on);
+    }
+
     const RES: &str = r"C:\Program Files\OCHISTKA";
     const COPY: &str = r"C:\Data\OCHISTKA\Wallpapers\photo-1.jpg";
     const TRANSCODED: &str =
@@ -1409,8 +1511,8 @@ mod tests {
     fn solid_tile_is_generated_at_the_screen_size_and_applied() {
         let (reg, mut wp, files) = windows_default();
         wp.screen = Some((1280, 720));
-        let path = apply_wallpaper_tile(&reg, &wp, &files, None, "solid-acid-01", true).unwrap();
-        assert_eq!(path, r"C:\Data\OCHISTKA\Wallpapers\solid-acid-01.png");
+        let path = apply_wallpaper_tile(&reg, &wp, &files, None, "solid-acid-lime", true).unwrap();
+        assert_eq!(path, r"C:\Data\OCHISTKA\Wallpapers\solid-acid-lime.png");
         let bytes = files.files.lock().unwrap()[&path].clone();
         assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
         // IHDR: ширина и высота big-endian со смещения 16.
@@ -1419,7 +1521,7 @@ mod tests {
         assert_eq!(wp.current().unwrap().as_deref(), Some(path.as_str()));
         assert_eq!(
             status(&reg).unwrap().wallpaper_tile.as_deref(),
-            Some("solid-acid-01")
+            Some("solid-acid-lime")
         );
         restore_wallpaper(&reg, &wp, &files, true).unwrap();
         assert_eq!(wp.current().unwrap().as_deref(), Some(BACKUP_COPY));
