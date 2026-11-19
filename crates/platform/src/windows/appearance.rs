@@ -21,8 +21,13 @@ mod imp {
     use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_BINARY};
     use winreg::{RegKey, RegValue as RawValue};
 
+    /// Ошибка с кодом ОС 0 («Операция успешно завершена») — успех, а не ошибка.
     fn err(e: std::io::Error) -> AppearanceError {
         AppearanceError::Registry(e.to_string())
+    }
+
+    fn checked(result: std::io::Result<()>) -> Result<(), AppearanceError> {
+        crate::os_status::io_ok_if_code_zero(result).map_err(err)
     }
 
     impl RegistryPort for WindowsAppearanceRegistry {
@@ -47,7 +52,7 @@ mod imp {
             let (sub, _) = root
                 .create_subkey_with_flags(key, KEY_SET_VALUE)
                 .map_err(err)?;
-            match value {
+            checked(match value {
                 RegValue::Dword(v) => sub.set_value(name, v),
                 RegValue::Text(s) => sub.set_value(name, s),
                 RegValue::Binary(bytes) => sub.set_raw_value(
@@ -57,8 +62,7 @@ mod imp {
                         vtype: REG_BINARY,
                     },
                 ),
-            }
-            .map_err(err)
+            })
         }
 
         fn delete(&self, key: &str, name: &str) -> Result<(), AppearanceError> {
@@ -69,7 +73,7 @@ mod imp {
             match sub.delete_value(name) {
                 Ok(()) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(err(e)),
+                Err(e) => checked(Err(e)),
             }
         }
     }

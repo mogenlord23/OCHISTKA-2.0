@@ -11,6 +11,15 @@ use ::windows::Win32::UI::WindowsAndMessaging::{
     WM_SETTINGCHANGE,
 };
 
+/// Ошибка `windows` с кодом 0 («Операция успешно завершена») не ошибка: вызов отработал,
+/// просто Windows не выставила код. Настоящий успех проверяется чтением реестра.
+fn tolerate_code_zero(result: ::windows::core::Result<()>) -> Result<(), String> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(e) => crate::os_status::code_result(e.code().0, || e.to_string()),
+    }
+}
+
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
@@ -19,15 +28,14 @@ fn wide(text: &str) -> Vec<u16> {
 /// `HKCU\Control Panel\Cursors` и рассылает уведомление.
 pub fn reload_cursors() -> Result<(), String> {
     // SAFETY: SPI_SETCURSORS не использует pvParam, uiParam равен 0 по документации.
-    unsafe {
+    tolerate_code_zero(unsafe {
         SystemParametersInfoW(
             SPI_SETCURSORS,
             0,
             None,
             SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
         )
-    }
-    .map_err(|e| e.to_string())
+    })
 }
 
 /// Одно `WM_SETTINGCHANGE` с «ImmersiveColorSet» всем окнам; ждём не дольше 200 мс на окно,
@@ -73,15 +81,14 @@ pub fn current_wallpaper() -> Option<String> {
 pub fn set_wallpaper(path: &str) -> Result<(), String> {
     let mut text = wide(path);
     // SAFETY: `text` заканчивается нулём и живёт до конца вызова; система копирует строку.
-    unsafe {
+    tolerate_code_zero(unsafe {
         SystemParametersInfoW(
             SPI_SETDESKWALLPAPER,
             0,
             Some(text.as_mut_ptr().cast()),
             SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
         )
-    }
-    .map_err(|e| e.to_string())
+    })
 }
 
 /// Физический размер основного экрана в пикселях (не зависит от масштаба интерфейса).
