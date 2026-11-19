@@ -525,13 +525,13 @@
     justify-content: center;
     width: 72px;
     height: 72px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
   }
 
   .drive-glyph {
     width: 44px;
     height: 30px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     background: radial-gradient(circle at 34px 20px, #b4ff00 3px, transparent 4px), #080808;
   }
 
@@ -563,7 +563,7 @@
   .disk-bar {
     height: 6px;
     margin-top: 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     background: var(--surface);
     overflow: hidden;
   }
@@ -665,7 +665,7 @@
   .meter {
     flex-basis: 100%;
     height: 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     background: var(--surface);
     overflow: hidden;
   }

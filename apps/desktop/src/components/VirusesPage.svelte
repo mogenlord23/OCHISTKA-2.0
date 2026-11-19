@@ -335,7 +335,7 @@
     height: 10px;
     margin-bottom: 8px;
     overflow: hidden;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: #222;
     box-shadow: inset 0 0 0 1px var(--border);
   }
@@ -477,7 +477,7 @@
   .meter {
     height: 8px;
     margin: 8px 0 6px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     background: #21262d;
     overflow: hidden;
   }

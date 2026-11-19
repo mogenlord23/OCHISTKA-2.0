@@ -95,7 +95,7 @@
     width: 100%;
     height: 100%;
     border: 2px solid #4a4a4a;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     background: #1c1c1c;
     box-shadow: inset 0 0 0 2px #1c1c1c;
     transition:

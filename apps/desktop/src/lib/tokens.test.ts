@@ -77,7 +77,7 @@ describe('neutral, radius and type tokens', () => {
   });
 
   it('defines the radius scale', () => {
-    expect(RADIUS).toEqual({ sm: '8px', md: '12px', lg: '14px' });
+    expect(RADIUS).toEqual({ xs: '4px', sm: '8px', md: '12px', lg: '14px', pill: '999px' });
   });
 
   it('defines the type scale', () => {

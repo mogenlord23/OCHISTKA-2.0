@@ -632,7 +632,7 @@
   .bar {
     height: 4px;
     margin-top: 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     background: #21262d;
     overflow: hidden;
   }

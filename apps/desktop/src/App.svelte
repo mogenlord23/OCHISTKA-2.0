@@ -136,9 +136,11 @@
   style:--surface={NEUTRAL.surface}
   style:--surface-alt={NEUTRAL.surfaceAlt}
   style:--border={NEUTRAL.border}
+  style:--radius-xs={RADIUS.xs}
   style:--radius-sm={RADIUS.sm}
   style:--radius-md={RADIUS.md}
   style:--radius-lg={RADIUS.lg}
+  style:--radius-pill={RADIUS.pill}
   style:--text-caption={TYPE_SCALE.caption}
   style:--text-small={TYPE_SCALE.small}
   style:--text-body={TYPE_SCALE.body}
@@ -464,7 +466,7 @@
     height: 20px;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--muted);
     cursor: pointer;

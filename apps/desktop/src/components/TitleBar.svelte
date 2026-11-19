@@ -81,7 +81,7 @@
     height: 40px;
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: var(--black);
     color: #fff;
     cursor: pointer;

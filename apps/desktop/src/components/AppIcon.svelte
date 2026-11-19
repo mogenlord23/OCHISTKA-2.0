@@ -85,7 +85,7 @@
     justify-content: center;
     width: var(--size);
     height: var(--size);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     color: #080808;
     font-size: calc(var(--size) * 0.5);
     font-weight: 800;
