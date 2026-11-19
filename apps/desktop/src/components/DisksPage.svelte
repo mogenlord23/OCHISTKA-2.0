@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Check from './Check.svelte';
   import { onMount } from 'svelte';
   import { getSystemOverview } from '../lib/api';
   import { formatBytes } from '../lib/format';
@@ -293,14 +294,11 @@
     <ul class="rows">
       {#each categories as item (item.id)}
         <li>
-          <label>
-            <input
-              type="checkbox"
-              bind:checked={selected[item.id]}
-              disabled={!item.found || item.fileCount === 0}
-            />
-            <span class="title">{item.title}</span>
-          </label>
+          <Check
+            bind:checked={selected[item.id]}
+            disabled={!item.found || item.fileCount === 0}
+            label={item.title}
+          />
           <span class="size">
             {#if !item.found}
               не найдено

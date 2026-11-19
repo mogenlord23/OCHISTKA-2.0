@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Check from './Check.svelte';
   import { onMount } from 'svelte';
   import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
   import {
@@ -219,13 +220,12 @@
       {#each findings as finding, index (`${finding.path}#${index}`)}
         {@const score = scan.suspicions[finding.path]}
         <li>
-          <label class="pick">
-            <input type="checkbox" bind:checked={picked[index]} />
+          <Check bind:checked={picked[index]}>
             <span class="head">
               <strong>{finding.signature}</strong>
               <span class="path">{finding.path}</span>
             </span>
-          </label>
+          </Check>
           <small>Причина: сигнатура {finding.signature}</small>
           {#if score}
             <div
@@ -360,12 +360,6 @@
     font-weight: 400;
   }
 
-  input[type='checkbox'] {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
-  }
-
   input {
     padding: 12px 14px;
     border: 1px solid var(--border);
@@ -418,13 +412,6 @@
     border-radius: var(--radius-lg);
     background: var(--surface);
     box-shadow: 0 0 0 2px #000;
-  }
-
-  .pick {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 8px;
-    text-transform: none;
   }
 
   .scanner {

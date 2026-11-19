@@ -1,5 +1,6 @@
 <script lang="ts">
   import { SAVED_NOTE } from '../lib/tweaksText';
+  import Check from './Check.svelte';
 
   let {
     title,
@@ -21,17 +22,7 @@
 
 <label class="card" class:checked class:disabled>
   <span class="head">
-    <input
-      type="checkbox"
-      {checked}
-      {disabled}
-      onchange={(event) => {
-        const box = event.currentTarget;
-        // Состояние показывает только бэкенд: возвращаем галочку, пока не подтвердят.
-        box.checked = checked;
-        onchange(!checked);
-      }}
-    />
+    <Check bare controlled {checked} {disabled} {onchange} />
     <span class="title">{title}</span>
   </span>
   <span class="text">{description}</span>
@@ -74,13 +65,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-
-  input {
-    width: 20px;
-    height: 20px;
-    margin: 0;
-    accent-color: var(--btn-border, #cf00ff);
   }
 
   .title {
