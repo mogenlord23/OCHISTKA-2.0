@@ -48,7 +48,8 @@
   let selectedId = $state<string | null>(null);
   let measuring = $state(false);
   let measures = $state<Record<string, FolderMeasure>>({});
-  let sort = $state<SortState<ProgramSortKey> | null>(null);
+  /** При открытии: по размеру от большего к меньшему; дальше сортирует пользователь. */
+  let sort = $state<SortState<ProgramSortKey> | null>({ key: 'size', dir: 'desc' });
   /** Программа, ожидающая подтверждения удаления. Без подтверждения ядро не вызывается. */
   let pendingUninstall = $state<InstalledProgram | null>(null);
   let menu = $state<{ program: InstalledProgram; x: number; y: number } | null>(null);

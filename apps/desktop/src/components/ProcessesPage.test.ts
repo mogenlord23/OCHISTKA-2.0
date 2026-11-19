@@ -51,6 +51,19 @@ describe('ProcessesPage list', () => {
     expect(within(row).getByText('Нет данных')).toBeTruthy();
   });
 
+  it('opens sorted by CPU, largest first, whatever order the system returns', async () => {
+    vi.mocked(listProcesses).mockResolvedValue([LIST[2], LIST[1], LIST[0]]);
+    await mountProcesses();
+    const names = screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('button')[0].textContent?.trim());
+    expect(names).toEqual(['chrome.exe', 'explorer.exe', 'System']);
+    expect(screen.getByRole('columnheader', { name: /^CPU/ }).getAttribute('aria-sort')).toBe(
+      'descending',
+    );
+  });
+
   it('sorts by a clicked header: largest first, then smallest, with aria-sort', async () => {
     await mountProcesses();
     const names = () =>
@@ -72,6 +85,7 @@ describe('ProcessesPage list', () => {
       'ascending',
     );
 
+    // CPU уже отсортирован при открытии: первый клик меняет направление на «меньше сверху».
     await fireEvent.click(screen.getByRole('button', { name: /^CPU/ }));
     expect(names()).toEqual(['chrome.exe', 'explorer.exe', 'System']);
 
