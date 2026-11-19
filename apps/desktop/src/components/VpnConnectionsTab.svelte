@@ -92,7 +92,7 @@
           >
         {/if}
         {#each visible as row, index (first + index)}
-          <tr class="row">
+          <tr class="row selectable">
             <td>{formatEndpoint(row.localAddr, row.localPort)}</td>
             <td>{formatEndpoint(row.remoteAddr, row.remotePort)}</td>
             <td><span class="state-chip">{row.state}</span></td>
@@ -121,7 +121,8 @@
   }
 
   .table-wrap {
-    height: min(calc(100vh - 330px), 640px);
+    /* Таблица тянется до нижней линии постера: колонка и постер заканчиваются на одной линии. */
+    flex: 1;
     min-height: 160px;
     overflow: auto;
     border-radius: var(--radius-md);

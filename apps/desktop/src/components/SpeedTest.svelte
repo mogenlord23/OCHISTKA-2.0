@@ -191,10 +191,13 @@
     box-shadow: 0 0 0 2px #000;
   }
 
+  /* Высота строки заголовка постоянная (36 = кнопка): «Твой интернет» не смещается, когда кнопка
+     меняет подпись или заменяется на «Остановить». */
   .head {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
+    min-height: 36px;
     justify-content: space-between;
     gap: 8px 16px;
     margin-bottom: 8px;

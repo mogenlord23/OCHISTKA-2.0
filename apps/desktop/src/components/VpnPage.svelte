@@ -1009,9 +1009,29 @@
     .vpn {
       height: auto;
     }
+  }
 
-    .tab {
-      padding: 8px 4px;
+  /* Невысокое окно (минимум 712): карточки компактнее, чтобы блок серверов и «Соединения»
+     заканчивались на нижней линии постера, а не уходили под неё. Размеры вкладок те же. */
+  @media (max-height: 780px) {
+    .pane {
+      gap: 6px;
+    }
+
+    .card {
+      padding: 12px 16px;
+    }
+
+    .list-head {
+      margin-top: 4px;
+    }
+
+    .servers-card {
+      min-height: 96px;
+    }
+
+    .note {
+      margin-top: 6px;
     }
   }
 </style>
