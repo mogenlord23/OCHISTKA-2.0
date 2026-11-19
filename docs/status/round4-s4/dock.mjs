@@ -1,0 +1,18 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { mock } from './mock.mjs';
+const OUT = process.argv[2];
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 900, height: 712 } });
+await page.addInitScript(mock);
+await page.addInitScript(() => localStorage.setItem('dockCollapsed', '1'));
+await page.goto('http://127.0.0.1:1574/');
+await page.waitForTimeout(500);
+await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/dock-closed-900.png` });
+await page.locator('.handle').hover();
+await page.waitForTimeout(110);
+await page.screenshot({ path: `${OUT}/dock-mid-900.png` });
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/dock-open-900.png`, clip: { x: 790, y: 380, width: 110, height: 332 } });
+await browser.close();

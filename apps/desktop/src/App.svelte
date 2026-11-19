@@ -82,18 +82,14 @@
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
 
-  const STAGGER_MAX = 12;
-  const STAGGER_STEP = 28;
+  /* Смена страницы визуально мгновенная: только короткое проявление (90 мс), без сдвига и очереди. */
   const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
-  const FADE_IN = [
-    { opacity: 0, transform: 'translateY(10px)' },
-    { opacity: 1, transform: 'none' },
-  ];
+  const FADE_IN = [{ opacity: 0.35 }, { opacity: 1 }];
 
   let main = $state<HTMLElement>();
   let firstRun = true;
 
-  /** Плавная смена страницы: прозрачность и сдвиг 180 мс (только transform и opacity).
+  /** Смена страницы: короткое проявление 90 мс (только opacity).
       При смене раздела двигается всё содержимое, при смене вкладки только тело страницы.
       При prefers-reduced-motion: reduce анимации нет. */
   $effect(() => {
@@ -111,23 +107,8 @@
       void sub;
       const all = Array.from(main.children);
       const head = sectionChanged ? all.filter((el) => el.matches('h1, .lead, .subtabs')) : [];
-      const targets = all.filter((el) => !el.matches('h1, .lead, .subtabs, footer'));
-      // Один корневой блок страницы: его дочерние блоки появляются по очереди.
-      // Несколько блоков в main: по очереди появляются они сами. Очередь только для первых
-      // STAGGER_MAX элементов, остальные (сотни строк) появляются сразу и без анимации.
-      const items =
-        targets.length === 1 && targets[0].children.length > 1
-          ? Array.from(targets[0].children)
-          : targets;
-      for (const el of head) el.animate(FADE_IN, { duration: 180, easing: EASE });
-      items.slice(0, STAGGER_MAX).forEach((el, i) => {
-        el.animate(FADE_IN, {
-          duration: 220,
-          delay: i * STAGGER_STEP,
-          easing: EASE,
-          fill: 'backwards',
-        });
-      });
+      const body = all.filter((el) => !el.matches('h1, .lead, .subtabs, footer'));
+      for (const el of [...head, ...body]) el.animate(FADE_IN, { duration: 90, easing: EASE });
     });
   });
   let lastId: SectionId = 'vpn';
@@ -371,7 +352,6 @@
     background: url('./assets/pop-pattern.png') 0 0 / 320px 320px;
     opacity: var(--pattern-opacity);
     pointer-events: none;
-    will-change: transform;
   }
 
   .stage > :global(*) {
@@ -440,11 +420,17 @@
   /* Сворачивание: высота блока и прозрачность (маленький блок, поэтому без нагрузки). */
   .bottom-wrap {
     position: absolute;
-    right: 0;
+    right: 6px;
     bottom: 28px;
-    left: 0;
+    left: 6px;
     z-index: 10;
     display: grid;
+    /* Карточка поверх панели: своя обводка и скругление из токена, чтобы срез плитки под ней
+       читался как перекрытие, а не как обрезанная плитка. isolation: свой слой наложения. */
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
     /* Сплошной фон окна: раскрытый док целиком закрывает пункты под собой (без просвета). Прозрачность
        не анимируется, иначе в середине анимации цвет выбранной плитки просвечивает. */
     background-color: var(--window);
@@ -456,6 +442,7 @@
   }
 
   .bottom-wrap.open {
+    border-color: var(--border);
     grid-template-rows: 1fr;
     visibility: visible;
     transition:

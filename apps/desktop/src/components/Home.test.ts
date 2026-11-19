@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Home from './Home.svelte';
 import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
+import { clearSnapshot, saveSnapshot } from '../lib/computerCache';
 import type { HardwareOverview, SystemOverview } from '../lib/types';
 
 vi.mock('../lib/api', async (importOriginal) => {
@@ -69,6 +70,7 @@ async function flush(): Promise<void> {
 const consoleError = vi.spyOn(console, 'error');
 
 beforeEach(() => {
+  clearSnapshot();
   vi.useFakeTimers();
   consoleError.mockImplementation(() => {});
   hardwareMock.mockResolvedValue(hardwareSample);
@@ -84,10 +86,31 @@ afterEach(() => {
 });
 
 describe('Home', () => {
-  it('shows loading until data arrives', () => {
+  it('shows the structure at once, without a loading screen', () => {
     getMock.mockReturnValue(new Promise(() => {}));
     render(Home);
-    expect(screen.getByText('Загрузка…')).toBeTruthy();
+    expect(screen.queryByText('Загрузка…')).toBeNull();
+    expect(screen.getByRole('group', { name: 'Комплектующие' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Обновить сведения' })).toBeTruthy();
+  });
+
+  it('shows the cached values before the first answer arrives', () => {
+    saveSnapshot(
+      {
+        overview: sample,
+        hardware: hardwareSample,
+        cpuHistory: [10],
+        gpuHistory: [],
+        ramHistory: [50],
+        updatedAt: 1000,
+      },
+      0,
+      true,
+    );
+    getMock.mockReturnValue(new Promise(() => {}));
+    render(Home);
+    expect(screen.getByText('Windows 11 · 24H2')).toBeTruthy();
+    expect(screen.getByText(/CPU 12%/)).toBeTruthy();
   });
 
   it('renders CPU, memory and disks', async () => {

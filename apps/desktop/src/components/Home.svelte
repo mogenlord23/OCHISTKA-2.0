@@ -13,6 +13,7 @@
     shortPercent,
     systemLine,
   } from '../lib/computer';
+  import { loadSnapshot, saveSnapshot } from '../lib/computerCache';
   import { formatBytes } from '../lib/format';
   import { HISTORY_LIMIT, pushSample } from '../lib/history';
   import { SECTION_COLORS } from '../lib/tokens';
@@ -44,14 +45,27 @@
 
   const GRAPH_COLOR = SECTION_COLORS.viruses;
 
-  let overview = $state<SystemOverview | null>(null);
+  /** Структура видна сразу: пока данных нет, берутся последние значения из кэша или прочерки. */
+  const cached = loadSnapshot();
+  const EMPTY_OVERVIEW: SystemOverview = {
+    cpu: { usagePercent: 0, logicalCores: 0 },
+    memory: { totalBytes: 0, usedBytes: 0, usagePercent: 0 },
+    disks: [],
+    osName: '',
+    osVersion: '',
+  };
+
+  let overview = $state<SystemOverview | null>(cached?.overview ?? null);
   let error = $state<CommandError | null>(null);
-  let hardware = $state<HardwareOverview | null>(null);
+  let hardware = $state<HardwareOverview | null>(cached?.hardware ?? null);
   let hardwareError = $state<CommandError | null>(null);
-  let cpuHistory = $state<number[]>([]);
-  let gpuHistory = $state<number[]>([]);
-  let ramHistory = $state<number[]>([]);
-  let updatedAt = $state<Date | null>(null);
+  let cpuHistory = $state<number[]>(cached?.cpuHistory ?? []);
+  let gpuHistory = $state<number[]>(cached?.gpuHistory ?? []);
+  let ramHistory = $state<number[]>(cached?.ramHistory ?? []);
+  let updatedAt = $state<Date | null>(cached?.updatedAt ? new Date(cached.updatedAt) : null);
+  /** Пока нет ни одного ответа, значения плиток показываются прочерками. */
+  const ov = $derived(overview ?? EMPTY_OVERVIEW);
+  const ready = $derived(overview !== null);
   let view = $state<View>(null);
   /** Последнее раскрытое: содержимое остаётся видимым, пока карточка закрывается. */
   let shownView = $state<Exclude<View, null>>('summary');
@@ -73,7 +87,43 @@
     // Пока предыдущий запрос не завершился, новый не запускается: зависший опрос не накапливается.
     let pending = false;
 
+    // Системные сведения и комплектующие опрашиваются независимо: медленный ответ
+    // комплектующих не задерживает загрузку, память и диски.
+    let hardwarePending = false;
+    const loadHardware = async () => {
+      if (hardwarePending) {
+        return;
+      }
+      hardwarePending = true;
+      try {
+        const hw = await readHardware();
+        if (active) {
+          hardware = hw.data ?? hardware;
+          hardwareError = hw.error;
+          const gpuUsage = hw.data?.gpus[0]?.usagePercent;
+          if (gpuUsage !== null && gpuUsage !== undefined) {
+            gpuHistory = pushSample(gpuHistory, gpuUsage, HISTORY_LIMIT);
+          }
+          persist();
+        }
+      } finally {
+        hardwarePending = false;
+      }
+    };
+
+    const persist = () => {
+      saveSnapshot({
+        overview,
+        hardware,
+        cpuHistory,
+        gpuHistory,
+        ramHistory,
+        updatedAt: updatedAt?.getTime() ?? null,
+      });
+    };
+
     const load = async () => {
+      void loadHardware();
       if (pending) {
         return;
       }
@@ -94,29 +144,19 @@
             REQUEST_TIMEOUT_MS,
           );
         });
-        const [next, hw] = await Promise.race([
-          Promise.all([getSystemOverview(), readHardware()]),
-          timeout,
-        ]);
+        const next = await Promise.race([getSystemOverview(), timeout]);
         if (active) {
           overview = next;
           error = null;
-          hardware = hw.data;
-          hardwareError = hw.error;
           updatedAt = new Date();
           // История за 90 секунд: по одному замеру на каждый опрос.
           cpuHistory = pushSample(cpuHistory, next.cpu.usagePercent, HISTORY_LIMIT);
           ramHistory = pushSample(ramHistory, next.memory.usagePercent, HISTORY_LIMIT);
-          const gpuUsage = hw.data?.gpus[0]?.usagePercent;
-          if (gpuUsage !== null && gpuUsage !== undefined) {
-            gpuHistory = pushSample(gpuHistory, gpuUsage, HISTORY_LIMIT);
-          }
+          persist();
         }
       } catch (err) {
         if (active) {
           error = toCommandError(err);
-          hardware = null;
-          hardwareError = null;
         }
       } finally {
         clearTimeout(timeoutId);
@@ -167,7 +207,7 @@
     </h2>
     <p>{error.message}</p>
   </section>
-{:else if overview}
+{:else}
   <div class="summary" role="group" aria-label="Текущая загрузка">
     <button
       type="button"
@@ -176,9 +216,9 @@
       aria-label="Показать графики загрузки"
       onclick={() => open('summary')}
     >
-      <span>CPU {shortPercent(overview.cpu.usagePercent)}</span>
+      <span>CPU {ready ? shortPercent(ov.cpu.usagePercent) : '—'}</span>
       <span>GPU {gpuNow === null ? '—' : shortPercent(gpuNow)}</span>
-      <span>RAM {shortPercent(overview.memory.usagePercent)}</span>
+      <span>RAM {ready ? shortPercent(ov.memory.usagePercent) : '—'}</span>
     </button>
     <button type="button" class="refresh" onclick={() => reload()}>Обновить сведения</button>
   </div>
@@ -229,25 +269,23 @@
           <button type="button" class="hide" onclick={() => (view = null)}>Скрыть</button>
           <h2>{detailTitle(shownView)}</h2>
           {#if shownView === 'cpu'}
-            <p class="headline">{headline(overview.cpu.usagePercent)}</p>
+            <p class="headline">{headline(ov.cpu.usagePercent)}</p>
             <LineGraph
               values={cpuHistory}
               label="График загрузки процессора за 90 секунд"
               color={GRAPH_COLOR}
             />
             <p>Модель: {cpuName(hardware)}</p>
-            <p>Потоков: {overview.cpu.logicalCores}</p>
+            <p>Потоков: {ov.cpu.logicalCores}</p>
           {:else if shownView === 'ram'}
-            <p class="headline">{headline(overview.memory.usagePercent)}</p>
+            <p class="headline">{headline(ov.memory.usagePercent)}</p>
             <LineGraph
               values={ramHistory}
               label="График использования памяти за 90 секунд"
               color={GRAPH_COLOR}
             />
             <p>
-              Занято {formatBytes(overview.memory.usedBytes)} из {formatBytes(
-                overview.memory.totalBytes,
-              )}
+              Занято {formatBytes(ov.memory.usedBytes)} из {formatBytes(ov.memory.totalBytes)}
             </p>
           {:else if shownView === 'gpu'}
             <p class="headline">{headline(gpuNow)}</p>
@@ -289,7 +327,7 @@
               <p>{HARDWARE_LOADING}</p>
             {/if}
           {:else if shownView === 'disks'}
-            {#each overview.disks as disk (disk.mountPoint)}
+            {#each ov.disks as disk (disk.mountPoint)}
               <div class="disk">
                 <p>
                   <span>{disk.displayName}</span>
@@ -315,8 +353,8 @@
               <p>Диски не найдены.</p>
             {/each}
           {:else if shownView === 'system'}
-            <p>Название: {overview.osName || '—'}</p>
-            <p>Версия: {overview.osVersion || '—'}</p>
+            <p>Название: {ov.osName || '—'}</p>
+            <p>Версия: {ov.osVersion || '—'}</p>
           {/if}
         </section>
       {/if}
@@ -342,7 +380,7 @@
           {#if tile.id === 'cpu'}
             <span class="tile-value">{cpuName(hardware)}</span>
           {:else if tile.id === 'ram'}
-            <span class="tile-value">{ramTotal(overview.memory.totalBytes)}</span>
+            <span class="tile-value">{ready ? ramTotal(ov.memory.totalBytes) : '—'}</span>
           {:else if tile.id === 'gpu'}
             {#if hardwareError}
               <span class="tile-value">—</span>
@@ -363,17 +401,16 @@
               <span class="tile-value">{HARDWARE_LOADING}</span>
             {/if}
           {:else if tile.id === 'disks'}
-            <span class="tile-value">{drivesLine(hardware?.driveModels ?? [], overview.disks)}</span
+            <span class="tile-value"
+              >{ready || hardware ? drivesLine(hardware?.driveModels ?? [], ov.disks) : '—'}</span
             >
           {:else if tile.id === 'system'}
-            <span class="tile-value">{systemLine(overview.osName, overview.osVersion)}</span>
+            <span class="tile-value">{ready ? systemLine(ov.osName, ov.osVersion) : '—'}</span>
           {/if}
         </span>
       </button>
     {/each}
   </div>
-{:else}
-  <p>Загрузка…</p>
 {/if}
 
 <style>
