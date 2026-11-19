@@ -15,7 +15,7 @@ path = "src/main.rs"
 ochistka-core = { path = "../../../crates/ochistka-core" }
 ochistka-platform = { path = "../../../crates/platform" }
 serde = { version = "1.0.229", features = ["derive"] }
-tauri = { version = "2.12.6", features = [] }
+tauri = { version = "2.12.6", features = ["image-png"] }
 
 [dev-dependencies]
 serde_json = "1"

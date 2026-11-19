@@ -47,6 +47,10 @@ pub fn run() {
         ))
         .setup(|app| {
             use tauri::Manager;
+            // Значок окна и панели задач задаём явно: иначе берётся самый маленький из списка.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
+            }
             let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
             let (files, refresh) = ochistka_platform::current_appearance_system_ports();
             let resources = app
