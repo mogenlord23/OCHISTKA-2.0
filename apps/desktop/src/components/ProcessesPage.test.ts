@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ProcessesPage from './ProcessesPage.svelte';
-import { endTask, exePath, listProcesses, listServices } from '../lib/processesApi';
+import { endTask, exePath, listProcesses, revealExe } from '../lib/processesApi';
 import type { ProcessInfo } from '../lib/processesApi';
 
 vi.mock('../lib/processesApi', async (importOriginal) => ({
@@ -10,7 +10,7 @@ vi.mock('../lib/processesApi', async (importOriginal) => ({
   endTask: vi.fn(),
   exePath: vi.fn(),
   listProcesses: vi.fn(),
-  listServices: vi.fn(),
+  revealExe: vi.fn(),
 }));
 
 const LIST: ProcessInfo[] = [
@@ -188,28 +188,44 @@ describe('ProcessesPage end task', () => {
     expect(endTask).not.toHaveBeenCalled();
   });
 
-  it('shows the file path as text and does not open anything', async () => {
-    vi.mocked(exePath).mockResolvedValue('C:\\Program Files\\Chrome\\chrome.exe');
+  it('«Расположение файла» opens Explorer through the backend and shows the path', async () => {
+    vi.mocked(revealExe).mockResolvedValue('C:\\Program Files\\Chrome\\chrome.exe');
     await mountProcesses();
     await fireEvent.click(screen.getByRole('button', { name: 'chrome.exe' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Расположение файла' }));
     await vi.waitFor(() =>
       expect(screen.getByText(/C:\\Program Files\\Chrome\\chrome.exe/)).toBeTruthy(),
     );
-    expect(exePath).toHaveBeenCalledWith(100);
+    expect(revealExe).toHaveBeenCalledWith(100);
+    expect(revealExe).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the human reason when the file cannot be shown, and does not hang', async () => {
+    vi.mocked(revealExe).mockRejectedValue({
+      kind: 'noPath',
+      message: 'Это системный процесс Windows, у него нет файла на диске.',
+    });
+    await mountProcesses();
+    await fireEvent.click(screen.getByRole('button', { name: 'System' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Расположение файла' }));
+    await vi.waitFor(() => expect(screen.getByText(/нет файла на диске/)).toBeTruthy());
+    const button = screen.getByRole('button', { name: 'Расположение файла' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+  });
+
+  it('does nothing on hover over the row or the button', async () => {
+    await mountProcesses();
+    const row = screen.getByText('chrome.exe').closest('[role="row"]') as HTMLElement;
+    await fireEvent.mouseEnter(row);
+    await fireEvent.mouseOver(row);
+    expect(revealExe).not.toHaveBeenCalled();
   });
 });
 
-describe('ProcessesPage services', () => {
-  it('shows the placeholder reason from the backend', async () => {
-    vi.mocked(listServices).mockRejectedValue({
-      kind: 'notConnected',
-      message: 'Список служб пока не подключён: нужен Service Control Manager',
-    });
+describe('ProcessesPage services subsection', () => {
+  it('renders the services page and does not poll processes', async () => {
     render(ProcessesPage, { subsection: 'services' });
-    await vi.waitFor(() =>
-      expect(screen.getByRole('alert').textContent).toContain('Список служб пока не подключён'),
-    );
+    expect(screen.getByRole('region', { name: 'Службы' })).toBeTruthy();
     expect(listProcesses).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 <script lang="ts">
   import AppIcon from './AppIcon.svelte';
+  import ServicesPage from './ServicesPage.svelte';
   import {
     filterProcesses,
     formatCpu,
@@ -15,12 +16,11 @@
   import {
     endTask,
     exePath,
+    revealExe,
     listProcesses,
-    listServices,
     toProcessesError,
     type ProcessInfo,
     type ProcessesErrorInfo,
-    type ServiceInfo,
   } from '../lib/processesApi';
 
   let { subsection }: { subsection: string } = $props();
@@ -32,12 +32,12 @@
   let listError = $state<ProcessesErrorInfo | null>(null);
   let actionError = $state<ProcessesErrorInfo | null>(null);
   let notice = $state('');
-  let pathInfo = $state<{ pid: number; path: string | null } | null>(null);
+  /** Результат «Расположение файла»: показанный путь или причина, почему показать нельзя. */
+  let pathInfo = $state<{ pid: number; path: string | null; reason: string | null } | null>(null);
+  let revealing = $state(false);
   /** Процесс, ожидающий подтверждения завершения. Без подтверждения ядро не вызывается. */
   let pending = $state<ProcessInfo | null>(null);
   let updatedAt = $state('');
-  let services = $state<ServiceInfo[]>([]);
-  let servicesError = $state<ProcessesErrorInfo | null>(null);
 
   let cancelButton = $state<HTMLButtonElement | null>(null);
 
@@ -74,15 +74,6 @@
     }
   }
 
-  async function loadServices() {
-    try {
-      services = await listServices();
-      servicesError = null;
-    } catch (err) {
-      servicesError = toProcessesError(err);
-    }
-  }
-
   // Список обновляется раз в REFRESH_MS, пока открыт подраздел «Процессы».
   $effect(() => {
     if (subsection !== 'processes') return;
@@ -91,23 +82,25 @@
     return () => clearInterval(timer);
   });
 
-  $effect(() => {
-    if (subsection !== 'services') return;
-    void loadServices();
-  });
-
   // Фокус на «Отмена» при открытии диалога: так случайный Enter не завершает процесс.
   $effect(() => {
     if (pending && cancelButton) cancelButton.focus();
   });
 
+  /** «Расположение файла»: Проводник с выделенным файлом. Нет пути — причина человеческим языком. */
   async function showPath(proc: ProcessInfo) {
+    if (revealing) return;
+    revealing = true;
     actionError = null;
     notice = '';
     try {
-      pathInfo = { pid: proc.pid, path: await exePath(proc.pid) };
+      const path = await revealExe(proc.pid);
+      pathInfo = { pid: proc.pid, path, reason: null };
     } catch (err) {
-      actionError = toProcessesError(err);
+      const info = toProcessesError(err);
+      pathInfo = { pid: proc.pid, path: null, reason: info.message };
+    } finally {
+      revealing = false;
     }
   }
 
@@ -154,36 +147,7 @@
 </script>
 
 {#if subsection === 'services'}
-  <section class="page" aria-labelledby="services-title">
-    <h2 id="services-title" class="sr-only">Службы</h2>
-    <p class="lead">Только чтение: службы здесь не запускаются и не останавливаются.</p>
-    {#if servicesError}
-      <p class="alert" role="alert">{servicesError.message}</p>
-    {:else if services.length === 0}
-      <p class="status-line">Служб нет.</p>
-    {:else}
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr
-              ><th scope="col">Имя</th><th scope="col">Отображаемое имя</th><th scope="col"
-                >Запуск</th
-              ></tr
-            >
-          </thead>
-          <tbody>
-            {#each services as service (service.name)}
-              <tr>
-                <td>{service.name}</td>
-                <td>{service.displayName}</td>
-                <td>{service.startType}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </section>
+  <ServicesPage />
 {:else}
   <section class="page" aria-labelledby="processes-title">
     <h2 id="processes-title" class="sr-only">Процессы</h2>
@@ -211,8 +175,8 @@
       >
       <button
         type="button"
-        disabled={!selected}
-        title={selected ? 'Показать путь к файлу' : 'Сначала выбери процесс в списке'}
+        disabled={!selected || revealing}
+        title={selected ? 'Показать файл процесса в Проводнике' : 'Сначала выбери процесс в списке'}
         onclick={() => selected && showPath(selected)}>Расположение файла</button
       >
     </div>
@@ -308,12 +272,15 @@
       </div>
     {/if}
 
-    <p class="field-label">Путь выбранного процесса</p>
+    <p class="field-label">Файл выбранного процесса</p>
     <div class="path-box" aria-live="polite">
       {#if pathInfo}
         <span class="path">
-          PID {pathInfo.pid}:
-          {pathInfo.path ?? 'путь не отдан системой (нет доступа к процессу)'}
+          {#if pathInfo.path}
+            Показан в Проводнике (PID {pathInfo.pid}): {pathInfo.path}
+          {:else}
+            PID {pathInfo.pid}: {pathInfo.reason}
+          {/if}
         </span>
       {:else if selected}
         {selected.name} · PID {selected.pid} — нажми «Расположение файла»
@@ -351,8 +318,10 @@
 <style>
   .page {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
     margin-top: 0;
     color: var(--page-text);
   }
@@ -363,14 +332,10 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  .lead,
   .status-line {
     margin: 0;
     font-size: var(--text-small);
     font-weight: 600;
-  }
-  .lead {
-    font-weight: 700;
   }
   .field-label {
     margin: 4px 0 0;
@@ -460,42 +425,11 @@
   .notice {
     color: var(--ink);
   }
-  .table-wrap {
-    max-height: calc(100vh - 456px);
-    min-height: 180px;
-    overflow: auto;
-    border-radius: var(--radius-md);
-    background: var(--surface);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-small);
-    color: var(--ink);
-  }
-  th,
-  td {
-    padding: 0 12px;
-    height: 41px;
-    border-bottom: 1px solid #262626;
-    text-align: left;
-  }
-  th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    height: 36px;
-    border-bottom: 0;
-    background: var(--black);
-    color: var(--accent);
-    font-size: var(--text-caption);
-    font-weight: 700;
-    text-transform: uppercase;
-  }
   /* Список процессов: сетка из div с ролями таблицы (выделение — скруглённая рамка). */
+  /* Список заполняет всю высоту страницы до низа, прокрутка внутри; строки фиксированной высоты. */
   .grid {
-    max-height: calc(100vh - 440px);
-    min-height: 180px;
+    flex: 1;
+    min-height: 160px;
     overflow: auto;
     border-radius: var(--radius-lg);
     background: #111;

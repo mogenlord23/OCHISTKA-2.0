@@ -5,6 +5,7 @@ import {
   listInstalled,
   listStartup,
   measureFolder,
+  revealInExplorer,
   setStartupEnabled,
   stopMeasure,
   uninstallProgram,
@@ -19,6 +20,7 @@ vi.mock('../lib/programsApi', async (importOriginal) => ({
   listInstalled: vi.fn(),
   listStartup: vi.fn(),
   measureFolder: vi.fn(),
+  revealInExplorer: vi.fn(),
   stopMeasure: vi.fn(),
 }));
 
@@ -155,7 +157,7 @@ describe('ProgramsPage installed programs', () => {
     const items = within(menu)
       .getAllByRole('menuitem')
       .map((item) => item.textContent?.trim());
-    expect(items).toEqual(['Размер папки', 'Показать путь', 'Удалить…']);
+    expect(items).toEqual(['Размер папки', 'Показать в Проводнике', 'Удалить…']);
 
     await fireEvent.keyDown(menu, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
@@ -173,12 +175,16 @@ describe('ProgramsPage installed programs', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('menu: show path prints the folder, delete asks for confirmation', async () => {
+  it('menu: show in Explorer opens the folder, delete asks for confirmation', async () => {
+    vi.mocked(revealInExplorer).mockResolvedValue(undefined);
     mountInstalled();
     const row = (await screen.findByText('Google Chrome')).closest('[role="row"]') as HTMLElement;
     await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Показать путь' }));
-    expect(screen.getByRole('status').textContent).toContain(CHROME.installLocation);
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Показать в Проводнике' }));
+    expect(revealInExplorer).toHaveBeenCalledWith(CHROME.installLocation);
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toContain(CHROME.installLocation as string),
+    );
 
     await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
     await fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить…' }));
@@ -310,5 +316,41 @@ describe('ProgramsPage startup', () => {
     render(ProgramsPage, { subsection: 'startup' });
     await fireEvent.click(await screen.findByRole('button', { name: 'Messenger' }));
     expect(screen.getByRole('button', { name: 'Включить автозагрузку' })).toBeTruthy();
+  });
+});
+
+describe('ProgramsPage show in Explorer', () => {
+  it('opens Explorer only on click of the path, never on hover', async () => {
+    vi.mocked(revealInExplorer).mockResolvedValue(undefined);
+    mountInstalled();
+    const row = (await screen.findByText('Google Chrome')).closest('[role="row"]') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('button', { name: 'Google Chrome' }));
+    const path = screen.getByRole('button', { name: CHROME.installLocation as string });
+    await fireEvent.mouseEnter(path);
+    await fireEvent.mouseOver(path);
+    expect(revealInExplorer).not.toHaveBeenCalled();
+    await fireEvent.click(path);
+    expect(revealInExplorer).toHaveBeenCalledTimes(1);
+    expect(revealInExplorer).toHaveBeenCalledWith(CHROME.installLocation);
+  });
+
+  it('the button explains itself when there is no install folder, and shows backend reasons', async () => {
+    mountInstalled();
+    const row = (await screen.findByText('Old Tool')).closest('[role="row"]') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('button', { name: 'Old Tool' }));
+    const button = screen.getByRole('button', {
+      name: 'Показать в Проводнике',
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe('Папка установки в реестре не указана');
+
+    vi.mocked(revealInExplorer).mockRejectedValue({
+      kind: 'reveal',
+      message: 'Файл или папка не найдены: их, возможно, уже удалили или перенесли.',
+    });
+    const chrome = screen.getByText('Google Chrome').closest('[role="row"]') as HTMLElement;
+    await fireEvent.click(within(chrome).getByRole('button', { name: 'Google Chrome' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Показать в Проводнике' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('не найдены'));
   });
 });

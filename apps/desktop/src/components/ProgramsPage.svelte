@@ -20,6 +20,7 @@
     prefetchPathIcons,
     prefetchProgramIcons,
     programIconKey,
+    revealInExplorer,
     listInstalled,
     listStartup,
     measureFolder,
@@ -178,11 +179,20 @@
     }
   }
 
-  function showPath(program: InstalledProgram) {
+  /** «Показать в Проводнике» по нажатию (не по наведению). Нет папки — объяснение. */
+  async function showPath(program: InstalledProgram) {
     error = null;
-    notice = program.installLocation
-      ? `Путь: ${program.installLocation}`
-      : 'Папка установки в реестре не указана.';
+    notice = '';
+    if (!program.installLocation) {
+      notice = 'Папка установки в реестре не указана: показать её в Проводнике нельзя.';
+      return;
+    }
+    try {
+      await revealInExplorer(program.installLocation);
+      notice = `Открыл в Проводнике: ${program.installLocation}`;
+    } catch (err) {
+      error = toProgramsError(err);
+    }
   }
 
   function askUninstall(program: InstalledProgram) {
@@ -235,7 +245,7 @@
         disabled: measuring || block !== null,
         reason: block,
       },
-      { id: 'path', label: 'Показать путь' },
+      { id: 'path', label: 'Показать в Проводнике' },
       { id: 'uninstall', label: 'Удалить…', disabled: removal !== null, reason: removal },
     ];
   }
@@ -249,7 +259,7 @@
       await measure(program);
     } else if (id === 'path') {
       menuReturnFocus?.focus();
-      showPath(program);
+      await showPath(program);
     } else if (id === 'uninstall') {
       askUninstall(program);
     }
@@ -349,6 +359,16 @@
       >
         Размер папки
       </button>
+      <button
+        type="button"
+        disabled={!selected || !selected.installLocation}
+        title={!selected
+          ? NONE_SELECTED
+          : selected.installLocation
+            ? 'Показать папку программы в Проводнике'
+            : 'Папка установки в реестре не указана'}
+        onclick={() => selected && void showPath(selected)}>Показать в Проводнике</button
+      >
       {#if measuring}
         <button type="button" onclick={() => void stop()}>Стоп</button>
       {/if}
@@ -432,7 +452,16 @@
     <div class="details" aria-label="Выбранная программа" aria-live="polite">
       {#if selected}
         <p class="details-name">{selected.name}</p>
-        <p class="path">{selected.installLocation ?? 'Папка установки не указана'}</p>
+        {#if selected.installLocation}
+          <button
+            type="button"
+            class="path path-link"
+            title="Показать в Проводнике"
+            onclick={() => selected && void showPath(selected)}>{selected.installLocation}</button
+          >
+        {:else}
+          <p class="path">Папка установки не указана</p>
+        {/if}
         {#if selectedBlock}
           <p id="measure-reason" class="reason">{selectedBlock}</p>
         {/if}
@@ -621,8 +650,10 @@
 <style>
   .page {
     display: flex;
+    flex: 1;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
     color: var(--page-text);
   }
   .sr-only {
@@ -705,8 +736,8 @@
 
   /* Список: сетка из div с ролями таблицы. Выделение — скруглённая рамка цвета раздела. */
   .grid {
-    max-height: calc(100vh - 440px);
-    min-height: 180px;
+    flex: 1;
+    min-height: 160px;
     overflow: auto;
     border-radius: var(--radius-lg);
     background: #111;
@@ -890,6 +921,21 @@
   }
   .row .path {
     overflow-wrap: normal;
+  }
+  /* Путь установки: нажатие показывает папку в Проводнике. */
+  .path-link {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .path-link:hover:not(:disabled) {
+    border-color: transparent;
+    color: var(--ink);
   }
   .details {
     padding: 12px 14px;

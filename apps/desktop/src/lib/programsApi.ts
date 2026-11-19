@@ -58,6 +58,7 @@ export type ProgramsResponse =
   | { type: 'icon'; dataUrl: string | null }
   | { type: 'iconBatch'; items: Array<{ key: string; dataUrl: string | null }> }
   | { type: 'uninstallStarted' }
+  | { type: 'revealed' }
   | { type: 'startupChanged'; previousEnabled: boolean; enabled: boolean };
 
 type Request =
@@ -68,6 +69,7 @@ type Request =
   | { action: 'icon'; path: string }
   | { action: 'programIcons'; ids: string[] }
   | { action: 'pathIcons'; paths: string[] }
+  | { action: 'reveal'; path: string }
   | { action: 'uninstall'; id: string; confirmed: boolean }
   | {
       action: 'setStartupEnabled';
@@ -166,6 +168,11 @@ export function prefetchProgramIcons(programs: ReadonlyArray<{ id: string }>): v
 /** То же для файлов: ключ значка совпадает с путём. */
 export function prefetchPathIcons(paths: readonly string[]): void {
   prefetchIcons(paths, (keys) => getPathIcons(keys));
+}
+
+/** «Показать в Проводнике»: открывает папку или выделяет файл. Ошибка содержит понятную причину. */
+export async function revealInExplorer(path: string): Promise<void> {
+  expect(await request({ action: 'reveal', path }), 'revealed');
 }
 
 /** Запускает штатное удаление. `confirmed` — только после диалога подтверждения. */

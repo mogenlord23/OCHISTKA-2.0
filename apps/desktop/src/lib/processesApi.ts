@@ -9,13 +9,6 @@ export interface ProcessInfo {
   startTimeUnix: number;
 }
 
-/** Служба только для чтения. `startType` — режим запуска из реестра (подпись). */
-export interface ServiceInfo {
-  name: string;
-  displayName: string;
-  startType: string;
-}
-
 /** Ошибка раздела «Процессы». `message` уже на русском. */
 export interface ProcessesErrorInfo {
   kind: string;
@@ -27,13 +20,13 @@ type ProcessesResponse =
   | { type: 'list'; processes: ProcessInfo[] }
   | { type: 'exePath'; path: string | null }
   | { type: 'ended'; pid: number }
-  | { type: 'services'; services: ServiceInfo[] };
+  | { type: 'revealed'; path: string };
 
 type Request =
   | { action: 'list' }
   | { action: 'exePath'; pid: number }
   | { action: 'endTask'; pid: number; startTimeUnix: number; confirmed: boolean }
-  | { action: 'services' };
+  | { action: 'revealExe'; pid: number };
 
 async function request(payload: Request): Promise<ProcessesResponse> {
   return invoke<ProcessesResponse>('processes_request', { request: payload });
@@ -89,6 +82,10 @@ export async function endTask(
   );
 }
 
-export async function listServices(): Promise<ServiceInfo[]> {
-  return expect(await request({ action: 'services' }), 'services').services;
+/**
+ * «Расположение файла»: бэкенд сам берёт путь процесса и открывает Проводник с выделенным
+ * файлом. Возвращает показанный путь. Нет пути или файла: ошибка с понятной причиной в `message`.
+ */
+export async function revealExe(pid: number): Promise<string> {
+  return expect(await request({ action: 'revealExe', pid }), 'revealed').path;
 }
