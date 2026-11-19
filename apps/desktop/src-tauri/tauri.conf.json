@@ -18,8 +18,9 @@
         "minWidth": 900,
         "minHeight": 712,
         "decorations": false,
-        "transparent": true,
-        "shadow": false
+        "transparent": false,
+        "backgroundColor": "#0b0b0b",
+        "shadow": true
       }
     ],
     "security": {
@@ -29,7 +30,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "icon": ["icons/icon.ico", "icons/icon.png", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
     "resources": { "resources/wallpapers/*.jpg": "wallpapers/" }
   }
 }

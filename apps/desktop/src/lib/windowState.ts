@@ -15,7 +15,14 @@ export function watchMaximized(onChange: (maximized: boolean) => void): () => vo
       }
     };
     void read();
-    void Promise.resolve(win.onResized(() => void read()))
+    // Событие размера приходит десятки раз в секунду при перетаскивании края окна.
+    // Каждый вызов isMaximized это обмен с ядром, поэтому читаем один раз, когда движение стихло.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void read(), 120);
+    };
+    void Promise.resolve(win.onResized(schedule))
       .then((fn) => {
         if (stopped) fn();
         else unlisten = fn;

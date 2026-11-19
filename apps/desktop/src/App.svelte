@@ -66,6 +66,14 @@
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
 
+  const STAGGER_MAX = 12;
+  const STAGGER_STEP = 28;
+  const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
+  const FADE_IN = [
+    { opacity: 0, transform: 'translateY(10px)' },
+    { opacity: 1, transform: 'none' },
+  ];
+
   let main = $state<HTMLElement>();
   let firstRun = true;
 
@@ -85,18 +93,25 @@
       const sectionChanged = id !== lastId;
       lastId = id;
       void sub;
-      const targets = Array.from(main.children).filter(
-        (el) => sectionChanged || !el.matches('h1, .lead, .subtabs, footer'),
-      );
-      for (const el of targets) {
-        el.animate(
-          [
-            { opacity: 0, transform: 'translateY(8px)' },
-            { opacity: 1, transform: 'none' },
-          ],
-          { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
-        );
-      }
+      const all = Array.from(main.children);
+      const head = sectionChanged ? all.filter((el) => el.matches('h1, .lead, .subtabs')) : [];
+      const targets = all.filter((el) => !el.matches('h1, .lead, .subtabs, footer'));
+      // Один корневой блок страницы: его дочерние блоки появляются по очереди.
+      // Несколько блоков в main: по очереди появляются они сами. Очередь только для первых
+      // STAGGER_MAX элементов, остальные (сотни строк) появляются сразу и без анимации.
+      const items =
+        targets.length === 1 && targets[0].children.length > 1
+          ? Array.from(targets[0].children)
+          : targets;
+      for (const el of head) el.animate(FADE_IN, { duration: 180, easing: EASE });
+      items.slice(0, STAGGER_MAX).forEach((el, i) => {
+        el.animate(FADE_IN, {
+          duration: 220,
+          delay: i * STAGGER_STEP,
+          easing: EASE,
+          fill: 'backwards',
+        });
+      });
     });
   });
   let lastId: SectionId = 'vpn';
@@ -229,7 +244,8 @@
 </div>
 
 <style>
-  /* Окно прозрачное (tauri.conf.json: transparent). Скруглён только корень приложения. */
+  /* Окно непрозрачное (tauri.conf.json: transparent=false): так оно быстро меняет размер в WebView2.
+     Углы скругляет сама Windows 11. */
   :global(html),
   :global(body) {
     margin: 0;
@@ -258,11 +274,11 @@
       background-color 130ms ease,
       border-color 130ms ease,
       color 130ms ease,
-      transform 90ms ease;
+      transform 110ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   :global(button:active:not(:disabled)) {
-    transform: translateY(1px) scale(0.985);
+    transform: scale(0.96);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -282,16 +298,10 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    border-radius: var(--radius-lg);
     overflow: hidden;
     contain: layout paint;
     font-family: var(--font-body, system-ui, sans-serif);
     background: var(--window);
-  }
-
-  /* Развёрнутое окно: углы квадратные, от края до края. */
-  .shell[data-maximized='true'] {
-    border-radius: 0;
   }
 
   /* Видимый фокус с клавиатуры, двойное кольцо. Внешнее (цвет текста страницы) читается
@@ -331,6 +341,7 @@
     left: 0;
     width: max(2560px, 100vw);
     height: max(1440px, 100vh);
+    contain: strict;
     background: url('./assets/pop-pattern.png') 0 0 / 320px 320px;
     opacity: var(--pattern-opacity);
     pointer-events: none;
@@ -350,6 +361,7 @@
     overflow: hidden auto;
     padding: 0 var(--content-gutter) 8px;
     overscroll-behavior: contain;
+    contain: layout paint;
   }
 
   h1 {
