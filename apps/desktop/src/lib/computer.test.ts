@@ -13,8 +13,6 @@ import {
   gpuMemoryLine,
   gpuName,
   gpuUsageLine,
-  shortHardwareName,
-  driveCardName,
   UNSUPPORTED_OS_REASON,
 } from './computer';
 
@@ -102,47 +100,5 @@ describe('tile labels', () => {
       'ASRock · Z170 Extreme4',
     );
     expect(boardLine({ vendor: null, name: null, version: null })).toBe('—');
-  });
-});
-
-describe('shortHardwareName', () => {
-  it('drops frequency, trademark marks and the CPU word', () => {
-    expect(shortHardwareName('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz')).toBe('Intel Core i7-6700');
-    expect(shortHardwareName('Intel® Core™ i5-12400F')).toBe('Intel Core i5-12400F');
-  });
-
-  it('drops generation and core-count noise', () => {
-    expect(shortHardwareName('12th Gen Intel(R) Core(TM) i7-12700H')).toBe('Intel Core i7-12700H');
-    expect(shortHardwareName('AMD Ryzen 5 5600X 6-Core Processor')).toBe('AMD Ryzen 5 5600X');
-  });
-
-  it('removes duplicate words and extra spaces', () => {
-    expect(shortHardwareName('NVIDIA  NVIDIA GeForce GTX 1060 3GB')).toBe(
-      'NVIDIA GeForce GTX 1060 3GB',
-    );
-  });
-
-  it('caps the length on a word boundary with an ellipsis', () => {
-    const out = shortHardwareName('Some Very Long Graphics Adapter Name Edition 9000', 24);
-    expect(out.length).toBeLessThanOrEqual(24);
-    expect(out.endsWith('…')).toBe(true);
-    expect(out).not.toMatch(/\s…$/);
-  });
-
-  it('returns a dash for empty input', () => {
-    expect(shortHardwareName(null)).toBe('—');
-    expect(shortHardwareName('  ')).toBe('—');
-  });
-});
-
-describe('driveCardName', () => {
-  it('uses the first model and counts the rest', () => {
-    expect(driveCardName(['KINGSTON SHFS37A120G', 'WDC WD10EZEX-21WN4A0'], [])).toBe(
-      'KINGSTON SHFS37A120G +1',
-    );
-  });
-
-  it('falls back to kind and letter without models', () => {
-    expect(driveCardName([], [{ mountPoint: 'C:\\', kind: 'ssd' }])).toBe('SSD · C:');
   });
 });

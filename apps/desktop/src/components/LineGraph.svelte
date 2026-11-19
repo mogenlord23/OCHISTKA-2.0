@@ -6,7 +6,6 @@
     label,
     color,
     height = 170,
-    compact = false,
   }: {
     /** Замеры в процентах, от старого к новому. */
     values: readonly number[];
@@ -15,8 +14,6 @@
     color: string;
     /** Высота рамки графика, px. */
     height?: number;
-    /** Без подписей осей и полей: для малого графика в карточке. */
-    compact?: boolean;
   } = $props();
 
   const WIDTH = 300;
@@ -66,9 +63,9 @@
   );
 </script>
 
-<figure class="graph" class:compact>
+<figure class="graph">
   <div class="frame" style:height="{height}px">
-    {#if !compact}<span class="top">100%</span>{/if}
+    <span class="top">100%</span>
     <svg viewBox="0 0 {WIDTH} {HEIGHT}" preserveAspectRatio="none" role="img" aria-label={label}>
       {#each [1, 2, 3, 4, 5] as col (col)}
         <line x1={(WIDTH / 6) * col} x2={(WIDTH / 6) * col} y1="0" y2={HEIGHT} class="grid" />
@@ -92,17 +89,13 @@
       </g>
     </svg>
   </div>
-  {#if !compact}<figcaption class="bottom">90 секунд</figcaption>{/if}
+  <figcaption class="bottom">90 секунд</figcaption>
 </figure>
 
 <style>
   .graph {
     position: relative;
     margin: 12px 0;
-  }
-
-  .compact {
-    margin: 0;
   }
 
   .frame {
@@ -128,8 +121,8 @@
   .bottom {
     position: absolute;
     left: 10px;
-    font-size: 11px;
-    color: #b8b8b8;
+    font-size: 10px;
+    color: #d4d4d4;
   }
 
   .top {
