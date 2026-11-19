@@ -1,12 +1,10 @@
 /** Чистая логика раздела VPN: проверка ссылки, разбор подписки, таймер и заглушки. Без системных вызовов. */
 
-/** Фон страницы VPN: зелёный цвет первого экрана «Очистка» старой версии (как у раздела «Вирусы»). */
-export const VPN_BACKGROUND = '#b4ff00';
-
-/** Короткие причины для заглушек. На экране показываем только при необходимости, как текст действия. */
-export const VPN_CONNECT_REASON = 'Нужен драйвер TUN';
-export const VPN_TUN_MODE_REASON = 'Нужен драйвер TUN';
-export const NETWORK_CHANGE_REASON = 'Нужен сетевой модуль';
+export const VPN_CONNECT_REASON = 'Подключение не подключено: нужен драйвер TUN';
+export const VPN_TUN_MODE_REASON = 'Режим TUN требует драйвер TUN';
+export const IMPORT_REASON = 'Загрузка подписки пока не подключена';
+export const NETWORK_CHANGE_REASON = 'Изменение сети пока не подключено';
+export const NETWORK_STATUS_OFF = 'выключено';
 
 export type StubResult = { ok: false; reason: string };
 

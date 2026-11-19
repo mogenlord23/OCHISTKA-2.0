@@ -24,6 +24,6 @@ describe('VpnPage reduced motion', () => {
     const source = (await import('./VpnPage.svelte?raw')).default;
     const css = source.slice(source.indexOf('<style>'));
     const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
-    expect(match?.[1] ?? '').toMatch(/\.vpn\s*\{[^}]*animation:\s*none/);
+    expect(match?.[1] ?? '').toMatch(/\.pane\s*\{[^}]*animation:\s*none/);
   });
 });

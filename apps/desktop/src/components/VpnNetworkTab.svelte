@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { formatBytes } from '../lib/format';
-  import { t } from '../lib/i18n.svelte';
   import {
     NETWORK_REFRESH_MS,
     errorMessage,
@@ -32,32 +31,32 @@
 {#if error}
   <p class="state" role="alert">{error}</p>
 {:else if adapters === null}
-  <p class="state" role="status">{t('vpn.net.reading')}</p>
+  <p class="state" role="status">Читаем сетевые адаптеры…</p>
 {:else if adapters.length === 0}
-  <p class="state">{t('vpn.net.none')}</p>
+  <p class="state">Сетевых адаптеров не найдено.</p>
 {:else}
-  <ul class="adapters" aria-label={t('vpn.net.list')}>
+  <ul class="adapters" aria-label="Сетевые адаптеры">
     {#each adapters as adapter (adapter.name)}
       <li class="card">
         <div class="head">
           <span class="name">{adapter.name}</span>
-          <span class="mac">{adapter.mac ?? t('vpn.net.noMac')}</span>
+          <span class="mac">{adapter.mac ?? 'MAC не задан'}</span>
         </div>
         <dl class="stats">
           <div>
-            <dt>{t('vpn.net.received')}</dt>
+            <dt>Получено</dt>
             <dd>{formatBytes(adapter.receivedBytes)}</dd>
           </div>
           <div>
-            <dt>{t('vpn.net.sent')}</dt>
+            <dt>Отправлено</dt>
             <dd>{formatBytes(adapter.transmittedBytes)}</dd>
           </div>
           <div>
-            <dt>{t('vpn.net.rx')}</dt>
+            <dt>Приём</dt>
             <dd>{formatRate(adapter.receiveRate)}</dd>
           </div>
           <div>
-            <dt>{t('vpn.net.tx')}</dt>
+            <dt>Передача</dt>
             <dd>{formatRate(adapter.transmitRate)}</dd>
           </div>
         </dl>
@@ -65,7 +64,7 @@
           {#if adapter.addresses.length > 0}
             {adapter.addresses.join(' · ')}
           {:else}
-            {t('vpn.net.noAddr')}
+            Адресов нет
           {/if}
         </p>
       </li>
@@ -77,14 +76,14 @@
   .adapters {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .card {
-    padding: 16px;
+    padding: 16px 18px;
     border-radius: var(--radius-lg);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
@@ -99,7 +98,7 @@
   }
 
   .name {
-    font-size: 18px;
+    font-size: 1.1rem;
     font-weight: 800;
     color: var(--ink);
   }
@@ -114,12 +113,12 @@
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 16px;
-    margin: 16px 0 8px;
+    gap: 10px;
+    margin: 12px 0 8px;
   }
 
   dt {
-    font-size: var(--text-caption);
+    font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -128,7 +127,7 @@
 
   dd {
     margin: 2px 0 0;
-    font-size: 16px;
+    font-size: 1.05rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: var(--ink);
@@ -140,7 +139,7 @@
   }
 
   .state {
-    margin: 0;
+    margin: 8px 2px;
     font-weight: 700;
     color: #000;
   }

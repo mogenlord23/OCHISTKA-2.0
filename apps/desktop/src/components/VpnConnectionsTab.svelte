@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t, type Key } from '../lib/i18n.svelte';
   import {
     CONNECTIONS_REFRESH_MS,
     errorMessage,
@@ -20,7 +19,7 @@
   const rows = $derived(connections ? sortConnections(connections, sort) : []);
 
   /** Виртуализация: в DOM только видимые строки плюс запас, остальное заменяют пустые строки-распорки. */
-  const ROW_H = 32;
+  const ROW_H = 30;
   const OVERSCAN = 8;
   function measure(node: HTMLElement) {
     viewH = node.clientHeight || viewH;
@@ -35,18 +34,13 @@
   const last = $derived(Math.min(rows.length, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN));
   const visible = $derived(rows.slice(first, last));
 
-  const COLUMNS: { key: ConnectionSortKey; label: Key | 'PID' }[] = [
-    { key: 'local', label: 'vpn.conn.local' },
-    { key: 'remote', label: 'vpn.conn.remote' },
-    { key: 'state', label: 'vpn.conn.state' },
-    { key: 'process', label: 'vpn.conn.process' },
+  const COLUMNS: { key: ConnectionSortKey; label: string }[] = [
+    { key: 'local', label: 'Локальный адрес' },
+    { key: 'remote', label: 'Удалённый адрес' },
+    { key: 'state', label: 'Состояние' },
+    { key: 'process', label: 'Процесс' },
     { key: 'pid', label: 'PID' },
   ];
-
-  /** Выбранная строка (по ключу «адрес:порт:pid»): один маркер-обводка, без флажков и галочек. */
-  let selectedKey = $state<string | null>(null);
-  const rowKey = (row: TcpConnection) =>
-    `${row.localAddr}:${row.localPort}>${row.remoteAddr}:${row.remotePort}#${row.pid ?? ''}`;
 
   async function load() {
     try {
@@ -72,17 +66,17 @@
 {#if error}
   <p class="state" role="alert">{error}</p>
 {:else if connections === null}
-  <p class="state" role="status">{t('vpn.conn.reading')}</p>
+  <p class="state" role="status">Читаем соединения…</p>
 {:else}
+  <p class="count">TCP-соединений: {connections.length}</p>
   <div class="table-wrap" use:measure onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}>
-    <p class="count">{t('vpn.conn.count').replace('{n}', String(connections.length))}</p>
     <table>
       <thead>
         <tr>
           {#each COLUMNS as column (column.key)}
             <th scope="col" aria-sort={ariaSort(column.key)}>
               <button type="button" onclick={() => (sort = nextSort(sort, column.key))}>
-                {column.label === 'PID' ? column.label : t(column.label)}
+                {column.label}
                 <span class="arrow" aria-hidden="true"
                   >{sort.key === column.key ? (sort.direction === 'asc' ? '▲' : '▼') : ''}</span
                 >
@@ -98,19 +92,7 @@
           >
         {/if}
         {#each visible as row, index (first + index)}
-          <tr
-            class="row"
-            class:selected={selectedKey === rowKey(row)}
-            aria-current={selectedKey === rowKey(row) ? 'true' : undefined}
-            tabindex="0"
-            onclick={() => (selectedKey = rowKey(row))}
-            onkeydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                selectedKey = rowKey(row);
-              }
-            }}
-          >
+          <tr class="row">
             <td>{formatEndpoint(row.localAddr, row.localPort)}</td>
             <td>{formatEndpoint(row.remoteAddr, row.remotePort)}</td>
             <td><span class="state-chip">{row.state}</span></td>
@@ -118,7 +100,7 @@
             <td>{row.pid ?? '—'}</td>
           </tr>
         {:else}
-          <tr><td colspan="5" class="none">{t('vpn.conn.none')}</td></tr>
+          <tr><td colspan="5" class="none">Соединений нет.</td></tr>
         {/each}
         {#if last < rows.length}
           <tr class="spacer" aria-hidden="true" style:height="{(rows.length - last) * ROW_H}px"
@@ -131,24 +113,16 @@
 {/if}
 
 <style>
-  /* Счётчик внутри карточки, чтобы содержимое начиналось там же, где у остальных вкладок. */
   .count {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    left: 0;
-    height: 40px;
-    margin: 0;
-    padding: 0 16px;
-    line-height: 40px;
-    background: var(--black);
+    margin: 0 0 8px;
     font-size: var(--text-caption);
     font-weight: 800;
-    color: var(--ink);
+    color: #000;
   }
 
   .table-wrap {
-    height: clamp(240px, calc(100vh - 336px), 960px);
+    height: min(calc(100vh - 330px), 640px);
+    min-height: 160px;
     overflow: auto;
     border-radius: var(--radius-lg);
     background: var(--surface-alt);
@@ -166,7 +140,7 @@
 
   th {
     position: sticky;
-    top: 40px;
+    top: 0;
     padding: 0;
     background: #000;
     text-align: left;
@@ -174,13 +148,13 @@
 
   th button {
     width: 100%;
-    min-height: 40px;
-    padding: 8px 16px;
+    min-height: 38px;
+    padding: 8px 12px;
     border: 0;
     background: transparent;
     color: var(--ink);
     font: inherit;
-    font-size: var(--text-caption);
+    font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.1em;
     text-align: left;
@@ -194,19 +168,11 @@
   }
 
   .arrow {
-    font-size: var(--text-caption);
+    font-size: 0.6rem;
   }
 
   tr.row {
-    height: 32px;
-    cursor: pointer;
-  }
-
-  /* Выбранная строка: одна обводка в цвете раздела, без галочек и заливки-полосы. */
-  tr.row.selected,
-  tr.row:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
+    height: 30px;
   }
 
   tr.spacer td {
@@ -215,18 +181,18 @@
   }
 
   td {
-    padding: 0 16px;
+    padding: 0 12px;
     border-top: 1px solid var(--border);
     color: var(--ink);
     white-space: nowrap;
   }
 
   .state-chip {
-    padding: 0 8px;
+    padding: 2px 8px;
     border-radius: 999px;
     background: #222;
     color: var(--accent);
-    font-size: var(--text-caption);
+    font-size: 0.7rem;
     font-weight: 700;
   }
 
@@ -237,7 +203,7 @@
   }
 
   .state {
-    margin: 0;
+    margin: 8px 2px;
     color: #000;
   }
 </style>

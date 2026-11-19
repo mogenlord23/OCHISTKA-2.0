@@ -1,22 +1,40 @@
 <script lang="ts">
-  import { t } from '../lib/i18n.svelte';
+  import poster from '../assets/pop-art.png';
+  import { playHeehee } from '../lib/sound';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import {
+    IMPORT_REASON,
+    NETWORK_STATUS_OFF,
     VPN_TUN_MODE_REASON,
     formatElapsed,
     parseSubscription,
+    requestNetworkChange,
+    requestVpnConnect,
     validateSubscriptionUrl,
     type ParsedSubscription,
   } from '../lib/vpn';
 
-  /** Заголовок, описание и вкладки рисует PageShell; здесь только содержимое подраздела. */
   let { subsection }: { subsection: string } = $props();
 
   type Tab = 'vpn' | 'advanced' | 'network' | 'connections';
-  const TAB_IDS: readonly Tab[] = ['vpn', 'advanced', 'network', 'connections'];
-  const tab = $derived<Tab>(TAB_IDS.find((id) => id === subsection) ?? 'vpn');
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'vpn', label: 'VPN' },
+    { id: 'advanced', label: 'Дополнительно' },
+    { id: 'network', label: 'Сеть' },
+    { id: 'connections', label: 'Соединения' },
+  ];
 
+  function tabOf(id: string): Tab {
+    return TABS.find((item) => item.id === id)?.id ?? 'vpn';
+  }
+
+  // svelte-ignore state_referenced_locally
+  let tab = $state<Tab>(tabOf(subsection));
+  $effect(() => {
+    tab = tabOf(subsection);
+  });
+  const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
   let selected = $state(0);
   let fileInput: HTMLInputElement | undefined = $state();
 
@@ -33,32 +51,49 @@
     return countryCode(name) ? [...name].slice(2).join('').trim() : name;
   }
 
-  function summary(value: ParsedSubscription): string {
-    return t('vpn.imported')
-      .replace('{n}', String(value.servers.length))
-      .replace('{m}', String(value.unknownCount));
-  }
-
   async function onFile(event: Event) {
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
     if (!file) return;
     parsed = parseSubscription(await file.text());
     selected = 0;
-    importMessage = summary(parsed);
+    importMessage = `Серверов: ${parsed.servers.length}. Не распознано строк: ${parsed.unknownCount}.`;
   }
 
-  /** Zapret и Xbox DNS: карточки остаются, переключатели выключены до подключения сетевого модуля. */
   const ADVANCED = [
-    { id: 'zapret', label: 'Zapret', icon: '↗' },
-    { id: 'xbox-dns', label: 'Xbox DNS', icon: 'X' },
+    { id: 'zapret', label: 'Zapret', description: 'Обход блокировок DPI', icon: '↗' },
+    { id: 'xbox-dns', label: 'Xbox DNS', description: 'DNS-серверы Xbox', icon: 'X' },
   ] as const;
 
   let urlInput = $state('');
   let importMessage = $state<string | null>(null);
   let parsed = $state<ParsedSubscription | null>(null);
 
-  /** Подключение не устанавливается, поэтому таймер стоит на нуле. */
-  const elapsedSeconds = 0;
+  let connectMessage = $state<string | null>(null);
+  /** Подключение пока не устанавливается, поэтому таймер стоит на нуле. */
+  let elapsedSeconds = $state(0);
+
+  let networkMessages = $state<Record<string, string | null>>({});
+  /** Переключатель, для которого ждём подтверждения (id из ADVANCED). */
+  let pendingNetwork = $state<(typeof ADVANCED)[number] | null>(null);
+
+  function askNetworkToggle(item: (typeof ADVANCED)[number]) {
+    pendingNetwork = item;
+  }
+
+  function cancelNetworkToggle() {
+    pendingNetwork = null;
+  }
+
+  function confirmNetworkToggle() {
+    const target = pendingNetwork;
+    if (!target) return;
+    pendingNetwork = null;
+    networkMessages = { ...networkMessages, [target.id]: requestNetworkChange().reason };
+  }
+
+  function onDialogKey(event: KeyboardEvent) {
+    if (event.key === 'Escape') cancelNetworkToggle();
+  }
 
   function onImport() {
     // Вставленный текст подписки (vless://… и т. п.) разбираем сразу, ссылку — проверяем.
@@ -68,152 +103,340 @@
     if (pasted.servers.length > 0) {
       parsed = pasted;
       selected = 0;
-      importMessage = summary(pasted);
+      importMessage = `Серверов: ${pasted.servers.length}. Не распознано строк: ${pasted.unknownCount}.`;
       return;
     }
     const result = validateSubscriptionUrl(urlInput);
-    importMessage = result.ok ? t('vpn.linkOk') : result.reason;
+    importMessage = result.ok ? IMPORT_REASON : result.reason;
+  }
+
+  /** Пасхалка: звук (если включён) и анимация нажатия. */
+  let pressed = $state(false);
+  function onPoster() {
+    pressed = false;
+    requestAnimationFrame(() => (pressed = true));
+    playHeehee();
+  }
+
+  function onConnect() {
+    connectMessage = requestVpnConnect().reason;
   }
 </script>
 
-{#key tab}
-  <div class="vpn">
-    {#if tab === 'vpn'}
-      <div class="grid">
-        <section class="card">
-          <h2>{t('vpn.subscription.title')}</h2>
-          <div class="row">
-            <input
-              bind:value={urlInput}
-              placeholder="https://…"
-              aria-label={t('vpn.subscription.aria')}
-            />
-            <button type="button" onclick={onImport}>{t('vpn.import')}</button>
-          </div>
-          <div class="row">
-            <button type="button" onclick={() => fileInput?.click()}>{t('vpn.fromFile')}</button>
-            <input
-              bind:this={fileInput}
-              class="hidden"
-              type="file"
-              accept=".txt,text/plain"
-              aria-label={t('vpn.fileAria')}
-              onchange={onFile}
-            />
-          </div>
-          {#if importMessage}
-            <p class="note" role="status">{importMessage}</p>
-          {/if}
-        </section>
-
-        <section class="card connect">
-          <div class="power-row">
-            <button
-              type="button"
-              class="power"
-              aria-pressed="false"
-              aria-label={t('vpn.connect')}
-              disabled
-            >
-              <span class="power-knob" aria-hidden="true"></span>
-            </button>
-            <div class="power-text">
-              <span class="power-label">{t('vpn.connect')}</span>
-              <span class="timer" aria-label={t('vpn.timer')}>{formatElapsed(elapsedSeconds)}</span>
-              <span class="status-line">{t('vpn.statusOff')}</span>
-            </div>
-          </div>
-          <label class="select">
-            <span class="hidden">{t('vpn.mode')}</span>
-            <select disabled aria-label={t('vpn.mode')}>
-              <option>{t('vpn.modeTun')}</option>
-            </select>
-            <span class="chev" aria-hidden="true"></span>
-          </label>
-          <p class="note">{VPN_TUN_MODE_REASON}</p>
-        </section>
-      </div>
-
-      <h2 class="list-title">{t('vpn.servers')} / {parsed?.servers.length ?? 0}</h2>
-      <section class="card servers-card">
-        {#if parsed && parsed.servers.length > 0}
-          <ul class="servers" aria-label={t('vpn.servers')}>
-            {#each parsed.servers as server, index (index)}
-              <li>
-                <button
-                  type="button"
-                  class="server"
-                  class:selected={selected === index}
-                  aria-pressed={selected === index}
-                  onclick={() => (selected = index)}
-                >
-                  <span class="srv-name">
-                    {#if countryCode(server.name)}<b class="cc">{countryCode(server.name)}</b
-                      >{/if}{displayName(server.name)}
-                  </span>
-                  <span class="scheme">{server.scheme.toUpperCase()}</span>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="note empty">{t('vpn.noServers')}</p>
-        {/if}
-      </section>
-    {:else if tab === 'advanced'}
-      <div class="grid">
-        {#each ADVANCED as item (item.id)}
-          <section class="card switch-row">
-            <span class="tool-icon" class:glyph={item.icon === 'X'} aria-hidden="true"
-              >{item.icon}</span
-            >
-            <div class="tool-text">
-              <span class="tool-label">{t('vpn.tool')}</span>
-              <span class="switch-title">{item.label}</span>
-              <span class="note">{t('vpn.stateOff')}</span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked="false"
-              aria-label={item.label}
-              disabled
-            >
-              <span class="knob"></span>
-            </button>
-          </section>
-        {/each}
-      </div>
-    {:else if tab === 'network'}
-      <VpnNetworkTab />
-    {:else}
-      <VpnConnectionsTab />
-    {/if}
+<div class="vpn">
+  <div class="poster-cell">
+    <button
+      type="button"
+      class="poster"
+      class:pressed
+      aria-label="Постер"
+      onclick={onPoster}
+      onanimationend={() => (pressed = false)}
+    >
+      <img src={poster} alt="" draggable="false" />
+    </button>
   </div>
-{/key}
+  <div class="column">
+    <header class="head">
+      <div class="title" data-testid="vpn-title">{tabLabel}</div>
+      <p class="tagline">Сетевые функции и диагностика · только чтение</p>
+    </header>
+
+    <div class="tabbar" role="tablist" aria-label="Вкладки VPN">
+      {#each TABS as item (item.id)}
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          class:on={tab === item.id}
+          aria-selected={tab === item.id}
+          onclick={() => (tab = item.id)}>{item.label}</button
+        >
+      {/each}
+    </div>
+
+    {#key tab}
+      <div class="pane" role="tabpanel" aria-label={tabLabel}>
+        {#if tab === 'vpn'}
+          <section class="card">
+            <h2>Ссылка подписки / импорта</h2>
+            <div class="row">
+              <input bind:value={urlInput} placeholder="https://…" aria-label="Ссылка подписки" />
+              <button type="button" onclick={onImport}>Импорт</button>
+            </div>
+            <div class="row tight">
+              <button type="button" onclick={() => fileInput?.click()}>Из файла…</button>
+              <input
+                bind:this={fileInput}
+                class="hidden"
+                type="file"
+                accept=".txt,text/plain"
+                aria-label="Файл подписки"
+                onchange={onFile}
+              />
+            </div>
+            {#if importMessage}
+              <p class="note" role="status">{importMessage}</p>
+            {/if}
+          </section>
+
+          <section class="card connect">
+            <div class="power-row">
+              <button
+                type="button"
+                class="power"
+                aria-pressed="false"
+                aria-label="Подключить"
+                onclick={onConnect}
+              >
+                <span class="power-knob" aria-hidden="true"></span>
+              </button>
+              <div class="power-text">
+                <span class="power-label">Подключить</span>
+                <span class="timer" aria-label="Время подключения"
+                  >{formatElapsed(elapsedSeconds)}</span
+                >
+                <span class="status-line" role="status">{connectMessage ?? 'Не подключено'}</span>
+              </div>
+            </div>
+            <label class="select">
+              <span class="hidden">Режим</span>
+              <select disabled aria-describedby="vpn-tun-reason" aria-label="Режим">
+                <option>TUN · весь компьютер</option>
+              </select>
+              <span class="chev" aria-hidden="true"></span>
+            </label>
+            <p class="note" id="vpn-tun-reason">{VPN_TUN_MODE_REASON}</p>
+          </section>
+
+          <h2 class="list-title">Серверы / {parsed?.servers.length ?? 0}</h2>
+          <section class="card servers-card">
+            {#if parsed && parsed.servers.length > 0}
+              <ul class="servers" aria-label="Серверы">
+                {#each parsed.servers as server, index (index)}
+                  <li>
+                    <button
+                      type="button"
+                      class="server"
+                      class:selected={selected === index}
+                      aria-pressed={selected === index}
+                      onclick={() => (selected = index)}
+                    >
+                      <span class="srv-name">
+                        {#if countryCode(server.name)}<b class="cc">{countryCode(server.name)}</b
+                          >{/if}{displayName(server.name)}
+                      </span>
+                      <span class="scheme">{server.scheme.toUpperCase()}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="note empty">
+                Серверов пока нет. Вставь ссылку https:// или текст подписки в поле выше, либо
+                выбери файл.
+              </p>
+            {/if}
+          </section>
+        {:else if tab === 'advanced'}
+          {#each ADVANCED as item (item.id)}
+            <section class="card tool switch-row">
+              <span class="tool-icon" class:glyph={item.icon === 'X'} aria-hidden="true"
+                >{item.icon}</span
+              >
+              <div class="tool-text">
+                <span class="tool-label">Дополнительный инструмент</span>
+                <span class="switch-title">{item.label}</span>
+                <span class="note"
+                  >Запуск и изменение сетевых настроек отключены.<span class="hidden">
+                    Состояние: {NETWORK_STATUS_OFF}</span
+                  ></span
+                >
+                {#if networkMessages[item.id]}
+                  <p class="note" role="status">{networkMessages[item.id]}</p>
+                {/if}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked="false"
+                aria-label={item.label}
+                onclick={() => askNetworkToggle(item)}
+              >
+                <span class="knob"></span>
+              </button>
+            </section>
+          {/each}
+          {#if pendingNetwork}
+            <div class="backdrop">
+              <div
+                class="dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="network-title"
+                aria-describedby="network-text"
+                tabindex="-1"
+                onkeydown={onDialogKey}
+              >
+                <h3 id="network-title">Включить {pendingNetwork.label}?</h3>
+                <p id="network-text">
+                  {pendingNetwork.description}. Включение меняет сетевые настройки компьютера. Пока
+                  это заглушка: ничего не изменится.
+                </p>
+                <div class="dialog-actions">
+                  <button type="button" onclick={cancelNetworkToggle}>Отмена</button>
+                  <button type="button" onclick={confirmNetworkToggle}>Включить</button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        {:else if tab === 'network'}
+          <VpnNetworkTab />
+        {:else}
+          <VpnConnectionsTab />
+        {/if}
+      </div>
+    {/key}
+  </div>
+</div>
 
 <style>
-  /* Фон страницы VPN: зелёный цвет первого экрана «Очистка» старой версии. Узор раздела
-     (cover, фокус по центру) остаётся общим слоем оболочки; картинки в углу нет. */
-  :global(.stage:has(.vpn)) {
-    --accent: #b4ff00;
-    --page-text: #000;
-    background-color: #b4ff00;
+  /* Экран VPN рисует свой заголовок и вкладку «Дополнительно», как на эталоне old-01. */
+  :global(main:has(> .vpn) > h1),
+  :global(main:has(> .vpn) > .lead),
+  :global(main:has(> .vpn) > .subtabs) {
+    display: none;
   }
 
-  /* Сетка 8 px: отступ между карточками 16, внутри карточки 16. */
+  /* Тот же верхний отступ, что у заголовка h1 на остальных страницах (12px). */
+  :global(main:has(> .vpn.vpn)) {
+    padding-top: 12px;
+  }
+
+  /* Слева плакат владельца (как на эталоне old-01), справа колонка карточек. */
   .vpn {
+    display: grid;
+    flex: 1;
+    grid-template-columns: clamp(200px, 26%, 320px) minmax(0, 1fr);
+    gap: 20px;
+    min-height: 0;
+    padding-bottom: 4px;
+  }
+
+  /* Ячейка сетки: постер 2:3 целиком, без обрезки, по центру. Масштаб идёт пропорционально
+     (object-fit: contain внутри карточки с тем же соотношением сторон). */
+  .poster-cell {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    container-type: size;
+  }
+
+  .poster {
+    display: block;
+    width: min(100cqw, 66.667cqh);
+    height: auto;
+    aspect-ratio: 2 / 3;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .poster img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .poster.pressed {
+    animation: poster-press 260ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @keyframes poster-press {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(0.94);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .column {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    animation: pane-in 0.22s ease-out;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
-    gap: 16px;
-    align-items: stretch;
+  .title {
+    margin: 0;
+    font-family: 'Arial Black', 'Segoe UI', sans-serif;
+    font-size: 2.6rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    color: #000;
+  }
+
+  /* Чёрная сегментированная панель вкладок; активная — «таблетка» цвета раздела. */
+  .tabbar {
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    border-radius: var(--radius-lg);
+    background: #111;
+  }
+
+  .tab {
+    flex: 1;
+    min-height: 44px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+    font-size: var(--text-caption);
+    font-weight: 800;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
+  }
+
+  .tab:hover:not(.on) {
+    background: #1d1d1d;
+  }
+
+  .tab.on {
+    background: var(--accent);
+    color: #000;
+    box-shadow: none;
+  }
+
+  .tab:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  .pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 12px;
+    min-height: 0;
+    overflow-y: auto;
+    animation: pane-in 0.22s ease-out;
   }
 
   @keyframes pane-in {
@@ -228,21 +451,31 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .vpn {
+    .pane {
       animation: none;
+    }
+
+    .tab {
+      transition: none;
     }
   }
 
+  .tagline {
+    margin: 8px 0 0;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    color: #000;
+  }
+
   .card {
-    margin: 0;
-    padding: 16px;
+    padding: 16px 16px;
     border-radius: var(--radius-lg);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
   }
 
   h2 {
-    margin: 0 0 16px;
+    margin: 0 0 12px;
     font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
@@ -250,7 +483,7 @@
   }
 
   .list-title {
-    margin: 8px 0 -8px;
+    margin: 10px 0 -2px;
     color: #000;
   }
 
@@ -259,15 +492,14 @@
     gap: 8px;
   }
 
-  .row + .row {
-    margin-top: 8px;
+  .row.tight {
+    margin-top: 10px;
   }
 
   input {
     flex: 1;
     min-width: 0;
-    min-height: 48px;
-    padding: 8px 16px;
+    padding: 12px 18px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--black);
@@ -284,8 +516,8 @@
   }
 
   button {
-    min-height: 40px;
-    padding: 8px 16px;
+    min-height: 38px;
+    padding: 8px 14px;
     border: 0;
     border-radius: var(--radius-sm);
     background: var(--btn-bg);
@@ -297,24 +529,19 @@
     cursor: pointer;
   }
 
-  button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
   .row > button {
     min-height: 48px;
   }
 
-  .row + .row > button {
-    min-height: 40px;
+  .row.tight > button {
+    min-height: 38px;
   }
 
   .power-row {
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
 
   /* Большой переключатель в цвете раздела; ручка слева = выключено. */
@@ -332,10 +559,10 @@
 
   .power-knob {
     position: absolute;
-    top: 4px;
-    left: 8px;
-    width: 40px;
-    height: 40px;
+    top: 5px;
+    left: 6px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 0 0 2px #000;
@@ -344,7 +571,7 @@
   .power-text {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 2px;
   }
 
   .power-label {
@@ -356,14 +583,13 @@
 
   .timer {
     font-variant-numeric: tabular-nums;
-    font-size: 24px;
+    font-size: 1.6rem;
     font-weight: 800;
-    line-height: 32px;
     color: var(--ink);
   }
 
   .status-line {
-    font-size: var(--text-caption);
+    font-size: 0.75rem;
     color: var(--ink);
   }
 
@@ -374,8 +600,7 @@
 
   select {
     width: 100%;
-    min-height: 40px;
-    padding: 8px 16px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: #141414;
@@ -385,24 +610,33 @@
     appearance: none;
   }
 
-  select:disabled {
-    opacity: 0.6;
-  }
-
   .chev {
     position: absolute;
     right: 16px;
-    top: 14px;
-    width: 8px;
-    height: 8px;
+    top: 13px;
+    width: 7px;
+    height: 7px;
     border-right: 2px solid var(--accent);
     border-bottom: 2px solid var(--accent);
     transform: rotate(45deg);
   }
 
   .servers-card {
-    min-height: 128px;
-    padding: 8px;
+    flex: 1;
+    min-height: 120px;
+    padding: 6px 6px 6px 6px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+  }
+
+  .servers-card::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .servers-card::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: var(--accent);
   }
 
   .servers {
@@ -411,15 +645,14 @@
     list-style: none;
   }
 
-  /* Выбранный сервер отмечен одной обводкой в цвете раздела, без галочек и полос. */
   .server {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0;
+    gap: 2px;
     width: 100%;
-    min-height: 56px;
-    padding: 8px 16px;
+    min-height: 54px;
+    padding: 8px 12px;
     background: transparent;
     box-shadow: none;
     color: var(--muted);
@@ -429,12 +662,12 @@
 
   .server.selected {
     background: #222;
-    box-shadow: inset 0 0 0 2px var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
 
   .cc {
-    margin-right: 8px;
-    font-size: var(--text-caption);
+    margin-right: 5px;
+    font-size: 0.7rem;
     font-weight: 800;
   }
 
@@ -445,43 +678,45 @@
   }
 
   .empty {
-    margin: 8px;
+    margin: 10px;
   }
 
   .switch-row {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
-    gap: 16px;
-    min-height: 104px;
+    gap: 18px;
+    padding: 22px 20px;
   }
 
   .tool-icon {
     display: grid;
     flex-shrink: 0;
     place-items: center;
-    width: 56px;
-    height: 56px;
+    width: 58px;
+    height: 58px;
     border-radius: 16px;
     background: var(--accent);
     color: #000;
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 900;
   }
 
   .tool-icon.glyph {
     font-family: 'Arial Black', sans-serif;
+    font-size: 1.6rem;
   }
 
   .tool-text {
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 0;
+    gap: 3px;
     min-width: 0;
   }
 
   .tool-label {
-    font-size: var(--text-caption);
+    font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -489,8 +724,7 @@
   }
 
   .switch-title {
-    font-size: 18px;
-    line-height: 24px;
+    font-size: 1.15rem;
     font-weight: 800;
     color: var(--ink);
   }
@@ -501,9 +735,8 @@
 
   [role='switch'] {
     position: relative;
-    flex-shrink: 0;
-    width: 96px;
-    height: 48px;
+    width: 100px;
+    height: 44px;
     padding: 0;
     border-radius: 999px;
     background: #2a2a2a;
@@ -512,11 +745,49 @@
 
   .knob {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 6px;
+    left: 7px;
     width: 32px;
     height: 32px;
     border-radius: 50%;
     background: #fff;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .dialog {
+    width: min(420px, calc(100vw - 32px));
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .dialog h3 {
+    margin: 0 0 8px;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 760px) {
+    .vpn {
+      height: auto;
+    }
+
+    .tab {
+      padding: 8px 4px;
+    }
   }
 </style>
