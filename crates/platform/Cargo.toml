@@ -23,3 +23,6 @@ winreg = "0.56.0"
 # Модели дисков (Win32_DiskDrive), только чтение; безопасная обёртка над WMI.
 serde = { version = "1", features = ["derive"] }
 wmi = "0.18.4"
+
+# Загрузка подписки VPN: HTTPS через системный SChannel (без C-зависимостей, доверяет хранилищу Windows).
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "native-tls"] }

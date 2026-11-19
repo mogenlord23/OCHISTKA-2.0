@@ -12,6 +12,11 @@ use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ochistka_core::tweaks::{BoostState, TweakState, TweaksOverview};
+use ochistka_core::vpn::routes::RoutingRules;
+use ochistka_core::vpn::service::{
+    ConnState, ConnectionStatus, CoreAvailability, ImportSummary, PresetInfo, ServerView,
+    VpnSnapshot,
+};
 use ts_rs::{Config, TS};
 
 fn committed_dir() -> PathBuf {
@@ -53,6 +58,14 @@ fn export_all_into(dir: &Path) {
     TweaksOverview::export_all(&cfg).unwrap();
     TweakState::export_all(&cfg).unwrap();
     BoostState::export_all(&cfg).unwrap();
+    VpnSnapshot::export_all(&cfg).unwrap();
+    ServerView::export_all(&cfg).unwrap();
+    ConnectionStatus::export_all(&cfg).unwrap();
+    ConnState::export_all(&cfg).unwrap();
+    CoreAvailability::export_all(&cfg).unwrap();
+    PresetInfo::export_all(&cfg).unwrap();
+    ImportSummary::export_all(&cfg).unwrap();
+    RoutingRules::export_all(&cfg).unwrap();
 }
 
 #[test]
