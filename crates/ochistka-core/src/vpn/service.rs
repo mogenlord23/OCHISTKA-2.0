@@ -12,16 +12,13 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::config::build_config;
+use super::engine::{PrepareError, PrepareProgress};
 use super::fetch::{import_input, HttpFetch, Input};
 use super::latency::{measure, Dialer, PARALLEL, TIMEOUT};
 use super::parse::{ImportReport, Server};
 use super::routes::{RoutingRules, PRESETS};
 use super::sysproxy::SystemProxy;
 use super::VpnError;
-
-/// Команда, которая скачивает VPN-ядро (показывается в интерфейсе, если ядра нет).
-pub const FETCH_COMMAND: &str =
-    "powershell -ExecutionPolicy Bypass -File tools\\vpn-core\\fetch.ps1";
 
 /// Дочерний процесс ядра.
 pub trait CoreProcess: Send {
@@ -34,6 +31,8 @@ pub trait CoreProcess: Send {
 pub trait VpnHost: Send + Sync {
     /// Путь к исполняемому файлу ядра или причина, по которой его нет.
     fn locate_core(&self) -> Result<PathBuf, String>;
+    /// Скачивает и проверяет движок (закреплённая версия) в папку приложения.
+    fn install_core(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError>;
     fn free_port(&self) -> Result<u16, String>;
     /// `sing-box check -c <config>`; текст ошибки ядра в `Err`.
     fn check_config(&self, core: &Path, config: &Path) -> Result<(), String>;
@@ -92,8 +91,6 @@ pub struct ServerView {
 #[ts(export, export_to = "VpnCoreStatus.ts")]
 pub struct CoreAvailability {
     pub available: bool,
-    pub reason: Option<String>,
-    pub fetch_command: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, TS)]
@@ -247,17 +244,8 @@ impl VpnService {
                 measured: data.latencies.contains_key(&s.id),
             })
             .collect();
-        let core = match self.host.locate_core() {
-            Ok(_) => CoreAvailability {
-                available: true,
-                reason: None,
-                fetch_command: FETCH_COMMAND.into(),
-            },
-            Err(reason) => CoreAvailability {
-                available: false,
-                reason: Some(reason),
-                fetch_command: FETCH_COMMAND.into(),
-            },
+        let core = CoreAvailability {
+            available: self.host.locate_core().is_ok(),
         };
         VpnSnapshot {
             servers,
@@ -285,7 +273,7 @@ impl VpnService {
                 let tail = self.log_tail();
                 self.cleanup_locked(&mut conn);
                 conn.state = ConnState::Error;
-                conn.message = format!("VPN-ядро остановилось.{tail}");
+                conn.message = format!("VPN остановился.{tail}");
                 conn.since = None;
             }
         }
@@ -388,6 +376,14 @@ impl VpnService {
     // ---------- подключение ----------
 
     pub fn connect(&self) -> Result<ConnectionStatus, VpnError> {
+        self.connect_with(&mut |_| {})
+    }
+
+    /// Подключение; при первом запуске сначала готовит движок и сообщает ход в `progress`.
+    pub fn connect_with(
+        &self,
+        progress: &mut dyn FnMut(PrepareProgress),
+    ) -> Result<ConnectionStatus, VpnError> {
         let Ok(_op) = self.op.try_lock() else {
             return Err(VpnError::Busy);
         };
@@ -404,7 +400,6 @@ impl VpnService {
                 .ok_or(VpnError::NoServer)?;
             (server, data.rules.clone())
         };
-        let core = self.host.locate_core().map_err(VpnError::CoreMissing)?;
         {
             let mut conn = lock(&self.conn);
             *conn = Conn::idle();
@@ -413,6 +408,19 @@ impl VpnService {
             conn.server_name = Some(server.name.clone());
             conn.message = "Подключаемся…".into();
         }
+        let core = match self.host.locate_core() {
+            Ok(path) => path,
+            Err(_) => match self.prepare_core(progress) {
+                Ok(path) => path,
+                Err(err) => {
+                    let mut conn = lock(&self.conn);
+                    *conn = Conn::idle();
+                    conn.state = ConnState::Error;
+                    conn.message = err.to_string();
+                    return Err(err);
+                }
+            },
+        };
         match self.start(&core, &server, &rules) {
             Ok((process, verified)) => {
                 let mut conn = lock(&self.conn);
@@ -423,7 +431,7 @@ impl VpnService {
                 conn.message = if verified {
                     format!("Подключено · {} · передача данных проверена", server.name)
                 } else {
-                    "Ядро запущено, но доступ через сервер не подтверждён. Попробуй другой сервер."
+                    "VPN запущен, но доступ через сервер не подтверждён. Попробуй другой сервер."
                         .into()
                 };
                 drop(conn);
@@ -438,6 +446,19 @@ impl VpnService {
                 Err(err)
             }
         }
+    }
+
+    /// Скачивает движок и снова ищет его. Подробности неудачи пишутся в журнал, а не показываются.
+    fn prepare_core(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<PathBuf, VpnError> {
+        lock(&self.conn).message = "Подготовка VPN…".into();
+        self.host.install_core(progress).map_err(|err| {
+            let _ = std::fs::create_dir_all(&self.dir);
+            let _ = std::fs::write(self.dir.join("prepare.log"), &err.detail);
+            VpnError::Prepare(err.reason)
+        })?;
+        self.host
+            .locate_core()
+            .map_err(|_| VpnError::Prepare("проверьте интернет".into()))
     }
 
     fn start(
@@ -458,7 +479,7 @@ impl VpnService {
             .map_err(|e| VpnError::Engine(format!("Не удалось записать конфигурацию: {e}")))?;
         self.host
             .check_config(core, &config_path)
-            .map_err(|e| VpnError::Engine(format!("VPN-ядро не приняло параметры сервера: {e}")))?;
+            .map_err(|e| VpnError::Engine(format!("VPN не принял параметры сервера: {e}")))?;
         let log = session.join("engine.log");
         let mut process = self
             .host
@@ -470,7 +491,7 @@ impl VpnService {
             if process.has_exited() {
                 let tail = self.log_tail();
                 return Err(VpnError::Engine(format!(
-                    "VPN-ядро завершилось при запуске.{tail}"
+                    "VPN завершился при запуске.{tail}"
                 )));
             }
             if self.host.port_open(port) {
@@ -482,7 +503,7 @@ impl VpnService {
         if !ready {
             process.kill();
             return Err(VpnError::Engine(
-                "VPN-ядро не открыло локальный порт за 15 секунд".into(),
+                "VPN не открыл локальный порт за 15 секунд".into(),
             ));
         }
         if let Err(err) = self.proxy.enable(port) {
@@ -576,6 +597,8 @@ mod tests {
     struct FakeHost {
         flags: Flags,
         core_missing: bool,
+        install_fails: bool,
+        installed: Arc<AtomicBool>,
         check_fails: bool,
         port_opens: bool,
         probe_ok: bool,
@@ -586,6 +609,8 @@ mod tests {
             Self {
                 flags: flags.clone(),
                 core_missing: false,
+                install_fails: false,
+                installed: Arc::new(AtomicBool::new(false)),
                 check_fails: false,
                 port_opens: true,
                 probe_ok: true,
@@ -595,11 +620,23 @@ mod tests {
 
     impl VpnHost for FakeHost {
         fn locate_core(&self) -> Result<PathBuf, String> {
-            if self.core_missing {
+            if self.core_missing && !self.installed.load(Ordering::SeqCst) {
                 Err("файл sing-box.exe не найден".into())
             } else {
                 Ok(PathBuf::from("/core/sing-box"))
             }
+        }
+        fn install_core(
+            &self,
+            progress: &mut dyn FnMut(PrepareProgress),
+        ) -> Result<(), PrepareError> {
+            if self.install_fails {
+                return Err(PrepareError::network("offline"));
+            }
+            progress(PrepareProgress { percent: 50 });
+            progress(PrepareProgress { percent: 100 });
+            self.installed.store(true, Ordering::SeqCst);
+            Ok(())
         }
         fn free_port(&self) -> Result<u16, String> {
             Ok(23456)
@@ -756,19 +793,46 @@ mod tests {
     }
 
     #[test]
-    fn missing_core_is_reported_without_touching_anything() {
+    fn missing_engine_is_prepared_on_first_connect_with_progress() {
         let dir = temp_dir();
         let host = FakeHost {
             core_missing: true,
             ..FakeHost::good(&Flags::default())
         };
+        let (s, _) = make(host, Box::new(NoNet), &dir);
+        s.import(LIST).unwrap();
+        assert!(!s.snapshot().core.available);
+        let mut seen = Vec::new();
+        let status = s.connect_with(&mut |p| seen.push(p.percent)).unwrap();
+        assert_eq!(status.state, ConnState::Connected);
+        assert_eq!(seen, vec![50, 100]);
+        assert!(s.snapshot().core.available);
+        s.disconnect();
+    }
+
+    #[test]
+    fn failed_preparation_says_check_internet_and_touches_nothing() {
+        let dir = temp_dir();
+        let host = FakeHost {
+            core_missing: true,
+            install_fails: true,
+            ..FakeHost::good(&Flags::default())
+        };
         let (s, reg) = make(host, Box::new(NoNet), &dir);
         s.import(LIST).unwrap();
-        let snap = s.snapshot();
-        assert!(!snap.core.available);
-        assert!(snap.core.fetch_command.contains("fetch.ps1"));
-        assert!(matches!(s.connect(), Err(VpnError::CoreMissing(_))));
+        let err = s.connect().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Не удалось подготовить VPN: проверьте интернет"
+        );
+        assert_eq!(s.status().state, ConnState::Error);
         assert!(reg.map.lock().unwrap().is_empty());
+        assert_eq!(
+            std::fs::read_to_string(dir.join("prepare.log")).unwrap(),
+            "offline"
+        );
+        // Повторная попытка («Повторить») снова пробует подготовку.
+        assert!(matches!(s.connect(), Err(VpnError::Prepare(_))));
     }
 
     #[test]
@@ -789,7 +853,7 @@ mod tests {
         let (s, reg) = make(host, Box::new(NoNet), &dir);
         s.import(LIST).unwrap();
         let err = s.connect().unwrap_err().to_string();
-        assert!(err.contains("не приняло") && err.contains("FATAL"));
+        assert!(err.contains("не принял") && err.contains("FATAL"));
         assert_eq!(s.status().state, ConnState::Error);
         assert!(reg.get(INTERNET_KEY, "ProxyEnable").is_none());
     }
@@ -801,7 +865,7 @@ mod tests {
         flags.exited.store(true, Ordering::SeqCst);
         let (s, reg) = ready(&flags, &dir);
         let err = s.connect().unwrap_err().to_string();
-        assert!(err.contains("завершилось при запуске") && err.contains("something broke"));
+        assert!(err.contains("завершился при запуске") && err.contains("something broke"));
         assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
     }
 
@@ -829,7 +893,7 @@ mod tests {
         flags.exited.store(true, Ordering::SeqCst);
         let st = s.status();
         assert_eq!(st.state, ConnState::Error);
-        assert!(st.message.contains("остановилось"));
+        assert!(st.message.contains("остановился"));
         assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
     }
 

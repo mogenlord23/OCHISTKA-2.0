@@ -12,6 +12,7 @@ use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ochistka_core::tweaks::{BoostState, TweakState, TweaksOverview};
+use ochistka_core::vpn::engine::PrepareProgress;
 use ochistka_core::vpn::routes::RoutingRules;
 use ochistka_core::vpn::service::{
     ConnState, ConnectionStatus, CoreAvailability, ImportSummary, PresetInfo, ServerView,
@@ -66,6 +67,7 @@ fn export_all_into(dir: &Path) {
     PresetInfo::export_all(&cfg).unwrap();
     ImportSummary::export_all(&cfg).unwrap();
     RoutingRules::export_all(&cfg).unwrap();
+    PrepareProgress::export_all(&cfg).unwrap();
 }
 
 #[test]

@@ -11,6 +11,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ochistka_core::tweaks::RegistryPort;
+#[cfg(windows)]
+use ochistka_core::vpn::engine;
+use ochistka_core::vpn::engine::{PrepareError, PrepareProgress};
 use ochistka_core::vpn::fetch::{FetchResponse, HttpFetch};
 use ochistka_core::vpn::latency::Dialer;
 use ochistka_core::vpn::service::{CoreProcess, VpnHost};
@@ -128,11 +131,22 @@ pub fn run_with_timeout(exe: &Path, args: &[&str], limit: Duration) -> Result<()
 /// Хозяин ядра для текущей ОС. Ядро ищется в папках `core_dirs` по порядку.
 pub struct SingBoxHost {
     core_dirs: Vec<PathBuf>,
+    /// Куда приложение само кладёт скачанный движок (`%LOCALAPPDATA%\OCHISTKA\vpn-core`).
+    install_dir: Option<PathBuf>,
 }
 
 impl SingBoxHost {
     pub fn new(core_dirs: Vec<PathBuf>) -> Self {
-        Self { core_dirs }
+        Self {
+            core_dirs,
+            install_dir: None,
+        }
+    }
+
+    pub fn with_install_dir(mut self, dir: PathBuf) -> Self {
+        self.core_dirs.push(dir.clone());
+        self.install_dir = Some(dir);
+        self
     }
 }
 
@@ -155,6 +169,28 @@ impl VpnHost for SingBoxHost {
                         .join("; ")
                 )
             })
+    }
+
+    fn install_core(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError> {
+        if !cfg!(windows) {
+            return Err(PrepareError::unsupported(
+                "VPN пока работает только на Windows 10/11",
+            ));
+        }
+        let Some(dir) = &self.install_dir else {
+            return Err(PrepareError::unsupported("папка для VPN не задана"));
+        };
+        #[cfg(windows)]
+        {
+            engine::install(&engine::PINNED, dir, &http::ReqwestDownloader, progress)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (dir, progress);
+            Err(PrepareError::unsupported(
+                "VPN пока работает только на Windows 10/11",
+            ))
+        }
     }
 
     fn free_port(&self) -> Result<u16, String> {
@@ -304,6 +340,69 @@ mod http {
         }
     }
 
+    /// Загрузка движка: https только с github.com, переходы только на адреса GitHub.
+    pub struct ReqwestDownloader;
+
+    impl engine::Downloader for ReqwestDownloader {
+        fn download(
+            &self,
+            url: &str,
+            max_bytes: usize,
+            on_progress: &mut dyn FnMut(u64, Option<u64>),
+        ) -> Result<Vec<u8>, PrepareError> {
+            if !engine::download_url_allowed(url) {
+                return Err(PrepareError::network("адрес загрузки не разрешён"));
+            }
+            let policy = Policy::custom(|attempt| {
+                if attempt.previous().len() >= 5 {
+                    attempt.error("слишком много переходов")
+                } else if !engine::redirect_allowed(attempt.url().as_str()) {
+                    attempt.error("переход на чужой адрес отклонён")
+                } else {
+                    attempt.follow()
+                }
+            });
+            let client = Client::builder()
+                .user_agent("OCHISTKA")
+                .redirect(policy)
+                .connect_timeout(Duration::from_secs(20))
+                .timeout(Duration::from_secs(600))
+                .https_only(true)
+                .build()
+                .map_err(|e| PrepareError::network(e.to_string()))?;
+            let mut response = client
+                .get(url)
+                .send()
+                .map_err(|e| PrepareError::network(describe(&e)))?;
+            if !response.status().is_success() {
+                return Err(PrepareError::network(format!(
+                    "ответ сервера {}",
+                    response.status()
+                )));
+            }
+            let total = response.content_length();
+            if total.is_some_and(|n| n as usize > max_bytes) {
+                return Err(PrepareError::network("файл слишком большой"));
+            }
+            let mut body = Vec::with_capacity(total.unwrap_or(0).min(max_bytes as u64) as usize);
+            let mut chunk = [0u8; 64 * 1024];
+            loop {
+                let n = response
+                    .read(&mut chunk)
+                    .map_err(|e| PrepareError::network(format!("обрыв при чтении: {e}")))?;
+                if n == 0 {
+                    break;
+                }
+                body.extend_from_slice(&chunk[..n]);
+                if body.len() > max_bytes {
+                    return Err(PrepareError::network("файл слишком большой"));
+                }
+                on_progress(body.len() as u64, total);
+            }
+            Ok(body)
+        }
+    }
+
     pub fn probe(port: u16) -> bool {
         let Ok(proxy) = reqwest::Proxy::all(format!("http://127.0.0.1:{port}")) else {
             return false;
@@ -360,7 +459,7 @@ pub fn current_dialer() -> Box<dyn Dialer + Send> {
 }
 
 pub fn current_vpn_host(core_dirs: Vec<PathBuf>) -> Box<dyn VpnHost> {
-    Box::new(SingBoxHost::new(core_dirs))
+    Box::new(SingBoxHost::new(core_dirs).with_install_dir(vpn_engine_dir()))
 }
 
 struct WindowsProxyRefresh;
@@ -392,6 +491,15 @@ pub fn vpn_data_dir() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
         .join("OCHISTKA")
         .join("vpn")
+}
+
+/// Папка скачанного движка: `%LOCALAPPDATA%\OCHISTKA\vpn-core`, иначе временная.
+pub fn vpn_engine_dir() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("OCHISTKA")
+        .join("vpn-core")
 }
 
 #[cfg(all(test, unix))]
@@ -463,6 +571,18 @@ mod tests {
             .connect("127.0.0.1", port, Duration::from_millis(500))
             .is_err());
         assert!(host.free_port().unwrap() > 0);
+    }
+
+    #[test]
+    fn install_dir_is_searched_and_install_is_unsupported_off_windows() {
+        let dir = temp("engine");
+        std::fs::create_dir_all(&dir).unwrap();
+        let host = SingBoxHost::new(vec![]).with_install_dir(dir.clone());
+        // Вне Windows движок не ищется и не скачивается.
+        assert!(host.locate_core().is_err());
+        let err = host.install_core(&mut |_| {}).unwrap_err();
+        assert!(err.reason.contains("Windows"));
+        assert!(vpn_engine_dir().ends_with("vpn-core"));
     }
 
     #[test]
