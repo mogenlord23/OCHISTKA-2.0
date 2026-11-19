@@ -24,8 +24,8 @@ export function writeSoundEnabled(on: boolean): void {
 type SoundName = 'click' | 'switch' | 'heehee';
 
 const SOURCES: Record<SoundName, { url: string; gain: number }> = {
-  click: { url: clickUrl, gain: 0.7 },
-  switch: { url: switchUrl, gain: 0.7 },
+  click: { url: clickUrl, gain: 1 },
+  switch: { url: switchUrl, gain: 1 },
   heehee: { url: heeheeUrl, gain: 1 },
 };
 
