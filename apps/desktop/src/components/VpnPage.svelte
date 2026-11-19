@@ -21,7 +21,9 @@
     importMessage,
     normalizePasted,
     prepareImport,
-    requestNetworkChange,
+    TOOL_UNAVAILABLE,
+    toolSwitchProps,
+    type ToolModel,
     statusLine,
   } from '../lib/vpn';
   import {
@@ -39,10 +41,9 @@
 
   let { subsection }: { subsection: string } = $props();
 
-  type Tab = 'vpn' | 'routes' | 'advanced' | 'network' | 'connections';
+  type Tab = 'vpn' | 'advanced' | 'network' | 'connections';
   const TABS: { id: Tab; label: string }[] = [
     { id: 'vpn', label: 'VPN' },
-    { id: 'routes', label: 'Маршруты и исключения' },
     { id: 'advanced', label: 'Дополнительно' },
     { id: 'network', label: 'Сеть' },
     { id: 'connections', label: 'Соединения' },
@@ -61,9 +62,15 @@
   let fileInput: HTMLInputElement | undefined = $state();
 
   const ADVANCED = [
-    { id: 'zapret', label: 'Zapret', description: 'Обход блокировок DPI', icon: '↗' },
-    { id: 'xbox-dns', label: 'Xbox DNS', description: 'DNS-серверы Xbox', icon: 'X' },
+    { id: 'zapret', label: 'Zapret', description: 'Помогает открывать заблокированные сайты', icon: '↗' },
+    { id: 'xbox-dns', label: 'Xbox DNS', description: 'Свои DNS-серверы для Xbox и игр', icon: 'X' },
   ] as const;
+
+  /** Состояние инструментов. Пока оба не реализованы: Switch выключен и недоступен, без имитации. */
+  const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
+    zapret: TOOL_UNAVAILABLE,
+    'xbox-dns': TOOL_UNAVAILABLE,
+  };
 
   /** Размер файла подписки не больше 5 МБ (так же ограничивает Rust). */
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -385,10 +392,10 @@
               </p>
             {/if}
           </section>
-        {:else if tab === 'routes'}
-          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'advanced'}
+          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
           {#each ADVANCED as item (item.id)}
+            {@const tool = TOOLS[item.id]}
             <section class="card tool switch-row">
               <span class="tool-icon" class:glyph={item.icon === 'X'} aria-hidden="true"
                 >{item.icon}</span
@@ -397,12 +404,12 @@
                 <span class="tool-label">Дополнительный инструмент</span>
                 <span class="switch-title">{item.label}</span>
                 <span class="note"
-                  >Пока недоступно: появится в одном из следующих обновлений.<span class="hidden">
+                  >{item.description}. {tool.reason ?? ''}<span class="hidden">
                     Состояние: {NETWORK_STATUS_OFF}</span
                   ></span
                 >
               </div>
-              <Switch checked={false} disabled label={item.label} />
+              <Switch {...toolSwitchProps(tool)} label={item.label} />
             </section>
           {/each}
         {:else if tab === 'network'}

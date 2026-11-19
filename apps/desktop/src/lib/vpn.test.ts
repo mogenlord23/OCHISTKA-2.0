@@ -11,6 +11,11 @@ import {
   normalizePasted,
   prepareImport,
   requestNetworkChange,
+  NETWORK_CHANGE_REASON,
+  TOOL_UNAVAILABLE,
+  applyToolResult,
+  toolSwitchProps,
+  type ToolModel,
   splitEntries,
   statusLine,
   validateSubscriptionUrl,
@@ -228,7 +233,44 @@ describe('stubs', () => {
   it('a network change returns the not-connected reason', () => {
     expect(requestNetworkChange()).toEqual({
       ok: false,
-      reason: 'Изменение сети пока не подключено',
+      reason: NETWORK_CHANGE_REASON,
     });
+  });
+});
+
+describe('tool switches (Zapret, Xbox DNS)', () => {
+  it('an unimplemented tool stays off and disabled with a reason, never on', () => {
+    expect(TOOL_UNAVAILABLE.reason).toMatch(/Пока недоступно/);
+    expect(toolSwitchProps(TOOL_UNAVAILABLE)).toEqual({
+      checked: false,
+      pending: false,
+      error: false,
+      disabled: true,
+    });
+    // Даже ошибочно выставленный статус «вкл» у нереализованного инструмента не показывает успех.
+    expect(toolSwitchProps({ ...TOOL_UNAVAILABLE, status: 'on' }).checked).toBe(false);
+  });
+
+  it('maps off, on, pending and error for an available tool', () => {
+    const base = { available: true, reason: null };
+    expect(toolSwitchProps({ ...base, status: 'off' })).toMatchObject({ checked: false });
+    expect(toolSwitchProps({ ...base, status: 'on' })).toMatchObject({ checked: true });
+    expect(toolSwitchProps({ ...base, status: 'pending' })).toMatchObject({
+      pending: true,
+      disabled: true,
+    });
+    expect(toolSwitchProps({ ...base, status: 'error' })).toMatchObject({
+      error: true,
+      checked: false,
+    });
+  });
+
+  it('success shows on only after a confirmed result, failure rolls back with a phrase', () => {
+    const tool: ToolModel = { status: 'pending', available: true, reason: null };
+    expect(applyToolResult(tool, { ok: true }, true).status).toBe('on');
+    expect(applyToolResult(tool, { ok: true }, false).status).toBe('off');
+    const failed = applyToolResult(tool, { ok: false, reason: 'Не вышло' }, true);
+    expect(failed).toMatchObject({ status: 'error', reason: 'Не вышло' });
+    expect(toolSwitchProps(failed).checked).toBe(false);
   });
 });

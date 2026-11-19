@@ -369,15 +369,30 @@ describe('VpnPage: подключение и серверы', () => {
   });
 });
 
-describe('VpnPage: маршруты и исключения', () => {
+describe('VpnPage: «Дополнительно», блоки «Маршруты» и «Исключения»', () => {
+  it('shows the two blocks with plain explanations on the Advanced tab', async () => {
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    expect(await screen.findByRole('heading', { name: 'Маршруты' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Исключения' })).toBeTruthy();
+    expect(screen.getByText(/Что идёт через VPN/)).toBeTruthy();
+    expect(screen.getByText(/Что идёт напрямую, мимо VPN/)).toBeTruthy();
+  });
+
+  it('has no separate Routes tab any more', () => {
+    render(VpnPage, { props: { subsection: 'routes' } });
+    expect(screen.queryByRole('tab', { name: 'Маршруты и исключения' })).toBeNull();
+    // Старый id раздела не ломает страницу: открывается первая вкладка.
+    expect(screen.getByTestId('vpn-title').textContent).toBe('VPN');
+  });
+
   it('shows presets and saves split entries through the backend', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
       vpn_set_rules: (a) => a?.rules,
     });
-    render(VpnPage, { props: { subsection: 'routes' } });
+    render(VpnPage, { props: { subsection: 'advanced' } });
     expect(await screen.findByText('Российские сайты напрямую')).toBeTruthy();
-    await fireEvent.input(screen.getByLabelText('Домены напрямую'), {
+    await fireEvent.input(screen.getByLabelText('Сайты напрямую'), {
       target: { value: 'example.ru, bank.ru\nvk.com' },
     });
     await fireEvent.input(screen.getByLabelText('Приложения через VPN'), {
@@ -415,8 +430,8 @@ describe('VpnPage: маршруты и исключения', () => {
           message: '«http://x»: нужен домен без https:// и пути',
         }),
     });
-    render(VpnPage, { props: { subsection: 'routes' } });
-    const direct = (await screen.findByLabelText('Домены напрямую')) as HTMLTextAreaElement;
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const direct = (await screen.findByLabelText('Сайты напрямую')) as HTMLTextAreaElement;
     await waitFor(() => expect(direct.value).toBe('a.ru'));
     expect((screen.getByLabelText('Приложения напрямую') as HTMLTextAreaElement).value).toBe(
       'steam.exe',
@@ -445,8 +460,8 @@ describe('VpnPage: маршруты и исключения', () => {
         }),
       vpn_set_rules: (a) => a?.rules,
     });
-    render(VpnPage, { props: { subsection: 'routes' } });
-    await screen.findByLabelText('Домены напрямую');
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    await screen.findByLabelText('Сайты напрямую');
     await fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(await screen.findByText(/отключи и подключи VPN/)).toBeTruthy();
   });
@@ -480,10 +495,10 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
 });
 
 describe('VpnPage: вкладки', () => {
-  it('shows five tabs, the first selected, with the lead line and big title', () => {
+  it('shows four tabs, the first selected, with the lead line and big title', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
-    expect(tabs).toEqual(['VPN', 'Маршруты и исключения', 'Дополнительно', 'Сеть', 'Соединения']);
+    expect(tabs).toEqual(['VPN', 'Дополнительно', 'Сеть', 'Соединения']);
     expect(screen.getByRole('tab', { name: 'VPN' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByText('Подписка, серверы, маршруты · сеть и соединения')).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('VPN');

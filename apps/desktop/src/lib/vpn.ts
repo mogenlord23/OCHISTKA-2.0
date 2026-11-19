@@ -5,7 +5,7 @@ export const NO_SERVERS_REASON = 'Сначала импортируй подпи
 export const TUN_MODE_REASON =
   'Режим TUN (весь компьютер) пока не поддерживается: нужны права администратора и драйвер';
 export const IMPORTING_LABEL = 'Загружаем подписку…';
-export const NETWORK_CHANGE_REASON = 'Изменение сети пока не подключено';
+export const NETWORK_CHANGE_REASON = 'Пока недоступно: появится в одном из следующих обновлений';
 export const NETWORK_STATUS_OFF = 'выключено';
 
 export type StubResult = { ok: false; reason: string };
@@ -146,6 +146,45 @@ export function splitEntries(text: string): string[] {
 export function joinEntries(list: readonly string[]): string {
   return list.join('\n');
 }
+
+/** Состояние переключателя дополнительного инструмента (Zapret, Xbox DNS). */
+export type ToolStatus = 'off' | 'on' | 'pending' | 'error';
+
+export interface ToolModel {
+  status: ToolStatus;
+  /** Функция реализована. Пока нет: переключатель выключен и недоступен, успех не имитируется. */
+  available: boolean;
+  /** Короткая фраза: почему недоступно или что пошло не так. */
+  reason: string | null;
+}
+
+/** Свойства Switch по состоянию. «Вкл» показываем только при подтверждённом статусе `on`. */
+export function toolSwitchProps(tool: ToolModel) {
+  return {
+    checked: tool.available && tool.status === 'on',
+    pending: tool.available && tool.status === 'pending',
+    error: tool.available && tool.status === 'error',
+    disabled: !tool.available || tool.status === 'pending',
+  };
+}
+
+/** Результат попытки: успех только после проверки; при ошибке откат в «выкл» и фраза. */
+export function applyToolResult(
+  tool: ToolModel,
+  result: { ok: true } | { ok: false; reason: string },
+  wanted: boolean,
+): ToolModel {
+  return result.ok
+    ? { ...tool, status: wanted ? 'on' : 'off', reason: null }
+    : { ...tool, status: 'error', reason: result.reason };
+}
+
+/** Оба инструмента пока не реализованы: честное состояние без имитации. */
+export const TOOL_UNAVAILABLE: ToolModel = {
+  status: 'off',
+  available: false,
+  reason: NETWORK_CHANGE_REASON,
+};
 
 /** Заглушка изменения сети (Zapret, Xbox DNS): системные настройки не трогаем. */
 export function requestNetworkChange(): StubResult {

@@ -69,8 +69,42 @@
 {#if !snapshot}
   <p class="state" role="status">Читаем сохранённые правила…</p>
 {:else}
-  <section class="card">
-    <h2>Готовые наборы</h2>
+  <section class="card block" aria-labelledby="vpn-routes-title">
+    <h2 id="vpn-routes-title" class="block-title">Маршруты</h2>
+    <p class="note lead">
+      Что идёт через VPN. Всё, что вы впишете сюда, будет открываться через выбранный сервер, а
+      остальное идёт обычным путём.
+    </p>
+    <div class="grid">
+      <div class="field">
+        <h3><label for="vpn-proxy-domains">Сайты через VPN</label></h3>
+        <textarea
+          id="vpn-proxy-domains"
+          rows="3"
+          placeholder="example.com"
+          bind:value={proxyDomains}
+          spellcheck="false"
+        ></textarea>
+      </div>
+      <div class="field">
+        <h3><label for="vpn-proxy-apps">Приложения через VPN</label></h3>
+        <textarea
+          id="vpn-proxy-apps"
+          rows="3"
+          placeholder="chrome.exe"
+          bind:value={proxyApps}
+          spellcheck="false"
+        ></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="card block" aria-labelledby="vpn-exceptions-title">
+    <h2 id="vpn-exceptions-title" class="block-title">Исключения</h2>
+    <p class="note lead">
+      Что идёт напрямую, мимо VPN: банки, российские сайты, игры. Сюда добавляют то, что с VPN
+      работает хуже или не работает совсем.
+    </p>
     <ul class="presets" aria-label="Готовые наборы">
       {#each snapshot.presets as preset (preset.id)}
         <li>
@@ -87,52 +121,32 @@
         </li>
       {/each}
     </ul>
+    <div class="grid">
+      <div class="field">
+        <h3><label for="vpn-direct-domains">Сайты напрямую</label></h3>
+        <textarea
+          id="vpn-direct-domains"
+          rows="3"
+          placeholder="example.ru"
+          bind:value={directDomains}
+          spellcheck="false"
+        ></textarea>
+      </div>
+      <div class="field">
+        <h3><label for="vpn-direct-apps">Приложения напрямую</label></h3>
+        <textarea
+          id="vpn-direct-apps"
+          rows="3"
+          placeholder="steam.exe"
+          bind:value={directApps}
+          spellcheck="false"
+        ></textarea>
+      </div>
+    </div>
   </section>
 
-  <div class="grid">
-    <section class="card">
-      <h2><label for="vpn-direct-domains">Домены напрямую</label></h2>
-      <textarea
-        id="vpn-direct-domains"
-        rows="4"
-        placeholder="example.ru"
-        bind:value={directDomains}
-        spellcheck="false"
-      ></textarea>
-    </section>
-    <section class="card">
-      <h2><label for="vpn-proxy-domains">Домены через VPN</label></h2>
-      <textarea
-        id="vpn-proxy-domains"
-        rows="4"
-        placeholder="example.com"
-        bind:value={proxyDomains}
-        spellcheck="false"
-      ></textarea>
-    </section>
-    <section class="card">
-      <h2><label for="vpn-direct-apps">Приложения напрямую</label></h2>
-      <textarea
-        id="vpn-direct-apps"
-        rows="4"
-        placeholder="steam.exe"
-        bind:value={directApps}
-        spellcheck="false"
-      ></textarea>
-    </section>
-    <section class="card">
-      <h2><label for="vpn-proxy-apps">Приложения через VPN</label></h2>
-      <textarea
-        id="vpn-proxy-apps"
-        rows="4"
-        placeholder="chrome.exe"
-        bind:value={proxyApps}
-        spellcheck="false"
-      ></textarea>
-    </section>
-  </div>
   <p class="note hint">
-    По одной записи в строке. Домен: <code>example.com</code> (с поддоменами),
+    По одной записи в строке. Сайт: <code>example.com</code> (с поддоменами),
     <code>full:host.example.com</code>, <code>keyword:слово</code>, адрес или сеть
     <code>10.0.0.0/8</code>. Приложение: имя файла, например <code>chrome.exe</code>. Локальные
     адреса всегда идут напрямую.
@@ -156,11 +170,28 @@
   }
 
   h2 {
-    margin: 0 0 8px;
+    margin: 0 0 4px;
     font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
     color: var(--ink);
+  }
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  .block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .lead {
+    margin-bottom: 2px;
   }
 
   .grid {
