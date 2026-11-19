@@ -174,9 +174,7 @@
       {@const state = stateOf(item.id)}
       <article class="item">
         <h3>{item.title}</h3>
-        <p class="meta">
-          <span>{item.maker}</span><span aria-hidden="true"> · </span><span>{item.device}</span>
-        </p>
+        <p class="meta">{item.maker} · {item.device}</p>
         <p>{item.description}</p>
         {#if compatibilityNote(item, hardware, os)}
           <p class="compat">{compatibilityNote(item, hardware, os)}</p>

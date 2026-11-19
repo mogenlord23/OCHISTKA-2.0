@@ -1,0 +1,27 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { mock } from './mock.mjs';
+const OUT = process.argv[2];
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+const ctx = await browser.newContext({ viewport: { width: 900, height: 712 } });
+const page = await ctx.newPage();
+await page.addInitScript(mock);
+await page.goto('http://127.0.0.1:1574/');
+await page.waitForTimeout(300);
+const t0 = Date.now();
+await page.getByRole('button', { name: 'Компьютер', exact: true }).click();
+await page.waitForTimeout(60);
+await page.screenshot({ path: `${OUT}/computer-cold-60ms.png` });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}/computer-loaded.png` });
+// Уход в другой раздел и возврат: значения из кэша сразу.
+await page.getByRole('button', { name: 'Диски', exact: true }).click();
+await page.waitForTimeout(100);
+await page.getByRole('button', { name: 'Компьютер', exact: true }).click();
+await page.waitForTimeout(40);
+await page.screenshot({ path: `${OUT}/computer-return-40ms.png` });
+await page.getByRole('button', { name: 'Драйверы', exact: true }).click();
+await page.waitForTimeout(700);
+await page.getByRole('button', { name: 'Звук и связь' }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${OUT}/drivers-audio-900.png` });
+await browser.close();

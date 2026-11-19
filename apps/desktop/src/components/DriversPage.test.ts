@@ -131,11 +131,14 @@ describe('DriversPage', () => {
     await screen.findByText('NVIDIA App');
     expect(screen.queryByRole('button', { name: 'Realtek' })).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Звук и связь' }));
-    const realtek = screen.getByText('Realtek · звук').closest('article') as HTMLElement;
-    expect(within(realtek).getByText('Realtek')).toBeTruthy();
-    expect(within(realtek).getByText('Звук')).toBeTruthy();
-    const intel = screen.getByText('Intel · Bluetooth').closest('article') as HTMLElement;
-    expect(within(intel).getByText('Bluetooth')).toBeTruthy();
+    const realtek = screen
+      .getByRole('heading', { name: 'Realtek · звук' })
+      .closest('article') as HTMLElement;
+    expect(within(realtek).getByText('Realtek · Звук')).toBeTruthy();
+    const intel = screen
+      .getByRole('heading', { name: 'Intel · Bluetooth' })
+      .closest('article') as HTMLElement;
+    expect(within(intel).getByText('Intel · Bluetooth', { selector: 'p' })).toBeTruthy();
     expect(screen.queryByText('NVIDIA App')).toBeNull();
   });
 
