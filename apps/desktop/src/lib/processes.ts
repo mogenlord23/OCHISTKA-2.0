@@ -31,9 +31,44 @@ export function iconColor(name: string): string {
   return ICON_COLORS[hash % ICON_COLORS.length];
 }
 
+/** Критические процессы Windows. Зеркало `PROTECTED_NAMES` в ядре (processes.rs): здесь только
+    серая кнопка и причина, а решение всегда принимает бэкенд. */
+export const PROTECTED_NAMES: readonly string[] = [
+  'system',
+  'system idle process',
+  'registry',
+  'memory compression',
+  'secure system',
+  'smss.exe',
+  'csrss.exe',
+  'wininit.exe',
+  'winlogon.exe',
+  'services.exe',
+  'lsass.exe',
+  'lsaiso.exe',
+  'svchost.exe',
+  'dwm.exe',
+  'fontdrvhost.exe',
+  'sihost.exe',
+  'ctfmon.exe',
+  'audiodg.exe',
+];
+
 /** PID, которые интерфейс не предлагает завершать: простой (0) и System (4). */
 export function isProtectedPid(pid: number): boolean {
   return pid === 0 || pid === 4;
+}
+
+/** Защищён ли процесс: по PID или по имени из списка критических. */
+export function isProtectedProcess(proc: { pid: number; name: string }): boolean {
+  return isProtectedPid(proc.pid) || PROTECTED_NAMES.includes(proc.name.trim().toLowerCase());
+}
+
+/** Почему нельзя завершить процесс, или `null`, если можно. */
+export function protectedReason(proc: { pid: number; name: string }): string | null {
+  return isProtectedProcess(proc)
+    ? 'Системный процесс Windows: его завершение остановит систему или сеанс'
+    : null;
 }
 
 /** ЦП в процентах до сотых: «3,97%». */

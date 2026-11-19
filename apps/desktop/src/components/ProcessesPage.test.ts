@@ -241,4 +241,31 @@ describe('ProcessesPage services subsection', () => {
     expect(screen.getByRole('region', { name: 'Службы' })).toBeTruthy();
     expect(listProcesses).not.toHaveBeenCalled();
   });
+
+  describe('context menu', () => {
+    it('right click opens the menu with both actions at the click point', async () => {
+      vi.mocked(revealExe).mockResolvedValue('C:\\a\\chrome.exe');
+      await mountProcesses();
+      const row = screen.getByText('chrome.exe').closest('[role="row"]') as HTMLElement;
+      await fireEvent.contextMenu(row, { clientX: 120, clientY: 90 });
+      const menu = await screen.findByRole('menu');
+      expect(
+        within(menu).getByRole('menuitem', { name: 'Открыть расположение файла' }),
+      ).toBeTruthy();
+      expect(within(menu).getByRole('menuitem', { name: 'Завершить задачу' })).toBeTruthy();
+      await fireEvent.click(
+        within(menu).getByRole('menuitem', { name: 'Открыть расположение файла' }),
+      );
+      await vi.waitFor(() => expect(revealExe).toHaveBeenCalledWith(100));
+    });
+
+    it('protected processes cannot be ended from the menu', async () => {
+      await mountProcesses();
+      const row = screen.getByText('System').closest('[role="row"]') as HTMLElement;
+      await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+      const menu = await screen.findByRole('menu');
+      const end = within(menu).getByRole('menuitem', { name: 'Завершить задачу' });
+      expect((end as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
 });

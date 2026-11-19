@@ -35,6 +35,8 @@ pub enum ProcessError {
     SystemProcess,
     #[error("нельзя завершить сам OCHISTKA")]
     OwnProcess,
+    #[error("«{0}» — системный процесс Windows: его завершение остановит систему или сеанс")]
+    Protected(String),
     #[error("процесс {0} не найден")]
     NotFound(u32),
     #[error("процесс {0} уже завершился, PID занят другим процессом")]
@@ -52,6 +54,37 @@ pub enum ProcessError {
     NoPath(String),
     #[error(transparent)]
     Reveal(#[from] RevealError),
+}
+
+/// Критические процессы Windows (имена в нижнем регистре). Завершение любого из них роняет
+/// систему или сеанс, поэтому ядро отказывает независимо от интерфейса. `svchost.exe` здесь
+/// тоже: в нём живут службы, ими управляют на вкладке «Службы». Зеркало списка есть в
+/// `apps/desktop/src/lib/processes.ts` (только для серой кнопки; решает всегда ядро).
+pub const PROTECTED_NAMES: &[&str] = &[
+    "system",
+    "system idle process",
+    "registry",
+    "memory compression",
+    "secure system",
+    "smss.exe",
+    "csrss.exe",
+    "wininit.exe",
+    "winlogon.exe",
+    "services.exe",
+    "lsass.exe",
+    "lsaiso.exe",
+    "svchost.exe",
+    "dwm.exe",
+    "fontdrvhost.exe",
+    "sihost.exe",
+    "ctfmon.exe",
+    "audiodg.exe",
+];
+
+/// Защищён ли процесс с таким именем (без учёта регистра).
+pub fn is_protected_name(name: &str) -> bool {
+    let lower = name.trim().to_lowercase();
+    PROTECTED_NAMES.contains(&lower.as_str())
 }
 
 /// Порт процессов. Реализации живут в `crates/platform`.
@@ -121,6 +154,11 @@ pub fn end_task(
     own_pid: u32,
 ) -> Result<(), ProcessError> {
     check_end_task(pid, own_pid, confirmed)?;
+    if let Some(proc) = port.list()?.into_iter().find(|proc| proc.pid == pid) {
+        if is_protected_name(&proc.name) {
+            return Err(ProcessError::Protected(proc.name));
+        }
+    }
     let actual = port.start_time(pid)?;
     verify_identity(pid, expected_start_unix, actual)?;
     if port.kill(pid)? {
@@ -200,11 +238,12 @@ mod tests {
         kills: Mutex<Vec<u32>>,
         revealed: Mutex<Vec<String>>,
         exe: Option<String>,
+        listed: Vec<ProcessInfo>,
     }
 
     impl ProcessPort for FakePort {
         fn list(&self) -> Result<Vec<ProcessInfo>, ProcessError> {
-            Ok(Vec::new())
+            Ok(self.listed.clone())
         }
         fn exe_path(&self, _pid: u32) -> Result<Option<String>, ProcessError> {
             Ok(self.exe.clone())
@@ -229,7 +268,32 @@ mod tests {
             kills: Mutex::new(Vec::new()),
             revealed: Mutex::new(Vec::new()),
             exe: None,
+            listed: Vec::new(),
         }
+    }
+
+    fn proc(pid: u32, name: &str) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            name: name.into(),
+            cpu_percent: 0.0,
+            memory_bytes: 0,
+            start_time_unix: 100,
+        }
+    }
+
+    #[test]
+    fn protected_process_names_are_refused_by_the_core() {
+        let mut p = port(Some(100), true);
+        p.listed = vec![proc(500, "LSASS.exe"), proc(600, "notepad.exe")];
+        assert_eq!(
+            end_task(&p, 500, 100, true, 99),
+            Err(ProcessError::Protected("LSASS.exe".into()))
+        );
+        assert!(p.kills.lock().unwrap().is_empty());
+        assert_eq!(end_task(&p, 600, 100, true, 99), Ok(()));
+        assert!(is_protected_name("  Svchost.EXE "));
+        assert!(!is_protected_name("explorer.exe"));
     }
 
     #[test]

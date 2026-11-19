@@ -4,6 +4,7 @@ import {
   formatCpu,
   iconColor,
   isProtectedPid,
+  isProtectedProcess,
   REFRESH_MS,
   sortProcesses,
 } from './processes';
@@ -88,5 +89,14 @@ describe('sortProcesses', () => {
 
   it('formats CPU with a decimal comma', () => {
     expect(formatCpu(3.97)).toBe('3,97%');
+  });
+});
+
+describe('protected process names', () => {
+  it('blocks critical Windows processes by name, ignoring case', () => {
+    expect(isProtectedProcess({ pid: 700, name: 'LSASS.exe' })).toBe(true);
+    expect(isProtectedProcess({ pid: 900, name: 'svchost.exe' })).toBe(true);
+    expect(isProtectedProcess({ pid: 4, name: 'System' })).toBe(true);
+    expect(isProtectedProcess({ pid: 1234, name: 'notepad.exe' })).toBe(false);
   });
 });

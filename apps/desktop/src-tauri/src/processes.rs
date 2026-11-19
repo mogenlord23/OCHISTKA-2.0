@@ -17,9 +17,10 @@ impl From<ProcessError> for ProcessesError {
     fn from(err: ProcessError) -> Self {
         let kind = match err {
             ProcessError::NotConfirmed => "notConfirmed",
-            ProcessError::IdleProcess | ProcessError::SystemProcess | ProcessError::OwnProcess => {
-                "protected"
-            }
+            ProcessError::IdleProcess
+            | ProcessError::SystemProcess
+            | ProcessError::OwnProcess
+            | ProcessError::Protected(_) => "protected",
             ProcessError::NotFound(_) => "notFound",
             ProcessError::Replaced(_) => "replaced",
             ProcessError::KillFailed(_) => "killFailed",

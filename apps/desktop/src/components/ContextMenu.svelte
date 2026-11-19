@@ -28,6 +28,8 @@
   let menu = $state<HTMLDivElement | null>(null);
   let left = $state(0);
   let top = $state(0);
+  /** Пока меню не поставлено на место, оно невидимо: без прыжка из угла. */
+  let placed = $state(false);
 
   const enabled = $derived(items.filter((item) => !item.disabled));
 
@@ -36,14 +38,22 @@
   }
 
   onMount(() => {
-    left = x;
-    top = y;
     void tick().then(() => {
       if (!menu) return;
-      // Не даём меню уйти за край окна.
+      // Прокручиваемая область страницы (contain) становится «окном» для fixed-потомков, поэтому
+      // координаты мыши нельзя ставить как есть: меню оказывалось ниже и правее курсора.
+      // Меню стоит в (0, 0) своего контейнера: из его положения на экране берём начало координат.
       const rect = menu.getBoundingClientRect();
-      left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
-      top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
+      const originX = rect.left;
+      const originY = rect.top;
+      const width = rect.width;
+      const height = rect.height;
+      // Не даём меню уйти за край окна: ставим по точке нажатия и прижимаем к границам.
+      const screenX = Math.max(8, Math.min(x, window.innerWidth - width - 8));
+      const screenY = Math.max(8, Math.min(y, window.innerHeight - height - 8));
+      left = screenX - originX;
+      top = screenY - originY;
+      placed = true;
       (buttons().find((button) => !button.disabled) ?? menu).focus();
     });
     const onPointer = (event: PointerEvent) => {
@@ -92,6 +102,7 @@
 
 <div
   class="menu"
+  class:placed
   role="menu"
   aria-label={label}
   tabindex="-1"
@@ -124,13 +135,17 @@
     display: flex;
     flex-direction: column;
     min-width: 200px;
-    padding: 6px;
+    padding: 4px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
     background: #141414;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-    animation: menu-in 140ms cubic-bezier(0.2, 0, 0, 1);
     transform-origin: top left;
+    visibility: hidden;
+  }
+  .menu.placed {
+    visibility: visible;
+    animation: menu-in 140ms cubic-bezier(0.2, 0, 0, 1);
   }
   .menu:focus {
     outline: none;

@@ -608,7 +608,7 @@
                 {/if}
               </span>
               <span class="c-where cut" role="cell">{entry.location}</span>
-              <span class="c-command cut path" role="cell">{entry.command ?? '—'}</span>
+              <span class="c-command cut path selectable" role="cell">{entry.command ?? '—'}</span>
             </div>
           {/each}
         </div>

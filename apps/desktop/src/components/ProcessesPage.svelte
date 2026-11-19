@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import AppIcon from './AppIcon.svelte';
   import ServicesPage from './ServicesPage.svelte';
+  import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import {
     filterProcesses,
     formatCpu,
-    isProtectedPid,
+    isProtectedProcess,
+    protectedReason,
     REFRESH_MS,
     sortProcesses,
     type ProcessSortKey,
@@ -106,6 +109,46 @@
     }
   }
 
+  /** Контекстное меню строки: у точки нажатия. */
+  let menu = $state<{ proc: ProcessInfo; x: number; y: number } | null>(null);
+  let menuReturnFocus: HTMLElement | null = null;
+
+  function openMenu(event: MouseEvent, proc: ProcessInfo) {
+    event.preventDefault();
+    selectedPid = proc.pid;
+    const target = event.currentTarget as HTMLElement;
+    menuReturnFocus = target.querySelector<HTMLElement>('button.row-btn') ?? target;
+    let { clientX: x, clientY: y } = event;
+    if (x === 0 && y === 0) {
+      const rect = menuReturnFocus.getBoundingClientRect();
+      x = rect.left + 24;
+      y = rect.bottom;
+    }
+    menu = { proc, x, y };
+  }
+
+  function menuItems(proc: ProcessInfo): MenuItem[] {
+    const reason = protectedReason(proc);
+    return [
+      { id: 'path', label: 'Открыть расположение файла', disabled: revealing },
+      { id: 'end', label: 'Завершить задачу', disabled: reason !== null, reason },
+    ];
+  }
+
+  async function closeMenu() {
+    menu = null;
+    await tick();
+    menuReturnFocus?.focus();
+  }
+
+  function onMenuSelect(id: string) {
+    const target = menu?.proc;
+    menu = null;
+    if (!target) return;
+    if (id === 'path') void showPath(target);
+    else if (id === 'end') askEnd(target);
+  }
+
   function sortBy(column: (typeof COLUMNS)[number]) {
     sort = nextSort(sort, column.key, column.first);
   }
@@ -119,7 +162,7 @@
   }
 
   function askEnd(proc: ProcessInfo) {
-    if (isProtectedPid(proc.pid)) return;
+    if (isProtectedProcess(proc)) return;
     actionError = null;
     notice = '';
     pending = proc;
@@ -167,11 +210,11 @@
       <button type="button" onclick={() => void refresh()}>Обновить</button>
       <button
         type="button"
-        disabled={!selected || isProtectedPid(selected.pid)}
+        disabled={!selected || isProtectedProcess(selected)}
         title={!selected
           ? 'Сначала выбери процесс в списке'
-          : isProtectedPid(selected.pid)
-            ? 'Этот процесс системный, завершать его нельзя'
+          : isProtectedProcess(selected)
+            ? (protectedReason(selected) ?? '')
             : 'Завершить задачу'}
         onclick={() => selected && askEnd(selected)}>Завершить задачу</button
       >
@@ -233,10 +276,7 @@
               role="row"
               class:is-selected={proc.pid === selectedPid}
               onclick={() => (selectedPid = proc.pid)}
-              oncontextmenu={(event) => {
-                event.preventDefault();
-                selectedPid = proc.pid;
-              }}
+              oncontextmenu={(event) => openMenu(event, proc)}
             >
               <span class="c-icon" role="cell">
                 <AppIcon
@@ -273,7 +313,7 @@
     {/if}
 
     <p class="field-label">Файл выбранного процесса</p>
-    <div class="path-box" aria-live="polite">
+    <div class="path-box selectable" aria-live="polite">
       {#if pathInfo}
         <span class="path">
           {#if pathInfo.path}
@@ -289,6 +329,17 @@
       {/if}
     </div>
   </section>
+
+  {#if menu}
+    <ContextMenu
+      label="Действия с процессом «{menu.proc.name}»"
+      items={menuItems(menu.proc)}
+      x={menu.x}
+      y={menu.y}
+      onselect={onMenuSelect}
+      onclose={() => void closeMenu()}
+    />
+  {/if}
 
   {#if pending}
     <div class="backdrop">
