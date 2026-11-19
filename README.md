@@ -14,6 +14,16 @@
 sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 ```
 
+## VPN-ядро (один раз)
+
+Раздел VPN запускает программу sing-box. Она не лежит в git, скачай её одной командой (из корня проекта, Windows):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\vpn-core\fetch.ps1
+```
+
+Скрипт берёт официальный выпуск с GitHub, проверяет SHA-256 и кладёт файлы в `apps/desktop/src-tauri/resources/vpn-core/`. Без этого шага VPN в интерфейсе выключен с пояснением. Вне PowerShell: `sh tools/vpn-core/fetch.sh`.
+
 ## Команды
 
 ```bash

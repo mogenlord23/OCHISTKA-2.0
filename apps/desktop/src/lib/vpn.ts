@@ -1,8 +1,10 @@
-/** Чистая логика раздела VPN: проверка ссылки, разбор подписки, таймер и заглушки. Без системных вызовов. */
+/** Чистая логика раздела VPN: проверка ссылки, состояния кнопки, форматы. Без системных вызовов. */
+import type { ConnectionStatus, ServerView, VpnSnapshot } from './vpnApi';
 
-export const VPN_CONNECT_REASON = 'Подключение не подключено: нужен драйвер TUN';
-export const VPN_TUN_MODE_REASON = 'Режим TUN требует драйвер TUN';
-export const IMPORT_REASON = 'Загрузка подписки пока не подключена';
+export const NO_SERVERS_REASON = 'Сначала импортируй подписку и выбери сервер';
+export const TUN_MODE_REASON =
+  'Режим TUN (весь компьютер) пока не поддерживается: нужны права администратора и драйвер';
+export const IMPORTING_LABEL = 'Загружаем подписку…';
 export const NETWORK_CHANGE_REASON = 'Изменение сети пока не подключено';
 export const NETWORK_STATUS_OFF = 'выключено';
 
@@ -31,97 +33,73 @@ export function validateSubscriptionUrl(input: string): SubscriptionUrlResult {
   return { ok: true, url: value };
 }
 
-export type ServerScheme = 'vless' | 'vmess' | 'trojan' | 'ss';
-
-export interface ServerEntry {
-  scheme: ServerScheme;
-  /** Имя из фрагмента ссылки (после #). */
-  name: string;
-}
-
-export interface ParsedSubscription {
-  servers: ServerEntry[];
-  /** Непустые строки, которые не распознаны; в список не попадают. */
-  unknownCount: number;
-}
-
-const SUPPORTED_SCHEMES: readonly ServerScheme[] = ['vless', 'vmess', 'trojan', 'ss'];
-const UNNAMED = 'Без названия';
-
-function fragmentName(line: string): string {
-  const hash = line.indexOf('#');
-  if (hash === -1) return UNNAMED;
-  const raw = line.slice(hash + 1).trim();
-  if (raw === '') return UNNAMED;
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
-
-/** Декодирует base64 (обычный или url-safe, с паддингом или без) в UTF-8. `null`, если не получилось. */
-export function decodeBase64Utf8(value: string): string | null {
-  const body = value.replace(/=+$/, '');
-  if (body === '' || !/^[A-Za-z0-9+/_-]+$/.test(body) || body.length % 4 === 1) {
-    return null;
-  }
-  const padded = body
-    .replace(/-/g, '+')
-    .replace(/_/g, '/')
-    .padEnd(Math.ceil(body.length / 4) * 4, '=');
-  try {
-    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Тело подписки часто приходит base64 одной строкой. Если после декодирования видны ссылки
- * (`scheme://`), возвращаем декодированный текст; иначе — исходный.
+ * Что можно отправить на импорт. Ссылку проверяем сразу (http:// отклоняем), остальное
+ * (список ссылок серверов, base64, JSON) отдаём Rust как есть.
  */
-export function decodeSubscriptionBody(text: string): string {
-  const compact = text.replace(/\s+/g, '');
-  const decoded = decodeBase64Utf8(compact);
-  return decoded !== null && /[a-z][a-z0-9+.-]*:\/\//i.test(decoded) ? decoded : text;
+export function prepareImport(input: string): { ok: true; input: string } | StubResult {
+  const value = input.trim();
+  if (value === '') return { ok: false, reason: 'Вставь ссылку подписки или список серверов' };
+  if (/^http:\/\//i.test(value) && !/\s/.test(value)) {
+    return { ok: false, reason: 'Разрешены только ссылки https://' };
+  }
+  return { ok: true, input: value };
 }
 
-/** Имя сервера vmess: поле `ps` в JSON, которым кодируется ссылка. `null`, если поля нет или JSON не читается. */
-export function vmessName(line: string): string | null {
-  const payload = line.trim().replace(/^vmess:\/\//i, '');
-  const decoded = decodeBase64Utf8(payload.split('#')[0] ?? '');
-  if (decoded === null) return null;
-  try {
-    const value: unknown = JSON.parse(decoded);
-    if (typeof value !== 'object' || value === null || !('ps' in value)) return null;
-    const ps = (value as { ps: unknown }).ps;
-    const name = typeof ps === 'string' || typeof ps === 'number' ? String(ps).trim() : '';
-    return name === '' ? null : name;
-  } catch {
-    return null;
-  }
+/** Строка из вставленного поля: между ссылками серверов оставляем переводы строк. */
+export function normalizePasted(input: string): string {
+  return input.replace(/\s+(?=(vless|vmess|trojan|ss|hysteria2|hy2|tuic):\/\/)/gi, '\n');
 }
 
-/** Разбирает текст подписки: одна ссылка на строку (тело может быть base64). Распознаёт схему и имя. */
-export function parseSubscription(text: string): ParsedSubscription {
-  const servers: ServerEntry[] = [];
-  let unknownCount = 0;
-  for (const rawLine of decodeSubscriptionBody(text).split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (line === '') continue;
-    const match = /^([a-z][a-z0-9+.-]*):\/\//i.exec(line);
-    const scheme = match?.[1]?.toLowerCase() as ServerScheme | undefined;
-    if (scheme && SUPPORTED_SCHEMES.includes(scheme)) {
-      const name =
-        scheme === 'vmess' ? (vmessName(line) ?? fragmentName(line)) : fragmentName(line);
-      servers.push({ scheme, name });
-    } else {
-      unknownCount += 1;
-    }
+export interface ConnectUi {
+  label: string;
+  pressed: boolean;
+  busy: boolean;
+  disabled: boolean;
+  /** Почему кнопка недоступна; показывается в строке состояния. */
+  reason: string | null;
+}
+
+/** Состояние главной кнопки «Подключить» по снимку и занятости (импорт, ожидание ответа). */
+export function connectUi(snapshot: VpnSnapshot | null, busy: boolean): ConnectUi {
+  const state = snapshot?.connection.state ?? 'disconnected';
+  if (state === 'connecting' || (busy && state !== 'connected')) {
+    return { label: 'Подключаем…', pressed: false, busy: true, disabled: true, reason: null };
   }
-  return { servers, unknownCount };
+  if (state === 'connected') {
+    return { label: 'Отключить', pressed: true, busy, disabled: busy, reason: null };
+  }
+  const base = { label: 'Подключить', pressed: false, busy: false };
+  if (!snapshot || snapshot.servers.length === 0 || snapshot.selected === null) {
+    return { ...base, disabled: true, reason: NO_SERVERS_REASON };
+  }
+  if (!snapshot.core.available) {
+    return {
+      ...base,
+      disabled: true,
+      reason: `VPN-ядро не найдено${snapshot.core.reason ? `: ${snapshot.core.reason}` : ''}`,
+    };
+  }
+  return { ...base, disabled: false, reason: null };
+}
+
+/** Строка состояния под таймером. */
+export function statusLine(connection: ConnectionStatus | null, hint: string | null): string {
+  if (!connection) return 'Не подключено';
+  if (connection.state === 'disconnected') return hint ?? connection.message;
+  return connection.message;
+}
+
+/** Задержка сервера: «45 мс», «нет ответа» или пусто, если ещё не мерили. */
+export function formatLatency(server: Pick<ServerView, 'latencyMs' | 'measured'>): string {
+  if (!server.measured) return '';
+  return server.latencyMs === null ? 'нет ответа' : `${server.latencyMs} мс`;
+}
+
+/** Секунды с начала подключения (Unix-секунды `since`). */
+export function elapsedSince(since: number | null, nowMs: number): number {
+  if (since === null) return 0;
+  return Math.max(0, Math.floor(nowMs / 1000) - since);
 }
 
 /** Таймер подключения: секунды в формате ЧЧ:ММ:СС. Некорректные значения дают 00:00:00. */
@@ -134,12 +112,34 @@ export function formatElapsed(totalSeconds: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-/** Заглушка подключения: без драйвера TUN ничего не меняет. */
-export function requestVpnConnect(): StubResult {
-  return { ok: false, reason: VPN_CONNECT_REASON };
+/** Имя сервера без флага-эмодзи в начале (флаг показываем кодом страны). */
+export function displayName(name: string): string {
+  const points = [...name].slice(0, 2).map((c) => c.codePointAt(0) ?? 0);
+  const isFlag = points.length === 2 && points.every((p) => p >= 0x1f1e6 && p <= 0x1f1ff);
+  return isFlag ? [...name].slice(2).join('').trim() : name;
+}
+
+/** Записи списка из текста: по одной на строку, допустимы запятая и точка с запятой. */
+export function splitEntries(text: string): string[] {
+  return text
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => item !== '');
+}
+
+export function joinEntries(list: readonly string[]): string {
+  return list.join('\n');
 }
 
 /** Заглушка изменения сети (Zapret, Xbox DNS): системные настройки не трогаем. */
 export function requestNetworkChange(): StubResult {
   return { ok: false, reason: NETWORK_CHANGE_REASON };
+}
+
+/** Текст импорта по итогам: сколько серверов и сколько записей пропущено. */
+export function importMessage(count: number, skipped: number, issues: readonly string[]): string {
+  const base = `Серверов: ${count}.`;
+  return skipped > 0
+    ? `${base} Пропущено записей: ${skipped} (${issues.slice(0, 2).join('; ')}).`
+    : base;
 }
