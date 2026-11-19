@@ -1,5 +1,7 @@
 <script lang="ts">
   import poster from '../assets/pop-art.png';
+  import chePink from '../assets/che-pink.png';
+  import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
@@ -133,7 +135,11 @@
       onclick={onPoster}
       onanimationend={() => (pressed = false)}
     >
-      <img src={poster} alt="" draggable="false" />
+      <span class="band">
+        <img src={chePink} alt="" draggable="false" />
+        <img src={cheLime} alt="" draggable="false" />
+      </span>
+      <img class="portrait" src={poster} alt="" draggable="false" />
     </button>
   </div>
   <div class="column">
@@ -323,37 +329,53 @@
     padding-bottom: 4px;
   }
 
-  /* Ячейка сетки: постер 2:3 целиком, без обрезки, по центру. Масштаб идёт пропорционально
-     (object-fit: contain внутри карточки с тем же соотношением сторон). */
+  /* Постер во всю высоту колонки, как на эталоне old-01: сверху полоса с двумя
+     квадратами (Че Гевара на розовом и лаймовом), ниже портрет на остаток высоты.
+     Лицо портрета не обрезается: cover с фокусом на верхней трети. */
   .poster-cell {
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
     min-width: 0;
     min-height: 0;
-    container-type: size;
   }
 
   .poster {
-    display: block;
-    width: min(100cqw, 66.667cqh);
-    height: auto;
-    aspect-ratio: 2 / 3;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
     padding: 0;
     border: 0;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    background: transparent;
+    background: var(--black);
     cursor: pointer;
+  }
+
+  .band {
+    display: grid;
+    flex: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 
   .poster img {
     display: block;
     width: 100%;
-    height: 100%;
-    object-fit: contain;
     user-select: none;
     pointer-events: none;
+  }
+
+  .band img {
+    aspect-ratio: 1;
+    object-fit: cover;
+  }
+
+  .poster .portrait {
+    flex: 1;
+    min-height: 0;
+    object-fit: cover;
+    object-position: 50% 30%;
   }
 
   .poster.pressed {
