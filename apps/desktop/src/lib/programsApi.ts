@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { prefetchIcons } from './iconLoader';
 
 /** Ошибка раздела «Программы». `message` уже на русском. */
 export interface ProgramsErrorInfo {
@@ -55,6 +56,7 @@ export type ProgramsResponse =
   | { type: 'folder'; report: FolderMeasure }
   | { type: 'stopped' }
   | { type: 'icon'; dataUrl: string | null }
+  | { type: 'iconBatch'; items: Array<{ key: string; dataUrl: string | null }> }
   | { type: 'uninstallStarted' }
   | { type: 'startupChanged'; previousEnabled: boolean; enabled: boolean };
 
@@ -64,6 +66,8 @@ type Request =
   | { action: 'measureFolder'; path: string }
   | { action: 'stopMeasure' }
   | { action: 'icon'; path: string }
+  | { action: 'programIcons'; ids: string[] }
+  | { action: 'pathIcons'; paths: string[] }
   | { action: 'uninstall'; id: string; confirmed: boolean }
   | {
       action: 'setStartupEnabled';
@@ -119,6 +123,49 @@ export async function stopMeasure(): Promise<void> {
 /** Значок файла как адрес PNG; `null`, если взять не удалось (или ОС не поддерживает). */
 export async function getIcon(path: string): Promise<string | null> {
   return expect(await request({ action: 'icon', path }), 'icon').dataUrl;
+}
+
+/** Ключ значка программы в общем кэше. */
+export function programIconKey(id: string): string {
+  return `program:${id}`;
+}
+
+function batchMap(
+  items: Array<{ key: string; dataUrl: string | null }>,
+): Map<string, string | null> {
+  return new Map(items.map((item) => [item.key, item.dataUrl]));
+}
+
+/** Значки программ пачкой по `id`: DisplayIcon, логотип Store, основной exe. */
+export async function getProgramIcons(ids: string[]): Promise<Map<string, string | null>> {
+  return batchMap(expect(await request({ action: 'programIcons', ids }), 'iconBatch').items);
+}
+
+/** Значки файлов пачкой по путям (exe процессов и автозагрузки). */
+export async function getPathIcons(paths: string[]): Promise<Map<string, string | null>> {
+  return batchMap(expect(await request({ action: 'pathIcons', paths }), 'iconBatch').items);
+}
+
+/** Значок одной программы (запасной путь, если пачка не удалась). */
+export async function getProgramIcon(id: string): Promise<string | null> {
+  return (await getProgramIcons([id])).get(id) ?? null;
+}
+
+/** Сразу после загрузки списка просит у бэкенда значки всех программ фоновыми пачками. */
+export function prefetchProgramIcons(programs: ReadonlyArray<{ id: string }>): void {
+  prefetchIcons(
+    programs.map((program) => programIconKey(program.id)),
+    async (keys) => {
+      const ids = keys.map((key) => key.slice('program:'.length));
+      const found = await getProgramIcons(ids);
+      return new Map(keys.map((key, i) => [key, found.get(ids[i]) ?? null]));
+    },
+  );
+}
+
+/** То же для файлов: ключ значка совпадает с путём. */
+export function prefetchPathIcons(paths: readonly string[]): void {
+  prefetchIcons(paths, (keys) => getPathIcons(keys));
 }
 
 /** Запускает штатное удаление. `confirmed` — только после диалога подтверждения. */

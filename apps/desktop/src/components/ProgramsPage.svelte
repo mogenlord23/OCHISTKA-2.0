@@ -16,6 +16,10 @@
   import { formatSize } from '../lib/units';
   import {
     getIcon,
+    getProgramIcon,
+    prefetchPathIcons,
+    prefetchProgramIcons,
+    programIconKey,
     listInstalled,
     listStartup,
     measureFolder,
@@ -90,6 +94,7 @@
     error = null;
     try {
       programs = await listInstalled();
+      prefetchProgramIcons(programs);
       loadedInstalled = true;
       if (!programs.some((program) => program.id === selectedId)) selectedId = null;
     } catch (err) {
@@ -104,6 +109,12 @@
     error = null;
     try {
       startup = await listStartup();
+      prefetchPathIcons(
+        startup.flatMap((entry) => {
+          const path = commandExePath(entry.command);
+          return path ? [path] : [];
+        }),
+      );
       loadedStartup = true;
       if (!startup.some((entry) => entry.source + '\u0000' + entry.key === startupKey)) {
         startupKey = null;
@@ -136,11 +147,6 @@
 
   function sortBy(column: (typeof COLUMNS)[number]) {
     sort = nextSort(sort, column.key, NUMERIC_PROGRAM_KEYS.includes(column.key) ? 'desc' : 'asc');
-  }
-
-  function iconSource(program: InstalledProgram) {
-    const path = program.iconPath;
-    return path ? () => getIcon(path) : null;
   }
 
   async function measure(program: InstalledProgram) {
@@ -391,8 +397,8 @@
               <span class="c-icon" role="cell">
                 <AppIcon
                   name={program.name}
-                  cacheKey={program.iconPath}
-                  resolve={iconSource(program)}
+                  cacheKey={programIconKey(program.id)}
+                  resolve={() => getProgramIcon(program.id)}
                   size={30}
                 />
               </span>

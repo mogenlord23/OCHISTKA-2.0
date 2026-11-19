@@ -24,30 +24,27 @@
 >
   {#if kind === 'cpu'}
     <rect width="88" height="88" rx="12" fill={LIME} />
-    {#each [24, 34, 44, 54, 64] as p (p)}
-      <rect x={p - 2} y="12" width="4" height="8" fill={BLACK} />
-      <rect x={p - 2} y="68" width="4" height="8" fill={BLACK} />
-      <rect x="12" y={p - 2} width="8" height="4" fill={BLACK} />
-      <rect x="68" y={p - 2} width="8" height="4" fill={BLACK} />
+    {#each [24, 36, 48, 60] as p (p)}
+      <rect x={p} y="12" width="4" height="8" fill={BLACK} />
+      <rect x={p} y="68" width="4" height="8" fill={BLACK} />
+      <rect x="12" y={p} width="8" height="4" fill={BLACK} />
+      <rect x="68" y={p} width="8" height="4" fill={BLACK} />
     {/each}
-    <rect x="20" y="20" width="48" height="48" rx="5" fill={BLACK} />
-    <rect x="31" y="31" width="26" height="26" rx="2" fill={CREAM} />
+    <rect x="20" y="20" width="48" height="48" rx="6" fill={BLACK} />
+    <rect x="31" y="31" width="26" height="26" rx="3" fill={CREAM} />
   {:else if kind === 'gpu'}
     <rect width="88" height="88" rx="12" fill={PINK} />
-    <rect x="10" y="24" width="68" height="34" rx="4" fill={BLACK} />
-    <rect x="6" y="30" width="6" height="22" fill={BLACK} />
-    {#each [32, 58] as cx (cx)}
-      <circle {cx} cy="41" r="11" fill={PINK} />
-      <circle {cx} cy="41" r="3" fill={BLACK} />
-      {#each [0, 72, 144, 216, 288] as angle (angle)}
-        <ellipse {cx} cy="35" rx="2.4" ry="5" fill={BLACK} transform="rotate({angle} {cx} 41)" />
-      {/each}
+    <rect x="8" y="22" width="72" height="36" rx="5" fill={BLACK} />
+    {#each [30, 58] as cx (cx)}
+      <circle {cx} cy="40" r="12" fill={PINK} />
+      <rect x={cx - 2} y="30" width="4" height="20" rx="2" fill={BLACK} />
+      <rect x={cx - 10} y="38" width="20" height="4" rx="2" fill={BLACK} />
+      <circle {cx} cy="40" r="3" fill={PINK} />
     {/each}
-    <rect x="14" y="62" width="60" height="4" fill={YELLOW} />
-    <rect x="18" y="58" width="8" height="4" fill={YELLOW} />
+    <rect x="16" y="62" width="56" height="4" fill={YELLOW} />
   {:else if kind === 'ram'}
     <rect width="88" height="88" rx="12" fill={BLUE} />
-    {#each [20, 50] as y (y)}
+    {#each [19, 49] as y (y)}
       <rect x="8" {y} width="72" height="20" rx="3" fill={BLACK} />
       {#each [16, 30, 44, 58] as x (x)}
         <rect {x} y={y + 5} width="10" height="7" fill={LIME} />
@@ -70,13 +67,13 @@
     <rect x="38" y="62" width="22" height="4" rx="2" fill={PINK} opacity="0.6" />
   {:else}
     <rect width="88" height="88" rx="12" fill={LIME} />
-    <rect x="12" y="16" width="48" height="36" rx="3" fill={BLACK} />
-    <rect x="17" y="21" width="38" height="26" fill={BLUE} />
-    <rect x="30" y="52" width="12" height="8" fill={BLACK} />
-    <rect x="20" y="60" width="32" height="5" rx="1" fill={BLACK} />
-    <rect x="64" y="16" width="12" height="49" rx="2" fill={BLACK} />
-    <circle cx="70" cy="26" r="2" fill={LIME} />
-    <rect x="66" y="56" width="8" height="3" fill={LIME} />
+    <rect x="12" y="20" width="48" height="34" rx="3" fill={BLACK} />
+    <rect x="17" y="25" width="38" height="24" fill={BLUE} />
+    <rect x="30" y="54" width="12" height="6" fill={BLACK} />
+    <rect x="20" y="60" width="32" height="8" rx="2" fill={BLACK} />
+    <rect x="64" y="20" width="12" height="48" rx="2" fill={BLACK} />
+    <circle cx="70" cy="30" r="2" fill={LIME} />
+    <rect x="66" y="58" width="8" height="3" fill={LIME} />
   {/if}
 </svg>
 

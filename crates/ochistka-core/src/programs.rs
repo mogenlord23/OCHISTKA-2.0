@@ -73,6 +73,10 @@ pub struct InstalledProgram {
     pub id: String,
     /// Файл со значком из `DisplayIcon`; `None` — значка нет, интерфейс рисует букву.
     pub icon_path: Option<String>,
+    /// Сырое значение `DisplayIcon` (с `%VAR%` и индексом). В интерфейс не уходит: значок
+    /// программы ищет бэкенд по `id`.
+    #[serde(skip)]
+    pub display_icon: Option<String>,
     /// Можно ли запустить штатное удаление. Если нет, причина в `uninstall_reason`.
     pub can_uninstall: bool,
     pub uninstall_reason: Option<String>,
@@ -175,6 +179,22 @@ pub trait ProgramsPort: Send + Sync {
     fn icon_png_base64(&self, _path: &str) -> Result<String, CoreError> {
         Err(unsupported_here("Значки приложений"))
     }
+    /// Имена файлов (не папок) в папке; только чтение. По умолчанию — `Unsupported`.
+    fn list_file_names(&self, _dir: &str) -> Result<Vec<String>, CoreError> {
+        Err(unsupported_here("Чтение папки программы"))
+    }
+    /// Содержимое небольшого файла (манифест или логотип пакета); больше `max` байт — ошибка.
+    fn read_small_file(&self, _path: &str, _max: usize) -> Result<Vec<u8>, CoreError> {
+        Err(unsupported_here("Чтение файла программы"))
+    }
+    /// Время изменения и размер файла для ключа кэша значков; `None`, если файл недоступен.
+    fn file_stamp(&self, _path: &str) -> Option<icons::FileStamp> {
+        None
+    }
+    /// Значение переменной окружения для `%VAR%` в путях реестра.
+    fn env_var(&self, _name: &str) -> Option<String> {
+        None
+    }
     /// Запускает штатный деинсталлятор. Вызывать только после подтверждения пользователя.
     fn run_uninstaller(&self, _command: &UninstallCommand) -> Result<(), CoreError> {
         Err(unsupported_here("Удаление программ"))
@@ -272,6 +292,7 @@ pub fn parse_program(record: &RawProgramRecord) -> Option<InstalledProgram> {
         publisher.clone().unwrap_or_default().to_lowercase()
     );
     Some(InstalledProgram {
+        display_icon: text(values, "DisplayIcon"),
         icon_path: text(values, "DisplayIcon").and_then(|raw| icons::parse_display_icon(&raw)),
         id,
         can_uninstall,

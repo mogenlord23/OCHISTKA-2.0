@@ -43,6 +43,7 @@ pub fn run() {
         .manage(programs::ProgramsState::new(
             ochistka_platform::current_programs_port(),
             ochistka_platform::current_cleanup_env(),
+            ochistka_platform::current_icon_store(),
         ))
         .setup(|app| {
             use tauri::Manager;
