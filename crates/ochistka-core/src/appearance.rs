@@ -708,6 +708,10 @@ pub struct CursorSpec<'a> {
     pub pattern: &'a str,
 }
 
+/// Результат рисования одной роли: роль, расширение файла и его байты.
+type RenderedCursor =
+    Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>;
+
 /// Ставит схему курсора Windows: рисует `.cur` (для «Фоновой работы» и «Занят» — анимированные
 /// `.ani`), пишет `HKCU\Control Panel\Cursors` и просит Windows перечитать курсоры.
 pub fn apply_cursor_scheme(
@@ -724,9 +728,7 @@ pub fn apply_cursor_scheme(
     let pattern = crate::appearance_cursor::Pattern::parse(spec.pattern)?;
     // Сначала рисуем всё (параллельно: роли независимы): ошибка в данных не должна оставить
     // реестр наполовину изменённым.
-    let rendered: Vec<
-        Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>,
-    > = std::thread::scope(|scope| {
+    let rendered: Vec<RenderedCursor> = std::thread::scope(|scope| {
         let handles: Vec<_> = crate::appearance_cursor::Role::ALL
             .into_iter()
             .map(|role| {
