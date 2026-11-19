@@ -41,7 +41,11 @@ type Request =
       pattern: string;
       confirmed: boolean;
     }
-  | { action: 'restoreCursorScheme'; confirmed: boolean };
+  | { action: 'restoreCursorScheme'; confirmed: boolean }
+  | {
+      action: 'prepareCursorSchemes';
+      schemes: { id: string; color: string; secondary: string; pattern: string }[];
+    };
 
 /** Показываемый текст ошибки: ответ бэкенда или запасная фраза. */
 export function appearanceErrorMessage(err: unknown): string {
@@ -82,3 +86,19 @@ export const restoreAccent = () => call({ action: 'restoreAccent', confirmed: tr
 export const applyCursorScheme = (id: string, color: string, secondary: string, pattern: string) =>
   call({ action: 'applyCursorScheme', id, color, secondary, pattern, confirmed: true });
 export const restoreCursorScheme = () => call({ action: 'restoreCursorScheme', confirmed: true });
+
+let cursorsPrepared = false;
+
+/**
+ * Просит бэкенд заранее нарисовать файлы всех схем курсоров в фоне (один раз за запуск).
+ * Потом выбор схемы только пишет в реестр, без рисования. Ошибки не показываются.
+ */
+export function prepareCursorSchemes(
+  schemes: { id: string; color: string; secondary: string; pattern: string }[],
+): void {
+  if (cursorsPrepared) return;
+  cursorsPrepared = true;
+  void call({ action: 'prepareCursorSchemes', schemes }).catch(() => {
+    cursorsPrepared = false;
+  });
+}

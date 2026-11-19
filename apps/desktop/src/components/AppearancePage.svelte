@@ -12,6 +12,7 @@
     appearanceErrorMessage,
     appearanceStatus,
     applyCursorScheme,
+    prepareCursorSchemes,
     applyWallpaperTile,
     isCancelled,
     pickAndApplyWallpaper,
@@ -229,6 +230,12 @@
 
   onMount(() => {
     void refreshStatus();
+    // Схемы курсоров рисуются заранее, в фоне и не сразу: к первому выбору файлы уже готовы.
+    const warm = setTimeout(
+      () => prepareCursorSchemes(CURSOR_DEFS.map((def) => ({ id: def.id, ...def.cursor }))),
+      1500,
+    );
+    return () => clearTimeout(warm);
   });
 
   // Обои подгружаются порциями: когда низ списка виден, добавляем ещё порцию.
@@ -509,7 +516,6 @@
     border-radius: var(--radius-lg);
     background-origin: border-box;
     background-repeat: no-repeat;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
     color: var(--ink);
     font: inherit;
     cursor: pointer;
@@ -525,7 +531,8 @@
     box-shadow: inset 0 0 0 3px #111;
   }
 
-  .tile:hover {
+  /* Наведение дешёвое: масштаб только у плиток цвета. На обоях и курсорах слой с картинкой не пересоздаётся. */
+  .grid-color .tile:hover {
     transform: scale(1.05);
   }
 
@@ -541,7 +548,6 @@
     inset: 0;
     border: 3px solid #fff;
     border-radius: inherit;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
     pointer-events: none;
   }
 
@@ -550,7 +556,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    background: #161616;
+    /* Без фона и без рамки: тёмный фон просвечивал тонкой линией по краю миниатюры. */
+    background: none;
+    border: 0;
   }
 
   .cursor {

@@ -720,22 +720,56 @@ pub struct CursorSpec<'a> {
 type RenderedCursor =
     Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>;
 
-/// Ставит схему курсора Windows: рисует `.cur` (для «Фоновой работы» и «Занят» — анимированные
-/// `.ani`), пишет `HKCU\Control Panel\Cursors` и просит Windows перечитать курсоры.
-pub fn apply_cursor_scheme(
-    reg: &dyn RegistryPort,
+/// Версия рисования курсоров: меняется вместе с внешним видом, и тогда кэш пересоздаётся.
+const CURSOR_RENDER_VERSION: u32 = 1;
+
+/// Отпечаток схемы (FNV-1a): по нему найденные на диске файлы считаются готовыми.
+pub fn cursor_scheme_hash(spec: &CursorSpec) -> String {
+    let text = format!(
+        "v{CURSOR_RENDER_VERSION}|{}|{}|{}|{}",
+        spec.id, spec.color, spec.secondary, spec.pattern
+    );
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn cursor_dir(files: &dyn FilePort, id: &str) -> Result<String, AppearanceError> {
+    Ok(format!("{}\\Cursors\\{id}", files.data_dir()?))
+}
+
+fn cursor_file(dir: &str, role: crate::appearance_cursor::Role) -> String {
+    let ext = if role.is_animated() { "ani" } else { "cur" };
+    format!("{dir}\\{}.{ext}", role.registry_name())
+}
+
+/// Готовит файлы схемы курсора и возвращает пути ролей. Если папка схемы уже собрана с тем же
+/// отпечатком (флаг `ready-<отпечаток>.flag` пишется последним), рисование и запись пропускаются:
+/// повторное применение и применение после фоновой подготовки не тратят время.
+pub fn prepare_cursor_scheme(
     files: &dyn FilePort,
-    refresh: &dyn CursorRefreshPort,
     spec: &CursorSpec,
-    confirmed: bool,
-) -> Result<(), AppearanceError> {
-    need_confirm(confirmed)?;
+) -> Result<Vec<(&'static str, String)>, AppearanceError> {
     if !is_safe_id(spec.id) {
         return Err(AppearanceError::Invalid("недопустимое имя схемы".into()));
     }
+    let dir = cursor_dir(files, spec.id)?;
+    let flag = format!("{dir}\\ready-{}.flag", cursor_scheme_hash(spec));
+    let paths_of = |dir: &str| -> Vec<(&'static str, String)> {
+        crate::appearance_cursor::Role::ALL
+            .iter()
+            .map(|role| (role.registry_name(), cursor_file(dir, *role)))
+            .collect()
+    };
+    if files.exists(&flag) && paths_of(&dir).iter().all(|(_, p)| files.exists(p)) {
+        return Ok(paths_of(&dir));
+    }
     let pattern = crate::appearance_cursor::Pattern::parse(spec.pattern)?;
     // Сначала рисуем всё (параллельно: роли независимы): ошибка в данных не должна оставить
-    // реестр наполовину изменённым.
+    // реестр или папку наполовину изменёнными.
     let rendered: Vec<RenderedCursor> = std::thread::scope(|scope| {
         let handles: Vec<_> = crate::appearance_cursor::Role::ALL
             .into_iter()
@@ -781,13 +815,27 @@ pub fn apply_cursor_scheme(
     for item in rendered {
         cursors.push(item?);
     }
-    let dir = format!("{}\\Cursors\\{}", files.data_dir()?, spec.id);
-    let mut paths = Vec::new();
     for (role, ext, bytes) in &cursors {
-        let path = format!("{dir}\\{}.{ext}", role.registry_name());
-        files.write(&path, bytes)?;
-        paths.push((role.registry_name(), path));
+        files.write(&format!("{dir}\\{}.{ext}", role.registry_name()), bytes)?;
     }
+    files.write(&flag, b"ok")?;
+    Ok(paths_of(&dir))
+}
+
+/// Ставит схему курсора Windows: рисует `.cur` (для «Фоновой работы» и «Занят» — анимированные
+/// `.ani`), пишет `HKCU\Control Panel\Cursors` и просит Windows перечитать курсоры.
+pub fn apply_cursor_scheme(
+    reg: &dyn RegistryPort,
+    files: &dyn FilePort,
+    refresh: &dyn CursorRefreshPort,
+    spec: &CursorSpec,
+    confirmed: bool,
+) -> Result<(), AppearanceError> {
+    need_confirm(confirmed)?;
+    if !is_safe_id(spec.id) {
+        return Err(AppearanceError::Invalid("недопустимое имя схемы".into()));
+    }
+    let paths = prepare_cursor_scheme(files, spec)?;
     ensure_cursor_backup(reg)?;
     for (name, path) in &paths {
         reg.write(CURSORS_KEY, name, &RegValue::Text(path.clone()))?;
@@ -1237,6 +1285,68 @@ mod tests {
         restore_cursor_scheme(&reg, &refresh, true).unwrap();
         assert_eq!(reg.writes.lock().unwrap().len(), before);
         assert_eq!(*refresh.0.lock().unwrap(), refreshed);
+    }
+
+    #[test]
+    fn prepared_cursor_scheme_is_reused_without_redrawing() {
+        let files = FakeFiles::default();
+        let first = prepare_cursor_scheme(&files, &spec("cursor-red")).unwrap();
+        assert_eq!(first.len(), crate::appearance_cursor::Role::ALL.len());
+        let arrow = r"C:\Data\OCHISTKA\Cursors\cursor-red\Arrow.cur";
+        assert!(files.exists(arrow));
+        // Метка в файле: при повторной подготовке он не перезаписывается.
+        files
+            .files
+            .lock()
+            .unwrap()
+            .insert(arrow.into(), b"keep".to_vec());
+        let second = prepare_cursor_scheme(&files, &spec("cursor-red")).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(files.files.lock().unwrap()[arrow], b"keep");
+    }
+
+    #[test]
+    fn changed_cursor_spec_or_missing_file_redraws_the_scheme() {
+        let files = FakeFiles::default();
+        prepare_cursor_scheme(&files, &spec("cursor-red")).unwrap();
+        let arrow = r"C:\Data\OCHISTKA\Cursors\cursor-red\Arrow.cur";
+        files
+            .files
+            .lock()
+            .unwrap()
+            .insert(arrow.into(), b"keep".to_vec());
+        let mut other = spec("cursor-red");
+        other.color = "#0000FF";
+        assert_ne!(
+            cursor_scheme_hash(&spec("cursor-red")),
+            cursor_scheme_hash(&other)
+        );
+        prepare_cursor_scheme(&files, &other).unwrap();
+        assert_ne!(
+            files.files.lock().unwrap()[arrow],
+            b"keep",
+            "новый отпечаток: схема нарисована заново"
+        );
+        // Потерянный файл схемы тоже восстанавливается.
+        files.files.lock().unwrap().remove(arrow);
+        prepare_cursor_scheme(&files, &other).unwrap();
+        assert!(files.exists(arrow));
+    }
+
+    #[test]
+    fn applying_a_prepared_scheme_writes_no_cursor_files_again() {
+        let reg = FakeReg::default();
+        let (files, refresh) = (FakeFiles::default(), FakeRefresh::default());
+        prepare_cursor_scheme(&files, &spec("cursor-red")).unwrap();
+        let arrow = r"C:\Data\OCHISTKA\Cursors\cursor-red\Arrow.cur";
+        files
+            .files
+            .lock()
+            .unwrap()
+            .insert(arrow.into(), b"keep".to_vec());
+        apply_cursor_scheme(&reg, &files, &refresh, &spec("cursor-red"), true).unwrap();
+        assert_eq!(files.files.lock().unwrap()[arrow], b"keep");
+        assert_eq!(reg.get(CUR, "Arrow"), Some(RegValue::Text(arrow.into())));
     }
 
     #[test]

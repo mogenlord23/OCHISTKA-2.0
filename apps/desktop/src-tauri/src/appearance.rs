@@ -87,6 +87,18 @@ pub enum AppearanceRequest {
     RestoreCursorScheme {
         confirmed: bool,
     },
+    /// Заранее рисует файлы схем курсоров (кэш по отпечатку). Реестр не трогает.
+    PrepareCursorSchemes {
+        schemes: Vec<PrepareScheme>,
+    },
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct PrepareScheme {
+    pub id: String,
+    pub color: String,
+    pub secondary: String,
+    pub pattern: String,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -220,6 +232,20 @@ pub fn run(
         R::RestoreCursorScheme { confirmed } => {
             appearance::restore_cursor_scheme(reg, refresh, confirmed)?
         }
+        R::PrepareCursorSchemes { schemes } => {
+            // Схема с ошибкой данных не мешает остальным: её просто пропускаем.
+            for scheme in &schemes {
+                let _ = appearance::prepare_cursor_scheme(
+                    files,
+                    &CursorSpec {
+                        id: &scheme.id,
+                        color: &scheme.color,
+                        secondary: &scheme.secondary,
+                        pattern: &scheme.pattern,
+                    },
+                );
+            }
+        }
     }
     if colors_touched {
         // Одна рассылка на запрос; сбой рассылки не отменяет уже записанное оформление.
@@ -240,6 +266,21 @@ pub async fn appearance_request(
     let files = Arc::clone(&state.files);
     let refresh = Arc::clone(&state.refresh);
     let resources = state.resources.clone();
+    if let AppearanceRequest::PrepareCursorSchemes { .. } = request {
+        // Подготовка идёт в отдельном фоновом потоке: ответ сразу, очередь команд не занята.
+        std::thread::spawn(move || {
+            let ports = Ports {
+                reg: &*reg,
+                wallpaper: &*wallpaper,
+                files: &*files,
+                refresh: &*refresh,
+                resources: resources.as_deref(),
+            };
+            let _ = run(&ports, &pick_image, request);
+        });
+        let status = appearance::status(&*state.registry)?;
+        return Ok(AppearanceResponse::Status { status });
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let ports = Ports {
             reg: &*reg,
@@ -440,6 +481,44 @@ mod tests {
             Some(r"C:\D\Backup\wallpaper-previous.jpg"),
             "возвращается копия прежнего файла, а не исходный путь"
         );
+    }
+
+    #[derive(Default)]
+    struct RecordingFiles(Mutex<Vec<String>>);
+    impl FilePort for RecordingFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            Ok(r"C:\D".into())
+        }
+        fn exists(&self, path: &str) -> bool {
+            self.0.lock().unwrap().iter().any(|p| p == path)
+        }
+        fn write(&self, path: &str, _: &[u8]) -> Result<(), AppearanceError> {
+            self.0.lock().unwrap().push(path.into());
+            Ok(())
+        }
+        fn copy(&self, _: &str, _: &str) -> Result<(), AppearanceError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn prepare_cursor_schemes_draws_files_but_leaves_the_registry_alone() {
+        let (reg, wall) = (Reg::default(), Wall::default());
+        let files = RecordingFiles::default();
+        let ports = Ports {
+            reg: &reg,
+            wallpaper: &wall,
+            files: &files,
+            refresh: &NoRefresh,
+            resources: None,
+        };
+        let request: AppearanceRequest = serde_json::from_str(
+            r##"{"action":"prepareCursorSchemes","schemes":[{"id":"cursor-red","color":"#FF0000","secondary":"#FF0000","pattern":"plain"},{"id":"bad","color":"red","secondary":"x","pattern":"plain"}]}"##,
+        )
+        .unwrap();
+        run(&ports, &no_pick, request).unwrap();
+        assert!(files.exists(r"C:\D\Cursors\cursor-red\Arrow.cur"));
+        assert!(reg.0.lock().unwrap().is_empty());
     }
 
     #[test]

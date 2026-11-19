@@ -8,7 +8,7 @@ use ::windows::Win32::Graphics::Gdi::{EnumDisplaySettingsW, DEVMODEW, ENUM_CURRE
 use ::windows::Win32::UI::WindowsAndMessaging::{
     SendMessageTimeoutW, SystemParametersInfoW, HWND_BROADCAST, SMTO_ABORTIFHUNG, SPIF_SENDCHANGE,
     SPIF_UPDATEINIFILE, SPI_GETDESKWALLPAPER, SPI_SETCURSORS, SPI_SETDESKWALLPAPER,
-    WM_SETTINGCHANGE,
+    SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WM_SETTINGCHANGE,
 };
 
 /// Ошибка `windows` с кодом 0 («Операция успешно завершена») не ошибка: вызов отработал,
@@ -25,7 +25,8 @@ fn wide(text: &str) -> Vec<u16> {
 }
 
 /// `SystemParametersInfoW(SPI_SETCURSORS)`: система перечитывает схему курсоров из
-/// `HKCU\Control Panel\Cursors` и рассылает уведомление.
+/// `HKCU\Control Panel\Cursors`. Флаги 0: реестр уже записан нами, а SPIF_SENDCHANGE рассылает
+/// сообщение всем окнам синхронно и ждёт каждое (одно зависшее окно давало многосекундную паузу).
 pub fn reload_cursors() -> Result<(), String> {
     // SAFETY: SPI_SETCURSORS не использует pvParam, uiParam равен 0 по документации.
     tolerate_code_zero(unsafe {
@@ -33,7 +34,7 @@ pub fn reload_cursors() -> Result<(), String> {
             SPI_SETCURSORS,
             0,
             None,
-            SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
         )
     })
 }
