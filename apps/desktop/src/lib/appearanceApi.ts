@@ -21,12 +21,10 @@ export interface AppearanceStatus {
   accentTile: string | null;
   /** Схема курсора, поставленная из OCHISTKA. */
   cursorScheme: string | null;
-  /** Оригиналов обоев в папке приложения ещё нет. */
-  originalsMissing: boolean;
 }
 
 type Request =
-  | { action: 'status'; sampleId?: string }
+  | { action: 'status' }
   | { action: 'setAccent'; color: string; confirmed: boolean }
   | { action: 'setTransparency'; enabled: boolean; confirmed: boolean }
   | { action: 'setFillTaskbar'; enabled: boolean; confirmed: boolean }
@@ -35,13 +33,7 @@ type Request =
   | { action: 'restoreAppearance'; confirmed: boolean }
   | { action: 'pickAndApplyWallpaper'; confirmed: boolean }
   | { action: 'restoreWallpaper'; confirmed: boolean }
-  | {
-      action: 'applyWallpaperTile';
-      id: string;
-      solidColor?: string;
-      thumbBase64?: string;
-      confirmed: boolean;
-    }
+  | { action: 'applyWallpaperTile'; id: string; confirmed: boolean }
   | { action: 'restoreAccent'; confirmed: boolean }
   | {
       action: 'applyCursorScheme';
@@ -51,8 +43,7 @@ type Request =
       pattern: string;
       confirmed: boolean;
     }
-  | { action: 'restoreCursorScheme'; confirmed: boolean }
-  | { action: 'downloadOriginals'; confirmed: boolean };
+  | { action: 'restoreCursorScheme'; confirmed: boolean };
 
 /** Показываемый текст ошибки: ответ бэкенда или запасная фраза. */
 export function appearanceErrorMessage(err: unknown): string {
@@ -77,7 +68,7 @@ async function call(request: Request): Promise<AppearanceStatus> {
   return response.status;
 }
 
-export const appearanceStatus = (sampleId?: string) => call({ action: 'status', sampleId });
+export const appearanceStatus = () => call({ action: 'status' });
 export const setAccent = (color: string) => call({ action: 'setAccent', color, confirmed: true });
 export const setTransparency = (enabled: boolean) =>
   call({ action: 'setTransparency', enabled, confirmed: true });
@@ -91,10 +82,9 @@ export const restoreAppearance = () => call({ action: 'restoreAppearance', confi
 export const pickAndApplyWallpaper = () =>
   call({ action: 'pickAndApplyWallpaper', confirmed: true });
 export const restoreWallpaper = () => call({ action: 'restoreWallpaper', confirmed: true });
-export const applyWallpaperTile = (id: string, solidColor?: string, thumbBase64?: string) =>
-  call({ action: 'applyWallpaperTile', id, solidColor, thumbBase64, confirmed: true });
+export const applyWallpaperTile = (id: string) =>
+  call({ action: 'applyWallpaperTile', id, confirmed: true });
 export const restoreAccent = () => call({ action: 'restoreAccent', confirmed: true });
 export const applyCursorScheme = (id: string, color: string, secondary: string, pattern: string) =>
   call({ action: 'applyCursorScheme', id, color, secondary, pattern, confirmed: true });
 export const restoreCursorScheme = () => call({ action: 'restoreCursorScheme', confirmed: true });
-export const downloadOriginals = () => call({ action: 'downloadOriginals', confirmed: true });

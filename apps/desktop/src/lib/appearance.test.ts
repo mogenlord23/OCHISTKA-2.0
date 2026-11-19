@@ -6,7 +6,7 @@ import {
   CURSOR_DEFS,
   cursorSvg,
   ACCENT_COLORS,
-  ARROW_POINTS,
+  ARROW_PATH,
   WALLPAPERS,
   defaultTileId,
   tilesFor,
@@ -26,22 +26,46 @@ describe('appearance tiles', () => {
     }
   });
 
-  it('offers the owner photos with thumbnails and solid colours', () => {
+  it('offers exactly the owner photo set, every tile a thumbnail, no solid colours', () => {
     expect(WALLPAPER_PHOTOS).toHaveLength(146);
-    expect(WALLPAPERS.filter((tile) => tile.thumb).length).toBe(146);
-    expect(WALLPAPERS.filter((tile) => !tile.thumb).every((t) => /^#/.test(t.preview))).toBe(true);
+    expect(WALLPAPERS).toHaveLength(146);
+    expect(WALLPAPERS.every((tile) => tile.thumb && /^photo-[0-9a-f]{16}$/.test(tile.id))).toBe(
+      true,
+    );
   });
 
-  it('has 35 cursor schemes: 12 plain and 23 patterned, drawn as SVG', () => {
-    expect(CURSOR_DEFS).toHaveLength(35);
+  it('has 53 cursor schemes in 11 styles: 12 plain and 41 patterned, drawn as SVG', () => {
+    expect(CURSOR_DEFS).toHaveLength(53);
     expect(CURSOR_DEFS.filter((d) => d.cursor.pattern === 'plain')).toHaveLength(12);
     const patterns = new Set(CURSOR_DEFS.map((d) => d.cursor.pattern));
-    expect([...patterns].sort()).toEqual(['checker', 'cross', 'dots', 'plain', 'stripes']);
+    expect([...patterns].sort()).toEqual(
+      [
+        'checker',
+        'cross',
+        'diamonds',
+        'dots',
+        'gradient',
+        'neon',
+        'plain',
+        'rings',
+        'split',
+        'stripes',
+        'zigzag',
+      ].sort(),
+    );
     const svg = cursorSvg(CURSOR_DEFS[20].cursor, 'x');
-    expect(svg).toContain('<pattern id="p-x"');
+    expect(svg).toContain('id="p-x"');
     expect(svg).toContain('stroke="#fff"');
-    expect(svg).toContain('viewBox="0 0 32 32"');
+    expect(svg).toContain('viewBox="0 0 64 64"');
+    expect(svg).toContain(ARROW_PATH);
     expect(cursorSvg(CURSOR_DEFS[0].cursor, 'y')).not.toContain('<pattern');
+    for (const def of CURSOR_DEFS) {
+      const markup = cursorSvg(def.cursor, def.id);
+      expect(markup).toContain(ARROW_PATH);
+      if (def.cursor.pattern !== 'plain' && def.cursor.pattern !== 'neon') {
+        expect(markup).toContain(`id="p-${def.id}"`);
+      }
+    }
   });
 
   it('has 53 accent colours as plain hex swatches, each unique', () => {
@@ -50,13 +74,8 @@ describe('appearance tiles', () => {
     for (const tile of COLOR_SCHEMES) expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
   });
 
-  it('centres the arrow in 32×32 with the tip as the first point', () => {
-    const xs = ARROW_POINTS.map((p) => p[0]);
-    const ys = ARROW_POINTS.map((p) => p[1]);
-    expect(Math.min(...xs) + Math.max(...xs)).toBeCloseTo(32, 5);
-    expect(Math.min(...ys) + Math.max(...ys)).toBeCloseTo(32, 5);
-    expect(ARROW_POINTS[0][0]).toBe(Math.min(...xs));
-    expect(ARROW_POINTS[0][1]).toBe(Math.min(...ys));
+  it('shares the arrow outline with the Rust cursor renderer', () => {
+    expect(ARROW_PATH.startsWith('M12,7')).toBe(true);
   });
 
   it('defaults to the first tile of each kind', () => {
