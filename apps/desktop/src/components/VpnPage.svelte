@@ -4,6 +4,7 @@
   import chePink from '../assets/che-pink.png';
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
+  import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -231,9 +232,25 @@
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
   let posterEl: HTMLButtonElement | null = null;
+  let portraitWrap: HTMLElement | null = null;
+  let winking = $state(false);
+  let eyeStyle = $state('');
+
+  /** Подмигивание: раз в 20-40 с, только когда окно видно и в фокусе и нет нажатия. */
+  function wink() {
+    if (!portraitWrap) return;
+    const g = coverGeometry(portraitWrap.clientWidth, portraitWrap.clientHeight);
+    eyeStyle =
+      `left:${g.offsetX + EYE.x * g.scale}px;top:${g.offsetY + EYE.y * g.scale}px;` +
+      `width:${EYE.w * g.scale}px;height:${EYE.h * g.scale}px`;
+    winking = true;
+  }
+
+  onMount(() => startWinking({ canWink: () => !pressed && pageAllowsWink(), wink }));
 
   /** Один запуск анимации и звука на одно нажатие. Повторное нажатие перезапускает цикл. */
   function playPoster() {
+    winking = false;
     pressed = false;
     // Чтение размера заставляет браузер применить снятый класс: анимация начнётся заново.
     void posterEl?.offsetWidth;
@@ -277,7 +294,14 @@
         <img src={chePink} alt="" draggable="false" />
         <img src={cheLime} alt="" draggable="false" />
       </span>
-      <img class="portrait" src={poster} alt="" draggable="false" />
+      <span class="portrait-wrap" bind:this={portraitWrap}>
+        <img class="portrait" src={poster} alt="" draggable="false" />
+        {#if winking}
+          <span class="eye" style={eyeStyle} aria-hidden="true">
+            <span class="lid" onanimationend={() => (winking = false)}></span>
+          </span>
+        {/if}
+      </span>
     </button>
   </div>
   <div class="column">
@@ -537,9 +561,16 @@
     border-left: 4px solid #000;
   }
 
-  .poster .portrait {
+  .portrait-wrap {
+    position: relative;
     flex: 1;
     min-height: 0;
+  }
+
+  .poster .portrait {
+    position: absolute;
+    inset: 0;
+    height: 100%;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     object-fit: cover;
     object-position: 50% 30%;
@@ -547,6 +578,38 @@
 
   /* Нажатие уже играет собственную анимацию: общее сжатие кнопки на постере
      не добавляется, иначе получался двойной цикл. */
+  /* Подмигивание: веко цвета кожи с чёрной линией ресниц, только transform. */
+  .eye {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .lid {
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border-bottom: 3px solid #000;
+    border-radius: 50%;
+    background: #fbbebd;
+    transform: scaleY(0);
+    transform-origin: 50% 0;
+    animation: poster-wink 340ms ease-in-out forwards;
+  }
+
+  @keyframes poster-wink {
+    0% {
+      transform: scaleY(0);
+    }
+    35%,
+    55% {
+      transform: scaleY(1);
+    }
+    100% {
+      transform: scaleY(0);
+    }
+  }
+
   .poster:active:not(:disabled) {
     transform: none;
   }
@@ -654,6 +717,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .eye {
+      display: none;
+    }
+
     .pane {
       animation: none;
     }

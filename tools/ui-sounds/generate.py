@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Генерирует свои короткие звуки интерфейса: мягкий тактильный щелчок (ASMR). Чужих пакетов нет.
 
-Синтез: затухающий приглушённый шум (ФНЧ ~1,2 кГц) + низкий синус 180-260 Гц, мягкая атака 3 мс,
-длительность 20-40 мс, нормализация пика -18 dBFS. Без металла: гармоник и высоких частот нет.
+Синтез (по числам образца, сам образец не используется): почти чистый синус 480-560 Гц с лёгким
+падением тона, атака 6-8 мс, быстрое затухание (-20 дБ за ~25 мс), чуть тёплого шума, длительность
+~70 мс, пик -18 dBFS. Без металла: гармоник и высоких частот нет, хвоста нет.
 Запуск: python3 tools/ui-sounds/generate.py
 Результат: apps/desktop/src/assets/sounds/click.wav и switch.wav (моно, 22,05 кГц, 16 бит).
 Проверка (числа): python3 tools/ui-sounds/generate.py --check
@@ -20,7 +21,7 @@ OUT = Path(__file__).resolve().parents[2] / "apps/desktop/src/assets/sounds"
 PEAK_DBFS = -18.0
 
 
-def render(name: str, freq: float, ms: int, decay: float, noise: float, lowpass: float) -> None:
+def render(name: str, freq: float, ms: int, decay: float, noise: float, lowpass: float, attack_ms: float = 7.0) -> None:
     rnd = random.Random(11)  # детерминированно: файл воспроизводим
     n = int(RATE * ms / 1000)
     samples = []
@@ -29,11 +30,11 @@ def render(name: str, freq: float, ms: int, decay: float, noise: float, lowpass:
     for i in range(n):
         t = i / RATE
         env = math.exp(-t * decay)
-        attack = min(1.0, i / (RATE * 0.003))  # 3 мс нарастания: без треска
-        tone = math.sin(2 * math.pi * freq * t)
+        attack = min(1.0, i / (RATE * attack_ms / 1000))  # мягкое нарастание: без треска
+        tone = math.sin(2 * math.pi * (freq * (1 + 0.06 * math.exp(-t * 60)) * t))  # тон чуть опускается
         low += lowpass * ((rnd.random() * 2 - 1) - low)  # два ФНЧ подряд: шум тёплый, без шипения
         low2 += lowpass * (low - low2)
-        value = (tone * (1 - noise) + low2 * noise * 6) * env * attack
+        value = (tone * (1 - noise) + low2 * noise * 5) * env * attack
         fade = min(1.0, (n - i) / (RATE * 0.008))  # 8 мс затухания в конце
         samples.append(value * fade)
     top = max(abs(s) for s in samples) or 1.0
@@ -68,7 +69,7 @@ def check(name: str) -> None:
 
 if __name__ == "__main__":
     if "--check" not in sys.argv:
-        render("click", freq=230, ms=34, decay=110, noise=0.5, lowpass=0.2)
-        render("switch", freq=185, ms=38, decay=95, noise=0.4, lowpass=0.16)
+        render("click", freq=560, ms=70, decay=90, noise=0.12, lowpass=0.12)
+        render("switch", freq=470, ms=76, decay=80, noise=0.1, lowpass=0.1, attack_ms=8)
     for n in ("click", "switch"):
         check(n)

@@ -147,10 +147,35 @@ describe('which element makes which sound', () => {
     button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     expect(started).toHaveLength(1);
+    await new Promise((r) => setTimeout(r, 70));
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
     expect(started).toHaveLength(2);
     detach();
     button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
     expect(started).toHaveLength(2);
+  });
+
+  it('plays a single sound for press, click and a programmatic click together', async () => {
+    const { started } = fakeWebAudio();
+    await preloadSounds();
+    const detach = attachUiSounds(window);
+    const button = html('<button data-t>x</button>') as HTMLButtonElement;
+    button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(started).toHaveLength(1);
+    detach();
+  });
+
+  it('stays silent for presses and keys while the sound toggle is off', async () => {
+    const { started } = fakeWebAudio();
+    await preloadSounds();
+    writeSoundEnabled(false);
+    const detach = attachUiSounds(window);
+    const button = html('<button data-t>x</button>') as HTMLButtonElement;
+    button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(started).toHaveLength(0);
+    detach();
   });
 });

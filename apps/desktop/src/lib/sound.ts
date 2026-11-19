@@ -132,23 +132,35 @@ export function soundKindFor(target: EventTarget | null): 'click' | 'switch' | n
   return 'click';
 }
 
+/** Окно, в котором второй звук от того же действия считается дублем. */
+const DEDUPE_MS = 60;
+
 /**
  * Подключает щелчки к окну: мышь и касание играют при нажатии (без ожидания отпускания),
  * клавиатура (Enter, пробел) при активации. Возвращает функцию отключения.
  */
 export function attachUiSounds(target: Window | HTMLElement = window): () => void {
+  // Защита от дубля: нажатие и следующий за ним клик (в том числе вызванный программно)
+  // это одно действие, второй звук в пределах окна глушится.
+  let last = -Infinity;
+  const play = (kind: 'click' | 'switch') => {
+    const now = performance.now();
+    if (now - last < DEDUPE_MS) return;
+    last = now;
+    playUiSound(kind);
+  };
   const onDown = (event: Event) => {
     const e = event as PointerEvent;
     unlockAudio();
     if (e.button !== undefined && e.button !== 0) return;
     const kind = soundKindFor(e.target);
-    if (kind) playUiSound(kind);
+    if (kind) play(kind);
   };
   const onClick = (event: Event) => {
     // detail === 0: клик от клавиатуры, мышиный уже сыграл при нажатии.
     if ((event as MouseEvent).detail !== 0) return;
     const kind = soundKindFor(event.target);
-    if (kind) playUiSound(kind);
+    if (kind) play(kind);
   };
   target.addEventListener('pointerdown', onDown, true);
   target.addEventListener('click', onClick, true);
