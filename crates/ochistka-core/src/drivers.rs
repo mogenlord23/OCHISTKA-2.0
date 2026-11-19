@@ -75,6 +75,7 @@ pub const VENDOR_IDS: &[&str] = &["nvidia", "amd", "intel", "audio", "usb", "oem
 
 const INTEL: &[&str] = &["Intel Corporation"];
 
+#[allow(clippy::too_many_arguments)]
 const fn entry(
     id: &'static str,
     vendor: &'static str,

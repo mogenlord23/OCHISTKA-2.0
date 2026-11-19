@@ -39,9 +39,10 @@ afterEach(() => {
 });
 
 describe('ComputerPage subsections', () => {
-  it('renders the components page with the loading state', () => {
+  it('renders the components page structure at once, without a loading screen', () => {
     render(ComputerPage, { props: { subsection: 'components' } });
-    expect(screen.getByText('Загрузка…')).toBeTruthy();
+    expect(screen.queryByText('Загрузка…')).toBeNull();
+    expect(screen.getByRole('group', { name: 'Комплектующие' })).toBeTruthy();
   });
 
   it('renders the Settings page without an OS switch', () => {
