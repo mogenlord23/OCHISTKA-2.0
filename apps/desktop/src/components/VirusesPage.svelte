@@ -300,7 +300,7 @@
   .scanner,
   .alert,
   .findings li {
-    margin: 0 0 14px;
+    margin: 0 0 8px;
     padding: 16px;
     border-radius: var(--radius-lg);
     background: var(--surface);
@@ -310,7 +310,7 @@
 
   h3,
   label {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
     font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
@@ -333,7 +333,7 @@
   .track {
     position: relative;
     height: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     overflow: hidden;
     border-radius: 999px;
     background: #222;
@@ -378,7 +378,7 @@
   .actions {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 8px;
   }
 
   button {
@@ -413,7 +413,7 @@
   }
 
   .bar {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     padding: 10px 14px;
     border-radius: var(--radius-lg);
     background: var(--surface);
@@ -423,7 +423,7 @@
   .pick {
     flex-direction: row;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
     text-transform: none;
   }
 
@@ -451,7 +451,7 @@
   }
 
   .empty.panel {
-    margin-bottom: 14px;
+    margin-bottom: 8px;
   }
 
   @keyframes sweep {
@@ -489,7 +489,7 @@
 
   .meter {
     height: 8px;
-    margin: 10px 0 6px;
+    margin: 8px 0 6px;
     border-radius: 4px;
     background: #21262d;
     overflow: hidden;

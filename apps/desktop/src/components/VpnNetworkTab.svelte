@@ -76,7 +76,7 @@
   .adapters {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -113,8 +113,8 @@
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px;
-    margin: 12px 0 8px;
+    gap: 8px;
+    margin: 8px 0 8px;
   }
 
   dt {

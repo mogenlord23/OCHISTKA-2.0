@@ -493,7 +493,7 @@
 
 <style>
   .page-heading {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-family: var(--font-heading);
     font-size: var(--text-section);
     font-weight: 900;
@@ -503,9 +503,9 @@
 
   .disk-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 12px;
-    margin: 0 0 16px;
+    margin: 0 0 8px;
     padding: 0;
     list-style: none;
   }
@@ -514,7 +514,7 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 18px;
+    padding: 16px;
     border-radius: var(--radius-md);
     background: var(--black);
     color: var(--ink);
@@ -582,7 +582,7 @@
   .notice,
   .empty,
   .hint {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
   }
 
   .panel {
@@ -619,7 +619,7 @@
   }
 
   h2 {
-    margin: 20px 0 8px;
+    margin: 16px 0 8px;
     font-family: var(--font-heading);
     font-size: var(--text-section);
     color: var(--page-text);

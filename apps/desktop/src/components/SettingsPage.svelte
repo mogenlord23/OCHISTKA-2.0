@@ -113,7 +113,7 @@
   }
 
   .lead {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-size: var(--text-small);
     color: var(--page-text);
   }
@@ -121,8 +121,8 @@
   .toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   .toolbar button {
@@ -150,12 +150,12 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 16px;
   }
 
   .error {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     padding: 10px 14px;
     border: 1px solid #da3633;
     border-radius: var(--radius-sm);

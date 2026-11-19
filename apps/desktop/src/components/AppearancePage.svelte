@@ -449,12 +449,12 @@
   }
 
   .hint {
-    margin: 0 0 14px;
+    margin: 0 0 8px;
     font-size: var(--text-small);
   }
 
   .msg {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-size: var(--text-small);
     font-weight: 700;
   }
@@ -471,8 +471,8 @@
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   .actions button,
@@ -499,14 +499,14 @@
   .more {
     display: flex;
     justify-content: center;
-    margin: 14px 0;
+    margin: 8px 0;
   }
 
   /* Строка настроек: тёмные скруглённые плашки с квадратным индикатором, как на экране владельца. */
   .chip {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
     min-height: 52px;
     padding: 8px 20px 8px 14px;
     border: 2px solid #2a2a2a;
@@ -549,30 +549,30 @@
      стоит по центру общей области раздела. */
   .grid {
     display: grid;
-    gap: 12px;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
-    justify-content: center;
   }
 
   .grid-wallpaper {
-    grid-template-columns: repeat(auto-fill, 176px);
-    grid-auto-rows: 99px;
+    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+    --tile-ratio: 16 / 9;
   }
 
   .grid-cursor {
-    grid-template-columns: repeat(auto-fill, 128px);
-    grid-auto-rows: 94px;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    --tile-ratio: 128 / 94;
   }
 
   .grid-color {
-    grid-template-columns: repeat(auto-fill, 96px);
-    grid-auto-rows: 64px;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    --tile-ratio: 3 / 2;
   }
 
   .grid li {
     display: flex;
+    aspect-ratio: var(--tile-ratio);
     min-width: 0;
   }
 
@@ -652,7 +652,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    max-width: 560px;
     min-height: 52px;
     margin-bottom: 8px;
     padding: 8px 16px;

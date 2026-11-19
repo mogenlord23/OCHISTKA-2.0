@@ -384,9 +384,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding: 12px 18px;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px 16px;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
@@ -441,7 +441,7 @@
   }
 
   .hint {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
     font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
@@ -451,16 +451,16 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 16px;
   }
 
   .tile {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
     min-height: 44px;
-    padding: 18px;
+    padding: 16px;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
@@ -513,7 +513,7 @@
 
   .card,
   .alert {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
@@ -522,7 +522,7 @@
 
   .card {
     position: relative;
-    padding: 18px 18px 14px;
+    padding: 16px;
   }
 
   .card .hide {
@@ -637,6 +637,6 @@
   }
 
   .disk + .disk {
-    margin-top: 12px;
+    margin-top: 8px;
   }
 </style>

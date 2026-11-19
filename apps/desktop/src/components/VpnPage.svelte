@@ -375,7 +375,7 @@
   .column {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
     min-height: 0;
   }
@@ -433,7 +433,7 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 12px;
+    gap: 8px;
     min-height: 0;
     overflow-y: auto;
     animation: pane-in 0.22s ease-out;
@@ -475,7 +475,7 @@
   }
 
   h2 {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-size: var(--text-caption);
     font-weight: 800;
     text-transform: uppercase;
@@ -483,7 +483,7 @@
   }
 
   .list-title {
-    margin: 10px 0 -2px;
+    margin: 8px 0 -2px;
     color: #000;
   }
 
@@ -493,13 +493,13 @@
   }
 
   .row.tight {
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   input {
     flex: 1;
     min-width: 0;
-    padding: 12px 18px;
+    padding: 8px 16px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--black);
@@ -541,7 +541,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   /* Большой переключатель в цвете раздела; ручка слева = выключено. */
@@ -678,14 +678,14 @@
   }
 
   .empty {
-    margin: 10px;
+    margin: 8px;
   }
 
   .switch-row {
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 18px;
+    gap: 16px;
     padding: 22px 20px;
   }
 

@@ -43,7 +43,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 16px 18px;
+    padding: 16px;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: var(--black, #080808);

@@ -458,7 +458,7 @@
     color: var(--ink);
   }
   .table-wrap {
-    max-height: calc(100vh - 486px);
+    max-height: calc(100vh - 456px);
     min-height: 180px;
     overflow: auto;
     border-radius: var(--radius-md);
@@ -491,7 +491,7 @@
   }
   /* Список процессов: сетка из div с ролями таблицы (выделение — скруглённая рамка). */
   .grid {
-    max-height: calc(100vh - 468px);
+    max-height: calc(100vh - 440px);
     min-height: 180px;
     overflow: auto;
     border-radius: 16px;

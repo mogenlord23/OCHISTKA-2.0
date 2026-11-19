@@ -348,12 +348,12 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden auto;
-    padding: 0 var(--content-gutter) 10px;
+    padding: 0 var(--content-gutter) 8px;
     overscroll-behavior: contain;
   }
 
   h1 {
-    margin: 12px 0 0;
+    margin: 8px 0 0;
     font-family: var(--font-heading);
     font-size: 34px;
     font-weight: 900;
@@ -371,7 +371,7 @@
 
   footer {
     margin-top: auto;
-    padding-top: 14px;
+    padding-top: 8px;
     font-size: 10px;
     font-weight: 700;
     color: var(--page-text);

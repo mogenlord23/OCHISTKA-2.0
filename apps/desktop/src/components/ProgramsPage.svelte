@@ -698,7 +698,7 @@
 
   /* Список: сетка из div с ролями таблицы. Выделение — скруглённая рамка цвета раздела. */
   .grid {
-    max-height: calc(100vh - 480px);
+    max-height: calc(100vh - 440px);
     min-height: 180px;
     overflow: auto;
     border-radius: 16px;

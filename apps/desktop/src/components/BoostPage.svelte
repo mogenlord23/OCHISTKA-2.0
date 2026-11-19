@@ -148,14 +148,14 @@
   }
 
   h3 {
-    margin: 18px 0 10px;
+    margin: 16px 0 8px;
     font-size: var(--text-body);
     text-transform: uppercase;
     color: var(--page-text);
   }
 
   .lead {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-size: var(--text-small);
     color: var(--page-text);
   }
@@ -163,7 +163,7 @@
   .toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
 
   .toolbar button {
@@ -191,12 +191,12 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 16px;
   }
 
   .error {
-    margin: 12px 0 0;
+    margin: 8px 0 0;
     padding: 10px 14px;
     border: 1px solid #da3633;
     border-radius: var(--radius-sm);

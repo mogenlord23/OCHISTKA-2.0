@@ -121,7 +121,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .os-switch button {
@@ -156,13 +156,13 @@
   }
 
   h2 {
-    margin: 18px 0 10px;
+    margin: 16px 0 8px;
     font-size: var(--text-title);
     text-transform: uppercase;
   }
 
   .lead {
-    margin: 0 0 14px;
+    margin: 0 0 8px;
     font-size: var(--text-small);
     color: var(--page-text);
   }
@@ -170,7 +170,7 @@
   .hardware {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -180,7 +180,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 150px;
     padding: 14px 8px;
     border-radius: var(--radius-md);
@@ -198,7 +198,7 @@
   .catalog {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 16px;
   }
 

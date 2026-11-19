@@ -31,7 +31,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 12px 0 14px;
+    margin: 8px 0 8px;
   }
 
   button {
