@@ -14,7 +14,13 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
   import { watchMaximized } from './lib/windowState';
-  import { readSoundEnabled, writeSoundEnabled } from './lib/sound';
+  import {
+    attachUiSounds,
+    playUiSound,
+    preloadSounds,
+    readSoundEnabled,
+    writeSoundEnabled,
+  } from './lib/sound';
   import {
     BODY_FONT,
     HEADING_FONT,
@@ -32,6 +38,7 @@
   function toggleSound() {
     soundOn = !soundOn;
     writeSoundEnabled(soundOn);
+    if (soundOn) playUiSound('click');
   }
   let dockPinned = $state(readPinned());
   let dockHover = $state(false);
@@ -55,7 +62,16 @@
     }
   }
 
-  onMount(() => watchMaximized((value) => (maximized = value)));
+  onMount(() => {
+    // Звуки декодируются заранее, чтобы щелчок и «хихи» играли без задержки.
+    void preloadSounds();
+    const detachSounds = attachUiSounds(window);
+    const stopWatching = watchMaximized((value) => (maximized = value));
+    return () => {
+      detachSounds();
+      stopWatching();
+    };
+  });
 
   $effect(() => {
     document.documentElement.dataset.maximized = String(maximized);
@@ -279,8 +295,10 @@
       transform 110ms cubic-bezier(0.2, 0, 0, 1);
   }
 
+  /* Нажатие мгновенное (30 мс), возврат плавный (110 мс, из правила выше). */
   :global(button:active:not(:disabled)) {
     transform: scale(0.96);
+    transition-duration: 30ms;
   }
 
   @media (prefers-reduced-motion: reduce) {

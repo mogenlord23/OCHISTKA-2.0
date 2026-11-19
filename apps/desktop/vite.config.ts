@@ -15,6 +15,10 @@ export default defineConfig({
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
     watch: { ignored: ['**/src-tauri/**'] },
   },
+  build: {
+    // Звуки читаются через fetch, а CSP (default-src 'self') запрещает data:. Не встраиваем wav в код.
+    assetsInlineLimit: (file) => (file.endsWith('.wav') ? false : undefined),
+  },
   // Svelte 5 в тестах (jsdom) требует браузерной сборки.
   resolve: { conditions: ['browser'] },
   test: {
