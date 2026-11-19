@@ -1,21 +1,34 @@
 <script lang="ts">
   import { getHardware } from '../lib/api';
-  import { UNSUPPORTED_OS_REASON } from '../lib/computer';
-  import { CATALOG, detectVendors, VENDORS } from '../lib/driversCatalog';
+  import {
+    getDriversCatalog,
+    installDriver,
+    openDriverPage,
+    openWindowsUpdate,
+  } from '../lib/driversApi';
+  import {
+    buttonLabel,
+    fillPercent,
+    IDLE,
+    isBusy,
+    stateFromProgress,
+    type ButtonState,
+  } from '../lib/driverInstall';
+  import {
+    filterByVendor,
+    layoutVendors,
+    VENDORS,
+    type DriverItem,
+    type VendorId,
+  } from '../lib/driversCatalog';
   import type { HardwareOverview } from '../lib/types';
+  import VendorLogo from './VendorLogo.svelte';
 
-  type OsId = 'windows' | 'macos' | 'linux';
-
-  /** Включена только Windows; остальные ОС выключены с причиной. */
-  const OS_OPTIONS: readonly { id: OsId; label: string; reason: string | null }[] = [
-    { id: 'windows', label: 'Windows', reason: null },
-    { id: 'macos', label: 'macOS', reason: UNSUPPORTED_OS_REASON },
-    { id: 'linux', label: 'Linux', reason: UNSUPPORTED_OS_REASON },
-  ];
-
-  let selected = $state<OsId>('windows');
   let hardware = $state<HardwareOverview | null>(null);
-  let copiedId = $state<string | null>(null);
+  let items = $state<DriverItem[]>([]);
+  let loadError = $state<string | null>(null);
+  let selected = $state<VendorId | null>(null);
+  let states = $state<Record<string, ButtonState>>({});
 
   $effect(() => {
     let active = true;
@@ -26,135 +39,164 @@
         }
       })
       .catch(() => {
-        // Без сведений о железе показываем основных производителей.
+        // Без сведений о железе производители идут в обычном порядке, без отметок.
+      });
+    getDriversCatalog()
+      .then((value) => {
+        if (active) {
+          items = value;
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          loadError = errorText(err, 'Не удалось загрузить каталог драйверов.');
+        }
       });
     return () => {
       active = false;
     };
   });
 
-  const vendors = $derived(detectVendors(hardware));
+  const layout = $derived(layoutVendors(hardware));
+  const visible = $derived(filterByVendor(items, selected));
+  const heading = $derived(selected === null ? 'Все драйверы' : VENDORS[selected].label);
 
-  async function copy(id: string, url: string) {
+  function errorText(err: unknown, fallback: string): string {
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+      const message = (err as { message: unknown }).message;
+      if (typeof message === 'string' && message.length > 0) {
+        return message;
+      }
+    }
+    return fallback;
+  }
+
+  function stateOf(id: string): ButtonState {
+    return states[id] ?? IDLE;
+  }
+
+  function setState(id: string, state: ButtonState) {
+    states = { ...states, [id]: state };
+  }
+
+  function anyBusy(): boolean {
+    return Object.values(states).some(isBusy);
+  }
+
+  async function run(item: DriverItem) {
+    if (isBusy(stateOf(item.id)) || anyBusy()) {
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(url);
-      copiedId = id;
-      setTimeout(() => {
-        if (copiedId === id) {
-          copiedId = null;
-        }
-      }, 1800);
-    } catch {
-      copiedId = null;
+      if (item.action === 'install') {
+        setState(item.id, { kind: 'downloading', percent: 0 });
+        await installDriver(item.id, (event) => {
+          if (event.id === item.id) {
+            setState(item.id, stateFromProgress(event));
+          }
+        });
+        setState(item.id, { kind: 'done' });
+      } else {
+        await openDriverPage(item.id);
+        setState(item.id, { kind: 'done' });
+      }
+    } catch (err) {
+      setState(item.id, {
+        kind: 'error',
+        reason: errorText(err, 'Не удалось выполнить действие.'),
+      });
+    }
+  }
+
+  async function viaWindowsUpdate(item: DriverItem) {
+    try {
+      await openWindowsUpdate();
+    } catch (err) {
+      setState(item.id, {
+        kind: 'error',
+        reason: errorText(err, 'Не удалось открыть Windows Update.'),
+      });
     }
   }
 </script>
 
 <section class="drivers">
-  <div class="os-switch" role="group" aria-label="Операционная система">
-    {#each OS_OPTIONS as option (option.id)}
+  <h2>Драйверы / твоё оборудование</h2>
+  <p class="lead">
+    Выбери производителя и установи драйвер официальным установщиком. Приложение скачивает файл
+    только с сайта производителя, проверяет цифровую подпись и запускает установщик; права
+    администратора Windows запросит у него самого. Где прямой загрузки нет, откроется официальный
+    сайт.
+  </p>
+
+  <ul class="vendors" aria-label="Производители">
+    <li>
       <button
         type="button"
-        aria-pressed={selected === option.id}
-        disabled={option.reason !== null}
-        aria-describedby={option.reason ? `os-reason-${option.id}` : undefined}
-        onclick={() => (selected = option.id)}
+        class="vendor"
+        aria-pressed={selected === null}
+        onclick={() => (selected = null)}
       >
-        {option.label}
+        <VendorLogo vendor="all" />
+        <span>Все</span>
       </button>
+    </li>
+    {#each layout.ordered as id (id)}
+      <li>
+        <button
+          type="button"
+          class="vendor"
+          aria-pressed={selected === id}
+          onclick={() => (selected = selected === id ? null : id)}
+        >
+          <VendorLogo vendor={id} />
+          <span>{VENDORS[id].label}</span>
+          {#if layout.detected.has(id)}
+            <small class="mine">ваше устройство</small>
+          {/if}
+        </button>
+      </li>
+    {/each}
+  </ul>
+
+  <h2>{heading}</h2>
+  {#if loadError}
+    <p class="reason" role="alert">{loadError}</p>
+  {/if}
+  <div class="catalog">
+    {#each visible as item (item.id)}
+      {@const state = stateOf(item.id)}
+      <article class="item">
+        <h3>{item.title}</h3>
+        <p>{item.description}</p>
+        <div class="actions">
+          <button
+            type="button"
+            class="primary"
+            class:busy={isBusy(state)}
+            disabled={isBusy(state)}
+            aria-busy={isBusy(state)}
+            style:--fill="{fillPercent(state)}%"
+            onclick={() => void run(item)}
+          >
+            <span class="fill" aria-hidden="true"></span>
+            <span class="label">{buttonLabel(item.action, state)}</span>
+          </button>
+          {#if item.windowsUpdate}
+            <button type="button" class="secondary" onclick={() => void viaWindowsUpdate(item)}>
+              Установить через Windows Update
+            </button>
+          {/if}
+          {#if state.kind === 'error'}
+            <p class="error" role="alert">{state.reason}</p>
+          {/if}
+        </div>
+      </article>
     {/each}
   </div>
-
-  {#each OS_OPTIONS as option (option.id)}
-    {#if option.reason}
-      <p class="reason" id="os-reason-{option.id}">{option.label}: {option.reason}</p>
-    {/if}
-  {/each}
-
-  {#if selected === 'windows'}
-    <h2>Драйверы / твоё оборудование</h2>
-    <p class="lead">
-      Windows Update подбирает совместимые драйверы по идентификаторам устройств. Универсального
-      драйвера для всех компьютеров нет. Приложение ничего не скачивает и не устанавливает: открой
-      официальную страницу сам.
-    </p>
-    <ul class="hardware" aria-label="Твоё оборудование">
-      {#each vendors as id (id)}
-        {@const vendor = VENDORS[id]}
-        <li class="hw">
-          <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true" focusable="false">
-            <rect width="58" height="58" rx="10" fill={vendor.color} />
-            <text
-              x="29"
-              y="36"
-              text-anchor="middle"
-              fill="#fff"
-              font-family="Arial Black, Segoe UI, sans-serif"
-              font-weight="900"
-              font-size={vendor.mark.length > 3 ? 11 : vendor.id === 'bluetooth' ? 30 : 17}
-              >{vendor.mark}</text
-            >
-          </svg>
-          <span>{vendor.label}</span>
-        </li>
-      {/each}
-    </ul>
-
-    <h2>Готовый каталог</h2>
-    <div class="catalog">
-      {#each CATALOG as item (item.id)}
-        <article class="item">
-          <h3>{item.title}</h3>
-          <p>{item.description}</p>
-          <p class="url">{item.url}</p>
-          <button type="button" onclick={() => void copy(item.id, item.url)}>
-            {copiedId === item.id ? 'Ссылка скопирована' : 'Копировать ссылку'}
-          </button>
-        </article>
-      {/each}
-    </div>
-  {/if}
 </section>
 
 <style>
-  .os-switch {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .os-switch button {
-    min-height: 44px;
-    padding: 10px 16px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--black);
-    color: var(--ink);
-    font: inherit;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-size: var(--text-body);
-    cursor: pointer;
-  }
-
-  .os-switch button[aria-pressed='true'] {
-    background: var(--btn-bg);
-    color: var(--ink);
-    box-shadow: inset 0 0 0 1px var(--btn-border);
-  }
-
-  .os-switch button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .reason {
-    margin: 4px 0;
-    font-size: var(--text-small);
-    color: var(--page-text);
-  }
-
   h2 {
     margin: 16px 0 8px;
     font-size: var(--text-title);
@@ -167,7 +209,13 @@
     color: var(--page-text);
   }
 
-  .hardware {
+  .reason {
+    margin: 4px 0;
+    font-size: var(--text-small);
+    color: var(--page-text);
+  }
+
+  .vendors {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -176,28 +224,45 @@
     list-style: none;
   }
 
-  .hw {
+  .vendor {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     gap: 8px;
     width: 150px;
+    min-height: 124px;
     padding: 14px 8px;
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
+    font: inherit;
     font-size: var(--text-caption);
     text-align: center;
-    transition: transform 160ms ease;
+    cursor: pointer;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease;
   }
 
-  .hw:hover {
+  .vendor:hover {
     transform: translateY(-2px);
+  }
+
+  .vendor[aria-pressed='true'] {
+    border-color: var(--btn-border, #cf00ff);
+  }
+
+  .mine {
+    margin-top: -4px;
+    font-size: 11px;
+    color: #b8b8b8;
   }
 
   .catalog {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 8px;
     margin-bottom: 16px;
   }
@@ -223,38 +288,75 @@
     color: #d4d4d4;
   }
 
-  .item .url {
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin-top: auto;
-    font-size: 12px;
-    color: #00e5ff;
+    padding-top: 8px;
+  }
+
+  .actions button {
+    position: relative;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 800;
+    text-align: center;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .actions .primary {
+    background: var(--btn-bg);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
+  }
+
+  .actions .secondary {
+    font-weight: 600;
+    font-size: var(--text-small);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px #444;
+  }
+
+  .actions button:disabled {
+    opacity: 0.85;
+    cursor: progress;
+  }
+
+  .fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--fill, 0%);
+    background: var(--btn-border);
+    opacity: 0.55;
+    transition: width 160ms linear;
+  }
+
+  .label {
+    position: relative;
+  }
+
+  .actions .error {
+    color: #ffb4b4;
+    background: #2a0f0f;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
     overflow-wrap: anywhere;
   }
 
-  .item button {
-    align-self: flex-start;
-    min-height: 44px;
-    padding: 8px 14px;
-    border: 1px solid #444;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--ink, #fafafa);
-    font: inherit;
-    font-size: var(--text-small);
-    cursor: pointer;
-    transition: background-color 160ms ease;
-  }
-
-  .item button:hover {
-    background: #222;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .hw,
-    .item button {
+    .vendor,
+    .fill {
       transition: none;
     }
 
-    .hw:hover {
+    .vendor:hover {
       transform: none;
     }
   }
