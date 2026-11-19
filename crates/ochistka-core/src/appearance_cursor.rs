@@ -378,6 +378,8 @@ enum Ink {
     Second,
     /// Второй цвет, приглушённый (дорожка под бегущей дугой).
     SecondFaint,
+    /// Чёрный, приглушённый (дорожка в бейдже).
+    BlackFaint,
 }
 
 enum Kind {
@@ -436,6 +438,24 @@ fn arc(cx: f64, cy: f64, r: f64, start: f64, span: f64) -> Vec<Pt> {
         .collect()
 }
 
+/// Стрелка изменения размера: тонкий стержень (6) и узкая голова, длина 58 из 64 клеток.
+/// Пропорции: длина к толщине стержня около 10:1, голова втрое выше стержня.
+const RESIZE_ARROW: &str = "M3,32 L16,21 Q18,20 18,23 V29.5 H46 V23 Q46,20 48,21 L61,32 \
+     L48,43 Q46,44 46,41 V34.5 H18 V41 Q18,44 16,43 Z";
+
+/// Бегущая дуга «Занят» и «Фоновая работа»: один стиль для обеих ролей (дорожка и дуга
+/// одинаковой доли толщины и длины, одинаковая скорость).
+fn spinner(cx: f64, cy: f64, r: f64, turn: f64, track: Ink, run: Ink) -> Vec<Item> {
+    let width = r * 0.55;
+    vec![
+        line(&arc(cx, cy, r, 0.0, 360.0), width, track),
+        line(&arc(cx, cy, r, turn - 90.0, SPINNER_SPAN), width, run),
+    ]
+}
+
+/// Длина бегущей дуги в градусах.
+const SPINNER_SPAN: f64 = 120.0;
+
 /// Все элементы рисунка роли в сетке 64×64 в порядке отрисовки. `phase` (0..1) — кадр
 /// анимации «Занят» и «Фоновая работа»: оборот бегущей дуги.
 fn items(role: Role, phase: f64) -> Vec<Item> {
@@ -443,8 +463,7 @@ fn items(role: Role, phase: f64) -> Vec<Item> {
     let arrow = || shape(flatten_path(&arrow_path()));
     let size_arrow = |angle: f64| {
         let mut polys = flatten_path(
-            "M8,29 L19,18 Q22,16 22,20 V27 H42 V20 Q42,16 45,18 L56,29 Q59,32 56,35 \
-             L45,46 Q42,48 42,44 V37 H22 V44 Q22,48 19,46 L8,35 Q5,32 8,29 Z",
+            RESIZE_ARROW,
         );
         for poly in &mut polys {
             rotate(poly, angle, (32.0, 32.0));
@@ -484,11 +503,14 @@ fn items(role: Role, phase: f64) -> Vec<Item> {
         }
         Role::AppStarting => {
             let mut v = vec![arrow()];
-            v.extend(badge(vec![line(
-                &arc(46.0, 16.0, 5.2, turn - 90.0, 240.0),
-                3.0,
+            v.extend(badge(spinner(
+                46.0,
+                16.0,
+                5.6,
+                turn,
+                Ink::BlackFaint,
                 Ink::Black,
-            )]));
+            )));
             v
         }
         Role::Pin => {
@@ -531,12 +553,12 @@ fn items(role: Role, phase: f64) -> Vec<Item> {
             shape(vec![circle(32.0, 32.0, 21.0)]),
             line(&[(18.0, 18.0), (46.0, 46.0)], 6.0, Ink::Black),
         ],
-        Role::Wait => vec![
-            shape(vec![circle(32.0, 32.0, 21.0)]),
+        Role::Wait => {
             // Дорожка и бегущая дуга второго цвета.
-            line(&arc(32.0, 32.0, 13.0, 0.0, 360.0), 7.0, Ink::SecondFaint),
-            line(&arc(32.0, 32.0, 13.0, turn - 90.0, 110.0), 7.0, Ink::Second),
-        ],
+            let mut v = vec![shape(vec![circle(32.0, 32.0, 21.0)])];
+            v.extend(spinner(32.0, 32.0, 13.0, turn, Ink::SecondFaint, Ink::Second));
+            v
+        }
         Role::SizeWe => size_arrow(0.0),
         Role::SizeNs => size_arrow(90.0),
         Role::SizeNwse => size_arrow(45.0),
@@ -684,7 +706,7 @@ pub fn render_frame(
     };
     let cover = |sd: f64, grow: f64| (0.5 - (sd - grow) * k).clamp(0.0, 1.0);
     let ink_rgb = |ink: Ink| match ink {
-        Ink::Black => [0.0; 3],
+        Ink::Black | Ink::BlackFaint => [0.0; 3],
         Ink::Second | Ink::SecondFaint => second,
     };
 
@@ -727,7 +749,7 @@ pub fn render_frame(
                         over(dst, second, cover(sd, -1.0));
                     }
                     Kind::Draw(color) => {
-                        let strength = if matches!(color, Ink::SecondFaint) {
+                        let strength = if matches!(color, Ink::SecondFaint | Ink::BlackFaint) {
                             0.3
                         } else {
                             1.0
@@ -831,13 +853,10 @@ pub const ANI_SIZES: [usize; 3] = [32, 48, 64];
 /// Кадров на оборот.
 pub const ANI_FRAMES: usize = 16;
 
-/// Длительность кадра в «джиффи» (1/60 с): «Занят» крутится спокойнее, чем «Фоновая работа».
-fn ani_jiffies(role: Role) -> u32 {
-    if role == Role::Wait {
-        4
-    } else {
-        3
-    }
+/// Длительность кадра в «джиффи» (1/60 с): обе занятые роли с одной скоростью.
+fn ani_jiffies(_role: Role) -> u32 {
+    // Обе занятые роли крутятся одинаково: единый стиль.
+    3
 }
 
 fn riff_chunk(out: &mut Vec<u8>, id: &[u8; 4], data: &[u8]) {
@@ -1130,6 +1149,87 @@ mod tests {
         assert_eq!(&ani[8..12], b"ACON");
         assert!(Role::ALL.iter().filter(|r| r.is_animated()).count() == 2);
         assert!(build_ani(Role::Arrow, Pattern::Plain, "#000000", "#000000").is_err());
+    }
+
+    /// Значения `HKCU\Control Panel\Cursors`, которые Windows читает для курсоров: 17 ролей
+    /// окна «Указатели» (Microsoft: `SetSystemCursor`, константы OCR_*, включая Pin и Person).
+    /// Автопрокрутка (колёсико-якорь) в этот список не входит: её значки Windows берёт из
+    /// ресурсов user32/comctl32 или рисует само приложение, подменить их реестром нельзя.
+    const WINDOWS_CURSOR_VALUES: [&str; 17] = [
+        "Arrow",
+        "Help",
+        "AppStarting",
+        "Wait",
+        "Crosshair",
+        "IBeam",
+        "NWPen",
+        "No",
+        "SizeNS",
+        "SizeWE",
+        "SizeNWSE",
+        "SizeNESW",
+        "SizeAll",
+        "UpArrow",
+        "Hand",
+        "Pin",
+        "Person",
+    ];
+
+    #[test]
+    fn roles_cover_every_windows_cursor_value_exactly() {
+        let mut ours: Vec<_> = Role::ALL.iter().map(|r| r.registry_name()).collect();
+        let mut want = WINDOWS_CURSOR_VALUES.to_vec();
+        ours.sort_unstable();
+        want.sort_unstable();
+        assert_eq!(ours, want);
+        assert!(ours.iter().all(|n| !n.starts_with("Scroll")));
+    }
+
+    fn fill_bounds(role: Role) -> (f64, f64) {
+        let b = items(role, 0.0)[0].geo.bounds();
+        (b.2 - b.0, b.3 - b.1)
+    }
+
+    #[test]
+    fn resize_arrows_are_long_and_thin_with_the_same_proportions() {
+        let (we_w, we_h) = fill_bounds(Role::SizeWe);
+        assert!(we_w >= 56.0, "длинная: {we_w}");
+        assert!(we_h <= 24.0, "тонкая: {we_h}");
+        let (ns_w, ns_h) = fill_bounds(Role::SizeNs);
+        assert!((ns_h - we_w).abs() < 0.01 && (ns_w - we_h).abs() < 0.01);
+        // Диагональные те же стрелки, повёрнутые: габарит по диагонали укладывается в кадр.
+        for role in [Role::SizeNwse, Role::SizeNesw] {
+            let (w, h) = fill_bounds(role);
+            assert!((w - h).abs() < 0.5 && w <= 48.0, "{role:?} {w}x{h}");
+        }
+    }
+
+    #[test]
+    fn busy_roles_share_one_animation_style() {
+        assert_eq!(ani_jiffies(Role::Wait), ani_jiffies(Role::AppStarting));
+        let a = build_ani(Role::Wait, Pattern::Plain, "#B4FF00", "#FF009D").unwrap();
+        let b = build_ani(Role::AppStarting, Pattern::Plain, "#B4FF00", "#FF009D").unwrap();
+        // Одинаковая структура файла: кадры, шаги и скорость в заголовке `anih`.
+        let anih = |f: &[u8]| {
+            let at = f.windows(4).position(|w| w == b"anih").unwrap() + 8;
+            f[at..at + 36].to_vec()
+        };
+        assert_eq!(anih(&a), anih(&b));
+        // Дуга движется в каждом кадре обеих ролей.
+        for role in [Role::Wait, Role::AppStarting] {
+            let f0 = render_frame(role, Pattern::Plain, "#B4FF00", "#FF009D", 64, 0.0).unwrap();
+            let f1 = render_frame(role, Pattern::Plain, "#B4FF00", "#FF009D", 64, 0.25).unwrap();
+            assert_ne!(f0, f1, "{role:?}");
+        }
+    }
+
+    #[test]
+    fn only_busy_roles_have_ani_and_static_ones_have_no_motion() {
+        for role in Role::ALL.into_iter().filter(|r| !r.is_animated()) {
+            let a = render_frame(role, Pattern::Plain, "#B4FF00", "#FF009D", 48, 0.0).unwrap();
+            let b = render_frame(role, Pattern::Plain, "#B4FF00", "#FF009D", 48, 0.5).unwrap();
+            assert_eq!(a, b, "{role:?} не должна зависеть от фазы");
+        }
     }
 
     #[test]

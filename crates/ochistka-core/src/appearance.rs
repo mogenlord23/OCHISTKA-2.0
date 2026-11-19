@@ -721,7 +721,7 @@ type RenderedCursor =
     Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>;
 
 /// Версия рисования курсоров: меняется вместе с внешним видом, и тогда кэш пересоздаётся.
-const CURSOR_RENDER_VERSION: u32 = 1;
+const CURSOR_RENDER_VERSION: u32 = 2;
 
 /// Отпечаток схемы (FNV-1a): по нему найденные на диске файлы считаются готовыми.
 pub fn cursor_scheme_hash(spec: &CursorSpec) -> String {

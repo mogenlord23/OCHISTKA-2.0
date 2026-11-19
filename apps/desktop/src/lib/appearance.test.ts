@@ -74,6 +74,8 @@ describe('appearance tiles', () => {
     for (const def of CURSOR_DEFS) {
       const markup = cursorSvg(def.cursor, def.id);
       expect(markup).toContain(ARROW_PATH);
+      // Карточки выбора статичны: ни анимации, ни вращения.
+      expect(markup).not.toMatch(/<animate|animateTransform|rotate\(|@keyframes/);
       if (def.cursor.pattern !== 'plain' && def.cursor.pattern !== 'neon') {
         expect(markup).toContain(`id="p-${def.id}"`);
       }
