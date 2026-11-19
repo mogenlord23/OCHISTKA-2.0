@@ -1,80 +1,36 @@
 <script lang="ts">
-  import { toCommandError } from '../lib/api';
-  import { boostSetProfile, tweakSet, tweaksOverview, tweaksRevert } from '../lib/tweaksApi';
-  import {
-    BOOST_EXTRAS,
-    BOOST_PROFILES,
-    CONFIRM_TEXT,
-    type ProfileText,
-    type TweakText,
-  } from '../lib/tweaksText';
-  import type { CommandError, TweaksOverview } from '../lib/types';
-  import ConfirmDialog from './ConfirmDialog.svelte';
+  import { onMount } from 'svelte';
+  import { boostSetProfile, tweakSet, tweaksRevert } from '../lib/tweaksApi';
+  import { TweakRunner, tweakErrorText } from '../lib/tweakRunner.svelte';
+  import { BOOST_EXTRAS, BOOST_PROFILES, type ProfileText } from '../lib/tweaksText';
   import TweakCard from './TweakCard.svelte';
 
-  let data = $state<TweaksOverview | null>(null);
-  let error = $state<CommandError | null>(null);
-  let busy = $state(false);
-  type Pending =
-    | { kind: 'profile'; profile: ProfileText; enable: boolean }
-    | { kind: 'extra'; tweak: TweakText; enable: boolean }
-    | { kind: 'revert' };
-  let pending = $state<Pending | null>(null);
+  const runner = new TweakRunner();
 
-  async function run(job: () => Promise<TweaksOverview>) {
-    busy = true;
-    try {
-      data = await job();
-      error = null;
-    } catch (err) {
-      error = toCommandError(err);
-    } finally {
-      busy = false;
-    }
-  }
-
-  const refresh = () => run(tweaksOverview);
-
-  $effect(() => {
-    void refresh();
+  onMount(() => {
+    void runner.refresh();
   });
 
-  const unsupported = $derived(error?.kind === 'unsupported');
+  const unsupported = $derived(runner.error?.kind === 'unsupported');
   const hasBackup = $derived(
-    (data?.boost.hasBackup ?? false) ||
-      BOOST_EXTRAS.some((tweak) => data?.tweaks.find((t) => t.id === tweak.id)?.hasBackup),
+    (runner.data?.boost.hasBackup ?? false) ||
+      BOOST_EXTRAS.some((tweak) => runner.data?.tweaks.find((t) => t.id === tweak.id)?.hasBackup),
   );
 
   function applied(id: string): boolean {
-    return data?.tweaks.find((tweak) => tweak.id === id)?.applied ?? false;
+    return runner.data?.tweaks.find((tweak) => tweak.id === id)?.applied ?? false;
   }
 
-  function confirm() {
-    const action = pending;
-    pending = null;
-    if (!action) {
-      return;
-    }
-    if (action.kind === 'profile') {
-      void run(() => boostSetProfile(action.enable ? action.profile.id : null));
-    } else if (action.kind === 'extra') {
-      void run(() => tweakSet(action.tweak.id, action.enable));
-    } else {
-      void run(() => tweaksRevert('boost'));
-    }
+  /** Профили взаимоисключающие: выбранный включается, остальные гаснут в тот же кадр. */
+  function chooseProfile(profile: ProfileText, enable: boolean) {
+    const shownNow: Record<string, boolean> = {};
+    for (const item of BOOST_PROFILES)
+      shownNow[`profile:${item.id}`] = enable && item.id === profile.id;
+    void runner.apply(shownNow, () => boostSetProfile(enable ? profile.id : null));
   }
 
-  const dialogTitle = $derived.by(() => {
-    if (!pending) {
-      return '';
-    }
-    if (pending.kind === 'revert') {
-      return 'Вернуть изменения раздела?';
-    }
-    const name =
-      pending.kind === 'profile' ? `профиль «${pending.profile.title}»` : pending.tweak.title;
-    return pending.enable ? `Включить ${name}?` : `Выключить ${name}?`;
-  });
+  const toggleExtra = (id: string, enable: boolean) =>
+    void runner.apply({ [id]: enable }, () => tweakSet(id, enable));
 </script>
 
 <section class="page">
@@ -84,17 +40,18 @@
     гарантированных процентов FPS нет.
   </p>
   <div class="toolbar">
-    <button type="button" disabled={busy} onclick={() => void refresh()}>Обновить состояние</button>
+    <button type="button" onclick={() => void runner.refresh()}>Обновить состояние</button>
     <button
       type="button"
-      disabled={busy || unsupported || !hasBackup}
-      onclick={() => (pending = { kind: 'revert' })}>Вернуть изменения раздела</button
+      disabled={unsupported || !hasBackup}
+      onclick={() => void runner.apply({}, () => tweaksRevert('boost'))}
+      >Вернуть изменения раздела</button
     >
   </div>
 
-  {#if error}
+  {#if runner.error}
     <p class="error" role="alert">
-      {unsupported ? 'Boost недоступен на этой системе.' : error.message}
+      {tweakErrorText(runner.error, 'Boost недоступен на этой системе.')}
     </p>
   {/if}
 
@@ -104,10 +61,10 @@
       <TweakCard
         title={profile.title}
         description={profile.description}
-        checked={data?.boost.profile === profile.id}
-        disabled={busy || data === null || unsupported}
+        checked={runner.shown(`profile:${profile.id}`, runner.data?.boost.profile === profile.id)}
+        disabled={runner.data === null || unsupported}
         note={null}
-        onchange={(next) => (pending = { kind: 'profile', profile, enable: next })}
+        onchange={(next) => chooseProfile(profile, next)}
       />
     {/each}
   </div>
@@ -118,27 +75,13 @@
       <TweakCard
         title={tweak.title}
         description={tweak.description}
-        checked={applied(tweak.id)}
-        disabled={busy || data === null || unsupported}
-        onchange={(next) => (pending = { kind: 'extra', tweak, enable: next })}
+        checked={runner.shown(tweak.id, applied(tweak.id))}
+        disabled={runner.data === null || unsupported}
+        onchange={(next) => toggleExtra(tweak.id, next)}
       />
     {/each}
   </div>
 </section>
-
-{#if pending}
-  <ConfirmDialog
-    title={dialogTitle}
-    text={pending.kind === 'revert'
-      ? 'Всё, что изменил Boost, включая схему электропитания, вернётся к сохранённому состоянию.'
-      : pending.enable
-        ? CONFIRM_TEXT
-        : 'Профиль выключится: изменения Boost и схема питания вернутся к сохранённым значениям.'}
-    confirmLabel={pending.kind === 'revert' || !pending.enable ? 'Вернуть' : 'Применить'}
-    onconfirm={confirm}
-    oncancel={() => (pending = null)}
-  />
-{/if}
 
 <style>
   .page h2 {

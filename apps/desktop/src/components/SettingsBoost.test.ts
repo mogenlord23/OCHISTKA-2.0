@@ -41,36 +41,56 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'Обновить состояние' })).toBeTruthy();
   });
 
-  it('changes nothing until the confirmation dialog is accepted', async () => {
-    vi.mocked(tweakSet).mockResolvedValue(overview({ transparency: true }));
+  it('applies a setting at once, without any dialog, and shows the checked state in the same tick', async () => {
+    let finish!: (value: TweaksOverview) => void;
+    vi.mocked(tweakSet).mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(SettingsPage);
     const box = (await screen.findByRole('checkbox', {
       name: /Убрать прозрачность/,
     })) as HTMLInputElement;
     await waitFor(() => expect(box.disabled).toBe(false));
     box.click();
-    expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(tweakSet).not.toHaveBeenCalled();
-
-    screen.getByRole('button', { name: 'Отмена' }).click();
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(tweakSet).not.toHaveBeenCalled();
-
-    box.click();
-    (await screen.findByRole('button', { name: 'Применить' })).click();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(box.checked).toBe(true));
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('transparency', true));
+    finish(overview({ transparency: true }));
     await waitFor(() => expect(box.checked).toBe(true));
   });
 
-  it('reverts the section only after confirmation', async () => {
+  it('rolls the check back and says it plainly when applying fails', async () => {
+    vi.mocked(tweakSet).mockRejectedValue({ kind: 'probe', message: 'HRESULT 0x80070005' });
+    render(SettingsPage);
+    const box = (await screen.findByRole('checkbox', {
+      name: /Убрать прозрачность/,
+    })) as HTMLInputElement;
+    await waitFor(() => expect(box.disabled).toBe(false));
+    box.click();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Не получилось изменить настройку. Попробуй ещё раз.');
+    await waitFor(() => expect(box.checked).toBe(false));
+  });
+
+  it('turns a setting off again with a second press', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(overview({ transparency: true }));
+    vi.mocked(tweakSet).mockResolvedValue(overview());
+    render(SettingsPage);
+    const box = (await screen.findByRole('checkbox', {
+      name: /Убрать прозрачность/,
+    })) as HTMLInputElement;
+    await waitFor(() => expect(box.checked).toBe(true));
+    box.click();
+    await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('transparency', false));
+    await waitFor(() => expect(box.checked).toBe(false));
+  });
+
+  it('reverts the section at once, without a dialog', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({ transparency: true }));
     vi.mocked(tweaksRevert).mockResolvedValue(overview());
     render(SettingsPage);
     const revert = screen.getByRole('button', { name: 'Вернуть изменения раздела' });
     await waitFor(() => expect((revert as HTMLButtonElement).disabled).toBe(false));
     revert.click();
-    expect(tweaksRevert).not.toHaveBeenCalled();
-    (await screen.findByRole('button', { name: 'Вернуть' })).click();
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(tweaksRevert).toHaveBeenCalledWith('settings'));
   });
 
@@ -92,20 +112,34 @@ describe('BoostPage', () => {
     }
   });
 
-  it('marks the active profile and applies a profile after confirmation', async () => {
+  it('marks the active profile and switches profile at once, the old one clears in the same tick', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({}, 'basic'));
-    vi.mocked(boostSetProfile).mockResolvedValue(overview({}, 'gaming'));
+    let finish!: (value: TweaksOverview) => void;
+    vi.mocked(boostSetProfile).mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(BoostPage);
     const basic = (await screen.findByRole('checkbox', { name: /Базовый/ })) as HTMLInputElement;
     await waitFor(() => expect(basic.checked).toBe(true));
     const gaming = screen.getByRole('checkbox', { name: /^Игровой/ }) as HTMLInputElement;
     gaming.click();
-    expect(boostSetProfile).not.toHaveBeenCalled();
-    (await screen.findByRole('button', { name: 'Применить' })).click();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(gaming.checked).toBe(true));
+    expect(basic.checked).toBe(false);
     await waitFor(() => expect(boostSetProfile).toHaveBeenCalledWith('gaming'));
+    finish(overview({}, 'gaming'));
+    await waitFor(() => expect(gaming.checked).toBe(true));
   });
 
-  it('switches the background recording through the confirmed tweak command', async () => {
+  it('releases the profile with a second press', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(overview({}, 'basic'));
+    vi.mocked(boostSetProfile).mockResolvedValue(overview());
+    render(BoostPage);
+    const basic = (await screen.findByRole('checkbox', { name: /Базовый/ })) as HTMLInputElement;
+    await waitFor(() => expect(basic.checked).toBe(true));
+    basic.click();
+    await waitFor(() => expect(boostSetProfile).toHaveBeenCalledWith(null));
+  });
+
+  it('switches the background recording through the tweak command without a dialog', async () => {
     vi.mocked(tweakSet).mockResolvedValue(overview({ game_dvr: true }));
     render(BoostPage);
     const box = (await screen.findByRole('checkbox', {
@@ -113,7 +147,7 @@ describe('BoostPage', () => {
     })) as HTMLInputElement;
     await waitFor(() => expect(box.disabled).toBe(false));
     box.click();
-    (await screen.findByRole('button', { name: 'Применить' })).click();
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('game_dvr', true));
   });
 });

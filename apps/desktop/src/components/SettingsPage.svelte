@@ -1,57 +1,28 @@
 <script lang="ts">
-  import { toCommandError } from '../lib/api';
-  import { tweakSet, tweaksOverview, tweaksRevert } from '../lib/tweaksApi';
-  import { CONFIRM_TEXT, SETTINGS_TWEAKS, type TweakText } from '../lib/tweaksText';
-  import type { CommandError, TweaksOverview } from '../lib/types';
-  import ConfirmDialog from './ConfirmDialog.svelte';
+  import { onMount } from 'svelte';
+  import { tweakSet, tweaksRevert } from '../lib/tweaksApi';
+  import { TweakRunner, tweakErrorText } from '../lib/tweakRunner.svelte';
+  import { SETTINGS_TWEAKS } from '../lib/tweaksText';
   import TweakCard from './TweakCard.svelte';
 
-  let data = $state<TweaksOverview | null>(null);
-  let error = $state<CommandError | null>(null);
-  let busy = $state(false);
-  type Pending = { kind: 'set'; tweak: TweakText; enable: boolean } | { kind: 'revert' };
-  let pending = $state<Pending | null>(null);
+  const runner = new TweakRunner();
 
-  async function run(job: () => Promise<TweaksOverview>) {
-    busy = true;
-    try {
-      data = await job();
-      error = null;
-    } catch (err) {
-      error = toCommandError(err);
-    } finally {
-      busy = false;
-    }
-  }
-
-  const refresh = () => run(tweaksOverview);
-
-  $effect(() => {
-    void refresh();
+  onMount(() => {
+    void runner.refresh();
   });
 
-  const unsupported = $derived(error?.kind === 'unsupported');
+  const unsupported = $derived(runner.error?.kind === 'unsupported');
 
   function applied(id: string): boolean {
-    return data?.tweaks.find((tweak) => tweak.id === id)?.applied ?? false;
+    return runner.data?.tweaks.find((tweak) => tweak.id === id)?.applied ?? false;
   }
 
   const hasBackup = $derived(
-    SETTINGS_TWEAKS.some((tweak) => data?.tweaks.find((t) => t.id === tweak.id)?.hasBackup),
+    SETTINGS_TWEAKS.some((tweak) => runner.data?.tweaks.find((t) => t.id === tweak.id)?.hasBackup),
   );
 
-  function confirm() {
-    const action = pending;
-    pending = null;
-    if (!action) {
-      return;
-    }
-    if (action.kind === 'set') {
-      void run(() => tweakSet(action.tweak.id, action.enable));
-    } else {
-      void run(() => tweaksRevert('settings'));
-    }
-  }
+  const toggle = (id: string, enable: boolean) =>
+    void runner.apply({ [id]: enable }, () => tweakSet(id, enable));
 </script>
 
 <section class="page">
@@ -60,17 +31,18 @@
     Изменения интерфейса, рекламы и приватности. Выключение возвращает точные исходные значения.
   </p>
   <div class="toolbar">
-    <button type="button" disabled={busy} onclick={() => void refresh()}>Обновить состояние</button>
+    <button type="button" onclick={() => void runner.refresh()}>Обновить состояние</button>
     <button
       type="button"
-      disabled={busy || unsupported || !hasBackup}
-      onclick={() => (pending = { kind: 'revert' })}>Вернуть изменения раздела</button
+      disabled={unsupported || !hasBackup}
+      onclick={() => void runner.apply({}, () => tweaksRevert('settings'))}
+      >Вернуть изменения раздела</button
     >
   </div>
 
-  {#if error}
+  {#if runner.error}
     <p class="error" role="alert">
-      {unsupported ? 'Настройки Windows недоступны на этой системе.' : error.message}
+      {tweakErrorText(runner.error, 'Настройки Windows недоступны на этой системе.')}
     </p>
   {/if}
 
@@ -79,31 +51,13 @@
       <TweakCard
         title={tweak.title}
         description={tweak.description}
-        checked={applied(tweak.id)}
-        disabled={busy || data === null || unsupported}
-        onchange={(next) => (pending = { kind: 'set', tweak, enable: next })}
+        checked={runner.shown(tweak.id, applied(tweak.id))}
+        disabled={runner.data === null || unsupported}
+        onchange={(next) => toggle(tweak.id, next)}
       />
     {/each}
   </div>
 </section>
-
-{#if pending}
-  <ConfirmDialog
-    title={pending.kind === 'revert'
-      ? 'Вернуть изменения раздела?'
-      : pending.enable
-        ? `Применить: ${pending.tweak.title}?`
-        : `Вернуть: ${pending.tweak.title}?`}
-    text={pending.kind === 'revert'
-      ? 'Все настройки этого раздела вернутся к значениям, сохранённым до применения.'
-      : pending.enable
-        ? CONFIRM_TEXT
-        : 'Настройка вернётся к значению, сохранённому до применения.'}
-    confirmLabel={pending.kind === 'revert' || !pending.enable ? 'Вернуть' : 'Применить'}
-    onconfirm={confirm}
-    oncancel={() => (pending = null)}
-  />
-{/if}
 
 <style>
   .page h2 {
