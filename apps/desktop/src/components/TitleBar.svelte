@@ -45,7 +45,7 @@
     justify-content: space-between;
     flex: none;
     height: 64px;
-    padding: 0 16px 0 var(--content-gutter, 22px);
+    padding: 0 var(--content-gutter, 24px);
     user-select: none;
   }
 
