@@ -5,8 +5,8 @@ import type { GpuInfo, MotherboardInfo } from './types';
 
 export const UNSUPPORTED_OS_REASON = 'Нет поддержки этой ОС в текущей версии';
 
-/** Подпись, пока комплектующие ещё не прочитаны. */
-export const HARDWARE_LOADING = 'Читаем…';
+/** Заполнитель, пока комплектующие ещё не прочитаны (без слов «Читаем»). */
+export const HARDWARE_LOADING = '—';
 
 /** Название видеокарты: модель, иначе производитель, иначе прочерк. */
 export function gpuName(gpu: GpuInfo): string {
@@ -53,7 +53,7 @@ export function clockTime(date: Date): string {
 
 /** Название процессора; пока не прочитано — прочерк. */
 export function cpuName(hardware: { cpuBrand: string | null } | null): string {
-  return hardware?.cpuBrand ?? 'Процессор';
+  return hardware?.cpuBrand ?? '—';
 }
 
 /** Объём памяти для плитки: «23,9 ГБ». */

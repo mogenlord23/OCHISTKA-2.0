@@ -10,6 +10,8 @@ struct Fake {
     fail_power: Mutex<bool>,
     /// Windows молча не принимает запись этого значения (как защищённые ключи).
     ignore_name: Mutex<Option<String>>,
+    /// После короткой паузы Windows перезаписывает это значение (ключ, имя, значение).
+    overwrite_on_settle: Mutex<Option<(String, String, u32)>>,
     build: u32,
     elevated: bool,
 }
@@ -26,6 +28,8 @@ impl RegistryPort for Fake {
         if self.ignore_name.lock().unwrap().as_deref() == Some(name) {
             return Ok(());
         }
+        // Запись числа заменяет и тип: строка с тем же именем исчезает, как в реестре.
+        self.strings.lock().unwrap().remove(&k(key, name));
         self.dwords.lock().unwrap().insert(k(key, name), value);
         Ok(())
     }
@@ -33,6 +37,7 @@ impl RegistryPort for Fake {
         Ok(self.strings.lock().unwrap().get(&k(key, name)).cloned())
     }
     fn write_string(&self, key: &str, name: &str, value: &str) -> Result<(), CoreError> {
+        self.dwords.lock().unwrap().remove(&k(key, name));
         self.strings
             .lock()
             .unwrap()
@@ -79,6 +84,11 @@ impl SystemPort for Fake {
     fn is_elevated(&self) -> bool {
         self.elevated
     }
+    fn settle(&self) {
+        if let Some((key, name, value)) = self.overwrite_on_settle.lock().unwrap().clone() {
+            self.dwords.lock().unwrap().insert(k(&key, &name), value);
+        }
+    }
     fn activation(&self) -> Result<ActivationInfo, CoreError> {
         Ok(parse_activation("1;0"))
     }
@@ -103,6 +113,7 @@ fn fake_on(build: u32, elevated: bool) -> Fake {
         scheme: Mutex::new(BALANCED.to_string()),
         fail_power: Default::default(),
         ignore_name: Default::default(),
+        overwrite_on_settle: Default::default(),
         build,
         elevated,
     }
@@ -206,7 +217,7 @@ fn a_value_windows_refuses_to_take_is_not_shown_as_applied_and_everything_is_rol
     reg.write_dword(TRANSPARENCY.0, TRANSPARENCY.1, 1).unwrap();
     *reg.ignore_name.lock().unwrap() = Some("EnableTransparency".into());
     let err = set_tweak(&reg, "transparency", true).unwrap_err();
-    assert!(matches!(err, CoreError::Probe(_)));
+    assert!(matches!(err, CoreError::NotApplicable(_)));
     let now = state(&reg, "transparency");
     assert!(!now.applied && !now.has_backup);
     assert_eq!(
@@ -398,12 +409,76 @@ fn switching_profiles_keeps_the_very_first_scheme() {
 }
 
 #[test]
-fn failed_power_change_leaves_registry_untouched() {
+fn unavailable_power_scheme_is_skipped_with_a_reason_and_is_not_an_error() {
     let reg = fake();
     *reg.fail_power.lock().unwrap() = true;
-    assert!(set_boost_profile(&reg, Some("max")).is_err());
-    assert!(!state(&reg, "game_dvr").applied);
-    assert_eq!(overview(&reg).unwrap().boost.profile, None);
+    set_boost_profile(&reg, Some("max")).unwrap();
+    let boost = overview(&reg).unwrap().boost;
+    // Параметры реестра применены, схема пропущена с причиной, профиль считается включённым.
+    assert!(state(&reg, "game_dvr").applied);
+    assert_eq!(boost.profile.as_deref(), Some("max"));
+    let power = boost.steps.iter().find(|s| s.id == "power").unwrap();
+    assert!(!power.applied);
+    assert!(power.reason.as_deref().unwrap().contains("недоступна"));
+    assert_eq!(*reg.scheme.lock().unwrap(), BALANCED);
+}
+
+#[test]
+fn profiles_have_exactly_the_documented_content() {
+    let ids = |profile: &str| {
+        let reg = fake_on(WIN11_BUILD, false);
+        set_boost_profile(&reg, Some(profile)).unwrap();
+        overview(&reg)
+            .unwrap()
+            .boost
+            .steps
+            .into_iter()
+            .map(|s| s.id)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids("basic"), ["game_dvr", "game_mode"]);
+    assert_eq!(ids("gaming"), ["game_dvr", "game_mode", "power"]);
+    assert_eq!(
+        ids("max"),
+        ["game_dvr", "game_mode", "power_throttling", "power"]
+    );
+}
+
+#[test]
+fn gaming_profile_really_changes_things_and_shows_each_step() {
+    let reg = fake();
+    set_boost_profile(&reg, Some("gaming")).unwrap();
+    let boost = overview(&reg).unwrap().boost;
+    assert!(boost.steps.iter().all(|s| s.applied && s.reason.is_none()));
+    assert_eq!(*reg.scheme.lock().unwrap(), HIGH_SCHEME);
+}
+
+#[test]
+fn max_profile_skips_machine_wide_throttling_without_admin_and_applies_it_with_admin() {
+    let user = fake_on(WIN11_BUILD, false);
+    set_boost_profile(&user, Some("max")).unwrap();
+    let boost = overview(&user).unwrap().boost;
+    assert_eq!(boost.profile.as_deref(), Some("max"));
+    let step = boost
+        .steps
+        .iter()
+        .find(|s| s.id == "power_throttling")
+        .unwrap();
+    assert!(!step.applied);
+    assert_eq!(step.reason.as_deref(), Some(NEEDS_ADMIN_REASON));
+    assert_eq!(*user.scheme.lock().unwrap(), ULTIMATE_SCHEME);
+
+    let admin = fake_on(WIN11_BUILD, true);
+    set_boost_profile(&admin, Some("max")).unwrap();
+    assert!(state(&admin, "power_throttling").applied);
+}
+
+#[test]
+fn profile_never_touches_vbs() {
+    let reg = fake_on(WIN11_BUILD, true);
+    set_boost_profile(&reg, Some("max")).unwrap();
+    assert!(!state(&reg, "vbs_off").applied);
+    assert!(!state(&reg, "hags").applied);
 }
 
 #[test]
@@ -523,4 +598,124 @@ fn every_tweak_has_a_text_in_the_interface_and_a_row_in_the_keys_table() {
             "нет строки в таблице для {id}"
         );
     }
+}
+
+const ADV_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
+const AD_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo";
+const AD_POLICY: &str = r"HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo";
+
+#[test]
+fn advertising_id_key_is_created_when_it_does_not_exist_and_removed_on_revert() {
+    let reg = fake();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), None);
+    set_tweak(&reg, "ad_id", true).unwrap();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), Some(0));
+    assert!(state(&reg, "ad_id").applied);
+    set_tweak(&reg, "ad_id", false).unwrap();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), None);
+}
+
+#[test]
+fn advertising_id_forced_by_policy_is_shown_as_on_and_cannot_be_switched_off_here() {
+    let reg = fake();
+    reg.write_dword(AD_POLICY, "DisabledByGroupPolicy", 1)
+        .unwrap();
+    let now = state(&reg, "ad_id");
+    assert!(now.applied);
+    assert_eq!(now.availability, TweakAvailability::ManagedByPolicy);
+    assert!(now.reason.unwrap().contains("политикой"));
+    // Включить нечего: ничего не пишется.
+    set_tweak(&reg, "ad_id", true).unwrap();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), None);
+    match set_tweak(&reg, "ad_id", false).unwrap_err() {
+        CoreError::NotApplicable(text) => assert!(text.contains("политикой")),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_policy_with_another_value_does_not_block_the_switch() {
+    let reg = fake();
+    reg.write_dword(AD_POLICY, "DisabledByGroupPolicy", 0)
+        .unwrap();
+    set_tweak(&reg, "ad_id", true).unwrap();
+    assert!(state(&reg, "ad_id").applied);
+}
+
+#[test]
+fn a_number_stored_as_text_is_read_backed_up_and_restored_with_its_type() {
+    let reg = fake();
+    reg.write_string(AD_KEY, "Enabled", "1").unwrap();
+    assert!(!state(&reg, "ad_id").applied);
+    set_tweak(&reg, "ad_id", true).unwrap();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), Some(0));
+    set_tweak(&reg, "ad_id", false).unwrap();
+    assert_eq!(reg.read_dword(AD_KEY, "Enabled").unwrap(), None);
+    assert_eq!(
+        reg.read_string(AD_KEY, "Enabled").unwrap().as_deref(),
+        Some("1")
+    );
+    // «0» строкой тоже считается включённой настройкой.
+    let other = fake();
+    other.write_string(AD_KEY, "Enabled", "0x0").unwrap();
+    assert!(state(&other, "ad_id").applied);
+    assert_eq!(dword_from_text(" 0x10 "), Some(16));
+    assert_eq!(dword_from_text("abc"), None);
+}
+
+#[test]
+fn start_recommendations_cover_every_start_key_on_windows_11_22h2_and_newer() {
+    let reg = fake_on(WIN11_BUILD, false);
+    set_tweak(&reg, "suggestions", true).unwrap();
+    for name in [
+        "Start_IrisRecommendations",
+        "Start_AccountNotifications",
+        "Start_TrackProgs",
+    ] {
+        assert_eq!(reg.read_dword(ADV_KEY, name).unwrap(), Some(0), "{name}");
+    }
+    assert_eq!(
+        reg.read_dword(CDM, "SystemPaneSuggestionsEnabled").unwrap(),
+        Some(0)
+    );
+    let old = fake_on(WIN10_BUILD, false);
+    set_tweak(&old, "suggestions", true).unwrap();
+    assert_eq!(
+        old.read_dword(ADV_KEY, "Start_IrisRecommendations")
+            .unwrap(),
+        None
+    );
+    assert!(state(&old, "suggestions").applied);
+}
+
+#[test]
+fn a_value_windows_rewrites_right_after_the_write_is_caught_after_the_pause_with_a_reason() {
+    let reg = fake();
+    reg.write_dword(ADV_KEY, "Start_IrisRecommendations", 1)
+        .unwrap();
+    *reg.overwrite_on_settle.lock().unwrap() =
+        Some((ADV_KEY.into(), "Start_IrisRecommendations".into(), 1));
+    match set_tweak(&reg, "suggestions", true).unwrap_err() {
+        CoreError::NotApplicable(text) => assert!(text.contains("вернула")),
+        other => panic!("{other:?}"),
+    }
+    let now = state(&reg, "suggestions");
+    assert!(!now.applied && !now.has_backup);
+    assert_eq!(
+        reg.read_dword(CDM, "SystemPaneSuggestionsEnabled").unwrap(),
+        None
+    );
+}
+
+#[test]
+fn start_recommendations_forced_by_the_consumer_features_policy_show_the_reason() {
+    let reg = fake();
+    reg.write_dword(
+        r"HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent",
+        "DisableWindowsConsumerFeatures",
+        1,
+    )
+    .unwrap();
+    let now = state(&reg, "suggestions");
+    assert_eq!(now.availability, TweakAvailability::ManagedByPolicy);
 }

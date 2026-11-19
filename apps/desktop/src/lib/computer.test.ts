@@ -64,7 +64,7 @@ describe('tile labels', () => {
 
   it('names the CPU, RAM and system without percentages', () => {
     expect(cpuName({ cpuBrand: 'Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz' })).toContain('i7-6700');
-    expect(cpuName(null)).toBe('Процессор');
+    expect(cpuName(null)).toBe('—');
     expect(ramTotal(24 * 1024 ** 3)).toBe('24,0 ГБ');
     expect(systemLine('Майкрософт Windows 11 Домашняя', '10.0.26200')).toBe(
       'Майкрософт Windows 11 Домашняя · 10.0.26200',

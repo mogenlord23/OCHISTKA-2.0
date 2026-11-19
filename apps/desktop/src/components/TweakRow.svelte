@@ -32,9 +32,17 @@
   <div class="body">
     <span class="title">{title}</span>
     <span class="text">{description}</span>
-    {#if reason}<span class="meta">{reason}</span>{/if}
-    {#if restart && !reason}<span class="meta">Вступит в силу {restart}.</span>{/if}
-    {#if failure}<span class="meta fail" role="alert">{failure}</span>{/if}
+    <!-- Строка под описанием занимает место всегда: сообщение об ошибке или причина
+         появляются без изменения высоты, страница не прыгает при переключении. -->
+    {#if failure}
+      <span class="meta fail" role="alert">{failure}</span>
+    {:else if reason}
+      <span class="meta">{reason}</span>
+    {:else if restart}
+      <span class="meta">Вступит в силу {restart}.</span>
+    {:else}
+      <span class="meta" aria-hidden="true">&nbsp;</span>
+    {/if}
   </div>
   <Switch ariaLabel={title} {checked} {disabled} {pending} error={!!failure} {onchange} />
 </div>
@@ -73,6 +81,7 @@
   }
 
   .meta {
+    min-height: 1.3em;
     font-size: var(--text-caption);
     color: #b8b8b8;
   }

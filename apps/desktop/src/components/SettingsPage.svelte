@@ -19,7 +19,6 @@
 
   const runner = new TweakRunner();
 
-  let query = $state('');
   /** Явно открытые и закрытые группы; без выбора открыта только первая. */
   let opened = $state<Record<string, boolean>>({});
   let activation = $state<ActivationInfo | null>(null);
@@ -34,42 +33,22 @@
   });
 
   const unsupported = $derived(runner.error?.kind === 'unsupported');
-  const needle = $derived(query.trim().toLowerCase());
   const needsAdminShown = $derived(
     runner.data !== null &&
       !runner.data.elevated &&
       SETTINGS_TWEAKS.some((tweak) => runner.state(tweak.id)?.availability === 'needsAdmin'),
   );
 
-  const groups = $derived(
-    SETTINGS_CATEGORIES.map((category) => ({
-      ...category,
-      tweaks: category.tweaks.filter(
-        (tweak) =>
-          !needle ||
-          tweak.title.toLowerCase().includes(needle) ||
-          tweak.description.toLowerCase().includes(needle),
-      ),
-    })).filter((category) => category.tweaks.length > 0),
-  );
+  const groups = SETTINGS_CATEGORIES;
 
   const hasBackup = $derived(SETTINGS_TWEAKS.some((tweak) => runner.state(tweak.id)?.hasBackup));
 
   function isOpen(id: string, index: number): boolean {
-    if (needle) return true;
     return id in opened ? opened[id] : index === 0;
   }
 
   function toggleGroup(id: string, index: number) {
     opened[id] = !isOpen(id, index);
-  }
-
-  function jumpTo(id: string) {
-    query = '';
-    opened[id] = true;
-    queueMicrotask(() =>
-      document.getElementById(`group-${id}`)?.scrollIntoView?.({ block: 'start' }),
-    );
   }
 
   function appliedCount(ids: readonly { id: string }[]): number {
@@ -105,29 +84,14 @@
   </div>
 
   <div class="toolbar">
-    <input
-      type="search"
-      class="search"
-      placeholder="Найти настройку"
-      aria-label="Поиск по настройкам"
-      bind:value={query}
-    />
     <button
       type="button"
       disabled={unsupported || !hasBackup}
       onclick={() => void runner.apply({}, () => tweaksRevert('settings'))}
-      >Вернуть изменения раздела</button
+      >Вернуть изменения</button
     >
     <button type="button" onclick={() => void runner.refresh()}>Обновить состояние</button>
   </div>
-
-  <nav class="chips" aria-label="Категории">
-    {#each SETTINGS_CATEGORIES as category (category.id)}
-      <button type="button" class="chip" onclick={() => jumpTo(category.id)}
-        >{category.title}</button
-      >
-    {/each}
-  </nav>
 
   {#if runner.error}
     <p class="error" role="alert">
@@ -172,8 +136,6 @@
         </div>
       {/if}
     </section>
-  {:else}
-    <p class="empty" role="status">Ничего не найдено.</p>
   {/each}
 </section>
 
@@ -249,42 +211,6 @@
     cursor: not-allowed;
   }
 
-  .search {
-    flex: 1 1 200px;
-    min-height: 36px;
-    box-sizing: border-box;
-    padding: 6px 14px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--black, #080808);
-    color: var(--ink, #fafafa);
-    font: inherit;
-    font-size: var(--text-small);
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-
-  .chip {
-    min-height: 28px;
-    padding: 2px 12px;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: var(--black, #080808);
-    color: var(--ink, #fafafa);
-    font: inherit;
-    font-size: var(--text-caption);
-    cursor: pointer;
-  }
-
-  .chip:hover {
-    background: #222;
-  }
-
   .group {
     margin-bottom: 6px;
   }
@@ -343,8 +269,7 @@
   }
 
   .error,
-  .admin,
-  .empty {
+  .admin {
     margin: 0 0 8px;
     padding: 8px 14px;
     border-radius: var(--radius-sm);

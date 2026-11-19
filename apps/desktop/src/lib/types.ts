@@ -12,6 +12,7 @@ export type { MemoryStatus } from './generated/MemoryStatus';
 export type { ScanReport } from './generated/ScanReport';
 export type { Suspicion } from './generated/Suspicion';
 export type { BoostState } from './generated/BoostState';
+export type { BoostStep } from './generated/BoostStep';
 export type { TweakState } from './generated/TweakState';
 export type { TweaksOverview } from './generated/TweaksOverview';
 export type { TweakAvailability } from './generated/TweakAvailability';

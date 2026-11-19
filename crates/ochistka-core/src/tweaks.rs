@@ -37,6 +37,9 @@ pub trait PowerPort: Send + Sync {
 pub trait SystemPort: Send + Sync {
     /// Номер сборки Windows (CurrentBuildNumber): 19045 для Windows 10 22H2, 22631 для Windows 11 23H2.
     fn windows_build(&self) -> Option<u32>;
+    /// Короткая пауза перед проверочным чтением: Windows и Проводник успевают перезаписать
+    /// значение, если оно им не нравится. В тестах ничего не ждёт.
+    fn settle(&self) {}
     /// Программа запущена с правами администратора (запись в HKLM возможна).
     fn is_elevated(&self) -> bool;
     /// Статус активации Windows.
@@ -59,7 +62,15 @@ pub enum TweakAvailability {
     UnsupportedVersion,
     /// Запись в HKLM: нужны права администратора.
     NeedsAdmin,
+    /// Параметр задан политикой компьютера: Windows не даст изменить его отсюда.
+    ManagedByPolicy,
 }
+
+pub const POLICY_REASON: &str =
+    "Включено политикой компьютера (администратор или организация): здесь не меняется.";
+pub const NOT_KEPT_REASON: &str = "Windows сразу вернула прежнее значение. Скорее всего, эта редакция или сборка Windows не поддерживает параметр.";
+pub const PROTECTED_REASON: &str =
+    "Windows не разрешила записать параметр: раздел реестра защищён (политикой или защитной программой).";
 
 pub const NEEDS_ADMIN_REASON: &str =
     "Нужны права администратора: запусти OCHISTKA от имени администратора.";
@@ -95,6 +106,20 @@ pub struct TweakState {
 pub struct BoostState {
     pub profile: Option<String>,
     pub has_backup: bool,
+    /// Состав выбранного профиля и фактическое состояние каждого параметра.
+    pub steps: Vec<BoostStep>,
+}
+
+/// Один параметр профиля Boost: применён он или пропущен (и почему).
+#[derive(Serialize, TS, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "BoostStep.ts")]
+pub struct BoostStep {
+    /// Id настройки или `power` для схемы электропитания.
+    pub id: String,
+    pub applied: bool,
+    /// Почему не применён (пропущен), человеческими словами.
+    pub reason: Option<String>,
 }
 
 #[derive(Serialize, TS, Clone, Debug, PartialEq, Eq)]
@@ -150,15 +175,46 @@ pub fn parse_activation(output: &str) -> ActivationInfo {
     ActivationInfo { status, grace_days }
 }
 
-/// Профили Boost: схема питания (GUID) или `None`, если схема не меняется.
-const PROFILES: &[(&str, Option<&str>)] = &[
-    ("basic", None),
-    ("gaming", Some(HIGH_SCHEME)),
-    ("max", Some(ULTIMATE_SCHEME)),
+/// Профиль Boost: набор отдельных параметров. Состав описан в `docs/status/boost-profiles.md`.
+struct ProfileDef {
+    id: &'static str,
+    /// Обязательные параметры (без прав администратора).
+    tweaks: &'static [&'static str],
+    /// Параметры, которые пропускаются с причиной, если недоступны (права, версия Windows).
+    optional: &'static [&'static str],
+    /// Схема электропитания или `None`, если схема не меняется.
+    power: Option<&'static str>,
+}
+
+const BASE_TWEAKS: &[&str] = &["game_dvr", "game_mode"];
+
+const PROFILES: &[ProfileDef] = &[
+    ProfileDef {
+        id: "basic",
+        tweaks: BASE_TWEAKS,
+        optional: &[],
+        power: None,
+    },
+    ProfileDef {
+        id: "gaming",
+        tweaks: BASE_TWEAKS,
+        optional: &[],
+        power: Some(HIGH_SCHEME),
+    },
+    ProfileDef {
+        id: "max",
+        tweaks: BASE_TWEAKS,
+        optional: &["power_throttling"],
+        power: Some(ULTIMATE_SCHEME),
+    },
 ];
 
-/// Параметры профиля применяются к этим настройкам.
-const PROFILE_TWEAKS: &[&str] = &["game_dvr", "game_mode"];
+const POWER_STEP: &str = "power";
+const POWER_UNAVAILABLE: &str = "Эта схема электропитания недоступна на этом компьютере.";
+
+fn skip_value(id: &str) -> String {
+    format!("skip_{id}")
+}
 
 fn def(id: &str) -> Result<&'static TweakDef, CoreError> {
     TWEAKS
@@ -241,10 +297,44 @@ fn availability(
     (TweakAvailability::Available, None)
 }
 
+/// Число из строки: десятичное или `0x..`. Так читаются значения, записанные как REG_SZ.
+pub fn dword_from_text(text: &str) -> Option<u32> {
+    let text = text.trim();
+    match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        Some(hex) => u32::from_str_radix(hex, 16).ok(),
+        None => text.parse().ok(),
+    }
+}
+
+/// Читает числовой параметр, даже если Windows или другая программа хранит его строкой.
+/// Второе значение: число было прочитано из строки (тип надо вернуть при откате).
+fn read_flag(
+    reg: &dyn RegistryPort,
+    key: &str,
+    name: &str,
+) -> Result<(Option<u32>, Option<String>), CoreError> {
+    if let Some(value) = reg.read_dword(key, name)? {
+        return Ok((Some(value), None));
+    }
+    match reg.read_string(key, name)? {
+        Some(text) => Ok((dword_from_text(&text), Some(text))),
+        None => Ok((None, None)),
+    }
+}
+
 fn entry_matches(reg: &dyn RegistryPort, entry: &Entry) -> Result<bool, CoreError> {
     Ok(match entry.value {
-        Val::Dword(want) => reg.read_dword(entry.key, entry.name)? == Some(want),
+        Val::Dword(want) => read_flag(reg, entry.key, entry.name)?.0 == Some(want),
         Val::Text(want) => reg.read_string(entry.key, entry.name)?.as_deref() == Some(want),
+    })
+}
+
+/// Политика компьютера уже включает этот параметр (и сильнее значений пользователя).
+fn policy_forces(reg: &dyn RegistryPort, tweak: &TweakDef) -> bool {
+    tweak.policies.iter().any(|policy| {
+        read_flag(reg, policy.key, policy.name)
+            .map(|(value, _)| value == Some(policy.on))
+            .unwrap_or(false)
     })
 }
 
@@ -254,6 +344,9 @@ fn is_applied(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> bo
             .active_scheme()
             .map(|active| active.eq_ignore_ascii_case(guid))
             .unwrap_or(false);
+    }
+    if policy_forces(port, tweak) {
+        return true;
     }
     let mut any = false;
     for (_, entry) in applicable(tweak, build) {
@@ -285,7 +378,7 @@ pub fn parse_active_scheme(output: &str) -> Option<String> {
 }
 
 fn not_accepted() -> CoreError {
-    CoreError::Probe("Windows не приняла изменение: значение осталось прежним".into())
+    CoreError::NotApplicable(NOT_KEPT_REASON.into())
 }
 
 /// Сохраняет прежние значения применимых ключей (только если копии ещё нет).
@@ -300,12 +393,22 @@ fn save_backup(
     let key = backup_key(tweak.id);
     let mut count = 0;
     for (index, entry) in applicable(tweak, build) {
+        // existed: 0 — значения не было, 1 — было как есть, 2 — число хранилось строкой.
         let existed = match entry.value {
-            Val::Dword(_) => {
-                let current = reg.read_dword(entry.key, entry.name)?;
-                reg.write_dword(&key, &format!("e{index}_value"), current.unwrap_or(0))?;
-                current.is_some()
-            }
+            Val::Dword(_) => match read_flag(reg, entry.key, entry.name)? {
+                (Some(current), None) => {
+                    reg.write_dword(&key, &format!("e{index}_value"), current)?;
+                    1
+                }
+                (_, Some(text)) => {
+                    reg.write_string(&key, &format!("e{index}_text"), &text)?;
+                    2
+                }
+                (None, None) => {
+                    reg.write_dword(&key, &format!("e{index}_value"), 0)?;
+                    0
+                }
+            },
             Val::Text(_) => {
                 let current = reg.read_string(entry.key, entry.name)?;
                 reg.write_string(
@@ -313,10 +416,10 @@ fn save_backup(
                     &format!("e{index}_text"),
                     current.as_deref().unwrap_or(""),
                 )?;
-                current.is_some()
+                u32::from(current.is_some())
             }
         };
-        reg.write_dword(&key, &format!("e{index}_existed"), u32::from(existed))?;
+        reg.write_dword(&key, &format!("e{index}_existed"), existed)?;
         count += 1;
     }
     // Счётчик пишется последним: он показывает, что копия целая.
@@ -332,6 +435,10 @@ fn apply(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> Result<
             Val::Dword(value) => reg.write_dword(entry.key, entry.name, value),
             Val::Text(value) => reg.write_string(entry.key, entry.name, value),
         });
+    // Пауза: Проводник и Windows могут перезаписать значение сразу после записи.
+    if written.is_ok() {
+        port.settle();
+    }
     let verified = written.and_then(|()| {
         for (_, entry) in applicable(tweak, build) {
             if !entry_matches(reg, entry)? {
@@ -363,6 +470,12 @@ fn revert(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> Result
             continue;
         };
         match (entry.value, existed) {
+            (Val::Dword(_), 2) => {
+                let text = reg
+                    .read_string(&key, &format!("e{index}_text"))?
+                    .unwrap_or_default();
+                reg.write_string(entry.key, entry.name, &text)?;
+            }
             (Val::Dword(_), 1) => {
                 let value = reg
                     .read_dword(&key, &format!("e{index}_value"))?
@@ -391,7 +504,11 @@ fn state_of(
     build: Option<u32>,
     elevated: bool,
 ) -> TweakState {
-    let (availability, reason) = availability(tweak, build, elevated);
+    let (mut availability, mut reason) = availability(tweak, build, elevated);
+    if availability != TweakAvailability::UnsupportedVersion && policy_forces(port, tweak) {
+        availability = TweakAvailability::ManagedByPolicy;
+        reason = Some(POLICY_REASON.into());
+    }
     TweakState {
         id: tweak.id.to_string(),
         applied: is_applied(port, tweak, build),
@@ -413,9 +530,20 @@ pub fn set_tweak(port: &dyn TweaksPort, id: &str, enabled: bool) -> Result<(), C
         (TweakAvailability::UnsupportedVersion, reason) => {
             return Err(CoreError::NotApplicable(reason.unwrap_or_default()))
         }
+        (TweakAvailability::ManagedByPolicy, _) => {}
+    }
+    if policy_forces(port, tweak) {
+        // Политика уже включила параметр: включать нечего, выключить отсюда нельзя.
+        return if enabled {
+            Ok(())
+        } else {
+            Err(CoreError::NotApplicable(POLICY_REASON.into()))
+        };
     }
     match (enabled, tweak.power_scheme) {
-        (true, Some(guid)) => enable_power(port, guid),
+        (true, Some(guid)) => {
+            enable_power(port, guid).map_err(|_| CoreError::NotApplicable(POWER_UNAVAILABLE.into()))
+        }
         (true, None) => apply(port, tweak, build),
         (false, _) => revert(port, tweak, build),
     }
@@ -446,54 +574,129 @@ fn restore_power(port: &dyn TweaksPort) -> Result<(), CoreError> {
     Ok(())
 }
 
-/// Текущий профиль Boost: записанный и всё ещё действующий.
+fn profile_def(id: &str) -> Option<&'static ProfileDef> {
+    PROFILES.iter().find(|profile| profile.id == id)
+}
+
+/// Состав профиля и фактическое состояние каждого параметра (читается из системы).
+fn profile_steps(
+    port: &dyn TweaksPort,
+    profile: &ProfileDef,
+    build: Option<u32>,
+) -> Result<Vec<BoostStep>, CoreError> {
+    let reg: &dyn RegistryPort = port;
+    let elevated = port.is_elevated();
+    let mut steps = Vec::new();
+    for id in profile.tweaks.iter().chain(profile.optional) {
+        let tweak = def(id)?;
+        let applied = is_applied(port, tweak, build);
+        let reason = if applied {
+            None
+        } else {
+            match reg.read_string(BOOST_KEY, &skip_value(id))? {
+                Some(reason) => Some(reason),
+                None => availability(tweak, build, elevated).1,
+            }
+        };
+        steps.push(BoostStep {
+            id: (*id).to_string(),
+            applied,
+            reason,
+        });
+    }
+    if let Some(guid) = profile.power {
+        let applied = port
+            .active_scheme()
+            .map(|active| active.eq_ignore_ascii_case(guid))
+            .unwrap_or(false);
+        let reason = if applied {
+            None
+        } else {
+            reg.read_string(BOOST_KEY, &skip_value(POWER_STEP))?
+        };
+        steps.push(BoostStep {
+            id: POWER_STEP.to_string(),
+            applied,
+            reason,
+        });
+    }
+    Ok(steps)
+}
+
+/// Текущий профиль Boost: записанный и всё ещё действующий. Пропущенные с причиной параметры
+/// (нет прав, схемы питания нет на этом компьютере) профиль не отменяют.
 pub fn boost_state(port: &dyn TweaksPort) -> Result<BoostState, CoreError> {
     let reg: &dyn RegistryPort = port;
     let build = port.windows_build();
     let marker = reg.read_string(BOOST_KEY, PROFILE_VALUE)?;
     let has_backup = marker.is_some() || reg.read_string(BOOST_KEY, POWER_VALUE)?.is_some();
-    let profile = match marker
-        .as_deref()
-        .and_then(|p| PROFILES.iter().find(|(id, _)| id == &p))
-    {
-        Some((id, scheme)) => {
-            let tweaks_on = PROFILE_TWEAKS
-                .iter()
-                .all(|tweak| def(tweak).is_ok_and(|t| is_applied(port, t, build)));
-            let power_ok = match scheme {
-                Some(guid) => port.active_scheme()?.eq_ignore_ascii_case(guid),
-                None => true,
-            };
-            (tweaks_on && power_ok).then(|| (*id).to_string())
-        }
-        None => None,
+    let Some(profile) = marker.as_deref().and_then(profile_def) else {
+        return Ok(BoostState {
+            profile: None,
+            has_backup,
+            steps: Vec::new(),
+        });
     };
+    let steps = profile_steps(port, profile, build)?;
+    let required = |id: &str| profile.tweaks.contains(&id) || id == POWER_STEP;
+    let active = steps
+        .iter()
+        .filter(|step| required(&step.id))
+        .all(|step| step.applied || (step.id == POWER_STEP && step.reason.is_some()));
     Ok(BoostState {
-        profile,
+        profile: active.then(|| profile.id.to_string()),
         has_backup,
+        steps,
     })
 }
 
+fn clear_skips(reg: &dyn RegistryPort) -> Result<(), CoreError> {
+    for id in [POWER_STEP, "power_throttling"] {
+        reg.delete_value(BOOST_KEY, &skip_value(id))?;
+    }
+    Ok(())
+}
+
 /// Включает профиль Boost или (при `None`) возвращает всё, что сделал Boost.
+/// Параметр, который недоступен (нет прав, схемы питания нет на этом компьютере),
+/// пропускается с причиной и не считается ошибкой всего профиля.
 pub fn set_boost_profile(port: &dyn TweaksPort, profile: Option<&str>) -> Result<(), CoreError> {
     let reg: &dyn RegistryPort = port;
     let Some(profile) = profile else {
         return revert_group(port, Group::Boost);
     };
-    let (_, scheme) = PROFILES
-        .iter()
-        .find(|(id, _)| *id == profile)
+    let profile = profile_def(profile)
         .ok_or_else(|| CoreError::InvalidTarget(format!("неизвестный профиль: {profile}")))?;
     let build = port.windows_build();
+    let elevated = port.is_elevated();
+    clear_skips(reg)?;
     // Сначала схема питания: если powercfg откажет, реестр ещё не тронут.
-    match scheme {
-        Some(guid) => enable_power(port, guid)?,
+    match profile.power {
+        Some(guid) => {
+            if enable_power(port, guid).is_err() {
+                reg.write_string(BOOST_KEY, &skip_value(POWER_STEP), POWER_UNAVAILABLE)?;
+            }
+        }
         None => restore_power(port)?,
     }
-    for id in PROFILE_TWEAKS {
+    for id in profile.tweaks {
         apply(port, def(id)?, build)?;
     }
-    reg.write_string(BOOST_KEY, PROFILE_VALUE, profile)
+    for id in profile.optional {
+        let tweak = def(id)?;
+        match availability(tweak, build, elevated) {
+            (TweakAvailability::Available, _) => {
+                if let Err(err) = apply(port, tweak, build) {
+                    reg.write_string(BOOST_KEY, &skip_value(id), &err.to_string())?;
+                }
+            }
+            (_, reason) => {
+                let reason = reason.unwrap_or_else(|| NEEDS_ADMIN_REASON.into());
+                reg.write_string(BOOST_KEY, &skip_value(id), &reason)?;
+            }
+        }
+    }
+    reg.write_string(BOOST_KEY, PROFILE_VALUE, profile.id)
 }
 
 /// Возвращает все изменения раздела к сохранённым значениям. То, что требует прав

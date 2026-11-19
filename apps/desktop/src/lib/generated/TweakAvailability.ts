@@ -3,4 +3,4 @@
 /**
  * Доступна ли настройка на этом компьютере.
  */
-export type TweakAvailability = "available" | "unsupportedVersion" | "needsAdmin";
+export type TweakAvailability = "available" | "unsupportedVersion" | "needsAdmin" | "managedByPolicy";

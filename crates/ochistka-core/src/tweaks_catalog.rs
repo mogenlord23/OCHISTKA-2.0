@@ -115,6 +115,16 @@ const fn t(key: &'static str, name: &'static str, value: &'static str) -> Entry 
     }
 }
 
+/// Политика компьютера, которая управляет тем же параметром и сильнее значения пользователя.
+#[derive(Clone, Copy)]
+pub struct Policy {
+    /// Ключ HKLM или HKCU (по тем же правилам, что в `Entry`).
+    pub key: &'static str,
+    pub name: &'static str,
+    /// Значение политики, при котором параметр уже действует (настройка «включена» политикой).
+    pub on: u32,
+}
+
 pub struct TweakDef {
     pub id: &'static str,
     pub group: Group,
@@ -124,6 +134,16 @@ pub struct TweakDef {
     /// Схема электропитания вместо реестра (GUID).
     pub power_scheme: Option<&'static str>,
     pub entries: &'static [Entry],
+    /// Политики, которые перекрывают значения `entries`. Если политика задана, параметр
+    /// управляется ею: изменить его из программы нельзя, и интерфейс объясняет почему.
+    pub policies: &'static [Policy],
+}
+
+impl TweakDef {
+    const fn policies(mut self, policies: &'static [Policy]) -> Self {
+        self.policies = policies;
+        self
+    }
 }
 
 pub const ULTIMATE_SCHEME: &str = "e9a42b02-d5df-448d-aa00-03f14749eb61";
@@ -159,6 +179,7 @@ const fn def(
         dangerous: false,
         power_scheme: None,
         entries,
+        policies: &[],
     }
 }
 
@@ -262,8 +283,14 @@ pub const TWEAKS: &[TweakDef] = &[
             cdm("SystemPaneSuggestionsEnabled"),
             d(ADV, "Start_IrisRecommendations", 0).from(WIN11_22H2),
             d(ADV, "Start_AccountNotifications", 0).from(WIN11),
+            d(ADV, "Start_TrackProgs", 0).from(WIN11_22H2),
         ],
-    ),
+    )
+    .policies(&[Policy {
+        key: r"HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent",
+        name: "DisableWindowsConsumerFeatures",
+        on: 1,
+    }]),
     def(
         "new_outlook",
         Settings,
@@ -330,7 +357,12 @@ pub const TWEAKS: &[TweakDef] = &[
             "Enabled",
             0,
         )],
-    ),
+    )
+    .policies(&[Policy {
+        key: r"HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo",
+        name: "DisabledByGroupPolicy",
+        on: 1,
+    }]),
     def(
         "location",
         Settings,
@@ -551,6 +583,7 @@ pub const TWEAKS: &[TweakDef] = &[
         dangerous: false,
         power_scheme: Some(ULTIMATE_SCHEME),
         entries: &[],
+        policies: &[],
     },
     def(
         "hags",
@@ -577,5 +610,6 @@ pub const TWEAKS: &[TweakDef] = &[
                 0,
             ),
         ],
+        policies: &[],
     },
 ];

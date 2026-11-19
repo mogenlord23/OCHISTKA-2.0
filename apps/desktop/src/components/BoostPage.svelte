@@ -7,6 +7,7 @@
     BOOST_PROFILES,
     SAVED_NOTE,
     VBS_CONFIRM,
+    profileStepTitle,
     restartText,
     type ProfileText,
   } from '../lib/tweaksText';
@@ -41,6 +42,7 @@
     return runner.shown(`profile:${id}`, runner.data?.boost.profile === id);
   }
 
+  const steps = $derived(runner.data?.boost.steps ?? []);
   const activeProfile = $derived(BOOST_PROFILES.find((item) => profileOn(item.id)) ?? null);
 
   /** Профили взаимоисключающие: выбранный включается, остальные гаснут в тот же кадр;
@@ -118,6 +120,17 @@
     {activeProfile?.description ?? 'Профиль не выбран. Нажми на профиль, чтобы включить его.'}
   </p>
   {#if profileFailure}<p class="fail" role="alert">{profileFailure}</p>{/if}
+  {#if steps.length > 0}
+    <ul class="steps" aria-label="Состав профиля">
+      {#each steps as step (step.id)}
+        <li class:skipped={!step.applied}>
+          <span class="mark" aria-hidden="true">{step.applied ? '✓' : '—'}</span>
+          <span>{profileStepTitle(step.id)}</span>
+          {#if step.reason}<span class="why">{step.reason}</span>{/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
 
   <h3>Отдельные оптимизации</h3>
   <div class="rows">
@@ -241,6 +254,35 @@
     margin: 8px 0 0;
     font-size: var(--text-small);
     color: var(--page-text);
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-small);
+    color: var(--page-text);
+  }
+
+  .steps li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+
+  .steps .mark {
+    width: 1.2em;
+    text-align: center;
+  }
+
+  .steps .why {
+    flex-basis: 100%;
+    padding-left: calc(1.2em + 8px);
+    font-size: var(--text-caption);
+    opacity: 0.85;
   }
 
   .fail {

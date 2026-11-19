@@ -51,7 +51,7 @@ function overview(
       ...stateOf(id, over[id] ?? false, elevated),
       ...(patch[id] ?? {}),
     })),
-    boost: { profile, hasBackup: profile !== null },
+    boost: { profile, hasBackup: profile !== null, steps: [] },
     build: 22631,
     elevated,
   } satisfies TweaksOverview;
@@ -77,7 +77,7 @@ afterEach(() => {
 });
 
 describe('SettingsPage', () => {
-  it('shows the saved-state note once, collapsible groups, search and category navigation', async () => {
+  it('shows the saved-state note once and collapsible groups; no search field and no category chips', async () => {
     render(SettingsPage);
     await waitFor(() => expect(tweaksOverview).toHaveBeenCalled());
     expect(screen.getAllByText(/Исходное состояние сохраняется перед применением/)).toHaveLength(1);
@@ -88,17 +88,10 @@ describe('SettingsPage', () => {
     expect(heads.length).toBe(5);
     await fireEvent.click(screen.getByRole('button', { name: /Поиск Windows/, expanded: false }));
     expect(screen.getByText('Убрать веб-подсказки из поиска')).toBeTruthy();
-    expect(screen.getByRole('searchbox', { name: 'Поиск по настройкам' })).toBeTruthy();
-    expect(screen.getByRole('navigation', { name: 'Категории' })).toBeTruthy();
-  });
-
-  it('search opens every matching group and hides the rest', async () => {
-    render(SettingsPage);
-    await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'камер' } });
-    expect(await screen.findByText('Камера для приложений')).toBeTruthy();
-    expect(screen.queryByText('Убрать прозрачность Windows')).toBeNull();
-    await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'zzzz' } });
-    expect(await screen.findByText('Ничего не найдено.')).toBeTruthy();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Категории' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Вернуть изменения' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Обновить состояние' })).toBeTruthy();
   });
 
   it('shows the real activation status and opens the Windows page by the button', async () => {
@@ -141,6 +134,49 @@ describe('SettingsPage', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('Не получилось изменить настройку. Попробуй ещё раз.');
     await waitFor(() => expect(isOn(sw)).toBe(false));
+  });
+
+  it('shows the real reason from the system instead of the general phrase', async () => {
+    vi.mocked(tweakSet).mockRejectedValue({
+      kind: 'notApplicable',
+      message: 'Windows сразу вернула прежнее значение.',
+    });
+    render(SettingsPage);
+    const sw = await switchNamed(/Убрать прозрачность/);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Windows сразу вернула прежнее значение.',
+    );
+  });
+
+  it('shows a setting forced by a computer policy as on and locked, with the reason', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(
+      overview({ ad_id: true }, null, true, {
+        ad_id: { availability: 'managedByPolicy', reason: 'Включено политикой компьютера.' },
+      }),
+    );
+    render(SettingsPage);
+    await fireEvent.click(
+      screen.getByRole('button', { name: /Конфиденциальность/, expanded: false }),
+    );
+    const sw = await switchNamed(/рекламный/i);
+    expect(sw.disabled).toBe(true);
+    expect(isOn(sw)).toBe(true);
+    expect(await screen.findByText('Включено политикой компьютера.')).toBeTruthy();
+  });
+
+  it('keeps the same row height with and without a message: a failure replaces the note line', async () => {
+    vi.mocked(tweakSet).mockRejectedValue({ kind: 'probe', message: 'x' });
+    render(SettingsPage);
+    const sw = await switchNamed(/Убрать прозрачность/);
+    const row = sw.closest('.row') as HTMLElement;
+    const lines = () => row.querySelectorAll('.meta').length;
+    expect(lines()).toBe(1);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
+    await screen.findByRole('alert');
+    expect(lines()).toBe(1);
   });
 
   it('turns a setting off again with a second press', async () => {
@@ -186,7 +222,7 @@ describe('SettingsPage', () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({ transparency: true }));
     vi.mocked(tweaksRevert).mockResolvedValue(overview());
     render(SettingsPage);
-    const revert = screen.getByRole('button', { name: 'Вернуть изменения раздела' });
+    const revert = screen.getByRole('button', { name: 'Вернуть изменения' });
     await waitFor(() => expect((revert as HTMLButtonElement).disabled).toBe(false));
     revert.click();
     expect(screen.queryByRole('dialog')).toBeNull();

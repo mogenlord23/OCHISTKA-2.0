@@ -453,6 +453,10 @@
     transition: border-color 160ms ease;
   }
 
+  .summary-values span {
+    min-width: 5.6em;
+  }
+
   .summary-values:hover,
   .summary-values[aria-pressed='true'] {
     border-color: var(--ink, #fafafa);
@@ -544,8 +548,11 @@
   }
 
   .tile-value {
+    /* Место под строку резервируется, значение приходит без скачка вёрстки. */
+    min-height: 1.3em;
     font-size: 17px;
     font-weight: 800;
+    font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }
 

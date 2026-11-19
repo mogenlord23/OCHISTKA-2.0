@@ -169,6 +169,9 @@ const ERROR_KINDS: readonly ErrorKind[] = [
   'engineMissing',
   'invalidTarget',
   'cancelled',
+  // Без этих двух причина отказа терялась и интерфейс показывал общую фразу.
+  'notApplicable',
+  'needsAdmin',
 ];
 
 function isCommandError(err: unknown): err is CommandError {

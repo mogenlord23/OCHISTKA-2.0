@@ -93,6 +93,13 @@ describe('scan commands', () => {
 });
 
 describe('toCommandError', () => {
+  it('keeps notApplicable and needsAdmin so the real reason reaches the screen', () => {
+    for (const kind of ['notApplicable', 'needsAdmin'] as const) {
+      const error = { kind, message: 'причина' };
+      expect(toCommandError(error)).toEqual(error);
+    }
+  });
+
   it('passes a command error through, including the scan kinds', () => {
     const error = { kind: 'engineMissing', message: 'движок недоступен: x' };
     expect(toCommandError(error)).toEqual(error);

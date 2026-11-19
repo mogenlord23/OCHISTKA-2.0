@@ -60,7 +60,7 @@ mod imp {
     use ochistka_core::system::CoreError;
     use ochistka_core::tweaks::{
         is_guid, parse_activation, parse_active_scheme, ActivationInfo, PowerPort, RegistryPort,
-        SystemPort,
+        SystemPort, PROTECTED_REASON,
     };
     use winreg::enums::{
         HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_SET_VALUE, KEY_WRITE,
@@ -73,12 +73,19 @@ mod imp {
     };
 
     const ULTIMATE: &str = "e9a42b02-d5df-448d-aa00-03f14749eb61";
+    const HIGH: &str = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-    fn probe(err: io::Error) -> CoreError {
+    /// Ошибка реестра человеческими словами: в HKLM отказ значит «нужны права администратора»,
+    /// в HKCU ключ защищён политикой или защитной программой.
+    fn probe(key: &str, err: io::Error) -> CoreError {
         if err.kind() == io::ErrorKind::PermissionDenied {
-            return CoreError::NeedsAdmin;
+            return if key.starts_with("HKLM\\") {
+                CoreError::NeedsAdmin
+            } else {
+                CoreError::NotApplicable(PROTECTED_REASON.into())
+            };
         }
         CoreError::Probe(format!("реестр: {err}"))
     }
@@ -91,18 +98,26 @@ mod imp {
         }
     }
 
-    /// Чтение: отсутствие ключа или значения — это `None`, а не ошибка.
+    /// Чтение: отсутствие ключа или значения — это `None`, а не ошибка. Значение другого типа
+    /// (число, записанное строкой, и наоборот) тоже `None`: ядро пробует другой тип само.
     fn read<T: winreg::types::FromRegValue>(key: &str, name: &str) -> Result<Option<T>, CoreError> {
         let (hive, path) = root(key);
         let opened = match hive.open_subkey_with_flags(path, KEY_READ) {
             Ok(opened) => opened,
             Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-            Err(err) => return Err(probe(err)),
+            Err(err) => return Err(probe(key, err)),
         };
         match opened.get_value::<T, _>(name) {
             Ok(value) => Ok(Some(value)),
-            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
-            Err(err) => Err(probe(err)),
+            Err(err)
+                if matches!(
+                    err.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::InvalidData
+                ) =>
+            {
+                Ok(None)
+            }
+            Err(err) => Err(probe(key, err)),
         }
     }
 
@@ -113,8 +128,8 @@ mod imp {
 
         fn write_dword(&self, key: &str, name: &str, value: u32) -> Result<(), CoreError> {
             let (hive, path) = root(key);
-            let (opened, _) = hive.create_subkey(path).map_err(probe)?;
-            opened.set_value(name, &value).map_err(probe)
+            let (opened, _) = hive.create_subkey(path).map_err(|e| probe(key, e))?;
+            opened.set_value(name, &value).map_err(|e| probe(key, e))
         }
 
         fn read_string(&self, key: &str, name: &str) -> Result<Option<String>, CoreError> {
@@ -123,8 +138,8 @@ mod imp {
 
         fn write_string(&self, key: &str, name: &str, value: &str) -> Result<(), CoreError> {
             let (hive, path) = root(key);
-            let (opened, _) = hive.create_subkey(path).map_err(probe)?;
-            opened.set_value(name, &value).map_err(probe)
+            let (opened, _) = hive.create_subkey(path).map_err(|e| probe(key, e))?;
+            opened.set_value(name, &value).map_err(|e| probe(key, e))
         }
 
         fn delete_value(&self, key: &str, name: &str) -> Result<(), CoreError> {
@@ -132,12 +147,12 @@ mod imp {
             let opened = match hive.open_subkey_with_flags(path, KEY_SET_VALUE) {
                 Ok(opened) => opened,
                 Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(()),
-                Err(err) => return Err(probe(err)),
+                Err(err) => return Err(probe(key, err)),
             };
             match opened.delete_value(name) {
                 Ok(()) => Ok(()),
                 Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
-                Err(err) => Err(probe(err)),
+                Err(err) => Err(probe(key, err)),
             }
         }
 
@@ -149,7 +164,7 @@ mod imp {
             match RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(key) {
                 Ok(()) => Ok(()),
                 Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
-                Err(err) => Err(probe(err)),
+                Err(err) => Err(probe(key, err)),
             }
         }
     }
@@ -182,8 +197,11 @@ mod imp {
                     "недопустимая схема питания".into(),
                 ));
             }
-            // «Максимальная производительность» по умолчанию скрыта: создаём её с тем же GUID.
-            if guid.eq_ignore_ascii_case(ULTIMATE) && !scheme_listed(&powercfg(&["/list"])?, guid) {
+            // «Максимальная» и «Высокая производительность» на части компьютеров скрыты
+            // (современный режим ожидания, некоторые редакции): создаём схему с тем же GUID.
+            let hidden_by_default =
+                guid.eq_ignore_ascii_case(ULTIMATE) || guid.eq_ignore_ascii_case(HIGH);
+            if hidden_by_default && !scheme_listed(&powercfg(&["/list"])?, guid) {
                 powercfg(&["/duplicatescheme", guid, guid])?;
             }
             powercfg(&["/setactive", guid]).map(|_| ())
@@ -209,6 +227,10 @@ mod imp {
                 .trim()
                 .parse()
                 .ok()
+        }
+
+        fn settle(&self) {
+            std::thread::sleep(std::time::Duration::from_millis(250));
         }
 
         fn is_elevated(&self) -> bool {
