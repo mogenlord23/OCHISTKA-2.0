@@ -93,6 +93,61 @@ pub fn build_motherboard(
     }
 }
 
+/// Один экземпляр счётчика движка GPU Windows (Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GpuEngineSample {
+    /// Имя экземпляра: `pid_1234_luid_0x00000000_0x0000A1B2_phys_0_eng_0_engtype_3D`.
+    pub name: String,
+    pub utilization_percent: u64,
+}
+
+/// Ключ адаптера из имени экземпляра: часть `luid_..._phys_N`. None, если имя в другом виде.
+fn adapter_key(name: &str) -> Option<&str> {
+    let start = name.find("luid_")?;
+    let rest = &name[start..];
+    let phys = rest.find("_phys_")?;
+    let after = &rest[phys + "_phys_".len()..];
+    let digits = after.chars().take_while(char::is_ascii_digit).count();
+    (digits > 0).then(|| &rest[..phys + "_phys_".len() + digits])
+}
+
+/// Загрузка по адаптерам: сумма UtilizationPercentage движков 3D на адаптер, не больше 100.
+/// Порядок результата стабилен (по ключу адаптера). Движки Copy, Video и другие не считаются:
+/// диспетчер задач тоже показывает общую загрузку GPU по 3D.
+pub fn aggregate_gpu_3d_load(samples: &[GpuEngineSample]) -> Vec<(String, f32)> {
+    let mut sums: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+    for sample in samples {
+        if !sample.name.to_ascii_lowercase().ends_with("engtype_3d") {
+            continue;
+        }
+        let Some(key) = adapter_key(&sample.name) else {
+            continue;
+        };
+        *sums.entry(key.to_string()).or_default() += sample.utilization_percent;
+    }
+    sums.into_iter()
+        .map(|(key, sum)| (key, sum.min(100) as f32))
+        .collect()
+}
+
+/// Сопоставляет нагрузку адаптеров с видеокартами списка. Одна карта получает самую большую
+/// нагрузку; при равном числе адаптеров и карт совпадает порядок; иначе None (не гадаем).
+pub fn assign_gpu_loads(loads: &[(String, f32)], gpu_count: usize) -> Vec<Option<f32>> {
+    if gpu_count == 1 {
+        let max = loads
+            .iter()
+            .map(|(_, load)| *load)
+            .fold(None, |acc: Option<f32>, load| {
+                Some(acc.map_or(load, |a| a.max(load)))
+            });
+        return vec![max];
+    }
+    if loads.len() == gpu_count {
+        return loads.iter().map(|(_, load)| Some(*load)).collect();
+    }
+    vec![None; gpu_count]
+}
+
 /// Суффиксы, которые Windows дописывает к модели диска и которые ничего не говорят человеку.
 const DRIVE_NOISE: [&str; 5] = [
     " ATA Device",
@@ -212,5 +267,46 @@ mod tests {
         assert_eq!(json["motherboard"]["name"], "Board");
         assert_eq!(json["cpuBrand"], "CPU");
         assert_eq!(json["driveModels"][0], "Disk");
+    }
+
+    fn sample(name: &str, value: u64) -> GpuEngineSample {
+        GpuEngineSample {
+            name: name.to_string(),
+            utilization_percent: value,
+        }
+    }
+
+    #[test]
+    fn gpu_load_sums_only_3d_engines_per_adapter_and_caps_at_100() {
+        let samples = [
+            sample("pid_1_luid_0x00000000_0x0000A1_phys_0_eng_0_engtype_3D", 30),
+            sample("pid_2_luid_0x00000000_0x0000A1_phys_0_eng_0_engtype_3D", 25),
+            sample(
+                "pid_2_luid_0x00000000_0x0000A1_phys_0_eng_1_engtype_Copy",
+                90,
+            ),
+            sample("pid_3_luid_0x00000000_0x0000B2_phys_0_eng_0_engtype_3D", 70),
+            sample("pid_4_luid_0x00000000_0x0000B2_phys_0_eng_3_engtype_3D", 60),
+            sample("garbage", 50),
+        ];
+        let loads = aggregate_gpu_3d_load(&samples);
+        assert_eq!(loads.len(), 2);
+        assert_eq!(loads[0].1, 55.0);
+        assert_eq!(loads[1].1, 100.0);
+    }
+
+    #[test]
+    fn gpu_load_is_empty_without_3d_engines() {
+        let samples = [sample("pid_2_luid_0x0_0x1_phys_0_eng_1_engtype_Copy", 90)];
+        assert!(aggregate_gpu_3d_load(&samples).is_empty());
+    }
+
+    #[test]
+    fn gpu_loads_are_assigned_without_guessing() {
+        let loads = vec![("a".to_string(), 10.0), ("b".to_string(), 40.0)];
+        assert_eq!(assign_gpu_loads(&loads, 1), vec![Some(40.0)]);
+        assert_eq!(assign_gpu_loads(&loads, 2), vec![Some(10.0), Some(40.0)]);
+        assert_eq!(assign_gpu_loads(&loads, 3), vec![None, None, None]);
+        assert_eq!(assign_gpu_loads(&[], 1), vec![None]);
     }
 }

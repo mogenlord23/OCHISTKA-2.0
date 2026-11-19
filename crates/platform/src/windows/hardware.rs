@@ -4,7 +4,7 @@
 use std::sync::OnceLock;
 
 use ochistka_core::hardware::{
-    build_gpu, build_motherboard, clean_text, HardwareOverview, HardwarePort,
+    assign_gpu_loads, build_gpu, build_motherboard, clean_text, HardwareOverview, HardwarePort,
 };
 use ochistka_core::system::CoreError;
 use sysinfo::{CpuRefreshKind, Gpus, Motherboard, System};
@@ -56,6 +56,44 @@ fn read_drive_models() -> Vec<String> {
     Vec::new()
 }
 
+/// Загрузка 3D-движков видеокарт из счётчиков Windows (WMI, только чтение). Нет счётчиков или
+/// сбой WMI дают пустой список: интерфейс тогда показывает прочерк с причиной.
+#[cfg(target_os = "windows")]
+fn read_gpu_loads() -> Vec<(String, f32)> {
+    use ochistka_core::hardware::{aggregate_gpu_3d_load, GpuEngineSample};
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct Engine {
+        name: Option<String>,
+        utilization_percentage: Option<u64>,
+    }
+    let Ok(connection) = wmi::WMIConnection::new() else {
+        return Vec::new();
+    };
+    let rows: Vec<Engine> = connection
+        .raw_query(
+            "SELECT Name, UtilizationPercentage FROM \
+             Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine WHERE Name LIKE '%engtype_3D'",
+        )
+        .unwrap_or_default();
+    let samples: Vec<GpuEngineSample> = rows
+        .into_iter()
+        .filter_map(|row| {
+            Some(GpuEngineSample {
+                name: row.name?,
+                utilization_percent: row.utilization_percentage?,
+            })
+        })
+        .collect();
+    aggregate_gpu_3d_load(&samples)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn read_gpu_loads() -> Vec<(String, f32)> {
+    Vec::new()
+}
+
 impl Default for WindowsHardware {
     fn default() -> Self {
         Self::new()
@@ -69,13 +107,17 @@ fn probe(err: sysinfo::Error) -> CoreError {
 impl HardwarePort for WindowsHardware {
     fn overview(&self) -> Result<HardwareOverview, CoreError> {
         let gpus = Gpus::new_with_refreshed_list().map_err(probe)?;
-        let gpus = gpus
+        let gpu_list: Vec<_> = gpus.iter().collect();
+        // sysinfo не отдаёт загрузку GPU на Windows: берём её из счётчиков производительности.
+        let loads = assign_gpu_loads(&read_gpu_loads(), gpu_list.len());
+        let gpus = gpu_list
             .iter()
-            .map(|gpu| {
+            .zip(loads)
+            .map(|(gpu, load)| {
                 build_gpu(
                     gpu.vendor(),
                     gpu.model(),
-                    gpu.usage(),
+                    gpu.usage().or(load),
                     gpu.total_memory(),
                     gpu.used_memory(),
                 )

@@ -251,6 +251,12 @@
             </p>
           {:else if shownView === 'gpu'}
             <p class="headline">{headline(gpuNow)}</p>
+            {#if hardware && gpuNow === null}
+              <p class="note">
+                Загрузка недоступна: Windows не отдала счётчики видеокарты (нужен драйвер WDDM 2.0 и
+                новее).
+              </p>
+            {/if}
             <LineGraph
               values={gpuHistory}
               label="График загрузки видеокарты за 90 секунд"
