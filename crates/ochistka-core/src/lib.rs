@@ -2,6 +2,7 @@ pub mod appearance;
 pub mod appearance_cursor;
 pub mod assess;
 pub mod cleanup;
+pub mod drivers;
 pub mod fs;
 pub mod hardware;
 pub mod heuristic;

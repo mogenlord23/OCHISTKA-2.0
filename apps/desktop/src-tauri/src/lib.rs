@@ -3,6 +3,7 @@
 pub mod appearance;
 pub mod commands;
 pub mod disks;
+pub mod drivers;
 pub mod hardware;
 pub mod network;
 pub mod processes;
@@ -71,6 +72,10 @@ pub fn run() {
             processes::processes_request,
             programs::programs_request,
             hardware::get_hardware,
+            drivers::drivers_catalog,
+            drivers::driver_install,
+            drivers::driver_open_page,
+            drivers::driver_open_windows_update,
             tweaks::tweaks_overview,
             tweaks::tweak_set,
             tweaks::tweaks_revert,
