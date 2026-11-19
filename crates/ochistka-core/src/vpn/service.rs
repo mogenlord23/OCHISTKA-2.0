@@ -633,7 +633,9 @@ mod tests {
             progress: &mut dyn FnMut(PrepareProgress),
         ) -> Result<(), PrepareError> {
             if self.install_fails {
-                return Err(PrepareError::network("offline: https://sub.example/api/SECRETTOKEN?k=1"));
+                return Err(PrepareError::network(
+                    "offline: https://sub.example/api/SECRETTOKEN?k=1",
+                ));
             }
             progress(PrepareProgress { percent: 50 });
             progress(PrepareProgress { percent: 100 });

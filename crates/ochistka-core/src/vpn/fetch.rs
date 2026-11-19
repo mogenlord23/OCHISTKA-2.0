@@ -1,8 +1,8 @@
 //! Загрузка подписки. Адрес только `https://`; сам запрос делает адаптер платформы (порт
 //! `HttpFetch`: таймаут, лимит размера, переходы только на https). Интерфейс сеть не трогает.
 
-use super::parse::{parse_subscription, percent_decode, ImportReport, MAX_BODY};
 use super::mask::mask_secrets;
+use super::parse::{parse_subscription, percent_decode, ImportReport, MAX_BODY};
 use super::VpnError;
 
 /// Ответ сервера подписки.
@@ -137,7 +137,10 @@ pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportRepor
             Ok(r) => {
                 last = VpnError::Fetch(status_message(r.status).into());
                 // Другое имя клиента помогает при отказах и сбоях сервиса; при прочих кодах нет.
-                if !matches!(r.status, 400 | 401 | 403 | 404 | 406 | 410 | 422 | 429 | 500..=504) {
+                if !matches!(
+                    r.status,
+                    400 | 401 | 403 | 404 | 406 | 410 | 422 | 429 | 500..=504
+                ) {
                     return Err(last);
                 }
             }
@@ -297,7 +300,8 @@ mod tests {
 
     #[test]
     fn other_statuses_are_human_and_have_no_code() {
-        for (status, needle) in [(403, "не выдал"), (404, "не найдена"), (503, "недоступен")] {
+        for (status, needle) in [(403, "не выдал"), (404, "не найдена"), (503, "недоступен")]
+        {
             let reply = || {
                 Ok(FetchResponse {
                     status,
@@ -327,7 +331,10 @@ mod tests {
         let text = import_input(&fake, "https://s.example/sub/TOKEN123")
             .unwrap_err()
             .to_string();
-        assert!(!text.contains("TOKEN123") && !text.contains("k=v"), "{text}");
+        assert!(
+            !text.contains("TOKEN123") && !text.contains("k=v"),
+            "{text}"
+        );
     }
 
     #[test]

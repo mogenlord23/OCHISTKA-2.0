@@ -9,6 +9,7 @@ pub mod network;
 pub mod processes;
 pub mod programs;
 pub mod services;
+pub mod speedtest;
 pub mod tweaks;
 pub mod vpn;
 
@@ -40,6 +41,7 @@ pub fn run() {
             ochistka_platform::current_virus_scanner(),
             Arc::new(ochistka_platform::windows_cleanup::WindowsFs),
         ))
+        .manage(speedtest::SpeedState::default())
         .manage(disks::DisksState::new(
             ochistka_platform::current_cleanup_env(),
         ))
@@ -92,6 +94,8 @@ pub fn run() {
             tweaks::open_activation_settings,
             network::get_network_adapters,
             network::get_tcp_connections,
+            speedtest::speedtest_start,
+            speedtest::speedtest_cancel,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,

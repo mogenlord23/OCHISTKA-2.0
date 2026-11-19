@@ -10,6 +10,7 @@ use ochistka_core::assess::Suspicion;
 use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
 use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
+use ochistka_core::speedtest::{SpeedEvent, SpeedFailure, SpeedPhase, SpeedResult};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ochistka_core::tweaks::{
     ActivationInfo, ActivationStatus, BoostState, TweakAvailability, TweakState, TweaksOverview,
@@ -73,6 +74,10 @@ fn export_all_into(dir: &Path) {
     ImportSummary::export_all(&cfg).unwrap();
     RoutingRules::export_all(&cfg).unwrap();
     PrepareProgress::export_all(&cfg).unwrap();
+    SpeedEvent::export_all(&cfg).unwrap();
+    SpeedResult::export_all(&cfg).unwrap();
+    SpeedPhase::export_all(&cfg).unwrap();
+    SpeedFailure::export_all(&cfg).unwrap();
 }
 
 #[test]
