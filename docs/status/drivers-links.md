@@ -1,5 +1,7 @@
 # Проверка ссылок каталога драйверов (2026-11-19)
 
+Этап S4: плитка Realtek и плитка «Wi-Fi / Bluetooth» объединены в категорию «Звук и связь» (`audio`): realtek-audio, realtek-network, intel-wifi, intel-bluetooth и три новые карточки (audio-other, wifi-other, bluetooth-other). Адреса прежних карточек не менялись, realtek-* и новая страница Microsoft повторно проверены (200).
+
 Способ: `curl -L` (GET, до 5 переходов) из песочницы разработки, затем повтор со стандартным User-Agent curl там, где Chrome-подобный UA получил 403 от защиты сайта. Для установщиков запрашивались первые 1024 байта (`-r 0-1023`, ответ 206 = файл на месте). Это проверка из Linux-песочницы через общий прокси; на Windows у пользователя не запускалась.
 
 Расшифровка: «исправлено» значит, что адрес в `crates/ochistka-core/src/drivers.rs` заменён; «не проверить» значит, что сайт отвечает 403 или обрывает соединение даже на главной странице (защита от ботов), то есть ошибка не в нашей ссылке.
@@ -22,6 +24,9 @@
 | intel-bluetooth | https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-for-windows-10-and-windows-11.html | 200 с переходом на новое имя | исправлено на .../18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html (200 без перехода) |
 | realtek-audio | https://www.realtek.com/Download/List?cate_id=593&menu_id=369 | 200 | ок |
 | realtek-network | https://www.realtek.com/Download/List?cate_id=584&menu_id=297 | 200 | ок |
+| audio-other | https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows | 200 (повтор 2026-11-19, этап S4) | новая карточка категории «Звук и связь» |
+| wifi-other | то же | 200 | новая карточка категории «Звук и связь» |
+| bluetooth-other | то же | 200 | новая карточка категории «Звук и связь» |
 | usb-controllers | https://support.microsoft.com/windows/get-updates-for-windows-drivers | 404 | исправлено на https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows (200) |
 | logitech | https://www.logitech.com/en-us/software.html | 200 (переход на /software) | ок |
 | asus | https://www.asus.com/support/download-center/ | 200 | ок |

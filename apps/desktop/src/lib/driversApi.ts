@@ -12,6 +12,8 @@ function isItem(value: unknown): value is DriverItem {
   const actions: readonly DriverAction[] = ['install', 'openSite'];
   return (
     typeof item.id === 'string' &&
+    typeof item.maker === 'string' &&
+    typeof item.device === 'string' &&
     typeof item.title === 'string' &&
     typeof item.description === 'string' &&
     typeof item.windowsUpdate === 'boolean' &&

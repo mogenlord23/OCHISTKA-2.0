@@ -26,6 +26,8 @@ const ITEMS: DriverItem[] = [
   {
     id: 'nvidia-app',
     vendor: 'nvidia',
+    maker: 'NVIDIA',
+    device: 'Видеокарта',
     title: 'NVIDIA App',
     description: 'Приложение NVIDIA',
     action: 'install',
@@ -34,6 +36,8 @@ const ITEMS: DriverItem[] = [
   {
     id: 'nvidia-geforce',
     vendor: 'nvidia',
+    maker: 'NVIDIA',
+    device: 'Видеокарта',
     title: 'GeForce Game Ready',
     description: 'Драйвер GeForce',
     action: 'openSite',
@@ -42,8 +46,30 @@ const ITEMS: DriverItem[] = [
   {
     id: 'amd-software',
     vendor: 'amd',
+    maker: 'AMD',
+    device: 'Видеокарта',
     title: 'AMD Adrenalin',
     description: 'Драйвер Radeon',
+    action: 'openSite',
+    windowsUpdate: true,
+  },
+  {
+    id: 'realtek-audio',
+    vendor: 'audio',
+    maker: 'Realtek',
+    device: 'Звук',
+    title: 'Realtek · звук',
+    description: 'Каталог звуковых драйверов',
+    action: 'openSite',
+    windowsUpdate: true,
+  },
+  {
+    id: 'intel-bluetooth',
+    vendor: 'audio',
+    maker: 'Intel',
+    device: 'Bluetooth',
+    title: 'Intel · Bluetooth',
+    description: 'Пакет Bluetooth',
     action: 'openSite',
     windowsUpdate: true,
   },
@@ -84,7 +110,7 @@ describe('DriversPage', () => {
     expect(screen.getByText('AMD Adrenalin')).toBeTruthy();
   });
 
-  it('has no «Все» tile and exactly the seven vendor tiles, selection is instant', async () => {
+  it('has no «Все» tile and exactly the six equal tiles, selection is instant', async () => {
     render(DriversPage);
     await screen.findByText('NVIDIA App');
     expect(screen.queryByRole('button', { name: 'Все' })).toBeNull();
@@ -92,20 +118,46 @@ describe('DriversPage', () => {
       'button',
     );
     const names = tiles.map((t) => t.querySelector('span')?.textContent);
-    expect(names).toEqual([
-      'NVIDIA',
-      'AMD',
-      'Intel',
-      'Realtek',
-      'Wi-Fi / Bluetooth',
-      'USB',
-      'Производители ПК',
-    ]);
+    expect(names).toEqual(['NVIDIA', 'AMD', 'Intel', 'Звук и связь', 'USB', 'Производители ПК']);
     const nvidia = screen.getByRole('button', { name: 'NVIDIA' });
     await fireEvent.click(nvidia);
     expect(nvidia.getAttribute('aria-pressed')).toBe('true');
     await fireEvent.click(nvidia);
     expect(nvidia.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('has no separate Realtek tile; the sound and connectivity tile shows maker and device type', async () => {
+    render(DriversPage);
+    await screen.findByText('NVIDIA App');
+    expect(screen.queryByRole('button', { name: 'Realtek' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Звук и связь' }));
+    const realtek = screen.getByText('Realtek · звук').closest('article') as HTMLElement;
+    expect(within(realtek).getByText('Realtek')).toBeTruthy();
+    expect(within(realtek).getByText('Звук')).toBeTruthy();
+    const intel = screen.getByText('Intel · Bluetooth').closest('article') as HTMLElement;
+    expect(within(intel).getByText('Bluetooth')).toBeTruthy();
+    expect(screen.queryByText('NVIDIA App')).toBeNull();
+  });
+
+  it('shows the detected GPU and Windows version before install', async () => {
+    vi.mocked(getHardware).mockResolvedValueOnce({
+      gpus: [
+        {
+          vendor: 'NVIDIA',
+          model: 'GeForce GTX 1060',
+          usagePercent: null,
+          totalMemoryBytes: null,
+          usedMemoryBytes: null,
+        },
+      ],
+      motherboard: { vendor: null, name: null, version: null },
+      cpuBrand: null,
+      driveModels: [],
+    });
+    render(DriversPage);
+    await vi.waitFor(() =>
+      expect(screen.getAllByText(/Найдено: NVIDIA GeForce GTX 1060/).length).toBeGreaterThan(0),
+    );
   });
 
   it('shows no URL text and no copy-link button', async () => {
@@ -119,9 +171,9 @@ describe('DriversPage', () => {
     render(DriversPage);
     await screen.findByText('NVIDIA App');
     expect(screen.getAllByRole('button', { name: 'Установить' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Открыть сайт' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Открыть сайт' })).toHaveLength(4);
     expect(screen.getAllByRole('button', { name: 'Установить через Windows Update' })).toHaveLength(
-      2,
+      4,
     );
   });
 

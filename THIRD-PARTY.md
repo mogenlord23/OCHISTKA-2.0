@@ -2,7 +2,7 @@
 
 ## simple-icons 16.38.0 (CC0-1.0)
 
-Контуры логотипов NVIDIA, AMD, Intel и Bluetooth в `apps/desktop/src/lib/driverLogos.ts` взяты из npm-пакета `simple-icons` 16.38.0 (https://github.com/simple-icons/simple-icons), лицензия CC0 1.0 Universal (передача в общественное достояние, указание авторства не требуется). Сами названия и знаки принадлежат их владельцам (NVIDIA Corporation, Advanced Micro Devices, Intel Corporation, Bluetooth SIG) и показаны только для обозначения производителя драйвера. Знаков Realtek и USB в simple-icons нет: для них нарисована буквенная метка. Значок «Производители ПК» нарисован самостоятельно.
+Контуры логотипов NVIDIA, AMD и Intel в `apps/desktop/src/lib/driverLogos.ts` взяты из npm-пакета `simple-icons` 16.38.0 (https://github.com/simple-icons/simple-icons), лицензия CC0 1.0 Universal (передача в общественное достояние, указание авторства не требуется). Сами названия и знаки принадлежат их владельцам (NVIDIA Corporation, Advanced Micro Devices, Intel Corporation) и показаны только для обозначения производителя драйвера. Знака USB в simple-icons нет: для него нарисована буквенная метка. Значки «Звук и связь» и «Производители ПК» нарисованы самостоятельно.
 
 ## reqwest (MIT или Apache-2.0)
 

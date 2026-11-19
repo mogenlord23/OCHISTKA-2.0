@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getHardware } from '../lib/api';
+  import { getHardware, getSystemOverview } from '../lib/api';
+  import { loadSnapshot } from '../lib/computerCache';
   import {
     getDriversCatalog,
     installDriver,
@@ -15,6 +16,7 @@
     type ButtonState,
   } from '../lib/driverInstall';
   import {
+    compatibilityNote,
     filterByVendor,
     layoutVendors,
     VENDORS,
@@ -24,7 +26,13 @@
   import type { HardwareOverview } from '../lib/types';
   import VendorLogo from './VendorLogo.svelte';
 
-  let hardware = $state<HardwareOverview | null>(null);
+  const cached = loadSnapshot();
+  let hardware = $state<HardwareOverview | null>(cached?.hardware ?? null);
+  let os = $state<{ osName: string; osVersion: string } | null>(
+    cached?.overview
+      ? { osName: cached.overview.osName, osVersion: cached.overview.osVersion }
+      : null,
+  );
   let items = $state<DriverItem[]>([]);
   let loadError = $state<string | null>(null);
   let selected = $state<VendorId | null>(null);
@@ -40,6 +48,15 @@
       })
       .catch(() => {
         // Без сведений о железе производители идут в обычном порядке, без отметок.
+      });
+    getSystemOverview()
+      .then((value) => {
+        if (active) {
+          os = { osName: value.osName, osVersion: value.osVersion };
+        }
+      })
+      .catch(() => {
+        // Версия Windows неизвестна: заметка о совместимости покажет только то, что известно.
       });
     getDriversCatalog()
       .then((value) => {
@@ -157,7 +174,13 @@
       {@const state = stateOf(item.id)}
       <article class="item">
         <h3>{item.title}</h3>
+        <p class="meta">
+          <span>{item.maker}</span><span aria-hidden="true"> · </span><span>{item.device}</span>
+        </p>
         <p>{item.description}</p>
+        {#if compatibilityNote(item, hardware, os)}
+          <p class="compat">{compatibilityNote(item, hardware, os)}</p>
+        {/if}
         <div class="actions">
           <button
             type="button"
@@ -229,7 +252,6 @@
     border: 0;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
     color: var(--ink, #fafafa);
     font: inherit;
     font-size: var(--text-caption);
@@ -254,7 +276,6 @@
     inset: 0;
     border: 3px solid #fff;
     border-radius: inherit;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
     pointer-events: none;
   }
 
@@ -290,6 +311,18 @@
     margin: 0;
     font-size: var(--text-small);
     color: #d4d4d4;
+  }
+
+  .item .meta {
+    font-size: var(--text-caption);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink-soft, #d4d4d4);
+  }
+
+  .item .compat {
+    font-size: var(--text-caption);
+    color: #b8b8b8;
   }
 
   .actions {

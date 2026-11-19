@@ -56,8 +56,12 @@ pub struct InstallerSource {
 #[derive(Debug, Clone, Copy)]
 pub struct CatalogEntry {
     pub id: &'static str,
-    /// Идентификатор производителя: `nvidia`, `amd`, `intel`, `realtek`, `bluetooth`, `usb`, `oem`.
+    /// Идентификатор плитки-категории: `nvidia`, `amd`, `intel`, `audio` («Звук и связь»), `usb`, `oem`.
     pub vendor: &'static str,
+    /// Производитель драйвера (показывается внутри плитки): «Realtek», «Intel».
+    pub maker: &'static str,
+    /// Тип устройства: «Звук», «Wi-Fi», «Bluetooth».
+    pub device: &'static str,
     pub title: &'static str,
     pub description: &'static str,
     /// Официальная страница производителя (для «Открыть сайт»).
@@ -67,21 +71,15 @@ pub struct CatalogEntry {
     pub windows_update: bool,
 }
 
-pub const VENDOR_IDS: &[&str] = &[
-    "nvidia",
-    "amd",
-    "intel",
-    "realtek",
-    "bluetooth",
-    "usb",
-    "oem",
-];
+pub const VENDOR_IDS: &[&str] = &["nvidia", "amd", "intel", "audio", "usb", "oem"];
 
 const INTEL: &[&str] = &["Intel Corporation"];
 
 const fn entry(
     id: &'static str,
     vendor: &'static str,
+    maker: &'static str,
+    device: &'static str,
     title: &'static str,
     description: &'static str,
     page_url: &'static str,
@@ -91,6 +89,8 @@ const fn entry(
     CatalogEntry {
         id,
         vendor,
+        maker,
+        device,
         title,
         description,
         page_url,
@@ -106,6 +106,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "nvidia-app",
         "nvidia",
+        "NVIDIA",
+        "Видеокарта",
         "NVIDIA App · драйверы и библиотека игр",
         "Официальное приложение NVIDIA: драйверы Game Ready и Studio, настройки игр и запись игрового процесса.",
         "https://www.nvidia.com/en-us/software/nvidia-app/",
@@ -119,6 +121,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "nvidia-geforce",
         "nvidia",
+        "NVIDIA",
+        "Видеокарта",
         "GeForce Game Ready / Studio",
         "Выберите точную модель видеокарты и ветку драйвера на странице NVIDIA.",
         "https://www.nvidia.com/en-us/geforce/drivers/",
@@ -128,6 +132,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "nvidia-physx",
         "nvidia",
+        "NVIDIA",
+        "Физика в играх",
         "PhysX System Software",
         "Дополнительная библиотека для старых игр, которым нужен NVIDIA PhysX.",
         "https://www.nvidia.com/en-us/drivers/physx/physx-9-21-0713-driver/",
@@ -137,6 +143,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "nvidia-cuda",
         "nvidia",
+        "NVIDIA",
+        "Вычисления",
         "CUDA Toolkit",
         "Для приложений и игр, которым нужны вычисления на видеокарте. Сверьте версию с требованиями программы.",
         "https://developer.nvidia.com/cuda-downloads",
@@ -146,6 +154,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "amd-software",
         "amd",
+        "AMD",
+        "Видеокарта",
         "AMD Software · Adrenalin",
         "Официальный установщик драйвера Radeon. Версию и совместимость проверяет сам производитель.",
         "https://www.amd.com/en/support/download/drivers.html",
@@ -155,6 +165,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "amd-detect",
         "amd",
+        "AMD",
+        "Видеокарта",
         "AMD · автоопределение",
         "Официальное автоопределение Radeon и чипсета Ryzen на сайте AMD.",
         "https://www.amd.com/en/support/download/drivers.html",
@@ -164,6 +176,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "amd-chipset",
         "amd",
+        "AMD",
+        "Чипсет",
         "AMD · чипсет",
         "Выберите сокет и модель платы на сайте AMD. Драйвер процессора отдельно обычно не требуется.",
         "https://www.amd.com/en/support/download/drivers.html",
@@ -173,6 +187,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "intel-dsa",
         "intel",
+        "Intel",
+        "Все устройства Intel",
         "Intel · автоопределение",
         "Официальный помощник Intel подбирает поддерживаемые драйверы для устройств Intel.",
         "https://www.intel.com/content/www/us/en/support/detect.html",
@@ -186,6 +202,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "intel-chipset",
         "intel",
+        "Intel",
+        "Чипсет",
         "Intel · чипсет",
         "Официальные пакеты чипсета. Совместимость зависит от модели платы и поколения процессора.",
         "https://www.intel.com/content/www/us/en/download/19347/chipset-inf-utility.html",
@@ -195,6 +213,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "intel-me",
         "intel",
+        "Intel",
+        "Management Engine",
         "Intel Management Engine",
         "Пакет берётся по точной модели системы или материнской платы.",
         "https://www.intel.com/content/www/us/en/download-center/home.html",
@@ -203,7 +223,9 @@ pub static CATALOG: &[CatalogEntry] = &[
     ),
     entry(
         "intel-wifi",
-        "bluetooth",
+        "audio",
+        "Intel",
+        "Wi-Fi",
         "Intel · Wi-Fi",
         "Пакет для поддерживаемых беспроводных адаптеров Intel под Windows 10 и 11.",
         "https://www.intel.com/content/www/us/en/download/19351/intel-wireless-wi-fi-drivers-for-windows-10-and-windows-11.html",
@@ -216,7 +238,9 @@ pub static CATALOG: &[CatalogEntry] = &[
     ),
     entry(
         "intel-bluetooth",
-        "bluetooth",
+        "audio",
+        "Intel",
+        "Bluetooth",
         "Intel · Bluetooth",
         "Выберите пакет под свой адаптер и версию Windows.",
         "https://www.intel.com/content/www/us/en/download/18649/intel-wireless-bluetooth-drivers-for-windows-10-and-windows-11.html",
@@ -225,7 +249,9 @@ pub static CATALOG: &[CatalogEntry] = &[
     ),
     entry(
         "realtek-audio",
-        "realtek",
+        "audio",
+        "Realtek",
+        "Звук",
         "Realtek · звук",
         "Каталог звуковых драйверов. Часто надёжнее взять пакет у производителя платы или ноутбука.",
         "https://www.realtek.com/Download/List?cate_id=593&menu_id=369",
@@ -234,7 +260,9 @@ pub static CATALOG: &[CatalogEntry] = &[
     ),
     entry(
         "realtek-network",
-        "realtek",
+        "audio",
+        "Realtek",
+        "Сеть: Ethernet и Wi-Fi",
         "Realtek · Ethernet и Wi-Fi",
         "Каталог сетевых контроллеров Realtek. Подбирайте по модели устройства.",
         "https://www.realtek.com/Download/List?cate_id=584&menu_id=297",
@@ -242,8 +270,43 @@ pub static CATALOG: &[CatalogEntry] = &[
         true,
     ),
     entry(
+        "audio-other",
+        "audio",
+        "Другие производители",
+        "Звук",
+        "Другие звуковые устройства",
+        "Звук от Creative, Conexant, VIA и других: сначала Windows Update, затем пакет производителя платы или ноутбука.",
+        "https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows",
+        None,
+        true,
+    ),
+    entry(
+        "wifi-other",
+        "audio",
+        "Другие производители",
+        "Wi-Fi",
+        "Wi-Fi: другие адаптеры",
+        "Адаптеры Qualcomm, MediaTek, Broadcom и другие: драйвер ставит Windows Update или производитель ноутбука.",
+        "https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows",
+        None,
+        true,
+    ),
+    entry(
+        "bluetooth-other",
+        "audio",
+        "Другие производители",
+        "Bluetooth",
+        "Bluetooth: другие адаптеры",
+        "Адаптеры не от Intel: драйвер ставит Windows Update или производитель ноутбука или платы.",
+        "https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows",
+        None,
+        true,
+    ),
+    entry(
         "usb-controllers",
         "usb",
+        "Microsoft",
+        "USB и контроллеры",
         "USB / контроллеры",
         "Стандартные USB-драйверы входят в Windows. Для контроллера платы возьмите пакет производителя.",
         "https://support.microsoft.com/en-us/windows/hardware/drivers/update-drivers-through-device-manager-in-windows",
@@ -253,6 +316,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "logitech",
         "usb",
+        "Logitech",
+        "Периферия",
         "Logitech · периферия",
         "Пакет для мышей, клавиатур, камер и игровых контроллеров Logitech.",
         "https://www.logitech.com/en-us/software.html",
@@ -262,6 +327,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "asus",
         "oem",
+        "ASUS",
+        "Ноутбук или плата",
         "ASUS · ноутбук или плата",
         "Поиск по точной модели: Wi-Fi, USB, звук и чипсет.",
         "https://www.asus.com/support/download-center/",
@@ -271,6 +338,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "msi",
         "oem",
+        "MSI",
+        "Ноутбук или плата",
         "MSI · ноутбук или плата",
         "Официальные пакеты для конкретной модели компьютера или материнской платы.",
         "https://www.msi.com/support/download",
@@ -280,6 +349,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "gigabyte",
         "oem",
+        "GIGABYTE",
+        "Плата",
         "GIGABYTE · плата",
         "Выберите модель и ревизию платы перед загрузкой драйвера.",
         "https://www.gigabyte.com/Support/Consumer/Download",
@@ -289,6 +360,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "lenovo",
         "oem",
+        "Lenovo",
+        "Компьютер",
         "Lenovo · компьютер",
         "Подбор пакетов по модели или серийному номеру на сайте производителя.",
         "https://pcsupport.lenovo.com/",
@@ -298,6 +371,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "dell",
         "oem",
+        "Dell",
+        "Компьютер",
         "Dell · компьютер",
         "Официальные драйверы по модели или Service Tag.",
         "https://www.dell.com/support/home/drivers",
@@ -307,6 +382,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "hp",
         "oem",
+        "HP",
+        "Компьютер",
         "HP · компьютер",
         "Официальные пакеты для точной модели компьютера.",
         "https://support.hp.com/drivers",
@@ -316,6 +393,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "acer",
         "oem",
+        "Acer",
+        "Компьютер",
         "Acer · компьютер",
         "Официальная загрузка по модели или SNID.",
         "https://www.acer.com/us-en/support/drivers-and-manuals",
@@ -325,6 +404,8 @@ pub static CATALOG: &[CatalogEntry] = &[
     entry(
         "surface",
         "oem",
+        "Microsoft",
+        "Surface",
         "Microsoft Surface",
         "Драйверы и прошивка для точной модели Surface.",
         "https://www.microsoft.com/en-us/download/details.aspx?id=100429",
@@ -643,6 +724,33 @@ mod tests {
         }
         for vendor in VENDOR_IDS {
             assert!(!entries_for_vendor(Some(vendor)).is_empty(), "{vendor}");
+        }
+    }
+
+    #[test]
+    fn sound_and_connectivity_category_replaces_the_separate_realtek_tile() {
+        assert!(!VENDOR_IDS.contains(&"realtek") && !VENDOR_IDS.contains(&"bluetooth"));
+        let audio: Vec<&str> = entries_for_vendor(Some("audio"))
+            .iter()
+            .map(|i| i.id)
+            .collect();
+        for id in [
+            "realtek-audio",
+            "realtek-network",
+            "audio-other",
+            "intel-wifi",
+            "wifi-other",
+            "intel-bluetooth",
+            "bluetooth-other",
+        ] {
+            assert!(audio.contains(&id), "{id}");
+        }
+        for item in CATALOG {
+            assert!(
+                !item.maker.is_empty() && !item.device.is_empty(),
+                "{}",
+                item.id
+            );
         }
     }
 

@@ -41,6 +41,8 @@ impl From<DriverError> for CommandError {
 pub struct DriverItem {
     pub id: String,
     pub vendor: String,
+    pub maker: String,
+    pub device: String,
     pub title: String,
     pub description: String,
     /// `install` — есть прямой установщик, `openSite` — только официальная страница.
@@ -54,6 +56,8 @@ pub fn catalog_items() -> Vec<DriverItem> {
         .map(|item| DriverItem {
             id: item.id.into(),
             vendor: item.vendor.into(),
+            maker: item.maker.into(),
+            device: item.device.into(),
             title: item.title.into(),
             description: item.description.into(),
             action: if item.installer.is_some() {

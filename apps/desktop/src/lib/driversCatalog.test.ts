@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   detectVendors,
   filterByVendor,
+  compatibilityNote,
   layoutVendors,
   VENDOR_ORDER,
   VENDORS,
+  windowsGeneration,
   type DriverItem,
 } from './driversCatalog';
 import type { HardwareOverview } from './types';
@@ -25,6 +27,8 @@ const hw = (
 const item = (id: string, vendor: DriverItem['vendor']): DriverItem => ({
   id,
   vendor,
+  maker: 'Maker',
+  device: 'Device',
   title: id,
   description: '',
   action: 'openSite',
@@ -42,7 +46,7 @@ describe('driver catalog', () => {
     const items = [item('a', 'nvidia'), item('b', 'amd'), item('c', 'nvidia'), item('d', 'oem')];
     expect(filterByVendor(items, 'nvidia').map((i) => i.id)).toEqual(['a', 'c']);
     expect(filterByVendor(items, 'amd').map((i) => i.id)).toEqual(['b']);
-    expect(filterByVendor(items, 'realtek')).toEqual([]);
+    expect(filterByVendor(items, 'audio')).toEqual([]);
     expect(filterByVendor(items, null)).toHaveLength(4);
   });
 
@@ -63,5 +67,38 @@ describe('driver catalog', () => {
     expect([...detectVendors(hw(null, 'Radeon RX 6600', 'AMD Ryzen 5'))]).toEqual(['amd']);
     expect(detectVendors(hw(null, null, null, 'ASUSTeK COMPUTER INC.')).has('oem')).toBe(true);
     expect(detectVendors(hw(null, null, null, 'Unknown Maker')).has('oem')).toBe(false);
+  });
+});
+
+describe('Звук и связь', () => {
+  it('is one tile; there is no separate Realtek or Wi-Fi/Bluetooth tile', () => {
+    expect(VENDOR_ORDER).toContain('audio');
+    expect(VENDORS.audio.label).toBe('Звук и связь');
+    expect((VENDOR_ORDER as readonly string[]).includes('realtek')).toBe(false);
+    expect((VENDOR_ORDER as readonly string[]).includes('bluetooth')).toBe(false);
+  });
+});
+
+describe('compatibility note', () => {
+  it('tells the Windows generation from the build number', () => {
+    expect(windowsGeneration('10.0.26200')).toBe('11');
+    expect(windowsGeneration('10.0.19045')).toBe('10');
+    expect(windowsGeneration('24H2')).toBeNull();
+  });
+
+  it('names the detected GPU and the Windows version', () => {
+    const note = compatibilityNote(
+      { id: 'nvidia-app', vendor: 'nvidia' },
+      hw('NVIDIA', 'GeForce GTX 1060', null),
+      { osName: 'Windows 11', osVersion: '10.0.26200' },
+    );
+    expect(note).toBe('Найдено: NVIDIA GeForce GTX 1060 · Windows 11 подходит');
+  });
+
+  it('warns when the card of this maker is absent and says nothing without data', () => {
+    expect(
+      compatibilityNote({ id: 'amd-software', vendor: 'amd' }, hw('NVIDIA', 'GeForce', null), null),
+    ).toContain('не найдена');
+    expect(compatibilityNote({ id: 'realtek-audio', vendor: 'audio' }, null, null)).toBeNull();
   });
 });

@@ -1,0 +1,17 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { mock } from './mock.mjs';
+const OUT = process.argv[2];
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 1179, height: 803 }, deviceScaleFactor: 1 });
+await page.addInitScript(mock);
+await page.goto('http://127.0.0.1:1574/');
+await page.waitForTimeout(400);
+await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+await page.waitForTimeout(700);
+await page.locator('.tile').nth(9).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${OUT}/wallpapers-1179.png` });
+await page.getByRole('button', { name: 'Курсоры', exact: true }).click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/cursors-1179.png` });
+await browser.close();
