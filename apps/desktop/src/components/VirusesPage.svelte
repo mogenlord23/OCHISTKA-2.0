@@ -223,7 +223,7 @@
           <Check bind:checked={picked[index]}>
             <span class="head">
               <strong>{finding.signature}</strong>
-              <span class="path">{finding.path}</span>
+              <span class="path selectable">{finding.path}</span>
             </span>
           </Check>
           <small>Причина: сигнатура {finding.signature}</small>
@@ -252,7 +252,7 @@
   {#if scan.runs.length === 0}
     <p class="empty panel">Проверок в этой сессии пока не было.</p>
   {:else}
-    <ul class="log panel">
+    <ul class="log panel selectable">
       {#each scan.runs as run (run.id)}
         <li>
           {run.startedAt} · {run.target} · {runSummary(run)}
@@ -272,7 +272,7 @@
       <ul class="quarantine-list">
         {#each journalEntries as entry (entry.id)}
           <li>
-            <span class="path">{entry.originalPath}</span>
+            <span class="path selectable">{entry.originalPath}</span>
             <small>{entry.reason}</small>
             <div class="actions">
               <button type="button" onclick={() => void restore(entry)}>Вернуть</button>

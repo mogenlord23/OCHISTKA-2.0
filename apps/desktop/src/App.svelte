@@ -14,6 +14,7 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
   import { watchMaximized } from './lib/windowState';
+  import { attachChromeGuards } from './lib/chromeGuards';
   import {
     attachUiSounds,
     playUiSound,
@@ -27,6 +28,8 @@
     NEUTRAL,
     RADIUS,
     SHELL,
+    SELECTION,
+    STAGE_TRANSITION_MS,
     PATTERN,
     TYPE_SCALE,
     textOn,
@@ -66,9 +69,11 @@
     // Звуки декодируются заранее, чтобы щелчок и «хихи» играли без задержки.
     void preloadSounds();
     const detachSounds = attachUiSounds(window);
+    const detachGuards = attachChromeGuards(window);
     const stopWatching = watchMaximized((value) => (maximized = value));
     return () => {
       detachSounds();
+      detachGuards();
       stopWatching();
     };
   });
@@ -151,6 +156,9 @@
   style:--btn-border={SHELL.buttonBorder}
   style:--btn-hover={SHELL.buttonHover}
   style:--rail-hover={SHELL.railHover}
+  style:--selection-bg={SELECTION.background}
+  style:--selection-text={SELECTION.text}
+  style:--stage-ms="{STAGE_TRANSITION_MS}ms"
 >
   <div class="body">
     <div class="stage">
@@ -267,6 +275,27 @@
     display: none;
   }
 
+  /* Выделение текста: в интерфейсе (заголовки, кнопки, вкладки, навигация, карточки, декор)
+     выключено, разрешено в полях ввода и там, где нужно скопировать (.selectable). */
+  .shell {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .shell :global(input),
+  .shell :global(textarea),
+  .shell :global(.selectable),
+  .shell :global(.selectable *) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Одно фирменное выделение везде (розовый, текст #080808, контраст 5.5:1). */
+  .shell :global(::selection) {
+    background: var(--selection-bg);
+    color: var(--selection-text);
+  }
+
   /* Нажатие и наведение: короткие переходы только по цвету и transform. */
   :global(button) {
     transition:
@@ -337,6 +366,10 @@
     min-width: 0;
     overflow: hidden;
     background-color: var(--accent);
+    /* Плавная смена цвета раздела (как в старой OCHISTKA): перетекает только общий фон области.
+       Узор лежит на своём слое выше и остаётся на месте, карточки и текст не перерисовываются.
+       Быстрые переключения не копятся: переход сразу идёт к последнему цвету. */
+    transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
     /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
     --content-gutter: max(22px, calc((100% - 1480px) / 2));
   }
@@ -368,6 +401,12 @@
     padding: 0 var(--content-gutter) 8px;
     overscroll-behavior: contain;
     contain: layout paint;
+  }
+
+  h1,
+  .lead,
+  footer {
+    transition: color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
   }
 
   h1 {
@@ -429,48 +468,37 @@
        читался как перекрытие, а не как обрезанная плитка. isolation: свой слой наложения. */
     isolation: isolate;
     overflow: hidden;
-    border: 1px solid transparent;
     border-radius: var(--radius-md);
-    /* Сплошной фон окна: раскрытый док целиком закрывает пункты под собой (без просвета). Прозрачность
-       не анимируется, иначе в середине анимации цвет выбранной плитки просвечивает. */
-    background-color: var(--window);
+    /* Чёрная сплошная карточка без обводки: целиком закрывает пункты под собой (без просвета).
+       Прозрачность не анимируется, иначе в середине анимации цвет выбранной плитки просвечивает. */
+    background-color: var(--black);
     grid-template-rows: 0fr;
     visibility: hidden;
     transition:
-      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
-      visibility 0s linear 220ms;
+      grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
+      visibility 0s linear 180ms;
   }
 
   .bottom-wrap.open {
-    border-color: var(--border);
     grid-template-rows: 1fr;
     visibility: visible;
     transition:
-      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
+      grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
       visibility 0s;
   }
 
-  /* Низкое окно: раскрытая карточка целиком закрывает последнюю плитку панели (её верх на 588 px),
-     чтобы выбранная плитка не торчала полоской над карточкой. */
-  @media (max-height: 760px) {
-    .bottom-wrap.open {
-      min-height: 96px;
-      align-content: end;
-    }
-  }
-
+  /* Размер карточки один при любом окне: 96 px по высоте (на минимальном окне её верх на 588 px,
+     ровно на верхней границе последней плитки панели, поэтому плитка не торчит полоской). */
   .bottom {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    height: 96px;
     min-height: 0;
     padding: 0 10px;
     overflow: hidden;
-  }
-
-  .bottom > :global(:first-child) {
-    margin-top: 8px;
   }
 
   .handle {

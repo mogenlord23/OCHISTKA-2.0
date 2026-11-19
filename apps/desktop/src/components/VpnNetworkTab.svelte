@@ -43,7 +43,7 @@
       <li class="card">
         <div class="head">
           <span class="name">{adapter.name}</span>
-          <span class="mac">{adapter.mac ?? 'MAC не задан'}</span>
+          <span class="mac selectable">{adapter.mac ?? 'MAC не задан'}</span>
         </div>
         <dl class="stats">
           <div>
