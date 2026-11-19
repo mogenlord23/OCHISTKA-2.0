@@ -130,17 +130,6 @@
   </p>
 
   <ul class="vendors" aria-label="Производители">
-    <li>
-      <button
-        type="button"
-        class="vendor"
-        aria-pressed={selected === null}
-        onclick={() => (selected = null)}
-      >
-        <VendorLogo vendor="all" />
-        <span>Все</span>
-      </button>
-    </li>
     {#each layout.ordered as id (id)}
       <li>
         <button
@@ -230,8 +219,9 @@
     align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    width: 150px;
-    min-height: 124px;
+    width: 132px;
+    height: 132px;
+    overflow: hidden;
     padding: 14px 8px;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -251,7 +241,8 @@
   }
 
   .vendor[aria-pressed='true'] {
-    border-color: var(--btn-border, #cf00ff);
+    border-color: #fff;
+    box-shadow: 0 0 0 2px #fff;
   }
 
   .mine {

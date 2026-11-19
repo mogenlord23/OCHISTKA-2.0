@@ -77,7 +77,7 @@ export function connectUi(snapshot: VpnSnapshot | null, busy: boolean): ConnectU
     return {
       ...base,
       disabled: true,
-      reason: `VPN-ядро не найдено${snapshot.core.reason ? `: ${snapshot.core.reason}` : ''}`,
+      reason: 'VPN временно недоступен, переустановите приложение',
     };
   }
   return { ...base, disabled: false, reason: null };

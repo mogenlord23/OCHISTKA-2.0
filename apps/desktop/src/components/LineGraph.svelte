@@ -100,7 +100,7 @@
 
   .frame {
     position: relative;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     background: #0e0e0e;
     overflow: hidden;
   }

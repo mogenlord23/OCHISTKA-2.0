@@ -138,7 +138,7 @@
   .item {
     padding: 9px 12px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     background: none;
     color: var(--ink);
     font: inherit;

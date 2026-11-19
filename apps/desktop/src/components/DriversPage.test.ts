@@ -78,7 +78,8 @@ describe('DriversPage', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'AMD' }));
     expect(screen.queryByText('NVIDIA App')).toBeNull();
     expect(screen.getByText('AMD Adrenalin')).toBeTruthy();
-    await fireEvent.click(screen.getByRole('button', { name: 'Все' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'AMD' }));
+    expect(screen.queryByRole('button', { name: 'Все' })).toBeNull();
     expect(screen.getByText('NVIDIA App')).toBeTruthy();
   });
 

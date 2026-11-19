@@ -6,6 +6,32 @@ use crate::appearance::{parse_hex, AppearanceError};
 const SOLID_JSON: &str = include_str!("../assets/solid-wallpapers.json");
 /// Глубина узора: чёрный слой с прозрачностью 5,5 % поверх цвета.
 const PATTERN_DARKEN: f64 = 0.055;
+/// Узор приложения (тот же, что фон окна) и его прозрачность поверх цвета.
+const POP_PNG: &[u8] = include_bytes!("../assets/pop-pattern.png");
+const POP_OPACITY: f64 = 0.07;
+/// Плитка узора при высоте экрана 1080 px (как в окне: 320 px).
+const POP_TILE_1080: f64 = 320.0;
+
+/// RGBA-пиксели узора: (ширина, высота, данные).
+fn pop_pattern() -> Result<(u32, u32, Vec<u8>), AppearanceError> {
+    let decoder = png::Decoder::new(std::io::Cursor::new(POP_PNG));
+    let mut reader = decoder
+        .read_info()
+        .map_err(|e| AppearanceError::Wallpaper(e.to_string()))?;
+    let size = reader
+        .output_buffer_size()
+        .ok_or_else(|| AppearanceError::Wallpaper("узор".into()))?;
+    let mut buf = vec![0; size];
+    let info = reader
+        .next_frame(&mut buf)
+        .map_err(|e| AppearanceError::Wallpaper(e.to_string()))?;
+    if info.color_type != png::ColorType::Rgba || info.bit_depth != png::BitDepth::Eight {
+        return Err(AppearanceError::Wallpaper("формат узора".into()));
+    }
+    buf.truncate(info.buffer_size());
+    Ok((info.width, info.height, buf))
+}
+
 const MIN_SIDE: u32 = 640;
 const MAX_SIDE: u32 = 8192;
 
@@ -65,7 +91,24 @@ pub fn render_solid(id: &str, width: u32, height: u32) -> Result<Vec<u8>, Appear
     // Узор задан для 3840×2160: масштабируем координаты к этой сетке.
     let scale = 3840.0 / f64::from(width);
     let mut pixels = Vec::with_capacity(width as usize * height as usize * 3);
-    for y in 0..height {
+    if item.pattern == "pop" {
+        let (pw, ph, pat) = pop_pattern()?;
+        let tile = POP_TILE_1080 * f64::from(height) / 1080.0;
+        let (sx, sy) = (f64::from(pw) / tile, f64::from(ph) / tile);
+        for y in 0..height {
+            let py = ((f64::from(y) * sy) as u32 % ph) as usize;
+            for x in 0..width {
+                let px = ((f64::from(x) * sx) as u32 % pw) as usize;
+                let i = (py * pw as usize + px) * 4;
+                let a = f64::from(pat[i + 3]) / 255.0 * POP_OPACITY;
+                for c in 0..3 {
+                    let v = f64::from(base[c]) * (1.0 - a) + f64::from(pat[i + c]) * a;
+                    pixels.push(v.round() as u8);
+                }
+            }
+        }
+    }
+    for y in (0..height).filter(|_| item.pattern != "pop") {
         let gy = (f64::from(y) + 0.5) * scale;
         for x in 0..width {
             let on =
@@ -104,7 +147,7 @@ mod tests {
     #[test]
     fn table_has_unique_ids_and_valid_colours_acid_first() {
         let all = solid_wallpapers();
-        assert!(all.len() >= 14);
+        assert_eq!(all.len(), 7);
         let mut ids: Vec<_> = all.iter().map(|w| w.id.clone()).collect();
         ids.sort();
         ids.dedup();
@@ -121,18 +164,16 @@ mod tests {
         let (w, h) = (1280, 720);
         let (dw, dh, px) = decode(&render_solid("solid-acid-01", w, h).unwrap());
         assert_eq!((dw, dh), (w, h));
-        assert_eq!(&px[..3], &[0xB4, 0xFF, 0x00]);
-        let white = decode(&render_solid("solid-white", w, h).unwrap()).2;
-        assert!(white.iter().all(|&c| c == 255));
+        assert!(px.chunks(3).any(|p| p == [0xB4, 0xFF, 0x00]));
     }
 
     #[test]
     fn patterns_darken_some_pixels_slightly() {
-        let px = decode(&render_solid("solid-acid-13", 1920, 1080).unwrap()).2;
-        let base = [0xF5u8, 0xFF, 0x00];
-        let darker = px.chunks(3).filter(|p| p != &base).count();
-        assert!(darker > 1000, "узор «сетка» виден");
-        assert!(px.chunks(3).all(|p| p[0] >= 230), "узор едва заметен");
+        let px = decode(&render_solid("solid-red", 1920, 1080).unwrap()).2;
+        let base = [0xFFu8, 0x1E, 0x1E];
+        let changed = px.chunks(3).filter(|p| p != &base).count();
+        assert!(changed > 1000, "узор приложения виден");
+        assert!(px.chunks(3).all(|p| p[0] >= 220), "узор едва заметен");
     }
 
     #[test]

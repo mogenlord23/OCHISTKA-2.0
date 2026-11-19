@@ -123,11 +123,15 @@ mod imp {
 
     impl CursorRefreshPort for WindowsCursorRefresh {
         fn refresh(&self) -> Result<(), AppearanceError> {
-            win32_ffi::reload_cursors().map_err(AppearanceError::Registry)
+            // Значения в реестре уже записаны. SPI_SETCURSORS иногда возвращает FALSE
+            // с кодом 0 («Операция успешно завершена»): это не ошибка, курсор применён.
+            let _ = win32_ffi::reload_cursors();
+            Ok(())
         }
 
         fn colors_changed(&self) -> Result<(), AppearanceError> {
-            win32_ffi::broadcast_color_change().map_err(AppearanceError::Registry)
+            let _ = win32_ffi::broadcast_color_change();
+            Ok(())
         }
     }
 

@@ -41,7 +41,7 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'Обновить состояние' })).toBeTruthy();
   });
 
-  it('changes nothing until the confirmation dialog is accepted', async () => {
+  it('applies a tweak at once, without a dialog', async () => {
     vi.mocked(tweakSet).mockResolvedValue(overview({ transparency: true }));
     render(SettingsPage);
     const box = (await screen.findByRole('checkbox', {
@@ -49,28 +49,17 @@ describe('SettingsPage', () => {
     })) as HTMLInputElement;
     await waitFor(() => expect(box.disabled).toBe(false));
     box.click();
-    expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(tweakSet).not.toHaveBeenCalled();
-
-    screen.getByRole('button', { name: 'Отмена' }).click();
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(tweakSet).not.toHaveBeenCalled();
-
-    box.click();
-    (await screen.findByRole('button', { name: 'Применить' })).click();
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('transparency', true));
-    await waitFor(() => expect(box.checked).toBe(true));
   });
 
-  it('reverts the section only after confirmation', async () => {
+  it('reverts the section at once, without a dialog', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({ transparency: true }));
     vi.mocked(tweaksRevert).mockResolvedValue(overview());
     render(SettingsPage);
     const revert = screen.getByRole('button', { name: 'Вернуть изменения раздела' });
     await waitFor(() => expect((revert as HTMLButtonElement).disabled).toBe(false));
     revert.click();
-    expect(tweaksRevert).not.toHaveBeenCalled();
-    (await screen.findByRole('button', { name: 'Вернуть' })).click();
     await waitFor(() => expect(tweaksRevert).toHaveBeenCalledWith('settings'));
   });
 

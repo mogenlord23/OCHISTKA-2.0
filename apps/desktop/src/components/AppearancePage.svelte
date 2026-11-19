@@ -1,4 +1,5 @@
 <script lang="ts">
+  import popPattern from '../assets/pop-pattern.png';
   import { onMount } from 'svelte';
   import {
     COLOR_SCHEMES,
@@ -301,9 +302,23 @@
           </div>
         {:else if kind === 'color'}
           <div class="chips">
-            {@render chip('Эффект прозрачности', transparencyOn, toggleTransparency)}
-            {@render chip('Залить панель задач и Пуск', fillOn, toggleFill)}
-            {@render chip('Вернуть оформление Windows', false, restoreWindows, !status?.hasBackup)}
+            <!-- Заливка и прозрачность несовместимы: виден только один переключатель -->
+            {#if !fillOn}
+              {@render chip('Эффект прозрачности', transparencyOn, toggleTransparency)}
+            {/if}
+            {#if !transparencyOn}
+              {@render chip('Залить панель задач и Пуск', fillOn, toggleFill)}
+            {/if}
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              aria-disabled={!status?.hasBackup}
+              class:disabled={!status?.hasBackup}
+              onclick={() => {
+                if (status?.hasBackup) restoreWindows();
+              }}>Вернуть оформление Windows</button
+            >
           </div>
         {/if}
 
@@ -318,7 +333,12 @@
                 class:selected={isSelected}
                 aria-pressed={isSelected}
                 aria-label="{ACCESSIBLE_NAME[kind]} {index + 1}"
-                style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
+                style:background-image={tile.preview.includes('gradient')
+                  ? tile.preview
+                  : tile.id.startsWith('solid-')
+                    ? `url(${popPattern})`
+                    : null}
+                style:background-size={tile.id.startsWith('solid-') ? '96px 96px' : null}
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
                 onclick={() => pick(tile.id)}
               >
@@ -336,12 +356,6 @@
                   <span class="cursor" aria-hidden="true"
                     >{@html cursorSvg(cursor, tile.id, 64)}</span
                   >
-                  <!-- Превью анимации «Занят»: бегущая дуга второго цвета крутится при наведении -->
-                  <span
-                    class="spin"
-                    aria-hidden="true"
-                    style:--spin={cursor.pattern === 'neon' ? cursor.color : cursor.secondary}
-                  ></span>
                 {/if}
               </button>
             </li>
@@ -444,7 +458,7 @@
     min-height: 52px;
     padding: 8px 20px 8px 14px;
     border: 2px solid #2a2a2a;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: #121212;
     color: var(--ink);
     font: inherit;
@@ -474,7 +488,7 @@
     width: 26px;
     height: 26px;
     border: 3px solid #4a4a4a;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     background: #1c1c1c;
     box-shadow: inset 0 0 0 3px #1c1c1c;
   }
@@ -526,7 +540,7 @@
     padding: 0;
     overflow: hidden;
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background-origin: border-box;
     background-repeat: no-repeat;
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 30%);
@@ -541,7 +555,7 @@
   }
 
   .grid-color .tile {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     box-shadow: inset 0 0 0 3px #111;
   }
 
@@ -578,28 +592,6 @@
     place-items: center;
     width: 100%;
     height: 100%;
-  }
-
-  .spin {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    width: 16px;
-    height: 16px;
-    border: 3px solid rgb(255 255 255 / 18%);
-    border-top-color: var(--spin, #fff);
-    border-radius: 50%;
-    animation: spin 700ms linear infinite paused;
-  }
-
-  .tile:hover .spin {
-    animation-play-state: running;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .cursor :global(svg) {
@@ -683,7 +675,6 @@
     .pane,
     .tile,
     .chip,
-    .spin,
     .switch,
     .knob {
       animation: none;

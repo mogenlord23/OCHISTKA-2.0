@@ -14,7 +14,7 @@
   import { i18n, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
   import { watchMaximized } from './lib/windowState';
-  import { readSoundEnabled, writeSoundEnabled } from './lib/sound';
+  import { playClick, preloadSounds, readSoundEnabled, writeSoundEnabled } from './lib/sound';
   import {
     BODY_FONT,
     HEADING_FONT,
@@ -116,7 +116,10 @@
   });
   let lastId: SectionId = 'vpn';
 
+  preloadSounds();
+
   function select(id: SectionId) {
+    if (id !== activeId) playClick();
     activeId = id;
     activeSub = SECTIONS.find((item) => item.id === id)?.subsections[0]?.id ?? '';
   }
@@ -302,6 +305,12 @@
     contain: layout paint;
     font-family: var(--font-body, system-ui, sans-serif);
     background: var(--window);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Развёрнутое окно: углы квадратные, от края до края. */
+  .shell[data-maximized='true'] {
+    border-radius: 0;
   }
 
   /* Видимый фокус с клавиатуры, двойное кольцо. Внешнее (цвет текста страницы) читается
@@ -331,7 +340,7 @@
     overflow: hidden;
     background-color: var(--accent);
     /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
-    --content-gutter: max(24px, calc((100% - 1480px) / 2));
+    --content-gutter: max(22px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -419,15 +428,12 @@
     display: grid;
     background: var(--window);
     grid-template-rows: 0fr;
-    opacity: 0;
-    transition:
-      grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1),
-      opacity 160ms ease;
+    /* Непрозрачный: пока открыт, полностью закрывает плитки панели под собой. */
+    transition: grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   .bottom-wrap.open {
     grid-template-rows: 1fr;
-    opacity: 1;
   }
 
   .bottom {
@@ -451,7 +457,7 @@
     height: 20px;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--muted);
     cursor: pointer;

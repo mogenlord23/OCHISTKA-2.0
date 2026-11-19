@@ -29,7 +29,7 @@ describe('appearance tiles', () => {
 
   it('puts the solid styled wallpapers first, then the owner photo set with thumbnails', () => {
     expect(WALLPAPER_PHOTOS).toHaveLength(146);
-    expect(SOLID_WALLPAPERS.length).toBeGreaterThanOrEqual(14);
+    expect(SOLID_WALLPAPERS.length).toBe(7);
     expect(WALLPAPERS).toHaveLength(SOLID_WALLPAPERS.length + 146);
     expect(WALLPAPERS.slice(0, SOLID_WALLPAPERS.length)).toEqual(SOLID_WALLPAPERS);
     for (const tile of SOLID_WALLPAPERS) {

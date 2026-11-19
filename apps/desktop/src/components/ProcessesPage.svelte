@@ -45,7 +45,7 @@
   let listing = false;
 
   /** Сортировка по клику на заголовок. `null` — по имени, как в списке Windows. */
-  let sort = $state<SortState<ProcessSortKey> | null>(null);
+  let sort = $state<SortState<ProcessSortKey> | null>({ key: 'cpu', dir: 'desc' });
   const COLUMNS: Array<{ key: ProcessSortKey; label: string; cls: string; first: 'asc' | 'desc' }> =
     [
       { key: 'name', label: 'Процесс', cls: 'c-name', first: 'asc' },
@@ -496,7 +496,7 @@
     max-height: calc(100vh - 440px);
     min-height: 180px;
     overflow: auto;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: #111;
     color: var(--ink);
     font-size: var(--text-small);
@@ -574,7 +574,7 @@
     position: relative;
     height: 52px;
     padding: 0 12px 0 2px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     cursor: default;
     transition: background 120ms ease;
   }
@@ -610,7 +610,7 @@
     display: inline-block;
     min-width: 62px;
     padding: 5px 10px;
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: #2a0f1e;
     color: #ff2e93;
     font-family: ui-monospace, Consolas, monospace;

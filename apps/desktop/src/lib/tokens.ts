@@ -55,7 +55,7 @@ export const NEUTRAL = {
 } as const;
 
 /** Скругления: маленькое (кнопки), среднее (карточки), большое (панели). */
-export const RADIUS = { sm: '8px', md: '12px', lg: '14px' } as const;
+export const RADIUS = { sm: '8px', md: '14px', lg: '14px' } as const;
 
 /** Размеры текста: подпись, мелкий, основной, ведущий, заголовок блока, раздел, дисплей. */
 export const TYPE_SCALE = {

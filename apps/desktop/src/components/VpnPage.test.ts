@@ -208,7 +208,7 @@ describe('VpnPage: подключение и серверы', () => {
     expect(screen.getByLabelText('Время подключения').textContent).toBe('00:00:00');
   });
 
-  it('shows the missing core with the exact fetch command and disables connecting', async () => {
+  it('hides technical core details and disables connecting', async () => {
     await openLoaded(
       makeSnapshot({
         servers: SERVERS,
@@ -220,12 +220,12 @@ describe('VpnPage: подключение и серверы', () => {
         },
       }),
     );
-    expect(screen.getByText('VPN-ядро не установлено')).toBeTruthy();
-    expect(screen.getByText('powershell -File fetch.ps1')).toBeTruthy();
+    expect(screen.queryByText(/ядро/i)).toBeNull();
+    expect(screen.queryByText('powershell -File fetch.ps1')).toBeNull();
     expect(screen.getByRole('button', { name: 'Подключить' }).getAttribute('aria-disabled')).toBe(
       'true',
     );
-    expect(screen.getByText(/VPN-ядро не найдено: файл sing-box.exe не найден/)).toBeTruthy();
+    expect(screen.getByText(/VPN временно недоступен/)).toBeTruthy();
   });
 
   it('connect calls the backend, then shows the disconnect state and the status', async () => {

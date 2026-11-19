@@ -48,7 +48,7 @@
   let selectedId = $state<string | null>(null);
   let measuring = $state(false);
   let measures = $state<Record<string, FolderMeasure>>({});
-  let sort = $state<SortState<ProgramSortKey> | null>(null);
+  let sort = $state<SortState<ProgramSortKey> | null>({ key: 'size', dir: 'desc' });
   /** Программа, ожидающая подтверждения удаления. Без подтверждения ядро не вызывается. */
   let pendingUninstall = $state<InstalledProgram | null>(null);
   let menu = $state<{ program: InstalledProgram; x: number; y: number } | null>(null);
@@ -707,7 +707,7 @@
     max-height: calc(100vh - 440px);
     min-height: 180px;
     overflow: auto;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: #111;
     color: var(--ink);
     font-size: var(--text-small);
@@ -789,7 +789,7 @@
     position: relative;
     height: 52px;
     padding: 0 12px 0 2px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     font-weight: 600;
     cursor: default;
     transition: background 120ms ease;

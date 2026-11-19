@@ -45,7 +45,7 @@
     justify-content: space-between;
     flex: none;
     height: 64px;
-    padding: 0 var(--content-gutter, 24px);
+    padding: 0 16px 0 var(--content-gutter, 22px);
     user-select: none;
   }
 
@@ -81,7 +81,7 @@
     height: 40px;
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: var(--black);
     color: #fff;
     cursor: pointer;

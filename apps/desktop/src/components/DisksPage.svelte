@@ -525,7 +525,7 @@
     justify-content: center;
     width: 72px;
     height: 72px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
   }
 
   .drive-glyph {

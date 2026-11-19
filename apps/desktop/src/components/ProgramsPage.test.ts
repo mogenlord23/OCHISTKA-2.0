@@ -116,7 +116,7 @@ describe('ProgramsPage installed programs', () => {
         .map((row) => within(row).getAllByRole('button')[0].textContent?.trim());
     const sizeHead = () =>
       within(screen.getByRole('columnheader', { name: /^Размер/ })).getByRole('button');
-    await fireEvent.click(sizeHead());
+    // По умолчанию уже по размеру, от большего к меньшему.
     expect(names()).toEqual(['Google Chrome', 'Old Tool']);
     await fireEvent.click(sizeHead());
     expect(names()).toEqual(['Google Chrome', 'Old Tool']);

@@ -125,7 +125,7 @@ describe('connectUi', () => {
       false,
     );
     expect(ui.disabled).toBe(true);
-    expect(ui.reason).toContain('sing-box.exe');
+    expect(ui.reason).toContain('временно недоступен');
   });
 
   it('is ready to connect when a server is selected and the core is present', () => {

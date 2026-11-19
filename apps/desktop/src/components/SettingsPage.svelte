@@ -1,9 +1,8 @@
 <script lang="ts">
   import { toCommandError } from '../lib/api';
   import { tweakSet, tweaksOverview, tweaksRevert } from '../lib/tweaksApi';
-  import { CONFIRM_TEXT, SETTINGS_TWEAKS, type TweakText } from '../lib/tweaksText';
+  import { SETTINGS_TWEAKS, type TweakText } from '../lib/tweaksText';
   import type { CommandError, TweaksOverview } from '../lib/types';
-  import ConfirmDialog from './ConfirmDialog.svelte';
   import TweakCard from './TweakCard.svelte';
 
   let data = $state<TweaksOverview | null>(null);
@@ -64,7 +63,10 @@
     <button
       type="button"
       disabled={busy || unsupported || !hasBackup}
-      onclick={() => (pending = { kind: 'revert' })}>Вернуть изменения раздела</button
+      onclick={() => {
+        pending = { kind: 'revert' };
+        confirm();
+      }}>Вернуть изменения раздела</button
     >
   </div>
 
@@ -81,29 +83,14 @@
         description={tweak.description}
         checked={applied(tweak.id)}
         disabled={busy || data === null || unsupported}
-        onchange={(next) => (pending = { kind: 'set', tweak, enable: next })}
+        onchange={(next) => {
+          pending = { kind: 'set', tweak, enable: next };
+          confirm();
+        }}
       />
     {/each}
   </div>
 </section>
-
-{#if pending}
-  <ConfirmDialog
-    title={pending.kind === 'revert'
-      ? 'Вернуть изменения раздела?'
-      : pending.enable
-        ? `Применить: ${pending.tweak.title}?`
-        : `Вернуть: ${pending.tweak.title}?`}
-    text={pending.kind === 'revert'
-      ? 'Все настройки этого раздела вернутся к значениям, сохранённым до применения.'
-      : pending.enable
-        ? CONFIRM_TEXT
-        : 'Настройка вернётся к значению, сохранённому до применения.'}
-    confirmLabel={pending.kind === 'revert' || !pending.enable ? 'Вернуть' : 'Применить'}
-    onconfirm={confirm}
-    oncancel={() => (pending = null)}
-  />
-{/if}
 
 <style>
   .page h2 {

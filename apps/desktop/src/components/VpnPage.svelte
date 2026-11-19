@@ -74,7 +74,6 @@
   let requesting = $state(false);
   let actionNote = $state<string | null>(null);
   let nowMs = $state(Date.now());
-  let copied = $state(false);
 
   const servers = $derived(snapshot?.servers ?? []);
   const ui = $derived(connectUi(snapshot, requesting || importing));
@@ -192,15 +191,6 @@
     if (snapshot) snapshot = { ...snapshot, rules };
   }
 
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(snapshot?.core.fetchCommand ?? '');
-      copied = true;
-    } catch {
-      copied = false;
-    }
-  }
-
   let networkMessages = $state<Record<string, string | null>>({});
   /** Переключатель, для которого ждём подтверждения (id из ADVANCED). */
   let pendingNetwork = $state<(typeof ADVANCED)[number] | null>(null);
@@ -225,11 +215,18 @@
   }
 
   /** Пасхалка: звук (если включён) и анимация нажатия. */
-  let pressed = $state(false);
-  function onPoster() {
-    pressed = false;
-    requestAnimationFrame(() => (pressed = true));
+  /** Срабатывает на нажатие (pointerdown), а не на отпускание: звук и анимация сразу. */
+  function onPoster(event: PointerEvent | KeyboardEvent) {
+    if (event instanceof KeyboardEvent && event.key !== 'Enter' && event.key !== ' ') return;
     playHeehee();
+    (event.currentTarget as HTMLElement).animate?.(
+      [
+        { transform: 'scale(1)' },
+        { transform: 'scale(0.94)', offset: 0.3 },
+        { transform: 'scale(1)' },
+      ],
+      { duration: 200, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+    );
   }
 </script>
 
@@ -238,10 +235,9 @@
     <button
       type="button"
       class="poster"
-      class:pressed
       aria-label="Постер"
-      onclick={onPoster}
-      onanimationend={() => (pressed = false)}
+      onpointerdown={onPoster}
+      onkeydown={onPoster}
     >
       <span class="band">
         <img src={chePink} alt="" draggable="false" />
@@ -302,21 +298,6 @@
               <p class="note" role="status">{importNote}</p>
             {/if}
           </section>
-
-          {#if snapshot && !snapshot.core.available}
-            <section class="card core-missing" role="alert">
-              <h2>VPN-ядро не установлено</h2>
-              <p class="note">
-                {snapshot.core.reason ?? 'Файл ядра не найден.'} Скачай его одной командой из папки проекта:
-              </p>
-              <div class="cmd-row">
-                <code class="cmd">{snapshot.core.fetchCommand}</code>
-                <button type="button" onclick={copyCommand}
-                  >{copied ? 'Скопировано' : 'Копировать'}</button
-                >
-              </div>
-            </section>
-          {/if}
 
           <section class="card connect">
             <div class="power-row">
@@ -548,22 +529,6 @@
     object-position: 50% 30%;
   }
 
-  .poster.pressed {
-    animation: poster-press 260ms cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  @keyframes poster-press {
-    0% {
-      transform: scale(1);
-    }
-    35% {
-      transform: scale(0.94);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-
   .column {
     display: flex;
     flex-direction: column;
@@ -718,26 +683,6 @@
 
   .latency.dead {
     color: var(--muted);
-  }
-
-  .core-missing .cmd-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .cmd {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    background: var(--black);
-    color: var(--ink);
-    font-family: Consolas, 'Courier New', monospace;
-    font-size: 0.75rem;
-    overflow-wrap: anywhere;
-    user-select: all;
   }
 
   .row {
@@ -963,7 +908,7 @@
     place-items: center;
     width: 58px;
     height: 58px;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: var(--accent);
     color: #000;
     font-size: 1.5rem;
