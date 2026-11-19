@@ -13,6 +13,7 @@
   import { formatMemory } from '../lib/units';
   import { getIcon } from '../lib/programsApi';
   import { prefetchProcessIcons } from '../lib/processIcons';
+  import { cachedList, rememberList } from '../lib/listCache';
   import {
     endTask,
     exePath,
@@ -25,8 +26,9 @@
 
   let { subsection }: { subsection: string } = $props();
 
-  let processes = $state<ProcessInfo[]>([]);
-  let loaded = $state(false);
+  /** Последний список из памяти: страница не пустеет при повторном открытии. */
+  const cachedProcesses = cachedList<ProcessInfo>('processes');
+  let processes = $state<ProcessInfo[]>(cachedProcesses ?? []);
   let query = $state('');
   let selectedPid = $state<number | null>(null);
   let listError = $state<ProcessesErrorInfo | null>(null);
@@ -63,13 +65,13 @@
     listing = true;
     try {
       processes = await listProcesses();
+      rememberList('processes', processes);
       prefetchProcessIcons(processes);
       updatedAt = new Date().toLocaleTimeString('ru-RU');
       listError = null;
     } catch (err) {
       listError = toProcessesError(err);
     } finally {
-      loaded = true;
       listing = false;
     }
   }
@@ -196,9 +198,7 @@
       <p class="notice" role="status">{notice}</p>
     {/if}
 
-    {#if !loaded && !listError}
-      <p class="status-line">Загружаем список процессов…</p>
-    {:else if visible.length === 0 && processes.length > 0}
+    {#if visible.length === 0 && processes.length > 0}
       <p class="status-line">Ничего не найдено по запросу «{query}».</p>
     {:else}
       <div class="grid" role="table" aria-label="Процессы" aria-rowcount={visible.length + 1}>

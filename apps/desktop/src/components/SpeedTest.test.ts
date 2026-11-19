@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import SpeedTest from './SpeedTest.svelte';
 import VpnNetworkTab from './VpnNetworkTab.svelte';
 import type { SpeedEvent } from '../lib/speedtestApi';
+import { speedStore } from '../lib/speedtestStore.svelte';
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({
@@ -40,7 +41,10 @@ const FULL: SpeedEvent[] = [
   { type: 'done', result: RESULT },
 ];
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  speedStore.reset();
+});
 afterEach(() => {
   cleanup();
   invokeMock.mockReset();
@@ -111,6 +115,54 @@ describe('SpeedTest', () => {
     await fireEvent.click(stop);
     expect(calls('speedtest_cancel')).toHaveLength(1);
     finish();
+  });
+});
+
+describe('SpeedTest store outside the page', () => {
+  it('keeps running when the page is left, and shows the progress and the result on return', async () => {
+    const finish = backend(
+      [
+        { type: 'phase', phase: 'download' },
+        { type: 'progress', phase: 'download', mbps: 30, fraction: 0.3 },
+      ],
+      { hold: true },
+    );
+    render(SpeedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
+    await screen.findByRole('button', { name: 'Остановить' });
+    cleanup();
+    // Уход из раздела тест не отменяет.
+    expect(calls('speedtest_cancel')).toHaveLength(0);
+    render(SpeedTest);
+    expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('30');
+    expect(calls('speedtest_start')).toHaveLength(1);
+    finish();
+  });
+
+  it('keeps the last finished result after leaving, offers Повторить and never restarts by itself', async () => {
+    backend(FULL);
+    render(SpeedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
+    await screen.findByText('Отличное соединение.');
+    cleanup();
+    render(SpeedTest);
+    expect(screen.getByTestId('speed-down').textContent).toContain('120');
+    expect(screen.getByTestId('speed-value').textContent).toBe('120');
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(calls('speedtest_start')).toHaveLength(1);
+  });
+
+  it('keeps the last result visible when a repeated run fails', async () => {
+    backend(FULL);
+    render(SpeedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
+    await screen.findByText('Отличное соединение.');
+    backend([{ type: 'failed', kind: 'offline' }]);
+    await fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByTestId('speed-down').textContent).toContain('120');
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
   });
 });
 

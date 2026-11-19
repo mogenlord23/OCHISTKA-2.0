@@ -12,6 +12,7 @@
     startupActionLabel,
     type ProgramSortKey,
   } from '../lib/programs';
+  import { cachedList, rememberList } from '../lib/listCache';
   import { ariaSort, nextSort, type SortState } from '../lib/sortState';
   import { formatSize } from '../lib/units';
   import {
@@ -43,8 +44,10 @@
   let notice = $state('');
 
   // Установленные
-  let programs = $state<InstalledProgram[]>([]);
-  let loadedInstalled = $state(false);
+  const cachedPrograms = cachedList<InstalledProgram>('programs');
+  const cachedStartup = cachedList<StartupEntry>('startup');
+  let programs = $state<InstalledProgram[]>(cachedPrograms ?? []);
+  let loadedInstalled = $state(cachedPrograms !== null);
   let query = $state('');
   let selectedId = $state<string | null>(null);
   let measuring = $state(false);
@@ -58,8 +61,8 @@
   let cancelButton = $state<HTMLButtonElement | null>(null);
 
   // Автозагрузка
-  let startup = $state<StartupEntry[]>([]);
-  let loadedStartup = $state(false);
+  let startup = $state<StartupEntry[]>(cachedStartup ?? []);
+  let loadedStartup = $state(cachedStartup !== null);
   let startupKey = $state<string | null>(null);
   let pendingStartup = $state<StartupEntry | null>(null);
 
@@ -96,6 +99,7 @@
     error = null;
     try {
       programs = await listInstalled();
+      rememberList('programs', programs);
       prefetchProgramIcons(programs);
       loadedInstalled = true;
       if (!programs.some((program) => program.id === selectedId)) selectedId = null;
@@ -111,6 +115,7 @@
     error = null;
     try {
       startup = await listStartup();
+      rememberList('startup', startup);
       prefetchPathIcons(
         startup.flatMap((entry) => {
           const path = commandExePath(entry.command);
@@ -128,12 +133,12 @@
     }
   }
 
-  // Загрузка при открытии подраздела: один раз на подраздел, список обновляет кнопка.
+  // При открытии подраздела список из памяти виден сразу, свежий читается в фоне.
   $effect(() => {
     const current = subsection;
     untrack(() => {
-      if (current === 'installed' && !loadedInstalled) void loadInstalled();
-      if (current === 'startup' && !loadedStartup) void loadStartup();
+      if (current === 'installed') void loadInstalled();
+      if (current === 'startup') void loadStartup();
     });
   });
 

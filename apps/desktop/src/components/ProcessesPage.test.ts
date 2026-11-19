@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ProcessesPage from './ProcessesPage.svelte';
+import { clearListCache } from '../lib/listCache';
 import { endTask, exePath, listProcesses, revealExe } from '../lib/processesApi';
 import type { ProcessInfo } from '../lib/processesApi';
 
@@ -20,6 +21,7 @@ const LIST: ProcessInfo[] = [
 ];
 
 beforeEach(() => {
+  clearListCache();
   vi.mocked(listProcesses).mockResolvedValue(LIST);
 });
 
@@ -35,6 +37,17 @@ async function mountProcesses() {
   await vi.waitFor(() => expect(screen.getByText('chrome.exe')).toBeTruthy());
   return view;
 }
+
+describe('ProcessesPage cache', () => {
+  it('shows the last list immediately after reopening, with no loading text', async () => {
+    const first = await mountProcesses();
+    first.unmount();
+    vi.mocked(listProcesses).mockReturnValue(new Promise(() => {}));
+    render(ProcessesPage, { subsection: 'processes' });
+    expect(screen.getByText('chrome.exe')).toBeTruthy();
+    expect(screen.queryByText(/Загружаем/)).toBeNull();
+  });
+});
 
 describe('ProcessesPage list', () => {
   it('shows name, PID, CPU and formatted memory', async () => {

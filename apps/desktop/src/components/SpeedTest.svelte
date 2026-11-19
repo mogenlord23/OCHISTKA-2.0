@@ -1,33 +1,34 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
+  import { speedStore } from '../lib/speedtestStore.svelte';
   import {
     CANCELLED_MESSAGE,
-    IDLE,
     PHASE_LABEL,
     SPEED_NOTE,
-    START,
     easeToward,
     failureMessage,
     formatMbps,
     formatMs,
     gaugeFraction,
-    markNoteSeen,
     noteSeen,
-    reduce,
     summarize,
-    type SpeedUi,
   } from '../lib/speedtest';
-  import { cancelSpeedtest, startSpeedtest } from '../lib/speedtestApi';
 
-  let ui = $state<SpeedUi>(IDLE);
+  /** Состояние теста лежит в хранилище: уход из раздела его не прерывает. */
+  const ui = $derived(speedStore.view);
+  const status = $derived(speedStore.ui.status);
   let showNote = $state(!noteSeen());
-  let shown = $state(0);
-
-  const running = $derived(ui.status === 'running');
-  const target = $derived(ui.status === 'done' ? (ui.downloadMbps ?? 0) : ui.liveMbps);
+  const running = $derived(speedStore.running);
+  const target = $derived(running ? speedStore.ui.liveMbps : (ui.downloadMbps ?? 0));
+  // При возврате в раздел показываем прежнее значение сразу, без разгона с нуля.
+  let shown = $state(
+    untrack(() =>
+      speedStore.running ? speedStore.ui.liveMbps : (speedStore.view.downloadMbps ?? 0),
+    ),
+  );
   const fraction = $derived(gaugeFraction(shown));
   const summary = $derived(
-    ui.status === 'done' &&
+    status === 'done' &&
       ui.downloadMbps !== null &&
       ui.uploadMbps !== null &&
       ui.pingMs !== null &&
@@ -80,28 +81,17 @@
 
   onDestroy(() => {
     if (frame !== 0 && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
-    if (ui.status === 'running') void cancelSpeedtest().catch(() => {});
+    // Тест не отменяется: он продолжается в хранилище, пока открыт другой раздел.
   });
 
-  async function start() {
-    if (running) return;
+  function start() {
     showNote = false;
-    markNoteSeen();
     shown = 0;
-    ui = START;
-    try {
-      await startSpeedtest((event) => {
-        ui = reduce(ui, event);
-      });
-      // Если Rust завершился, не прислав итога, не оставляем кнопку в ожидании.
-      if (ui.status === 'running') ui = reduce(ui, { type: 'failed', kind: 'server' });
-    } catch {
-      ui = reduce(ui, { type: 'failed', kind: 'server' });
-    }
+    void speedStore.start();
   }
 
   function stop() {
-    void cancelSpeedtest().catch(() => {});
+    speedStore.stop();
   }
 </script>
 
@@ -112,7 +102,7 @@
       <button type="button" class="btn" onclick={stop}>Остановить</button>
     {:else}
       <button type="button" class="btn go" onclick={start}>
-        {ui.status === 'idle' ? 'Проверить скорость' : 'Повторить'}
+        {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
       </button>
     {/if}
   </div>
@@ -176,15 +166,15 @@
       aria-label="Ход теста"
       aria-valuemin="0"
       aria-valuemax="100"
-      aria-valuenow={Math.round(ui.fraction * 100)}
+      aria-valuenow={Math.round(speedStore.ui.fraction * 100)}
     >
-      <span style:width={`${Math.round(ui.fraction * 100)}%`}></span>
+      <span style:width={`${Math.round(speedStore.ui.fraction * 100)}%`}></span>
     </div>
   {/if}
 
-  {#if ui.status === 'failed'}
-    <p class="msg error" role="alert">{failureMessage(ui.failure)}</p>
-  {:else if ui.status === 'cancelled'}
+  {#if status === 'failed'}
+    <p class="msg error" role="alert">{failureMessage(speedStore.ui.failure)}</p>
+  {:else if status === 'cancelled'}
     <p class="msg" role="status">{CANCELLED_MESSAGE}</p>
   {:else if summary}
     <p class="msg" role="status"><b>{summary.title}.</b> {summary.text}</p>

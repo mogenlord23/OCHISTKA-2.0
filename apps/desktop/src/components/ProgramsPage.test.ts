@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import ProgramsPage from './ProgramsPage.svelte';
+import { clearListCache } from '../lib/listCache';
 import {
   listInstalled,
   listStartup,
@@ -27,6 +28,7 @@ vi.mock('../lib/programsApi', async (importOriginal) => ({
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  clearListCache();
 });
 
 const CHROME: InstalledProgram = {
@@ -264,6 +266,23 @@ const MESSENGER: StartupEntry = {
   enabled: false,
   previousEnabled: true,
 };
+
+describe('ProgramsPage cache', () => {
+  it('shows the previous list at once on reopening and refreshes it in the background', async () => {
+    const first = mountInstalled();
+    expect(await screen.findByText('Google Chrome')).toBeTruthy();
+    first.unmount();
+    let finish!: (list: InstalledProgram[]) => void;
+    vi.mocked(listInstalled).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    render(ProgramsPage, { subsection: 'installed' });
+    // Свежий список ещё читается, а прошлый уже на экране, без «Читаю…».
+    expect(screen.getByText('Google Chrome')).toBeTruthy();
+    expect(screen.queryByText('Читаю список программ…')).toBeNull();
+    finish([NO_PATH]);
+    expect(await screen.findByText('Old Tool')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Google Chrome')).toBeNull());
+  });
+});
 
 describe('ProgramsPage startup', () => {
   it('renders the startup list with the state of every entry', async () => {
