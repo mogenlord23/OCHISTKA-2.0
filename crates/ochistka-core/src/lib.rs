@@ -18,6 +18,7 @@ pub mod readonly;
 pub mod scan;
 pub mod system;
 pub mod tweaks;
+mod tweaks_catalog;
 pub mod vpn;
 
 #[cfg(test)]

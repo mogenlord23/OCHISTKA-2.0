@@ -2,4 +2,8 @@
 import type { BoostState } from "./BoostState";
 import type { TweakState } from "./TweakState";
 
-export type TweaksOverview = { tweaks: Array<TweakState>, boost: BoostState, };
+export type TweaksOverview = { tweaks: Array<TweakState>, boost: BoostState, 
+/**
+ * Номер сборки Windows, если удалось определить.
+ */
+build: number | null, elevated: boolean, };

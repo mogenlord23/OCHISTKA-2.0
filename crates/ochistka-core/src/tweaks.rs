@@ -1,6 +1,8 @@
-//! Безопасные настройки Windows и профили Boost. Только значения реестра текущего пользователя
-//! и схема электропитания. Перед изменением прежнее значение записывается в
+//! Безопасные настройки Windows и профили Boost. Реестр (HKCU, а для политик HKLM только при
+//! правах администратора) и схема электропитания. Перед изменением прежнее значение записывается в
 //! `HKCU\Software\OCHISTKA\Backup`, откат возвращает его (или удаляет значение, если его не было).
+//! После каждой записи значения читаются обратно: «включено» показывается только если Windows
+//! действительно приняла значение, иначе всё возвращается и возникает ошибка.
 //! Здесь только логика над портами; настоящие записи делает адаптер платформы, в тестах — только
 //! поддельный реестр.
 
@@ -8,8 +10,12 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use crate::system::CoreError;
+use crate::tweaks_catalog::{
+    Entry, TweakDef, Val, HIGH_SCHEME, TWEAKS, ULTIMATE_SCHEME, WIN11, WIN11_22H2, WIN11_24H2,
+};
+pub use crate::tweaks_catalog::{Group, RestartKind};
 
-/// Реестр текущего пользователя (HKCU). Пути заданы относительно HKCU.
+/// Реестр. Пути заданы относительно HKCU; приставка `HKLM\` означает HKLM.
 pub trait RegistryPort: Send + Sync {
     fn read_dword(&self, key: &str, name: &str) -> Result<Option<u32>, CoreError>;
     fn write_dword(&self, key: &str, name: &str, value: u32) -> Result<(), CoreError>;
@@ -23,111 +29,40 @@ pub trait RegistryPort: Send + Sync {
 pub trait PowerPort: Send + Sync {
     /// GUID активной схемы.
     fn active_scheme(&self) -> Result<String, CoreError>;
+    /// Делает схему активной (при необходимости создаёт её: «Максимальная производительность»).
     fn set_active_scheme(&self, guid: &str) -> Result<(), CoreError>;
 }
 
+/// Сведения о системе и переходы в системные окна.
+pub trait SystemPort: Send + Sync {
+    /// Номер сборки Windows (CurrentBuildNumber): 19045 для Windows 10 22H2, 22631 для Windows 11 23H2.
+    fn windows_build(&self) -> Option<u32>;
+    /// Программа запущена с правами администратора (запись в HKLM возможна).
+    fn is_elevated(&self) -> bool;
+    /// Статус активации Windows.
+    fn activation(&self) -> Result<ActivationInfo, CoreError>;
+    /// Открывает «Параметры → Активация» (`ms-settings:activation`).
+    fn open_activation_settings(&self) -> Result<(), CoreError>;
+}
+
 /// Всё, что нужно настройкам и Boost, в одном объекте.
-pub trait TweaksPort: RegistryPort + PowerPort {}
-impl<T: RegistryPort + PowerPort> TweaksPort for T {}
+pub trait TweaksPort: RegistryPort + PowerPort + SystemPort {}
+impl<T: RegistryPort + PowerPort + SystemPort> TweaksPort for T {}
 
-/// Раздел интерфейса, которому принадлежит настройка.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Group {
-    Settings,
-    Boost,
+/// Доступна ли настройка на этом компьютере.
+#[derive(Serialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "TweakAvailability.ts")]
+pub enum TweakAvailability {
+    Available,
+    /// Ключ не действует на этой версии Windows.
+    UnsupportedVersion,
+    /// Запись в HKLM: нужны права администратора.
+    NeedsAdmin,
 }
 
-impl Group {
-    pub fn parse(text: &str) -> Option<Self> {
-        match text {
-            "settings" => Some(Self::Settings),
-            "boost" => Some(Self::Boost),
-            _ => None,
-        }
-    }
-}
-
-struct Entry {
-    key: &'static str,
-    name: &'static str,
-    /// Значение, которое включает настройку.
-    value: u32,
-}
-
-struct TweakDef {
-    id: &'static str,
-    group: Group,
-    entries: &'static [Entry],
-}
-
-const CDM: &str = r"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager";
-
-const fn cdm(name: &'static str) -> Entry {
-    Entry {
-        key: CDM,
-        name,
-        value: 0,
-    }
-}
-
-const TWEAKS: &[TweakDef] = &[
-    TweakDef {
-        id: "transparency",
-        group: Group::Settings,
-        entries: &[Entry {
-            key: r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-            name: "EnableTransparency",
-            value: 0,
-        }],
-    },
-    TweakDef {
-        id: "web_search",
-        group: Group::Settings,
-        entries: &[Entry {
-            key: r"Software\Policies\Microsoft\Windows\Explorer",
-            name: "DisableSearchBoxSuggestions",
-            value: 1,
-        }],
-    },
-    TweakDef {
-        id: "spotlight",
-        group: Group::Settings,
-        entries: &[
-            cdm("SubscribedContent-338387Enabled"),
-            cdm("SubscribedContent-338388Enabled"),
-            cdm("SubscribedContent-338389Enabled"),
-            cdm("SubscribedContent-338393Enabled"),
-            cdm("SubscribedContent-353694Enabled"),
-            cdm("SubscribedContent-353696Enabled"),
-            cdm("SubscribedContent-310093Enabled"),
-            cdm("RotatingLockScreenEnabled"),
-            cdm("RotatingLockScreenOverlayEnabled"),
-        ],
-    },
-    TweakDef {
-        id: "suggestions",
-        group: Group::Settings,
-        entries: &[cdm("SystemPaneSuggestionsEnabled")],
-    },
-    TweakDef {
-        id: "game_dvr",
-        group: Group::Boost,
-        entries: &[Entry {
-            key: r"System\GameConfigStore",
-            name: "GameDVR_Enabled",
-            value: 0,
-        }],
-    },
-    TweakDef {
-        id: "game_mode",
-        group: Group::Boost,
-        entries: &[Entry {
-            key: r"Software\Microsoft\GameBar",
-            name: "AutoGameModeEnabled",
-            value: 1,
-        }],
-    },
-];
+pub const NEEDS_ADMIN_REASON: &str =
+    "Нужны права администратора: запусти OCHISTKA от имени администратора.";
 
 const BACKUP_ROOT: &str = r"Software\OCHISTKA\Backup";
 const BOOST_KEY: &str = r"Software\OCHISTKA\Backup\boost";
@@ -144,6 +79,13 @@ pub struct TweakState {
     pub applied: bool,
     /// Прежнее значение сохранено, откат возможен.
     pub has_backup: bool,
+    pub availability: TweakAvailability,
+    /// Причина недоступности человеческими словами.
+    pub reason: Option<String>,
+    /// Когда вступает в силу: `none`, `explorer`, `signOut`, `reboot`.
+    pub restart: String,
+    /// Включается только после явного подтверждения.
+    pub dangerous: bool,
 }
 
 /// Состояние профиля Boost: `basic`, `gaming`, `max` или ничего.
@@ -161,13 +103,58 @@ pub struct BoostState {
 pub struct TweaksOverview {
     pub tweaks: Vec<TweakState>,
     pub boost: BoostState,
+    /// Номер сборки Windows, если удалось определить.
+    pub build: Option<u32>,
+    pub elevated: bool,
+}
+
+#[derive(Serialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "ActivationStatus.ts")]
+pub enum ActivationStatus {
+    Licensed,
+    NotActivated,
+    Grace,
+    Notification,
+    Unknown,
+}
+
+#[derive(Serialize, TS, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "ActivationInfo.ts")]
+pub struct ActivationInfo {
+    pub status: ActivationStatus,
+    /// Сколько полных дней осталось до конца льготного периода (если Windows сообщила).
+    pub grace_days: Option<u32>,
+}
+
+/// Разбирает вывод запроса лицензии: `статус;минуты` (число LicenseStatus не зависит от языка).
+pub fn parse_activation(output: &str) -> ActivationInfo {
+    let line = output.lines().map(str::trim).find(|l| !l.is_empty());
+    let mut parts = line.unwrap_or("").split(';');
+    let code = parts.next().and_then(|c| c.trim().parse::<u32>().ok());
+    let minutes = parts.next().and_then(|m| m.trim().parse::<u64>().ok());
+    let status = match code {
+        Some(1) => ActivationStatus::Licensed,
+        Some(0) => ActivationStatus::NotActivated,
+        Some(2..=4) | Some(6) => ActivationStatus::Grace,
+        Some(5) => ActivationStatus::Notification,
+        _ => ActivationStatus::Unknown,
+    };
+    let grace_days = match status {
+        ActivationStatus::Grace => minutes
+            .filter(|m| *m > 0)
+            .map(|m| u32::try_from(m / 1440).unwrap_or(u32::MAX)),
+        _ => None,
+    };
+    ActivationInfo { status, grace_days }
 }
 
 /// Профили Boost: схема питания (GUID) или `None`, если схема не меняется.
 const PROFILES: &[(&str, Option<&str>)] = &[
     ("basic", None),
-    ("gaming", Some("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c")),
-    ("max", Some("e9a42b02-d5df-448d-aa00-03f14749eb61")),
+    ("gaming", Some(HIGH_SCHEME)),
+    ("max", Some(ULTIMATE_SCHEME)),
 ];
 
 /// Параметры профиля применяются к этим настройкам.
@@ -180,21 +167,102 @@ fn def(id: &str) -> Result<&'static TweakDef, CoreError> {
         .ok_or_else(|| CoreError::InvalidTarget(format!("неизвестная настройка: {id}")))
 }
 
+/// Нужно ли подтверждение, чтобы включить настройку (единственное окно с вопросом: VBS/HVCI).
+pub fn is_dangerous(id: &str) -> bool {
+    def(id).map(|tweak| tweak.dangerous).unwrap_or(false)
+}
+
+/// Все идентификаторы настроек (для проверок и документации).
+pub fn all_ids() -> Vec<&'static str> {
+    TWEAKS.iter().map(|tweak| tweak.id).collect()
+}
+
 fn backup_key(id: &str) -> String {
     format!(r"{BACKUP_ROOT}\{id}")
 }
 
-fn has_backup(reg: &dyn RegistryPort, id: &str) -> Result<bool, CoreError> {
-    Ok(reg.read_dword(&backup_key(id), "count")?.is_some())
+fn has_backup(reg: &dyn RegistryPort, tweak: &TweakDef) -> Result<bool, CoreError> {
+    if tweak.power_scheme.is_some() {
+        return Ok(reg.read_string(BOOST_KEY, POWER_VALUE)?.is_some());
+    }
+    Ok(reg.read_dword(&backup_key(tweak.id), "count")?.is_some())
 }
 
-fn is_applied(reg: &dyn RegistryPort, tweak: &TweakDef) -> Result<bool, CoreError> {
-    for entry in tweak.entries {
-        if reg.read_dword(entry.key, entry.name)? != Some(entry.value) {
-            return Ok(false);
+fn applicable(tweak: &TweakDef, build: Option<u32>) -> impl Iterator<Item = (usize, &Entry)> {
+    tweak
+        .entries
+        .iter()
+        .enumerate()
+        .filter(move |(_, entry)| entry.applies_to(build))
+}
+
+fn unsupported_reason(tweak: &TweakDef) -> String {
+    let min = tweak.entries.iter().map(|e| e.min_build).min().unwrap_or(0);
+    let max = tweak.entries.iter().map(|e| e.max_build).max().unwrap_or(0);
+    if min >= WIN11_24H2 {
+        "Нужна Windows 11 версии 24H2 или новее.".into()
+    } else if min >= WIN11_22H2 {
+        "Нужна Windows 11 версии 22H2 или новее.".into()
+    } else if min >= WIN11 {
+        "Есть только в Windows 11.".into()
+    } else if max < WIN11 {
+        "Есть только в Windows 10.".into()
+    } else {
+        "Эта версия Windows не поддерживает настройку.".into()
+    }
+}
+
+fn availability(
+    tweak: &TweakDef,
+    build: Option<u32>,
+    elevated: bool,
+) -> (TweakAvailability, Option<String>) {
+    if tweak.power_scheme.is_some() {
+        return (TweakAvailability::Available, None);
+    }
+    let mut any = false;
+    let mut hklm = false;
+    for (_, entry) in applicable(tweak, build) {
+        any = true;
+        hklm |= entry.is_hklm();
+    }
+    if !any {
+        return (
+            TweakAvailability::UnsupportedVersion,
+            Some(unsupported_reason(tweak)),
+        );
+    }
+    if hklm && !elevated {
+        return (
+            TweakAvailability::NeedsAdmin,
+            Some(NEEDS_ADMIN_REASON.into()),
+        );
+    }
+    (TweakAvailability::Available, None)
+}
+
+fn entry_matches(reg: &dyn RegistryPort, entry: &Entry) -> Result<bool, CoreError> {
+    Ok(match entry.value {
+        Val::Dword(want) => reg.read_dword(entry.key, entry.name)? == Some(want),
+        Val::Text(want) => reg.read_string(entry.key, entry.name)?.as_deref() == Some(want),
+    })
+}
+
+fn is_applied(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> bool {
+    if let Some(guid) = tweak.power_scheme {
+        return port
+            .active_scheme()
+            .map(|active| active.eq_ignore_ascii_case(guid))
+            .unwrap_or(false);
+    }
+    let mut any = false;
+    for (_, entry) in applicable(tweak, build) {
+        any = true;
+        if !entry_matches(port, entry).unwrap_or(false) {
+            return false;
         }
     }
-    Ok(true)
+    any
 }
 
 /// GUID вида `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`: только такие значения попадают в powercfg.
@@ -216,71 +284,172 @@ pub fn parse_active_scheme(output: &str) -> Option<String> {
         .map(str::to_ascii_lowercase)
 }
 
-/// Применяет настройку, предварительно сохранив прежние значения (только если копии ещё нет).
-fn apply(reg: &dyn RegistryPort, tweak: &TweakDef) -> Result<(), CoreError> {
-    let key = backup_key(tweak.id);
-    if !has_backup(reg, tweak.id)? {
-        for (index, entry) in tweak.entries.iter().enumerate() {
-            let current = reg.read_dword(entry.key, entry.name)?;
-            reg.write_dword(
-                &key,
-                &format!("e{index}_existed"),
-                u32::from(current.is_some()),
-            )?;
-            reg.write_dword(&key, &format!("e{index}_value"), current.unwrap_or(0))?;
-        }
-        // Счётчик пишется последним: он показывает, что копия целая.
-        reg.write_dword(&key, "count", tweak.entries.len() as u32)?;
+fn not_accepted() -> CoreError {
+    CoreError::Probe("Windows не приняла изменение: значение осталось прежним".into())
+}
+
+/// Сохраняет прежние значения применимых ключей (только если копии ещё нет).
+fn save_backup(
+    reg: &dyn RegistryPort,
+    tweak: &TweakDef,
+    build: Option<u32>,
+) -> Result<(), CoreError> {
+    if has_backup(reg, tweak)? {
+        return Ok(());
     }
-    for entry in tweak.entries {
-        reg.write_dword(entry.key, entry.name, entry.value)?;
+    let key = backup_key(tweak.id);
+    let mut count = 0;
+    for (index, entry) in applicable(tweak, build) {
+        let existed = match entry.value {
+            Val::Dword(_) => {
+                let current = reg.read_dword(entry.key, entry.name)?;
+                reg.write_dword(&key, &format!("e{index}_value"), current.unwrap_or(0))?;
+                current.is_some()
+            }
+            Val::Text(_) => {
+                let current = reg.read_string(entry.key, entry.name)?;
+                reg.write_string(
+                    &key,
+                    &format!("e{index}_text"),
+                    current.as_deref().unwrap_or(""),
+                )?;
+                current.is_some()
+            }
+        };
+        reg.write_dword(&key, &format!("e{index}_existed"), u32::from(existed))?;
+        count += 1;
+    }
+    // Счётчик пишется последним: он показывает, что копия целая.
+    reg.write_dword(&key, "count", count)
+}
+
+/// Применяет настройку и проверяет чтением; при отказе Windows возвращает всё назад.
+fn apply(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
+    save_backup(reg, tweak, build)?;
+    let written: Result<(), CoreError> =
+        applicable(tweak, build).try_for_each(|(_, entry)| match entry.value {
+            Val::Dword(value) => reg.write_dword(entry.key, entry.name, value),
+            Val::Text(value) => reg.write_string(entry.key, entry.name, value),
+        });
+    let verified = written.and_then(|()| {
+        for (_, entry) in applicable(tweak, build) {
+            if !entry_matches(reg, entry)? {
+                return Err(not_accepted());
+            }
+        }
+        Ok(())
+    });
+    if let Err(err) = verified {
+        // Откат: если и он не удался, это важнее исходной причины.
+        revert(port, tweak, build)?;
+        return Err(err);
     }
     Ok(())
 }
 
-/// Возвращает сохранённые значения и удаляет копию. Без копии ничего не трогает.
-fn revert(reg: &dyn RegistryPort, tweak: &TweakDef) -> Result<(), CoreError> {
-    if !has_backup(reg, tweak.id)? {
+/// Возвращает сохранённые значения, проверяет чтением и удаляет копию. Без копии ничего не трогает.
+fn revert(port: &dyn TweaksPort, tweak: &TweakDef, build: Option<u32>) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
+    if tweak.power_scheme.is_some() {
+        return restore_power(port);
+    }
+    if !has_backup(reg, tweak)? {
         return Ok(());
     }
     let key = backup_key(tweak.id);
-    for (index, entry) in tweak.entries.iter().enumerate() {
-        let existed = reg.read_dword(&key, &format!("e{index}_existed"))?;
-        let value = reg.read_dword(&key, &format!("e{index}_value"))?;
-        match (existed, value) {
-            (Some(1), Some(value)) => reg.write_dword(entry.key, entry.name, value)?,
+    for (index, entry) in applicable(tweak, build) {
+        let Some(existed) = reg.read_dword(&key, &format!("e{index}_existed"))? else {
+            continue;
+        };
+        match (entry.value, existed) {
+            (Val::Dword(_), 1) => {
+                let value = reg
+                    .read_dword(&key, &format!("e{index}_value"))?
+                    .unwrap_or(0);
+                reg.write_dword(entry.key, entry.name, value)?;
+            }
+            (Val::Text(_), 1) => {
+                let value = reg
+                    .read_string(&key, &format!("e{index}_text"))?
+                    .unwrap_or_default();
+                reg.write_string(entry.key, entry.name, &value)?;
+            }
             _ => reg.delete_value(entry.key, entry.name)?,
+        }
+        // Чтение обратно: значение больше не равно «включённому».
+        if existed == 0 && entry_matches(reg, entry)? {
+            return Err(not_accepted());
         }
     }
     reg.delete_key(&key)
 }
 
-fn states_for(reg: &dyn RegistryPort, group: Group) -> Result<Vec<TweakState>, CoreError> {
-    TWEAKS
-        .iter()
-        .filter(|tweak| tweak.group == group)
-        .map(|tweak| {
-            Ok(TweakState {
-                id: tweak.id.to_string(),
-                applied: is_applied(reg, tweak)?,
-                has_backup: has_backup(reg, tweak.id)?,
-            })
-        })
-        .collect()
-}
-
-/// Включает или выключает одну настройку (выключение = откат к сохранённому значению).
-pub fn set_tweak(reg: &dyn RegistryPort, id: &str, enabled: bool) -> Result<(), CoreError> {
-    let tweak = def(id)?;
-    if enabled {
-        apply(reg, tweak)
-    } else {
-        revert(reg, tweak)
+fn state_of(
+    port: &dyn TweaksPort,
+    tweak: &TweakDef,
+    build: Option<u32>,
+    elevated: bool,
+) -> TweakState {
+    let (availability, reason) = availability(tweak, build, elevated);
+    TweakState {
+        id: tweak.id.to_string(),
+        applied: is_applied(port, tweak, build),
+        has_backup: has_backup(port, tweak).unwrap_or(false),
+        availability,
+        reason,
+        restart: tweak.restart.as_str().to_string(),
+        dangerous: tweak.dangerous,
     }
 }
 
+/// Включает или выключает одну настройку (выключение = откат к сохранённому значению).
+pub fn set_tweak(port: &dyn TweaksPort, id: &str, enabled: bool) -> Result<(), CoreError> {
+    let tweak = def(id)?;
+    let build = port.windows_build();
+    match availability(tweak, build, port.is_elevated()) {
+        (TweakAvailability::Available, _) => {}
+        (TweakAvailability::NeedsAdmin, _) => return Err(CoreError::NeedsAdmin),
+        (TweakAvailability::UnsupportedVersion, reason) => {
+            return Err(CoreError::NotApplicable(reason.unwrap_or_default()))
+        }
+    }
+    match (enabled, tweak.power_scheme) {
+        (true, Some(guid)) => enable_power(port, guid),
+        (true, None) => apply(port, tweak, build),
+        (false, _) => revert(port, tweak, build),
+    }
+}
+
+/// Запоминает прежнюю схему (один раз) и включает новую; результат проверяется чтением.
+fn enable_power(port: &dyn TweaksPort, guid: &str) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
+    if reg.read_string(BOOST_KEY, POWER_VALUE)?.is_none() {
+        let current = port.active_scheme()?;
+        reg.write_string(BOOST_KEY, POWER_VALUE, &current)?;
+    }
+    port.set_active_scheme(guid)?;
+    if !port.active_scheme()?.eq_ignore_ascii_case(guid) {
+        return Err(not_accepted());
+    }
+    Ok(())
+}
+
+fn restore_power(port: &dyn TweaksPort) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
+    if let Some(saved) = reg.read_string(BOOST_KEY, POWER_VALUE)? {
+        if is_guid(&saved) {
+            port.set_active_scheme(&saved)?;
+        }
+        reg.delete_value(BOOST_KEY, POWER_VALUE)?;
+    }
+    Ok(())
+}
+
 /// Текущий профиль Boost: записанный и всё ещё действующий.
-pub fn boost_state(reg: &dyn RegistryPort, power: &dyn PowerPort) -> Result<BoostState, CoreError> {
+pub fn boost_state(port: &dyn TweaksPort) -> Result<BoostState, CoreError> {
+    let reg: &dyn RegistryPort = port;
+    let build = port.windows_build();
     let marker = reg.read_string(BOOST_KEY, PROFILE_VALUE)?;
     let has_backup = marker.is_some() || reg.read_string(BOOST_KEY, POWER_VALUE)?.is_some();
     let profile = match marker
@@ -290,12 +459,9 @@ pub fn boost_state(reg: &dyn RegistryPort, power: &dyn PowerPort) -> Result<Boos
         Some((id, scheme)) => {
             let tweaks_on = PROFILE_TWEAKS
                 .iter()
-                .map(|tweak| is_applied(reg, def(tweak)?))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter()
-                .all(|applied| applied);
+                .all(|tweak| def(tweak).is_ok_and(|t| is_applied(port, t, build)));
             let power_ok = match scheme {
-                Some(guid) => power.active_scheme()?.eq_ignore_ascii_case(guid),
+                Some(guid) => port.active_scheme()?.eq_ignore_ascii_case(guid),
                 None => true,
             };
             (tweaks_on && power_ok).then(|| (*id).to_string())
@@ -308,318 +474,69 @@ pub fn boost_state(reg: &dyn RegistryPort, power: &dyn PowerPort) -> Result<Boos
     })
 }
 
-fn restore_power(reg: &dyn RegistryPort, power: &dyn PowerPort) -> Result<(), CoreError> {
-    if let Some(saved) = reg.read_string(BOOST_KEY, POWER_VALUE)? {
-        if is_guid(&saved) {
-            power.set_active_scheme(&saved)?;
-        }
-        reg.delete_value(BOOST_KEY, POWER_VALUE)?;
-    }
-    Ok(())
-}
-
 /// Включает профиль Boost или (при `None`) возвращает всё, что сделал Boost.
-pub fn set_boost_profile(
-    reg: &dyn RegistryPort,
-    power: &dyn PowerPort,
-    profile: Option<&str>,
-) -> Result<(), CoreError> {
+pub fn set_boost_profile(port: &dyn TweaksPort, profile: Option<&str>) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
     let Some(profile) = profile else {
-        return revert_group(reg, power, Group::Boost);
+        return revert_group(port, Group::Boost);
     };
     let (_, scheme) = PROFILES
         .iter()
         .find(|(id, _)| *id == profile)
         .ok_or_else(|| CoreError::InvalidTarget(format!("неизвестный профиль: {profile}")))?;
+    let build = port.windows_build();
     // Сначала схема питания: если powercfg откажет, реестр ещё не тронут.
     match scheme {
-        Some(guid) => {
-            if reg.read_string(BOOST_KEY, POWER_VALUE)?.is_none() {
-                let current = power.active_scheme()?;
-                reg.write_string(BOOST_KEY, POWER_VALUE, &current)?;
-            }
-            power.set_active_scheme(guid)?;
-        }
-        None => restore_power(reg, power)?,
+        Some(guid) => enable_power(port, guid)?,
+        None => restore_power(port)?,
     }
     for id in PROFILE_TWEAKS {
-        apply(reg, def(id)?)?;
+        apply(port, def(id)?, build)?;
     }
     reg.write_string(BOOST_KEY, PROFILE_VALUE, profile)
 }
 
-/// Возвращает все изменения раздела к сохранённым значениям.
-pub fn revert_group(
-    reg: &dyn RegistryPort,
-    power: &dyn PowerPort,
-    group: Group,
-) -> Result<(), CoreError> {
+/// Возвращает все изменения раздела к сохранённым значениям. То, что требует прав
+/// администратора, без них пропускается, и тогда в конце возвращается `NeedsAdmin`.
+pub fn revert_group(port: &dyn TweaksPort, group: Group) -> Result<(), CoreError> {
+    let reg: &dyn RegistryPort = port;
+    let build = port.windows_build();
+    let elevated = port.is_elevated();
+    let mut skipped = false;
     for tweak in TWEAKS.iter().filter(|tweak| tweak.group == group) {
-        revert(reg, tweak)?;
+        if !has_backup(reg, tweak)? {
+            continue;
+        }
+        match availability(tweak, build, elevated).0 {
+            TweakAvailability::NeedsAdmin => skipped = true,
+            _ => revert(port, tweak, build)?,
+        }
     }
     if group == Group::Boost {
-        restore_power(reg, power)?;
+        restore_power(port)?;
         reg.delete_key(BOOST_KEY)?;
+    }
+    if skipped {
+        return Err(CoreError::NeedsAdmin);
     }
     Ok(())
 }
 
 /// Полное состояние для интерфейса.
-pub fn overview(
-    reg: &dyn RegistryPort,
-    power: &dyn PowerPort,
-) -> Result<TweaksOverview, CoreError> {
-    let mut tweaks = states_for(reg, Group::Settings)?;
-    tweaks.extend(states_for(reg, Group::Boost)?);
+pub fn overview(port: &dyn TweaksPort) -> Result<TweaksOverview, CoreError> {
+    let build = port.windows_build();
+    let elevated = port.is_elevated();
+    let tweaks = TWEAKS
+        .iter()
+        .map(|tweak| state_of(port, tweak, build, elevated))
+        .collect();
     Ok(TweaksOverview {
         tweaks,
-        boost: boost_state(reg, power)?,
+        boost: boost_state(port)?,
+        build,
+        elevated,
     })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::BTreeMap;
-    use std::sync::Mutex;
-
-    #[derive(Default)]
-    struct Fake {
-        dwords: Mutex<BTreeMap<(String, String), u32>>,
-        strings: Mutex<BTreeMap<(String, String), String>>,
-        scheme: Mutex<String>,
-        fail_power: Mutex<bool>,
-    }
-
-    fn k(key: &str, name: &str) -> (String, String) {
-        (key.to_string(), name.to_string())
-    }
-
-    impl RegistryPort for Fake {
-        fn read_dword(&self, key: &str, name: &str) -> Result<Option<u32>, CoreError> {
-            Ok(self.dwords.lock().unwrap().get(&k(key, name)).copied())
-        }
-        fn write_dword(&self, key: &str, name: &str, value: u32) -> Result<(), CoreError> {
-            self.dwords.lock().unwrap().insert(k(key, name), value);
-            Ok(())
-        }
-        fn read_string(&self, key: &str, name: &str) -> Result<Option<String>, CoreError> {
-            Ok(self.strings.lock().unwrap().get(&k(key, name)).cloned())
-        }
-        fn write_string(&self, key: &str, name: &str, value: &str) -> Result<(), CoreError> {
-            self.strings
-                .lock()
-                .unwrap()
-                .insert(k(key, name), value.to_string());
-            Ok(())
-        }
-        fn delete_value(&self, key: &str, name: &str) -> Result<(), CoreError> {
-            self.dwords.lock().unwrap().remove(&k(key, name));
-            self.strings.lock().unwrap().remove(&k(key, name));
-            Ok(())
-        }
-        fn delete_key(&self, key: &str) -> Result<(), CoreError> {
-            let prefix = format!("{key}\\");
-            let under = |entry: &str| entry == key || entry.starts_with(&prefix);
-            self.dwords
-                .lock()
-                .unwrap()
-                .retain(|(path, _), _| !under(path));
-            self.strings
-                .lock()
-                .unwrap()
-                .retain(|(path, _), _| !under(path));
-            Ok(())
-        }
-    }
-
-    impl PowerPort for Fake {
-        fn active_scheme(&self) -> Result<String, CoreError> {
-            Ok(self.scheme.lock().unwrap().clone())
-        }
-        fn set_active_scheme(&self, guid: &str) -> Result<(), CoreError> {
-            if *self.fail_power.lock().unwrap() {
-                return Err(CoreError::Probe("powercfg отказал".into()));
-            }
-            *self.scheme.lock().unwrap() = guid.to_string();
-            Ok(())
-        }
-    }
-
-    const BALANCED: &str = "381b4222-f694-41f0-9685-ff5bb260df2e";
-    const TRANSPARENCY: (&str, &str) = (
-        r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-        "EnableTransparency",
-    );
-
-    fn fake() -> Fake {
-        let fake = Fake::default();
-        *fake.scheme.lock().unwrap() = BALANCED.to_string();
-        fake
-    }
-
-    fn state(reg: &Fake, id: &str) -> TweakState {
-        overview(reg, reg)
-            .unwrap()
-            .tweaks
-            .into_iter()
-            .find(|tweak| tweak.id == id)
-            .unwrap()
-    }
-
-    #[test]
-    fn apply_saves_previous_value_and_revert_restores_it() {
-        let reg = fake();
-        reg.write_dword(TRANSPARENCY.0, TRANSPARENCY.1, 1).unwrap();
-        assert!(!state(&reg, "transparency").applied);
-
-        set_tweak(&reg, "transparency", true).unwrap();
-        assert_eq!(
-            reg.read_dword(TRANSPARENCY.0, TRANSPARENCY.1).unwrap(),
-            Some(0)
-        );
-        let now = state(&reg, "transparency");
-        assert!(now.applied && now.has_backup);
-
-        set_tweak(&reg, "transparency", false).unwrap();
-        assert_eq!(
-            reg.read_dword(TRANSPARENCY.0, TRANSPARENCY.1).unwrap(),
-            Some(1)
-        );
-        let back = state(&reg, "transparency");
-        assert!(!back.applied && !back.has_backup);
-    }
-
-    #[test]
-    fn revert_deletes_a_value_that_did_not_exist_before() {
-        let reg = fake();
-        set_tweak(&reg, "web_search", true).unwrap();
-        set_tweak(&reg, "web_search", false).unwrap();
-        let key = r"Software\Policies\Microsoft\Windows\Explorer";
-        assert_eq!(
-            reg.read_dword(key, "DisableSearchBoxSuggestions").unwrap(),
-            None
-        );
-    }
-
-    #[test]
-    fn second_apply_keeps_the_original_backup() {
-        let reg = fake();
-        reg.write_dword(TRANSPARENCY.0, TRANSPARENCY.1, 1).unwrap();
-        set_tweak(&reg, "transparency", true).unwrap();
-        set_tweak(&reg, "transparency", true).unwrap();
-        set_tweak(&reg, "transparency", false).unwrap();
-        assert_eq!(
-            reg.read_dword(TRANSPARENCY.0, TRANSPARENCY.1).unwrap(),
-            Some(1)
-        );
-    }
-
-    #[test]
-    fn unknown_tweak_is_refused() {
-        let reg = fake();
-        assert!(matches!(
-            set_tweak(&reg, "format_c", true),
-            Err(CoreError::InvalidTarget(_))
-        ));
-    }
-
-    #[test]
-    fn spotlight_covers_every_flag_and_reverts_each() {
-        let reg = fake();
-        reg.write_dword(CDM, "SubscribedContent-338388Enabled", 1)
-            .unwrap();
-        set_tweak(&reg, "spotlight", true).unwrap();
-        assert!(state(&reg, "spotlight").applied);
-        revert_group(&reg, &reg, Group::Settings).unwrap();
-        assert_eq!(
-            reg.read_dword(CDM, "SubscribedContent-338388Enabled")
-                .unwrap(),
-            Some(1)
-        );
-        assert_eq!(
-            reg.read_dword(CDM, "SubscribedContent-338387Enabled")
-                .unwrap(),
-            None
-        );
-        assert!(!state(&reg, "spotlight").has_backup);
-    }
-
-    #[test]
-    fn gaming_profile_switches_power_and_revert_restores_the_old_scheme() {
-        let reg = fake();
-        set_boost_profile(&reg, &reg, Some("gaming")).unwrap();
-        assert_eq!(*reg.scheme.lock().unwrap(), PROFILES[1].1.unwrap());
-        let boost = overview(&reg, &reg).unwrap().boost;
-        assert_eq!(boost.profile.as_deref(), Some("gaming"));
-        assert!(boost.has_backup);
-
-        set_boost_profile(&reg, &reg, None).unwrap();
-        assert_eq!(*reg.scheme.lock().unwrap(), BALANCED);
-        let boost = overview(&reg, &reg).unwrap().boost;
-        assert_eq!(boost.profile, None);
-        assert!(!boost.has_backup);
-        assert!(!state(&reg, "game_dvr").applied);
-    }
-
-    #[test]
-    fn switching_profiles_keeps_the_very_first_scheme() {
-        let reg = fake();
-        set_boost_profile(&reg, &reg, Some("gaming")).unwrap();
-        set_boost_profile(&reg, &reg, Some("max")).unwrap();
-        set_boost_profile(&reg, &reg, Some("basic")).unwrap();
-        // Базовый профиль не меняет схему питания: прежняя схема возвращается.
-        assert_eq!(*reg.scheme.lock().unwrap(), BALANCED);
-        assert_eq!(
-            overview(&reg, &reg).unwrap().boost.profile.as_deref(),
-            Some("basic")
-        );
-    }
-
-    #[test]
-    fn failed_power_change_leaves_registry_untouched() {
-        let reg = fake();
-        *reg.fail_power.lock().unwrap() = true;
-        assert!(set_boost_profile(&reg, &reg, Some("max")).is_err());
-        assert!(!state(&reg, "game_dvr").applied);
-        assert_eq!(overview(&reg, &reg).unwrap().boost.profile, None);
-    }
-
-    #[test]
-    fn profile_is_not_reported_when_the_power_scheme_was_changed_by_the_user() {
-        let reg = fake();
-        set_boost_profile(&reg, &reg, Some("gaming")).unwrap();
-        *reg.scheme.lock().unwrap() = BALANCED.to_string();
-        assert_eq!(overview(&reg, &reg).unwrap().boost.profile, None);
-    }
-
-    #[test]
-    fn tampered_power_backup_is_never_passed_to_powercfg() {
-        let reg = fake();
-        reg.write_string(BOOST_KEY, POWER_VALUE, "x /duplicatescheme y")
-            .unwrap();
-        revert_group(&reg, &reg, Group::Boost).unwrap();
-        assert_eq!(*reg.scheme.lock().unwrap(), BALANCED);
-    }
-
-    #[test]
-    fn parses_guid_from_localized_powercfg_output() {
-        let out = "GUID схемы питания: 381B4222-F694-41F0-9685-FF5BB260DF2E  (Сбалансированная)";
-        assert_eq!(parse_active_scheme(out).as_deref(), Some(BALANCED));
-        assert_eq!(parse_active_scheme("ничего"), None);
-        assert!(!is_guid("381b4222-f694-41f0-9685-ff5bb260df2e; calc"));
-    }
-
-    #[test]
-    fn unknown_profile_is_refused() {
-        let reg = fake();
-        assert!(set_boost_profile(&reg, &reg, Some("turbo")).is_err());
-    }
-
-    #[test]
-    fn overview_serializes_with_camel_case_keys() {
-        let json = serde_json::to_value(overview(&fake(), &fake()).unwrap()).unwrap();
-        assert!(json["tweaks"][0]["hasBackup"].is_boolean());
-        assert!(json["boost"]["profile"].is_null());
-    }
-}
+mod tests;

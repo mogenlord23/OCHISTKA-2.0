@@ -28,6 +28,8 @@ impl From<CoreError> for CommandError {
             CoreError::EngineMissing(_) => "engineMissing",
             CoreError::InvalidTarget(_) => "invalidTarget",
             CoreError::Cancelled => "cancelled",
+            CoreError::NotApplicable(_) => "notApplicable",
+            CoreError::NeedsAdmin => "needsAdmin",
         };
         Self {
             kind: kind.to_string(),

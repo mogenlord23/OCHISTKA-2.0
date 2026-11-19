@@ -14,10 +14,20 @@ export type { Suspicion } from './generated/Suspicion';
 export type { BoostState } from './generated/BoostState';
 export type { TweakState } from './generated/TweakState';
 export type { TweaksOverview } from './generated/TweaksOverview';
+export type { TweakAvailability } from './generated/TweakAvailability';
+export type { ActivationInfo } from './generated/ActivationInfo';
+export type { ActivationStatus } from './generated/ActivationStatus';
 export type { SystemOverview } from './generated/SystemOverview';
 
 // Типы только фронтенда.
-export type ErrorKind = 'unsupported' | 'probe' | 'engineMissing' | 'invalidTarget' | 'cancelled';
+export type ErrorKind =
+  | 'unsupported'
+  | 'probe'
+  | 'engineMissing'
+  | 'invalidTarget'
+  | 'cancelled'
+  | 'notApplicable'
+  | 'needsAdmin';
 
 /** Ошибка команды. `message` уже на русском. */
 export interface CommandError {

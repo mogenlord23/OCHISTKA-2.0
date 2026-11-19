@@ -1,30 +1,75 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import SettingsPage from './SettingsPage.svelte';
 import BoostPage from './BoostPage.svelte';
-import { boostSetProfile, tweakSet, tweaksOverview, tweaksRevert } from '../lib/tweaksApi';
-import type { TweaksOverview } from '../lib/types';
+import {
+  boostSetProfile,
+  openActivationSettings,
+  tweakSet,
+  tweaksOverview,
+  tweaksRevert,
+  windowsActivation,
+} from '../lib/tweaksApi';
+import { BOOST_EXTRAS, SETTINGS_TWEAKS } from '../lib/tweaksText';
+import type { TweakState, TweaksOverview } from '../lib/types';
 
 vi.mock('../lib/tweaksApi', () => ({
   tweaksOverview: vi.fn(),
   tweakSet: vi.fn(),
   tweaksRevert: vi.fn(),
   boostSetProfile: vi.fn(),
+  windowsActivation: vi.fn(),
+  openActivationSettings: vi.fn(),
 }));
 
-function overview(over: Partial<Record<string, boolean>> = {}, profile: string | null = null) {
-  const ids = ['transparency', 'web_search', 'spotlight', 'suggestions', 'game_dvr', 'game_mode'];
+const ALL_IDS = [...SETTINGS_TWEAKS, ...BOOST_EXTRAS].map((tweak) => tweak.id);
+const ADMIN_IDS = new Set(['login_blur', 'power_throttling', 'hags', 'vbs_off']);
+
+function stateOf(id: string, applied: boolean, elevated: boolean): TweakState {
+  const needsAdmin = ADMIN_IDS.has(id) && !elevated;
   return {
-    tweaks: ids.map((id) => ({ id, applied: over[id] ?? false, hasBackup: over[id] ?? false })),
+    id,
+    applied,
+    hasBackup: applied,
+    availability: needsAdmin ? 'needsAdmin' : 'available',
+    reason: needsAdmin
+      ? 'Нужны права администратора: запусти OCHISTKA от имени администратора.'
+      : null,
+    restart: id === 'hags' || id === 'vbs_off' ? 'reboot' : id === 'widgets' ? 'explorer' : 'none',
+    dangerous: id === 'vbs_off',
+  };
+}
+
+function overview(
+  over: Partial<Record<string, boolean>> = {},
+  profile: string | null = null,
+  elevated = true,
+  patch: Partial<Record<string, Partial<TweakState>>> = {},
+) {
+  return {
+    tweaks: ALL_IDS.map((id) => ({
+      ...stateOf(id, over[id] ?? false, elevated),
+      ...(patch[id] ?? {}),
+    })),
     boost: { profile, hasBackup: profile !== null },
+    build: 22631,
+    elevated,
   } satisfies TweaksOverview;
 }
+
+const switchNamed = async (name: RegExp) =>
+  (await screen.findByRole('switch', { name })) as HTMLButtonElement;
+const isOn = (el: HTMLElement) => el.getAttribute('aria-checked') === 'true';
 
 beforeEach(() => {
   vi.mocked(tweaksOverview).mockReset().mockResolvedValue(overview());
   vi.mocked(tweakSet).mockReset();
   vi.mocked(tweaksRevert).mockReset();
   vi.mocked(boostSetProfile).mockReset();
+  vi.mocked(windowsActivation)
+    .mockReset()
+    .mockResolvedValue({ status: 'licensed', graceDays: null });
+  vi.mocked(openActivationSettings).mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -32,55 +77,109 @@ afterEach(() => {
 });
 
 describe('SettingsPage', () => {
-  it('lists the safe settings with the saved-state note and reads the state', async () => {
+  it('shows the saved-state note once, collapsible groups, search and category navigation', async () => {
     render(SettingsPage);
     await waitFor(() => expect(tweaksOverview).toHaveBeenCalled());
+    expect(screen.getAllByText(/Исходное состояние сохраняется перед применением/)).toHaveLength(1);
+    // Первая группа открыта, остальные свёрнуты.
     expect(screen.getByText('Убрать прозрачность Windows')).toBeTruthy();
+    expect(screen.queryByText('Убрать веб-подсказки из поиска')).toBeNull();
+    const heads = screen.getAllByRole('button', { expanded: false });
+    expect(heads.length).toBe(5);
+    await fireEvent.click(screen.getByRole('button', { name: /Поиск Windows/, expanded: false }));
     expect(screen.getByText('Убрать веб-подсказки из поиска')).toBeTruthy();
-    expect(screen.getAllByText('Исходное состояние сохраняется перед применением')).toHaveLength(4);
-    expect(screen.getByRole('button', { name: 'Обновить состояние' })).toBeTruthy();
+    expect(screen.getByRole('searchbox', { name: 'Поиск по настройкам' })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Категории' })).toBeTruthy();
   });
 
-  it('applies a setting at once, without any dialog, and shows the checked state in the same tick', async () => {
+  it('search opens every matching group and hides the rest', async () => {
+    render(SettingsPage);
+    await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'камер' } });
+    expect(await screen.findByText('Камера для приложений')).toBeTruthy();
+    expect(screen.queryByText('Убрать прозрачность Windows')).toBeNull();
+    await fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'zzzz' } });
+    expect(await screen.findByText('Ничего не найдено.')).toBeTruthy();
+  });
+
+  it('shows the real activation status and opens the Windows page by the button', async () => {
+    render(SettingsPage);
+    expect(await screen.findByText('Windows активирована')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Открыть параметры активации' }));
+    expect(openActivationSettings).toHaveBeenCalled();
+    // Это информационный блок, не переключатель.
+    expect(within(screen.getByLabelText('Активация Windows')).queryByRole('switch')).toBeNull();
+  });
+
+  it('says plainly when the activation cannot be read', async () => {
+    vi.mocked(windowsActivation).mockRejectedValue({ kind: 'probe', message: 'x' });
+    render(SettingsPage);
+    expect(await screen.findByText('Состояние активации не удалось определить')).toBeTruthy();
+  });
+
+  it('applies a setting at once, without any dialog, and shows it on in the same tick', async () => {
     let finish!: (value: TweaksOverview) => void;
     vi.mocked(tweakSet).mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(SettingsPage);
-    const box = (await screen.findByRole('checkbox', {
-      name: /Убрать прозрачность/,
-    })) as HTMLInputElement;
-    await waitFor(() => expect(box.disabled).toBe(false));
-    box.click();
+    const sw = await switchNamed(/Убрать прозрачность/);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
     expect(screen.queryByRole('dialog')).toBeNull();
-    await waitFor(() => expect(box.checked).toBe(true));
+    await waitFor(() => expect(isOn(sw)).toBe(true));
+    expect(sw.getAttribute('aria-busy')).toBe('true');
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('transparency', true));
     finish(overview({ transparency: true }));
-    await waitFor(() => expect(box.checked).toBe(true));
+    await waitFor(() => expect(sw.getAttribute('aria-busy')).toBe('false'));
+    expect(isOn(sw)).toBe(true);
   });
 
-  it('rolls the check back and says it plainly when applying fails', async () => {
+  it('rolls the switch back and says it briefly in the row when applying fails', async () => {
     vi.mocked(tweakSet).mockRejectedValue({ kind: 'probe', message: 'HRESULT 0x80070005' });
     render(SettingsPage);
-    const box = (await screen.findByRole('checkbox', {
-      name: /Убрать прозрачность/,
-    })) as HTMLInputElement;
-    await waitFor(() => expect(box.disabled).toBe(false));
-    box.click();
+    const sw = await switchNamed(/Убрать прозрачность/);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('Не получилось изменить настройку. Попробуй ещё раз.');
-    await waitFor(() => expect(box.checked).toBe(false));
+    await waitFor(() => expect(isOn(sw)).toBe(false));
   });
 
   it('turns a setting off again with a second press', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({ transparency: true }));
     vi.mocked(tweakSet).mockResolvedValue(overview());
     render(SettingsPage);
-    const box = (await screen.findByRole('checkbox', {
-      name: /Убрать прозрачность/,
-    })) as HTMLInputElement;
-    await waitFor(() => expect(box.checked).toBe(true));
-    box.click();
+    const sw = await switchNamed(/Убрать прозрачность/);
+    await waitFor(() => expect(isOn(sw)).toBe(true));
+    sw.click();
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('transparency', false));
-    await waitFor(() => expect(box.checked).toBe(false));
+    await waitFor(() => expect(isOn(sw)).toBe(false));
+  });
+
+  it('greys out a setting the Windows version does not support, with the reason', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(
+      overview({}, null, true, {
+        login_blur: {
+          availability: 'unsupportedVersion',
+          reason: 'Эта версия Windows не поддерживает настройку.',
+        },
+      }),
+    );
+    render(SettingsPage);
+    const sw = await switchNamed(/Размытие при входе/);
+    expect(await screen.findByText('Эта версия Windows не поддерживает настройку.')).toBeTruthy();
+    expect(sw.disabled).toBe(true);
+    sw.click();
+    expect(tweakSet).not.toHaveBeenCalled();
+  });
+
+  it('disables machine-wide settings without administrator rights and says why', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(overview({}, null, false));
+    render(SettingsPage);
+    const sw = await switchNamed(/Размытие при входе/);
+    await waitFor(() => expect(sw.disabled).toBe(true));
+    expect((await screen.findAllByText(/Нужны права администратора/)).length).toBeGreaterThan(0);
+    expect(
+      await screen.findByText(/Часть настроек меняет параметры всего компьютера/),
+    ).toBeTruthy();
   });
 
   it('reverts the section at once, without a dialog', async () => {
@@ -98,56 +197,116 @@ describe('SettingsPage', () => {
     vi.mocked(tweaksOverview).mockRejectedValue({ kind: 'unsupported', message: 'x' });
     render(SettingsPage);
     expect(await screen.findByRole('alert')).toBeTruthy();
-    const box = screen.getByRole('checkbox', { name: /Убрать прозрачность/ }) as HTMLInputElement;
-    expect(box.disabled).toBe(true);
+    const sw = screen.getByRole('switch', { name: /Убрать прозрачность/ }) as HTMLButtonElement;
+    expect(sw.disabled).toBe(true);
   });
 });
 
 describe('BoostPage', () => {
-  it('shows the three profiles and the separate parameter', async () => {
+  it('shows the profile segments and the separate optimisations', async () => {
     render(BoostPage);
     await waitFor(() => expect(tweaksOverview).toHaveBeenCalled());
-    for (const name of ['Базовый', 'Игровой', 'Максимум', 'Убрать фоновую запись игр']) {
-      expect(screen.getByText(name)).toBeTruthy();
+    const group = screen.getByRole('radiogroup', { name: 'Профиль для игр' });
+    for (const name of ['Базовый', 'Игровой', 'Максимум']) {
+      expect(within(group).getByRole('radio', { name })).toBeTruthy();
     }
+    for (const tweak of BOOST_EXTRAS) expect(screen.getByText(tweak.title)).toBeTruthy();
+    expect(screen.getAllByText(/Исходное состояние сохраняется перед применением/)).toHaveLength(1);
   });
 
-  it('marks the active profile and switches profile at once, the old one clears in the same tick', async () => {
+  it('marks the active profile and switches at once, the old one clears in the same tick', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({}, 'basic'));
     let finish!: (value: TweaksOverview) => void;
     vi.mocked(boostSetProfile).mockReturnValue(new Promise((resolve) => (finish = resolve)));
     render(BoostPage);
-    const basic = (await screen.findByRole('checkbox', { name: /Базовый/ })) as HTMLInputElement;
-    await waitFor(() => expect(basic.checked).toBe(true));
-    const gaming = screen.getByRole('checkbox', { name: /^Игровой/ }) as HTMLInputElement;
+    const basic = await screen.findByRole('radio', { name: 'Базовый' });
+    await waitFor(() => expect(isOn(basic)).toBe(true));
+    const gaming = screen.getByRole('radio', { name: 'Игровой' });
     gaming.click();
     expect(screen.queryByRole('dialog')).toBeNull();
-    await waitFor(() => expect(gaming.checked).toBe(true));
-    expect(basic.checked).toBe(false);
+    await waitFor(() => expect(isOn(gaming)).toBe(true));
+    expect(isOn(basic)).toBe(false);
     await waitFor(() => expect(boostSetProfile).toHaveBeenCalledWith('gaming'));
     finish(overview({}, 'gaming'));
-    await waitFor(() => expect(gaming.checked).toBe(true));
+    await waitFor(() => expect(isOn(gaming)).toBe(true));
   });
 
   it('releases the profile with a second press', async () => {
     vi.mocked(tweaksOverview).mockResolvedValue(overview({}, 'basic'));
     vi.mocked(boostSetProfile).mockResolvedValue(overview());
     render(BoostPage);
-    const basic = (await screen.findByRole('checkbox', { name: /Базовый/ })) as HTMLInputElement;
-    await waitFor(() => expect(basic.checked).toBe(true));
+    const basic = await screen.findByRole('radio', { name: 'Базовый' });
+    await waitFor(() => expect(isOn(basic)).toBe(true));
     basic.click();
     await waitFor(() => expect(boostSetProfile).toHaveBeenCalledWith(null));
+  });
+
+  it('puts the profile back and says why when it cannot be applied', async () => {
+    vi.mocked(boostSetProfile).mockRejectedValue({ kind: 'probe', message: 'powercfg' });
+    render(BoostPage);
+    const max = await screen.findByRole('radio', { name: 'Максимум' });
+    await waitFor(() => expect((max as HTMLButtonElement).disabled).toBe(false));
+    max.click();
+    expect((await screen.findByRole('alert')).textContent).toContain('Не получилось');
+    await waitFor(() => expect(isOn(max)).toBe(false));
   });
 
   it('switches the background recording through the tweak command without a dialog', async () => {
     vi.mocked(tweakSet).mockResolvedValue(overview({ game_dvr: true }));
     render(BoostPage);
-    const box = (await screen.findByRole('checkbox', {
-      name: /Убрать фоновую запись игр/,
-    })) as HTMLInputElement;
-    await waitFor(() => expect(box.disabled).toBe(false));
-    box.click();
+    const sw = await switchNamed(/Убрать фоновую запись игр/);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('game_dvr', true));
+    await waitFor(() => expect(isOn(sw)).toBe(true));
+  });
+
+  it('asks for confirmation only for VBS/HVCI and does nothing until it is given', async () => {
+    vi.mocked(tweakSet).mockResolvedValue(overview({ vbs_off: true }));
+    render(BoostPage);
+    const sw = await switchNamed(/Игровой режим без VBS\/HVCI/);
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    sw.click();
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('защита станет слабее');
+    expect(tweakSet).not.toHaveBeenCalled();
+    expect(isOn(sw)).toBe(false);
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(tweakSet).not.toHaveBeenCalled();
+    sw.click();
+    await fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Отключить' }),
+    );
+    await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('vbs_off', true, true));
+  });
+
+  it('turning VBS back on (switch off) needs no dialog', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(overview({ vbs_off: true }));
+    vi.mocked(tweakSet).mockResolvedValue(overview());
+    render(BoostPage);
+    const sw = await switchNamed(/Игровой режим без VBS\/HVCI/);
+    await waitFor(() => expect(isOn(sw)).toBe(true));
+    sw.click();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(tweakSet).toHaveBeenCalledWith('vbs_off', false));
+  });
+
+  it('greys out optimisations that need administrator rights, with the reason', async () => {
+    vi.mocked(tweaksOverview).mockResolvedValue(overview({}, null, false));
+    render(BoostPage);
+    const sw = await switchNamed(/Планирование GPU/);
+    await waitFor(() => expect(sw.disabled).toBe(true));
+    expect((await screen.findAllByText(/Нужны права администратора/)).length).toBeGreaterThan(0);
+    const dvr = await switchNamed(/Убрать фоновую запись игр/);
+    expect(dvr.disabled).toBe(false);
+  });
+
+  it('says when a change takes effect later', async () => {
+    render(BoostPage);
+    await waitFor(() =>
+      expect(screen.getAllByText(/Вступит в силу после перезагрузки/).length).toBe(2),
+    );
   });
 });

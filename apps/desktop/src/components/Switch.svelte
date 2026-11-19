@@ -12,6 +12,7 @@
     pending = false,
     error = false,
     label,
+    ariaLabel,
     children,
     onchange,
   }: {
@@ -21,6 +22,8 @@
     error?: boolean;
     /** Подпись справа. Вместо неё можно передать содержимое. */
     label?: string;
+    /** Имя для скринридера, когда видимой подписи рядом нет (подпись в соседнем тексте). */
+    ariaLabel?: string;
     children?: Snippet;
     onchange?: (next: boolean) => void;
   } = $props();
@@ -41,7 +44,7 @@
     class:error
     aria-checked={checked}
     aria-busy={pending}
-    aria-label={label && !children ? label : undefined}
+    aria-label={ariaLabel ?? (label && !children ? label : undefined)}
     {disabled}
     onclick={press}
   >

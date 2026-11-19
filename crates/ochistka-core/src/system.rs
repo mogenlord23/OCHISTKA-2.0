@@ -135,6 +135,12 @@ pub enum CoreError {
     InvalidTarget(String),
     #[error("проверка отменена")]
     Cancelled,
+    /// Настройка не действует на этой версии Windows (причина готова для показа).
+    #[error("{0}")]
+    NotApplicable(String),
+    /// Запись в HKLM без прав администратора.
+    #[error("Нужны права администратора")]
+    NeedsAdmin,
 }
 
 /// Порт системных сведений. Реализации живут в `crates/platform`.

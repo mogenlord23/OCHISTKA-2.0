@@ -86,6 +86,8 @@ pub fn run() {
             tweaks::tweak_set,
             tweaks::tweaks_revert,
             tweaks::boost_set_profile,
+            tweaks::windows_activation,
+            tweaks::open_activation_settings,
             network::get_network_adapters,
             network::get_tcp_connections,
             vpn::vpn_snapshot,

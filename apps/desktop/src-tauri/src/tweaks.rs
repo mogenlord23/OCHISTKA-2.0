@@ -1,10 +1,11 @@
 //! Команды «Настройки» и «Boost»: чтение состояния и изменения реестра HKCU и схемы питания.
-//! Изменяющие команды требуют `confirmed: true` (диалог в интерфейсе) и в тестах не выполняются.
+//! Включение опасной настройки (отключение VBS/HVCI) требует `confirmed: true` из окна подтверждения;
+//! остальные настройки применяются сразу. В тестах системные изменения не выполняются.
 
 use std::sync::OnceLock;
 
 use ochistka_core::system::CoreError;
-use ochistka_core::tweaks::{self, Group, TweaksOverview, TweaksPort};
+use ochistka_core::tweaks::{self, ActivationInfo, Group, TweaksOverview, TweaksPort};
 
 use crate::commands::CommandError;
 
@@ -43,7 +44,7 @@ async fn run<T: Send + 'static>(
 
 #[tauri::command]
 pub async fn tweaks_overview() -> Result<TweaksOverview, CommandError> {
-    run(|p| tweaks::overview(p, p)).await
+    run(tweaks::overview).await
 }
 
 #[tauri::command]
@@ -52,41 +53,57 @@ pub async fn tweak_set(
     enabled: bool,
     confirmed: bool,
 ) -> Result<TweaksOverview, CommandError> {
-    require_confirmation(confirmed)?;
+    if enabled && tweaks::is_dangerous(&id) {
+        require_confirmation(confirmed)?;
+    }
     run(move |p| {
         tweaks::set_tweak(p, &id, enabled)?;
-        tweaks::overview(p, p)
+        tweaks::overview(p)
     })
     .await
 }
 
 #[tauri::command]
-pub async fn tweaks_revert(group: String, confirmed: bool) -> Result<TweaksOverview, CommandError> {
-    require_confirmation(confirmed)?;
+pub async fn tweaks_revert(group: String) -> Result<TweaksOverview, CommandError> {
     let group = Group::parse(&group).ok_or_else(|| refused("Неизвестный раздел настроек"))?;
     run(move |p| {
-        tweaks::revert_group(p, p, group)?;
-        tweaks::overview(p, p)
+        tweaks::revert_group(p, group)?;
+        tweaks::overview(p)
     })
     .await
 }
 
 #[tauri::command]
-pub async fn boost_set_profile(
-    profile: Option<String>,
-    confirmed: bool,
-) -> Result<TweaksOverview, CommandError> {
-    require_confirmation(confirmed)?;
+pub async fn boost_set_profile(profile: Option<String>) -> Result<TweaksOverview, CommandError> {
     run(move |p| {
-        tweaks::set_boost_profile(p, p, profile.as_deref())?;
-        tweaks::overview(p, p)
+        tweaks::set_boost_profile(p, profile.as_deref())?;
+        tweaks::overview(p)
     })
     .await
+}
+
+/// Статус активации Windows (запрос лицензии идёт в фоне и может занять пару секунд).
+#[tauri::command]
+pub async fn windows_activation() -> Result<ActivationInfo, CommandError> {
+    run(|p| p.activation()).await
+}
+
+/// Открывает «Параметры → Активация»; ничего не меняет.
+#[tauri::command]
+pub async fn open_activation_settings() -> Result<(), CommandError> {
+    run(|p| p.open_activation_settings()).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_dangerous_tweak_needs_confirmation() {
+        assert!(tweaks::is_dangerous("vbs_off"));
+        assert!(!tweaks::is_dangerous("game_dvr"));
+        assert!(!tweaks::is_dangerous("transparency"));
+    }
 
     #[test]
     fn changes_without_confirmation_are_refused() {

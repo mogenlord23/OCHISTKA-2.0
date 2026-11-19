@@ -17,6 +17,8 @@ vi.mock('../lib/tweaksApi', () => ({
   tweakSet: vi.fn(),
   tweaksRevert: vi.fn(),
   boostSetProfile: vi.fn(),
+  windowsActivation: vi.fn(() => new Promise(() => {})),
+  openActivationSettings: vi.fn(),
 }));
 
 vi.mock('../lib/driversApi', () => ({

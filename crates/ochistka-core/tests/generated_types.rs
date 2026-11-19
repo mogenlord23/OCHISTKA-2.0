@@ -11,7 +11,9 @@ use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
 use ochistka_core::network::{NetworkAdapter, TcpConnection};
 use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
-use ochistka_core::tweaks::{BoostState, TweakState, TweaksOverview};
+use ochistka_core::tweaks::{
+    ActivationInfo, ActivationStatus, BoostState, TweakAvailability, TweakState, TweaksOverview,
+};
 use ochistka_core::vpn::engine::PrepareProgress;
 use ochistka_core::vpn::routes::RoutingRules;
 use ochistka_core::vpn::service::{
@@ -59,6 +61,9 @@ fn export_all_into(dir: &Path) {
     TweaksOverview::export_all(&cfg).unwrap();
     TweakState::export_all(&cfg).unwrap();
     BoostState::export_all(&cfg).unwrap();
+    TweakAvailability::export_all(&cfg).unwrap();
+    ActivationInfo::export_all(&cfg).unwrap();
+    ActivationStatus::export_all(&cfg).unwrap();
     VpnSnapshot::export_all(&cfg).unwrap();
     ServerView::export_all(&cfg).unwrap();
     ConnectionStatus::export_all(&cfg).unwrap();
