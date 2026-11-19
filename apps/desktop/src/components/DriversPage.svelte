@@ -221,11 +221,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 8px;
     width: 136px;
     aspect-ratio: 1;
-    padding: 8px;
+    padding: 18px 8px 8px;
     border: 0;
     border-radius: var(--radius-md);
     background: var(--black, #080808);
