@@ -15,6 +15,7 @@ use super::config::build_config;
 use super::engine::{PrepareError, PrepareProgress};
 use super::fetch::{import_input, HttpFetch, Input};
 use super::latency::{measure, Dialer, PARALLEL, TIMEOUT};
+use super::mask::mask_secrets;
 use super::parse::{ImportReport, Server};
 use super::routes::{RoutingRules, PRESETS};
 use super::sysproxy::SystemProxy;
@@ -290,6 +291,7 @@ impl VpnService {
     fn log_tail(&self) -> String {
         let text =
             std::fs::read_to_string(self.session_dir().join("engine.log")).unwrap_or_default();
+        let text = mask_secrets(&text);
         let chars: Vec<char> = text.trim().chars().collect();
         let start = chars.len().saturating_sub(600);
         let tail: String = chars[start..].iter().collect();
@@ -453,7 +455,7 @@ impl VpnService {
         lock(&self.conn).message = "Подготовка VPN…".into();
         self.host.install_core(progress).map_err(|err| {
             let _ = std::fs::create_dir_all(&self.dir);
-            let _ = std::fs::write(self.dir.join("prepare.log"), &err.detail);
+            let _ = std::fs::write(self.dir.join("prepare.log"), mask_secrets(&err.detail));
             VpnError::Prepare(err.reason)
         })?;
         self.host
@@ -631,7 +633,7 @@ mod tests {
             progress: &mut dyn FnMut(PrepareProgress),
         ) -> Result<(), PrepareError> {
             if self.install_fails {
-                return Err(PrepareError::network("offline"));
+                return Err(PrepareError::network("offline: https://sub.example/api/SECRETTOKEN?k=1"));
             }
             progress(PrepareProgress { percent: 50 });
             progress(PrepareProgress { percent: 100 });
@@ -827,9 +829,10 @@ mod tests {
         );
         assert_eq!(s.status().state, ConnState::Error);
         assert!(reg.map.lock().unwrap().is_empty());
+        // В журнал ссылки попадают без токена.
         assert_eq!(
             std::fs::read_to_string(dir.join("prepare.log")).unwrap(),
-            "offline"
+            "offline: https://sub.example/***"
         );
         // Повторная попытка («Повторить») снова пробует подготовку.
         assert!(matches!(s.connect(), Err(VpnError::Prepare(_))));

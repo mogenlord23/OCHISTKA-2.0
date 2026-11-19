@@ -6,6 +6,7 @@ pub mod country;
 pub mod engine;
 pub mod fetch;
 pub mod latency;
+pub mod mask;
 pub mod parse;
 pub mod routes;
 pub mod service;

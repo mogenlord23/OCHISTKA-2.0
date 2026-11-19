@@ -301,8 +301,14 @@ mod http {
                     attempt.follow()
                 }
             });
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert(
+                reqwest::header::ACCEPT,
+                reqwest::header::HeaderValue::from_static("text/plain, application/json, */*"),
+            );
             let client = Client::builder()
                 .user_agent(user_agent)
+                .default_headers(headers)
                 .redirect(policy)
                 .timeout(Duration::from_secs(25))
                 .https_only(true)

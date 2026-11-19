@@ -2,6 +2,7 @@
 //! `HttpFetch`: таймаут, лимит размера, переходы только на https). Интерфейс сеть не трогает.
 
 use super::parse::{parse_subscription, percent_decode, ImportReport, MAX_BODY};
+use super::mask::mask_secrets;
 use super::VpnError;
 
 /// Ответ сервера подписки.
@@ -15,10 +16,25 @@ pub trait HttpFetch: Send + Sync {
     fn get(&self, url: &str, user_agent: &str, max_bytes: usize) -> Result<FetchResponse, String>;
 }
 
-/// Основное имя клиента: общее, без личных данных.
-pub const USER_AGENT: &str = "OCHISTKA";
-/// Запасное имя: часть сервисов отдаёт список только известным клиентам.
-pub const FALLBACK_USER_AGENT: &str = "v2rayN/7.0 OCHISTKA";
+/// Имена клиента, как в OCHISTKA 0.5.5: сначала v2rayN, затем v2rayTun. Часть сервисов отдаёт
+/// список только известным клиентам. Личных данных (идентификатор устройства) не отправляем.
+pub const USER_AGENTS: [&str; 2] = ["v2rayN/7.0 OCHISTKA", "v2rayTun/1.0 OCHISTKA"];
+
+pub const LINK_GONE: &str = "Ссылка больше не действует. Обновите её в личном кабинете сервиса";
+
+/// Человеческий текст по коду ответа сервиса подписки. Кода на экране нет.
+pub fn status_message(status: u16) -> &'static str {
+    match status {
+        410 => LINK_GONE,
+        401 | 403 => {
+            "Сервис не выдал список серверов этому приложению. Проверьте ссылку в личном кабинете сервиса"
+        }
+        404 => "Ссылка не найдена. Проверьте её в личном кабинете сервиса",
+        429 => "Сервис просит подождать. Повторите импорт чуть позже",
+        500..=599 => "Сервис подписки сейчас недоступен. Повторите чуть позже",
+        _ => "Сервис не отдал список серверов. Проверьте ссылку в личном кабинете сервиса",
+    }
+}
 
 /// Что ввёл пользователь.
 #[derive(Debug, PartialEq, Eq)]
@@ -98,10 +114,13 @@ fn unwrap_link(link: &str) -> Result<String, VpnError> {
 pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportReport, VpnError> {
     let url = validate_https_url(url)?;
     let mut last = VpnError::Fetch("Подписка не загрузилась".into());
-    for agent in [USER_AGENT, FALLBACK_USER_AGENT] {
+    for agent in USER_AGENTS {
         match fetcher.get(&url, agent, MAX_BODY) {
             Err(why) => {
-                last = VpnError::Fetch(format!("Не удалось связаться с сервисом подписки: {why}"));
+                last = VpnError::Fetch(format!(
+                    "Не удалось связаться с сервисом подписки: {}",
+                    mask_secrets(&why)
+                ));
                 // Нет сети или таймаут: второй запрос не поможет.
                 return Err(last);
             }
@@ -116,11 +135,9 @@ pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportRepor
                 }
             }
             Ok(r) => {
-                last = VpnError::Fetch(format!(
-                    "Сервис подписки ответил HTTP {}. Проверь ссылку и доступ к подписке в личном кабинете",
-                    r.status
-                ));
-                if !matches!(r.status, 400 | 401 | 403 | 404 | 406 | 410 | 422) {
+                last = VpnError::Fetch(status_message(r.status).into());
+                // Другое имя клиента помогает при отказах и сбоях сервиса; при прочих кодах нет.
+                if !matches!(r.status, 400 | 401 | 403 | 404 | 406 | 410 | 422 | 429 | 500..=504) {
                     return Err(last);
                 }
             }
@@ -225,7 +242,10 @@ mod tests {
         let fake = Fake::new(vec![ok("dHJvamFuOi8vcEBiLmV4YW1wbGUuY29tOjQ0MyNC")]);
         let r = import_input(&fake, "https://s.example/sub").unwrap();
         assert_eq!(r.servers.len(), 1);
-        assert_eq!(fake.agents.lock().unwrap().as_slice(), ["OCHISTKA"]);
+        assert_eq!(
+            fake.agents.lock().unwrap().as_slice(),
+            ["v2rayN/7.0 OCHISTKA"]
+        );
     }
 
     #[test]
@@ -258,15 +278,60 @@ mod tests {
     }
 
     #[test]
-    fn server_error_and_garbage_body() {
+    fn gone_link_gives_plain_message_without_code() {
+        let gone = || {
+            Ok(FetchResponse {
+                status: 410,
+                body: vec![],
+            })
+        };
+        let fake = Fake::new(vec![gone(), gone()]);
+        let text = import_input(&fake, "https://s.example/sub")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(text, LINK_GONE);
+        assert!(!text.contains("410") && !text.contains("HTTP"));
+        // Второй запрос с другим именем клиента сделан, как в 0.5.5.
+        assert_eq!(fake.agents.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn other_statuses_are_human_and_have_no_code() {
+        for (status, needle) in [(403, "не выдал"), (404, "не найдена"), (503, "недоступен")] {
+            let reply = || {
+                Ok(FetchResponse {
+                    status,
+                    body: vec![],
+                })
+            };
+            let fake = Fake::new(vec![reply(), reply()]);
+            let text = import_input(&fake, "https://s.example/sub")
+                .unwrap_err()
+                .to_string();
+            assert!(text.contains(needle), "{text}");
+            assert!(!text.contains("HTTP") && !text.contains(&status.to_string()));
+        }
         let fake = Fake::new(vec![Ok(FetchResponse {
-            status: 500,
+            status: 418,
             body: vec![],
         })]);
-        assert!(import_input(&fake, "https://s.example/sub")
+        assert!(import_input(&fake, "https://s.example/sub").is_err());
+        assert_eq!(fake.agents.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn network_error_text_does_not_leak_the_subscription_token() {
+        let fake = Fake::new(vec![Err(
+            "error sending request for url (https://s.example/sub/TOKEN123?k=v)".into(),
+        )]);
+        let text = import_input(&fake, "https://s.example/sub/TOKEN123")
             .unwrap_err()
-            .to_string()
-            .contains("HTTP 500"));
+            .to_string();
+        assert!(!text.contains("TOKEN123") && !text.contains("k=v"), "{text}");
+    }
+
+    #[test]
+    fn server_error_and_garbage_body() {
         let fake = Fake::new(vec![ok("<html>login</html>"), ok("<html>login</html>")]);
         assert!(import_input(&fake, "https://s.example/sub")
             .unwrap_err()
