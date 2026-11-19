@@ -103,6 +103,22 @@ pub fn current_programs_port() -> Box<dyn ProgramsPort> {
     Box::new(linux::programs::UnsupportedPrograms)
 }
 
+/// Установка драйверов: Windows — загрузка, проверка подписи и запуск установщика, остальные ОС — заглушка.
+#[cfg(target_os = "windows")]
+pub fn current_driver_host() -> Box<dyn ochistka_core::drivers::DriverHost> {
+    Box::new(windows::drivers::WindowsDriverHost::new())
+}
+
+#[cfg(target_os = "macos")]
+pub fn current_driver_host() -> Box<dyn ochistka_core::drivers::DriverHost> {
+    Box::new(macos::drivers::UnsupportedDriverHost)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn current_driver_host() -> Box<dyn ochistka_core::drivers::DriverHost> {
+    Box::new(linux::drivers::UnsupportedDriverHost)
+}
+
 /// Дисковый кэш значков программ и процессов (папка данных приложения).
 pub fn current_icon_store() -> Box<dyn ochistka_core::programs::icons::IconStore> {
     Box::new(icon_store::DiskIconStore::default())

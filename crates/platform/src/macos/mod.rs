@@ -7,6 +7,7 @@ pub mod network;
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 
 pub mod cleanup;
+pub mod drivers;
 pub mod processes;
 pub mod programs;
 

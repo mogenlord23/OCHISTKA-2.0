@@ -19,6 +19,13 @@ vi.mock('../lib/tweaksApi', () => ({
   boostSetProfile: vi.fn(),
 }));
 
+vi.mock('../lib/driversApi', () => ({
+  getDriversCatalog: vi.fn(() => new Promise(() => {})),
+  installDriver: vi.fn(),
+  openDriverPage: vi.fn(),
+  openWindowsUpdate: vi.fn(),
+}));
+
 beforeEach(() => {
   vi.mocked(getSystemOverview).mockClear();
   vi.mocked(getHardware).mockClear();
@@ -47,9 +54,9 @@ describe('ComputerPage subsections', () => {
     expect(screen.queryByRole('group', { name: 'Операционная система' })).toBeNull();
   });
 
-  it('renders the Drivers page with the OS switch', () => {
+  it('renders the Drivers page without the OS switch', () => {
     render(ComputerPage, { props: { subsection: 'drivers' } });
-    expect(screen.getByRole('group', { name: 'Операционная система' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Linux' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Драйверы / твоё оборудование' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Операционная система' })).toBeNull();
   });
 });

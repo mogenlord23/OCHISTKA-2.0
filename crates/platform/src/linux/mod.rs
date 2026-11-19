@@ -14,6 +14,7 @@ impl SystemInfoPort for LinuxSystemInfo {
 }
 
 pub mod cleanup;
+pub mod drivers;
 pub mod hardware;
 pub mod network;
 pub mod processes;
