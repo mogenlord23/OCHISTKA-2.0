@@ -25,8 +25,8 @@
     setTransparency,
     type AppearanceStatus,
   } from '../lib/appearanceApi';
-  import { applyReduceMotion, loadSettings, saveSettings } from '../lib/appearanceStore';
-  import { i18n } from '../lib/i18n.svelte';
+  import { i18n, setLang } from '../lib/i18n.svelte';
+  import { setSoundOn, soundState } from '../lib/soundState.svelte';
 
   let { subsection }: { subsection: string } = $props();
 
@@ -44,18 +44,15 @@
     color: 'Цвет',
   };
 
-  const HEADINGS: Record<AppearanceKind, { title: string; hint: string }> = {
+  const HEADINGS: Record<AppearanceKind, { title: string }> = {
     wallpaper: {
       title: 'Обои',
-      hint: 'Нажми на картинку, и она станет обоями рабочего стола Windows. Ещё один клик по выбранной вернёт прежние обои.',
     },
     cursor: {
       title: 'Курсоры',
-      hint: 'Выбранная схема становится курсором Windows. Ещё один клик по выбранной вернёт прежний курсор.',
     },
     color: {
       title: 'Акцентный цвет Windows',
-      hint: 'Акцент меняется во всей Windows. Ещё один клик по выбранному цвету вернёт прежний. Прозрачность и заливка панели задач включаются переключателями, но не вместе.',
     },
   };
 
@@ -68,7 +65,6 @@
     fill?: boolean;
   }
 
-  let reduceMotion = $state(loadSettings().reduceMotion);
   let visible = $state(PAGE_SIZE);
   let sentinel = $state<HTMLElement | null>(null);
   let status = $state<AppearanceStatus | null>(null);
@@ -221,12 +217,6 @@
     });
   }
 
-  function toggleMotion() {
-    reduceMotion = !reduceMotion;
-    saveSettings({ reduceMotion });
-    applyReduceMotion(reduceMotion);
-  }
-
   async function refreshStatus() {
     try {
       status = await appearanceStatus();
@@ -263,41 +253,26 @@
   {#key subsection}
     <div class="pane">
       {#if isSettings}
-        <h2>Настройки приложения</h2>
-        <p class="hint">Меняют только это приложение, Windows не затрагивают.</p>
+        <h2 class="sr-only">Настройки приложения</h2>
+
+        <div class="setting">
+          <span class="setting-name" id="sound-label">Звук</span>
+          <Switch checked={soundState.on} onchange={(on) => setSoundOn(on)} />
+        </div>
 
         <div class="setting">
           <span class="setting-name" id="lang-label">Язык / Language</span>
           <div class="seg" role="group" aria-labelledby="lang-label">
-            <button
-              type="button"
-              aria-pressed={i18n.lang === 'ru'}
-              onclick={() => (i18n.lang = 'ru')}>RU</button
+            <button type="button" aria-pressed={i18n.lang === 'ru'} onclick={() => setLang('ru')}
+              >RU</button
             >
-            <button
-              type="button"
-              aria-pressed={i18n.lang === 'en'}
-              onclick={() => (i18n.lang = 'en')}>ENG</button
+            <button type="button" aria-pressed={i18n.lang === 'en'} onclick={() => setLang('en')}
+              >ENG</button
             >
           </div>
         </div>
-
-        <div class="setting">
-          <span class="setting-name" id="motion-label">Меньше анимации</span>
-          <button
-            type="button"
-            class="switch"
-            role="switch"
-            aria-checked={reduceMotion}
-            aria-labelledby="motion-label"
-            onclick={toggleMotion}
-          >
-            <span class="knob"></span>
-          </button>
-        </div>
       {:else}
-        <h2>{HEADINGS[kind].title}</h2>
-        <p class="hint">{HEADINGS[kind].hint}</p>
+        <h2 class="sr-only">{HEADINGS[kind].title}</h2>
 
         {#if message}
           <p class="msg error" role="status">{message.text}</p>
@@ -416,9 +391,16 @@
     text-transform: uppercase;
   }
 
-  .hint {
-    margin: 0 0 8px;
-    font-size: var(--text-small);
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   .msg {
@@ -693,42 +675,9 @@
     color: var(--black);
   }
 
-  .switch {
-    position: relative;
-    width: 52px;
-    height: 30px;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: #3a3a3a;
-    cursor: pointer;
-    transition: background 160ms ease;
-  }
-
-  .switch[aria-checked='true'] {
-    background: var(--ink);
-  }
-
-  .knob {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 160ms ease;
-  }
-
-  .switch[aria-checked='true'] .knob {
-    background: var(--black);
-    transform: translateX(22px);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .pane,
-    .tile,
-    .switch,
-    .knob {
+    .tile {
       animation: none;
       transition: none;
     }

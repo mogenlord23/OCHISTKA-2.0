@@ -75,7 +75,7 @@
 </script>
 
 <section class="page">
-  <h2>Boost / Игры</h2>
+  <h2 class="sr-only">Boost / Игры</h2>
   <p class="note">
     {SAVED_NOTE} Результат зависит от игры и оборудования: прироста FPS никто не обещает.
   </p>

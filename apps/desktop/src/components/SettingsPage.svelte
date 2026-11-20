@@ -70,7 +70,7 @@
 </script>
 
 <section class="page">
-  <h2>Настройки Windows</h2>
+  <h2 class="sr-only">Настройки Windows</h2>
   <p class="note">{SAVED_NOTE}</p>
 
   <div class="activation" aria-label="Активация Windows">

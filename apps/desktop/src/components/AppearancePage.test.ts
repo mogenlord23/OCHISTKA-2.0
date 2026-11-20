@@ -6,6 +6,9 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
 
 import AppearancePage from './AppearancePage.svelte';
 import { COLOR_SCHEMES, SOLID_WALLPAPERS } from '../lib/appearance';
+import { i18n } from '../lib/i18n.svelte';
+import { readSoundEnabled } from '../lib/sound';
+import { soundState, syncSoundState } from '../lib/soundState.svelte';
 
 const STATUS = {
   accent: '#FF009D',
@@ -375,15 +378,41 @@ describe('AppearancePage instant selection', () => {
 });
 
 describe('AppearancePage settings', () => {
-  it('has language and reduced motion, no version text', async () => {
+  beforeEach(() => {
+    try {
+      localStorage.clear();
+    } catch {
+      /* нет хранилища */
+    }
+    syncSoundState();
+    i18n.lang = 'ru';
+  });
+
+  it('has only sound and language, no reduced-motion switch, no version text', () => {
     render(AppearancePage, { subsection: 'settings' });
     expect(document.body.textContent).not.toMatch(/Версия|OCHISTKA 0/);
-    const sw = screen.getByRole('switch', { name: 'Меньше анимации' });
-    await fireEvent.click(sw);
-    expect(sw.getAttribute('aria-checked')).toBe('true');
-    expect(document.documentElement.dataset.reduceMotion).toBe('true');
-    expect(JSON.parse(localStorage.getItem('ochistka.settings') ?? '{}').reduceMotion).toBe(true);
-    await fireEvent.click(sw);
-    expect(document.documentElement.dataset.reduceMotion).toBeUndefined();
+    expect(screen.queryByText('Меньше анимации')).toBeNull();
+    expect(screen.getByText('Звук')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'RU' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'ENG' })).toBeTruthy();
+  });
+
+  it('sound switch is the shared sound state and is remembered', async () => {
+    render(AppearancePage, { subsection: 'settings' });
+    const before = soundState.on;
+    await fireEvent.click(screen.getByRole('switch'));
+    expect(soundState.on).toBe(!before);
+    expect(readSoundEnabled()).toBe(!before);
+    await fireEvent.click(screen.getByRole('switch'));
+    expect(soundState.on).toBe(before);
+  });
+
+  it('language buttons switch the language and remember it', async () => {
+    render(AppearancePage, { subsection: 'settings' });
+    await fireEvent.click(screen.getByRole('button', { name: 'ENG' }));
+    expect(i18n.lang).toBe('en');
+    expect(localStorage.getItem('ochistka.lang')).toBe('en');
+    await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+    expect(localStorage.getItem('ochistka.lang')).toBe('ru');
   });
 });

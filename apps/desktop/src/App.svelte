@@ -11,18 +11,13 @@
   import PlaceholderPage from './components/PlaceholderPage.svelte';
   import AppearancePage from './components/AppearancePage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
-  import { i18n, t } from './lib/i18n.svelte';
+  import { i18n, setLang, t } from './lib/i18n.svelte';
   import { onMount, tick } from 'svelte';
   import { navigation } from './lib/navigation.svelte';
   import { watchMaximized } from './lib/windowState';
   import { attachChromeGuards } from './lib/chromeGuards';
-  import {
-    attachUiSounds,
-    playUiSound,
-    preloadSounds,
-    readSoundEnabled,
-    writeSoundEnabled,
-  } from './lib/sound';
+  import { attachUiSounds, playUiSound, preloadSounds } from './lib/sound';
+  import { setSoundOn, soundState, syncSoundState } from './lib/soundState.svelte';
   import {
     BODY_FONT,
     HEADING_FONT,
@@ -37,12 +32,12 @@
   } from './lib/tokens';
 
   let maximized = $state(false);
-  let soundOn = $state(readSoundEnabled());
+  syncSoundState();
+  const soundOn = $derived(soundState.on);
 
   function toggleSound() {
-    soundOn = !soundOn;
-    writeSoundEnabled(soundOn);
-    if (soundOn) playUiSound('click');
+    setSoundOn(!soundState.on);
+    if (soundState.on) playUiSound('click');
   }
   let dockPinned = $state(readPinned());
   let dockHover = $state(false);
@@ -227,13 +222,13 @@
                 type="button"
                 class="pill"
                 aria-pressed={i18n.lang === 'ru'}
-                onclick={() => (i18n.lang = 'ru')}>{t('langRu')}</button
+                onclick={() => setLang('ru')}>{t('langRu')}</button
               >
               <button
                 type="button"
                 class="pill"
                 aria-pressed={i18n.lang === 'en'}
-                onclick={() => (i18n.lang = 'en')}>{t('langEn')}</button
+                onclick={() => setLang('en')}>{t('langEn')}</button
               >
             </div>
           </div>
@@ -415,7 +410,7 @@
 
   /* Заголовок раздела на экране не показывается (вкладки сразу под шапкой),
      но остаётся для чтения с экрана. */
-  .sr-only {
+  :global(.sr-only) {
     position: absolute;
     width: 1px;
     height: 1px;
