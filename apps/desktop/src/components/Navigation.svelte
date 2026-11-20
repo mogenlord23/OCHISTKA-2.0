@@ -1,6 +1,9 @@
 <script lang="ts">
   import { SECTIONS, type SectionId } from '../lib/sections';
+  import { onMount } from 'svelte';
   import { t } from '../lib/i18n.svelte';
+  import { dragSelect } from '../lib/dragSelect';
+  import { playActionSound } from '../lib/sound';
 
   let {
     active,
@@ -9,6 +12,47 @@
     active: SectionId;
     onSelect: (id: SectionId) => void;
   } = $props();
+
+  let rail = $state<HTMLElement>();
+  let indicator = $state<HTMLElement>();
+  let placed = false;
+
+  const tiles = (): HTMLElement[] =>
+    rail ? Array.from(rail.querySelectorAll<HTMLElement>('.item')) : [];
+
+  function select(index: number, source: 'press' | 'drag' | 'key') {
+    const section = SECTIONS[index];
+    if (!section) return;
+    // Нажатие и клавиатуру озвучивает общий слушатель окна; переключение перетаскиванием играет здесь.
+    if (source === 'drag') playActionSound('switch');
+    onSelect(section.id);
+  }
+
+  /** Ползунок: блок 88x88 цвета раздела, ездит transform между плитками; первая установка без анимации. */
+  function place(jump: boolean) {
+    if (!indicator) return;
+    const current = tiles().find((tile) => tile.getAttribute('aria-current') === 'page');
+    if (!current) return;
+    if (jump) indicator.style.transition = 'none';
+    indicator.style.transform = `translate(${current.offsetLeft}px, ${current.offsetTop}px)`;
+    if (jump) {
+      void indicator.offsetWidth;
+      indicator.style.transition = '';
+    }
+  }
+
+  $effect(() => {
+    void active;
+    place(!placed);
+    placed = true;
+  });
+
+  onMount(() => {
+    const observer =
+      typeof ResizeObserver === 'function' ? new ResizeObserver(() => place(true)) : null;
+    if (rail) observer?.observe(rail);
+    return () => observer?.disconnect();
+  });
 </script>
 
 <!-- Значки как в прежнем приложении: контур, закруглённые концы, чёткие линии на сетке 24. -->
@@ -47,7 +91,13 @@
   </svg>
 {/snippet}
 
-<nav class="rail" aria-label={t('navLabel')}>
+<nav
+  class="rail"
+  aria-label={t('navLabel')}
+  bind:this={rail}
+  use:dragSelect={{ axis: 'y', items: tiles, onSelect: select }}
+>
+  <span class="ind" bind:this={indicator} aria-hidden="true"></span>
   {#each SECTIONS as section (section.id)}
     <button
       type="button"
@@ -55,7 +105,6 @@
       class:active={active === section.id}
       aria-label={t(section.titleKey)}
       aria-current={active === section.id ? 'page' : undefined}
-      onclick={() => onSelect(section.id)}
     >
       {@render icon(section.id)}
       <span class="label">{t(section.titleKey)}</span>
@@ -71,6 +120,8 @@
      самая длинная («Оформление») занимает не больше ~76% плитки даже в Black.
      Минимальная высота окна (tauri.conf.json) рассчитана так, чтобы все 7 пунктов были видны. */
   .rail {
+    position: relative;
+    touch-action: none;
     --gap: 8px;
     --tile: 88px;
     display: flex;
@@ -82,7 +133,26 @@
     background: var(--window);
   }
 
+  /* Ползунок выбранного раздела: тот же квадрат 88 px, что и плитка, цвет раздела. */
+  .ind {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--tile);
+    height: var(--tile);
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    transition:
+      transform 190ms cubic-bezier(0.2, 0, 0, 1),
+      background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
+    will-change: transform;
+    pointer-events: none;
+  }
+
   .item {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex: none;
     flex-direction: column;
@@ -103,13 +173,14 @@
     cursor: pointer;
   }
 
-  .item:hover {
+  .item:hover:not(.active) {
     background: var(--rail-hover);
   }
 
+  /* Фон выбранной плитки рисует ползунок; сама плитка прозрачная, текст цвета textOn(акцент). */
   .item.active {
-    background: var(--accent);
-    color: var(--black);
+    background: transparent;
+    color: var(--page-text);
   }
 
   svg {
