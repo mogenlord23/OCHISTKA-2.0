@@ -126,7 +126,8 @@ describe('Home', () => {
     // Полное название остаётся в подсказке плитки.
     expect(cpu.getAttribute('title')).toBe('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz');
     expect(screen.getByText('8,0 ГБ')).toBeTruthy();
-    expect(screen.getByText('KINGSTON SHFS37A120G / WDC WD10EZEX-21WN4A0')).toBeTruthy();
+    const drives = screen.getByText('Kingston SHFS37A120G / WD WD10EZEX');
+    expect(drives.getAttribute('title')).toBe('KINGSTON SHFS37A120G / WDC WD10EZEX-21WN4A0');
   });
 
   it('shows no percentages on the tiles', async () => {
