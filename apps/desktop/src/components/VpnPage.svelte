@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Subtabs from './Subtabs.svelte';
+  import { SECTIONS } from '../lib/sections';
   import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
@@ -39,6 +41,8 @@
   import { errorMessage } from '../lib/vpnNetwork';
 
   let { subsection }: { subsection: string } = $props();
+
+  const vpnSubs = SECTIONS.find((section) => section.id === 'vpn')?.subsections ?? [];
 
   type Tab = 'vpn' | 'advanced' | 'network' | 'connections';
   const TABS: { id: Tab; label: string }[] = [
@@ -310,18 +314,7 @@
       <p class="tagline">Подписка, серверы, маршруты · сеть и соединения</p>
     </header>
 
-    <div class="tabbar" role="tablist" aria-label="Вкладки VPN">
-      {#each TABS as item (item.id)}
-        <button
-          type="button"
-          role="tab"
-          class="tab"
-          class:on={tab === item.id}
-          aria-selected={tab === item.id}
-          onclick={() => (tab = item.id)}>{item.label}</button
-        >
-      {/each}
-    </div>
+    <Subtabs items={vpnSubs} active={tab} onSelect={(id) => (tab = tabOf(id))} />
 
     {#key tab}
       <div class="pane" role="tabpanel" aria-label={tabLabel}>
@@ -634,6 +627,15 @@
     }
   }
 
+  .head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .column {
     display: flex;
     flex-direction: column;
@@ -650,46 +652,6 @@
     line-height: 1;
     text-transform: uppercase;
     color: #000;
-  }
-
-  /* Чёрная сегментированная панель вкладок; активная — «таблетка» цвета раздела. */
-  .tabbar {
-    display: flex;
-    gap: 4px;
-    padding: 6px;
-    border-radius: var(--radius-lg);
-    background: #111;
-  }
-
-  .tab {
-    flex: 1;
-    min-height: 44px;
-    line-height: 1.15;
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    background: transparent;
-    box-shadow: none;
-    color: var(--ink);
-    font-size: var(--text-caption);
-    font-weight: 800;
-    transition:
-      background-color 0.18s ease,
-      color 0.18s ease;
-  }
-
-  .tab:hover:not(.on) {
-    background: #1d1d1d;
-  }
-
-  .tab.on {
-    background: var(--accent);
-    color: #000;
-    box-shadow: none;
-  }
-
-  .tab:focus-visible {
-    outline: 2px solid #fff;
-    outline-offset: 2px;
   }
 
   .pane {
@@ -723,10 +685,6 @@
 
     .pane {
       animation: none;
-    }
-
-    .tab {
-      transition: none;
     }
   }
 

@@ -33,7 +33,8 @@ describe('App navigation', () => {
   it('opens VPN first, with its subsections', () => {
     render(App);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('VPN');
-    const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
+    // У VPN своя панель вкладок внутри страницы (общая в оболочке скрыта), поэтому берём последнюю.
+    const tabs = screen.getAllByRole('tablist', { name: 'Подразделы' }).at(-1)!;
     expect(within(tabs).getByRole('tab', { name: 'VPN' })).toBeTruthy();
     expect(within(tabs).getByRole('tab', { name: 'Соединения' })).toBeTruthy();
   });

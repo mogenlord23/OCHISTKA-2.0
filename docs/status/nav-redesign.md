@@ -36,3 +36,7 @@
 
 В `apps/desktop`: `npx vite --port 1591 --strictPort`, затем `node ../../docs/status/nav-redesign/geometry.mjs <папка снимков>`.
 Проверено: vitest, svelte-check, Prettier, геометрия в Chromium. Не проверено: окно Tauri на Windows (WebView2, DPI, перетаскивание окна за шапку, реальный звук).
+
+## Дополнение: вкладки VPN
+
+Собственная панель вкладок на странице VPN заменена общим компонентом `Subtabs` (тот же вид, бегунок и переключение зажатой мышью). Заголовок и подпись VPN скрыты визуально, но остаются для программ чтения с экрана. Откат: вернуть `apps/desktop/src/components/VpnPage.svelte` из коммита 44c88f2.
