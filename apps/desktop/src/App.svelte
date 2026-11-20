@@ -41,6 +41,18 @@
   }
   let dockPinned = $state(readPinned());
   let dockHover = $state(false);
+  let dockLeaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function dockEnter() {
+    clearTimeout(dockLeaveTimer);
+    dockHover = true;
+  }
+
+  /** Небольшая задержка закрытия: при движении мыши между кнопками блок не мигает. */
+  function dockLeave() {
+    clearTimeout(dockLeaveTimer);
+    dockLeaveTimer = setTimeout(() => (dockHover = false), 120);
+  }
   const dockOpen = $derived(dockPinned || dockHover);
 
   function readPinned(): boolean {
@@ -199,12 +211,7 @@
 
     <div class="side">
       <Navigation active={activeId} onSelect={select} />
-      <div
-        class="dock"
-        role="group"
-        onmouseenter={() => (dockHover = true)}
-        onmouseleave={() => (dockHover = false)}
-      >
+      <div class="dock" role="group" onmouseenter={dockEnter} onmouseleave={dockLeave}>
         <div class="bottom-wrap" class:open={dockOpen} inert={!dockOpen}>
           <div class="bottom">
             <button
@@ -445,34 +452,35 @@
     padding-bottom: 8px;
   }
 
-  /* Сворачивание: высота блока и прозрачность (маленький блок, поэтому без нагрузки). */
+  /* Раскрытие: карточка 96 px «вырастает» снизу (clip-path) и чуть поднимается (transform), без смены
+     высоты, без прозрачности (плитка под ней не просвечивает) и без пересчёта соседей. Открытие
+     200 мс, закрытие быстрее, 160 мс. */
   .bottom-wrap {
     position: absolute;
     right: 6px;
     bottom: 28px;
     left: 6px;
     z-index: 10;
-    display: grid;
-    /* Карточка поверх панели: своя обводка и скругление из токена, чтобы срез плитки под ней
-       читался как перекрытие, а не как обрезанная плитка. isolation: свой слой наложения. */
     isolation: isolate;
     overflow: hidden;
     border-radius: var(--radius-md);
-    /* Чёрная сплошная карточка без обводки: целиком закрывает пункты под собой (без просвета).
-       Прозрачность не анимируется, иначе в середине анимации цвет выбранной плитки просвечивает. */
     background-color: var(--black);
-    grid-template-rows: 0fr;
     visibility: hidden;
+    clip-path: inset(100% 0 0 0 round var(--radius-md));
+    transform: translateY(10px);
     transition:
-      grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
-      visibility 0s linear 180ms;
+      clip-path 160ms cubic-bezier(0.4, 0, 1, 1),
+      transform 160ms cubic-bezier(0.4, 0, 1, 1),
+      visibility 0s linear 160ms;
   }
 
   .bottom-wrap.open {
-    grid-template-rows: 1fr;
     visibility: visible;
+    clip-path: inset(0 0 0 0 round var(--radius-md));
+    transform: none;
     transition:
-      grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
+      clip-path 200ms cubic-bezier(0.2, 0, 0, 1),
+      transform 200ms cubic-bezier(0.2, 0, 0, 1),
       visibility 0s;
   }
 
