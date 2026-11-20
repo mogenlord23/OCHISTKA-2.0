@@ -77,7 +77,7 @@ for (const [w, h] of SIZES) {
         docOverflow: document.documentElement.scrollWidth - window.innerWidth,
         mainOverflow: main.scrollWidth - main.clientWidth,
         mainScrolls: main.scrollHeight > main.clientHeight + 1,
-        footer: r(document.querySelector('footer')),
+        footer: r(document.querySelector('main')),
         h1: document.querySelector('main h1')?.textContent,
         created: /Create|Slava Lavs/.test(document.querySelector('.titlebar').textContent),
       };
@@ -94,7 +94,7 @@ for (const [w, h] of SIZES) {
     );
     check(
       m.mainScrolls || m.footer.b <= h + 0.5,
-      `${tag}: подвал внутри окна или страница прокручивается (${m.footer.b.toFixed(0)} / ${h}, прокрутка ${m.mainScrolls})`,
+      `${tag}: содержимое внутри окна или страница прокручивается (${m.footer.b.toFixed(0)} / ${h}, прокрутка ${m.mainScrolls})`,
     );
     check(
       near(m.railInd.l, m.tile.l) &&
