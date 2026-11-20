@@ -121,7 +121,10 @@ describe('Home', () => {
     expect(screen.getByText('CPU 12%')).toBeTruthy();
     expect(screen.getByText('GPU 37%')).toBeTruthy();
     expect(screen.getByText('RAM 50%')).toBeTruthy();
-    expect(screen.getByText('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz')).toBeTruthy();
+    const cpu = screen.getByText('Intel i7-6700 · 3.40 GHz');
+    expect(cpu).toBeTruthy();
+    // Полное название остаётся в подсказке плитки.
+    expect(cpu.getAttribute('title')).toBe('Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz');
     expect(screen.getByText('8,0 ГБ')).toBeTruthy();
     expect(screen.getByText('KINGSTON SHFS37A120G / WDC WD10EZEX-21WN4A0')).toBeTruthy();
   });
@@ -148,7 +151,7 @@ describe('Home', () => {
     getMock.mockResolvedValue(sample);
     render(Home);
     await flush();
-    expect(screen.getByText('NVIDIA GeForce RTX 4070')).toBeTruthy();
+    expect(screen.getByText('NVIDIA RTX 4070')).toBeTruthy();
     expect(screen.getByText('ASUS · ROG STRIX B650')).toBeTruthy();
   });
 

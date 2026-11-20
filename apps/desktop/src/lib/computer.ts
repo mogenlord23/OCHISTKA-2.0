@@ -104,3 +104,110 @@ export function boardLine(board: MotherboardInfo): string {
   const parts = [board.vendor, board.name].filter((part): part is string => Boolean(part));
   return parts.length > 0 ? parts.join(' · ') : '—';
 }
+
+/** Убирает знаки (R), (TM), ® и ™ и лишние пробелы. */
+function stripMarks(text: string): string {
+  return text
+    .replace(/\((?:R|TM|C)\)|[®™©]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Короткое название процессора для плитки: «Intel i7-6700 · 3.40 GHz».
+ * Убираем знаки, слова CPU/Processor, «N-Core», «with Radeon Graphics»; частоту выносим в конец.
+ * Если формат незнакомый, остаётся очищенный оригинал (ничего не выдумываем).
+ */
+export function cpuShortName(brand: string | null | undefined): string {
+  if (!brand) return '—';
+  let name = stripMarks(brand);
+  let clock = '';
+  const at = name.match(/\s*@\s*([\d.,]+)\s*(GHz|MHz)\b/i);
+  if (at) {
+    clock = `${at[1].replace(',', '.')} ${at[2].toUpperCase() === 'GHZ' ? 'GHz' : 'MHz'}`;
+    name = name.replace(at[0], '');
+  }
+  name = name
+    .replace(/\b\d+-Core Processor\b/gi, '')
+    .replace(/\bwith\s+Radeon\s+Graphics\b/gi, '')
+    .replace(/\b(?:CPU|Processor)\b/gi, '')
+    .replace(/^(Intel)\s+Core\s+(i[3579]-)/i, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clock ? `${name} · ${clock}` : name;
+}
+
+/**
+ * Короткое название видеокарты для плитки: «NVIDIA GTX 1060 3GB».
+ * Без повтора производителя, без Corporation/Inc, без слова GeForce перед GTX/RTX/GT/MX.
+ */
+export function gpuShortName(gpu: GpuInfo): string {
+  const vendor = gpu.vendor ? stripMarks(gpu.vendor) : '';
+  const model = gpu.model ? stripMarks(gpu.model) : '';
+  let name = model || vendor;
+  if (!name) return '—';
+  const brand = /nvidia/i.test(name + vendor)
+    ? 'NVIDIA'
+    : /advanced micro devices|\bamd\b|\bati\b|radeon/i.test(name + vendor)
+      ? 'AMD'
+      : /intel/i.test(name + vendor)
+        ? 'Intel'
+        : '';
+  name = name
+    .replace(/Advanced Micro Devices,?\s*Inc\.?\s*\[AMD\/ATI\]\s*/i, '')
+    .replace(/\b(?:Corporation|Corp\.?|Inc\.?)\b/gi, '')
+    .replace(/\bGeForce\s+(?=(?:GTX|RTX|GT|MX)\b)/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (brand && !new RegExp(`^${brand}\\b`, 'i').test(name)) {
+    name = `${brand} ${name}`;
+  }
+  // Повтор производителя в начале: «NVIDIA NVIDIA GTX» → «NVIDIA GTX».
+  name = name.replace(/^(\S+)\s+\1\b/i, '$1');
+  return name;
+}
+
+const DRIVE_BRANDS: Record<string, string> = {
+  KINGSTON: 'Kingston',
+  SAMSUNG: 'Samsung',
+  TOSHIBA: 'Toshiba',
+  SEAGATE: 'Seagate',
+  CRUCIAL: 'Crucial',
+  INTEL: 'Intel',
+  HITACHI: 'Hitachi',
+  SANDISK: 'SanDisk',
+  ADATA: 'ADATA',
+  TRANSCEND: 'Transcend',
+  PATRIOT: 'Patriot',
+  CORSAIR: 'Corsair',
+  HGST: 'HGST',
+  WDC: 'WD',
+};
+
+/**
+ * Короткое название накопителя: «KINGSTON SHFS37A120G» → «Kingston SHFS37A120G»,
+ * «WDC WD10EZEX-21WN4A0» → «WD WD10EZEX». Убираем «ATA Device», «SCSI Disk Device», «NVMe»-приставки и
+ * служебный хвост ревизии после дефиса у WD. Объём и модель остаются.
+ */
+export function driveShortName(raw: string): string {
+  let name = stripMarks(raw)
+    .replace(/\s*\((?:Standard disk drives|Стандартные дисковые накопители)\)\s*/gi, ' ')
+    .replace(/\b(?:ATA|SCSI|SAS|USB)\s+(?:Disk\s+)?Device\b/gi, '')
+    .replace(/\bNVMe\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const [first, ...rest] = name.split(' ');
+  const brand = DRIVE_BRANDS[first.toUpperCase()];
+  if (brand) name = [brand, ...rest].join(' ');
+  if (brand === 'WD') name = name.replace(/\b(WD\d{2,5}[A-Z]{2,5})-[0-9A-Z]+\b/, '$1');
+  return name || '—';
+}
+
+/** Список накопителей для плитки; без моделей остаётся прежняя честная строка. */
+export function drivesShortLine(
+  models: readonly string[],
+  disks: readonly { mountPoint: string; kind: 'ssd' | 'hdd' | 'unknown' }[],
+): string {
+  if (models.length === 0) return drivesLine(models, disks);
+  return [...new Set(models.map(driveShortName))].join(' / ');
+}

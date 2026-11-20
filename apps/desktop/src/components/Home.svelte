@@ -4,6 +4,9 @@
     boardLine,
     clockTime,
     cpuName,
+    cpuShortName,
+    drivesShortLine,
+    gpuShortName,
     detailPercent,
     drivesLine,
     gpuFullName,
@@ -378,7 +381,9 @@
         <span class="tile-body">
           <span class="tile-title">{tile.title}</span>
           {#if tile.id === 'cpu'}
-            <span class="tile-value">{cpuName(hardware)}</span>
+            <span class="tile-value" title={cpuName(hardware)}
+              >{cpuShortName(hardware?.cpuBrand)}</span
+            >
           {:else if tile.id === 'ram'}
             <span class="tile-value">{ready ? ramTotal(ov.memory.totalBytes) : '—'}</span>
           {:else if tile.id === 'gpu'}
@@ -387,7 +392,9 @@
               <span class="tile-sub">{hardwareError.message}</span>
             {:else if hardware}
               {@const gpu = hardware.gpus[0]}
-              <span class="tile-value">{gpu ? gpuFullName(gpu) : 'Видеокарты не найдены'}</span>
+              <span class="tile-value" title={gpu ? gpuFullName(gpu) : undefined}
+                >{gpu ? gpuShortName(gpu) : 'Видеокарты не найдены'}</span
+              >
             {:else}
               <span class="tile-value">{HARDWARE_LOADING}</span>
             {/if}
@@ -401,8 +408,14 @@
               <span class="tile-value">{HARDWARE_LOADING}</span>
             {/if}
           {:else if tile.id === 'disks'}
-            <span class="tile-value"
-              >{ready || hardware ? drivesLine(hardware?.driveModels ?? [], ov.disks) : '—'}</span
+            <span
+              class="tile-value"
+              title={ready || hardware
+                ? drivesLine(hardware?.driveModels ?? [], ov.disks)
+                : undefined}
+              >{ready || hardware
+                ? drivesShortLine(hardware?.driveModels ?? [], ov.disks)
+                : '—'}</span
             >
           {:else if tile.id === 'system'}
             <span class="tile-value">{ready ? systemLine(ov.osName, ov.osVersion) : '—'}</span>
@@ -437,8 +450,9 @@
 
   .summary-values {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px 28px;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 20px;
     min-height: 44px;
     padding: 4px 8px;
     border: 1px solid transparent;
@@ -454,7 +468,8 @@
   }
 
   .summary-values span {
-    min-width: 5.6em;
+    min-width: 0;
+    white-space: nowrap;
   }
 
   .summary-values:hover,
