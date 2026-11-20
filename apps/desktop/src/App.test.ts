@@ -33,27 +33,27 @@ describe('App navigation', () => {
   it('opens VPN first, with its subsections', () => {
     render(App);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('VPN');
-    const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
-    expect(within(tabs).getByRole('button', { name: 'VPN' })).toBeTruthy();
-    expect(within(tabs).getByRole('button', { name: 'Соединения' })).toBeTruthy();
+    const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
+    expect(within(tabs).getByRole('tab', { name: 'VPN' })).toBeTruthy();
+    expect(within(tabs).getByRole('tab', { name: 'Соединения' })).toBeTruthy();
   });
 
   it('opens the virus section from the rail', async () => {
     render(App);
     await fireEvent.click(screen.getByRole('button', { name: 'Вирусы' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Вирусы');
-    const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
-    expect(within(tabs).getByRole('button', { name: 'Журнал проверки' })).toBeTruthy();
+    const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
+    expect(within(tabs).getByRole('tab', { name: 'Журнал проверки' })).toBeTruthy();
   });
 
   it('opens the appearance section with its four tabs and the first grid', async () => {
     render(App);
     await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Оформление');
-    const tabs = screen.getByRole('navigation', { name: 'Подразделы' });
+    const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
     expect(
       within(tabs)
-        .getAllByRole('button')
+        .getAllByRole('tab')
         .map((button) => button.textContent?.trim()),
     ).toEqual(['Обои', 'Курсоры', 'Цвета', 'Настройки приложения']);
     expect(screen.getByRole('button', { name: 'Обои 1' })).toBeTruthy();
@@ -119,9 +119,9 @@ describe('FND-0020: sound control toggles and persists', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Viruses' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Viruses');
-    const tabs = screen.getByRole('navigation', { name: 'Subsections' });
-    expect(within(tabs).getByRole('button', { name: 'Scan' })).toBeTruthy();
-    expect(within(tabs).getByRole('button', { name: 'Scan log' })).toBeTruthy();
+    const tabs = screen.getByRole('tablist', { name: 'Subsections' });
+    expect(within(tabs).getByRole('tab', { name: 'Scan' })).toBeTruthy();
+    expect(within(tabs).getByRole('tab', { name: 'Scan log' })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Вирусы');

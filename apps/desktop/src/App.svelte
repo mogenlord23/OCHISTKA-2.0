@@ -170,8 +170,7 @@
     <div class="stage">
       <TitleBar {maximized} />
       <main bind:this={main}>
-        <h1>{t(section.titleKey)}</h1>
-        {#if section.lead}<p class="lead">{section.lead}</p>{/if}
+        <h1 class="sr-only">{t(section.titleKey)}</h1>
 
         {#if section.subsections.length > 0}
           <Subtabs
@@ -279,6 +278,13 @@
 
   :global(*::-webkit-scrollbar) {
     display: none;
+  }
+
+  /* Пока идёт переключение зажатой мышью, текст нигде не выделяется. */
+  :global(body.dragging),
+  :global(body.dragging *) {
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   /* Выделение текста: в интерфейсе (заголовки, кнопки, вкладки, навигация, карточки, декор)
@@ -409,30 +415,22 @@
     contain: layout paint;
   }
 
-  h1,
-  .lead,
+  /* Заголовок раздела на экране не показывается (вкладки сразу под шапкой),
+     но остаётся для чтения с экрана. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
   footer {
     transition: color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
-  }
-
-  h1 {
-    margin: 8px 0 0;
-    font-family: var(--font-heading);
-    font-size: 34px;
-    font-weight: 900;
-    line-height: 1.1;
-    text-transform: uppercase;
-    color: var(--page-text);
-  }
-
-  .lead {
-    margin: 4px 0 0;
-    font-size: var(--text-small);
-    font-weight: 700;
-    color: var(--page-text);
-  }
-
-  footer {
     margin-top: auto;
     padding-top: 8px;
     font-size: 10px;
