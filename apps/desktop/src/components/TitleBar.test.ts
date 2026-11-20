@@ -20,10 +20,11 @@ afterEach(() => {
 });
 
 describe('TitleBar', () => {
-  it('shows the app name and author credit', () => {
+  it('shows the app name and no author credit line', () => {
     render(TitleBar);
     expect(screen.getByText('OCHISTKA')).toBeTruthy();
-    expect(screen.getByText('Create: Slava Lavs')).toBeTruthy();
+    expect(screen.queryByText(/Create/)).toBeNull();
+    expect(screen.queryByText(/Slava/)).toBeNull();
   });
 
   it('minimises, maximises and closes the window', async () => {
@@ -48,14 +49,12 @@ describe('TitleBar', () => {
     const { container } = render(TitleBar);
     const header = container.querySelector('header');
     const name = screen.getByText('OCHISTKA');
-    const author = screen.getByText('Create: Slava Lavs');
     const brand = name.parentElement;
 
     expect(header?.hasAttribute('data-tauri-drag-region')).toBe(true);
     expect(brand?.classList.contains('brand')).toBe(true);
     expect(brand?.hasAttribute('data-tauri-drag-region')).toBe(true);
     expect(name.hasAttribute('data-tauri-drag-region')).toBe(true);
-    expect(author.hasAttribute('data-tauri-drag-region')).toBe(true);
 
     for (const label of ['Свернуть', 'Развернуть', 'Закрыть']) {
       const button = screen.getByRole('button', { name: label });

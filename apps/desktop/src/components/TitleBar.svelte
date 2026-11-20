@@ -10,7 +10,6 @@
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand" data-tauri-drag-region>
     <strong data-tauri-drag-region>OCHISTKA</strong>
-    <small data-tauri-drag-region>Create: Slava Lavs</small>
   </div>
   <div class="controls">
     <button type="button" aria-label={t('minimize')} onclick={() => win.minimize()}>
@@ -38,7 +37,7 @@
 </header>
 
 <style>
-  /* Строка 64 px: центр Y = 32 общий для логотипа, кнопок окна и первого пункта панели. */
+  /* Строка 64 px: центр Y = 32 общий для слова OCHISTKA, кнопок окна и первого пункта панели. */
   .titlebar {
     display: flex;
     align-items: center;
@@ -49,22 +48,19 @@
     user-select: none;
   }
 
+  /* Слово по центру строки 64 px: его ось совпадает с осью кнопок окна (Y = 32). */
   .brand {
     display: flex;
-    flex-direction: column;
-    line-height: 1.1;
+    align-items: center;
+    height: 100%;
   }
 
   strong {
     font-family: var(--font-heading);
     font-size: 28px;
     font-weight: 900;
+    line-height: 1;
     letter-spacing: 0.01em;
-    color: var(--black);
-  }
-
-  small {
-    font-size: 9px;
     color: var(--black);
   }
 
