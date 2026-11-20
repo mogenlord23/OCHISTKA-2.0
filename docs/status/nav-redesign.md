@@ -24,7 +24,7 @@
 - `beec3cc` feat(ui): sliding indicator and hold-and-drag switching on the right rail
 - `4f8d5e1` feat(ui): remove author line, centre OCHISTKA on the window buttons axis
 
-- `39d7b08` docs(nav): документы, проверка геометрии, снимки
+- последний коммит ветки `docs(nav)`: документы, проверка геометрии, снимки (хеш виден в `git log`)
 
 ## Как откатить
 
