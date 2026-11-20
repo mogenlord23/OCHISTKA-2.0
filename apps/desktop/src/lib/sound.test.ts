@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   attachUiSounds,
+  playActionSound,
   playHeehee,
   playUiSound,
   preloadSounds,
@@ -165,6 +166,21 @@ describe('which element makes which sound', () => {
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
     expect(started).toHaveLength(1);
     detach();
+  });
+
+  it('playActionSound shares the 60 ms guard and respects the toggle', async () => {
+    const { started } = fakeWebAudio();
+    await preloadSounds();
+    playActionSound('switch');
+    playActionSound('switch');
+    expect(started).toHaveLength(1);
+    await new Promise((r) => setTimeout(r, 70));
+    playActionSound('switch');
+    expect(started).toHaveLength(2);
+    writeSoundEnabled(false);
+    await new Promise((r) => setTimeout(r, 70));
+    playActionSound('switch');
+    expect(started).toHaveLength(2);
   });
 
   it('stays silent for presses and keys while the sound toggle is off', async () => {

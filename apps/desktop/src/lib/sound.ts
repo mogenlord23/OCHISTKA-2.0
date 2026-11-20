@@ -135,20 +135,29 @@ export function soundKindFor(target: EventTarget | null): 'click' | 'switch' | n
 /** Окно, в котором второй звук от того же действия считается дублем. */
 const DEDUPE_MS = 60;
 
+/** Время последнего звука действия: общее для нажатий и переключений перетаскиванием. */
+let lastActionSound = -Infinity;
+
+/**
+ * Звук одного действия с защитой от дубля (60 мс). Нажатие и перетаскивание по вкладкам
+ * и разделам играют через неё, поэтому одно действие не звучит дважды.
+ */
+export function playActionSound(kind: 'click' | 'switch'): void {
+  const now = performance.now();
+  if (now - lastActionSound < DEDUPE_MS) return;
+  lastActionSound = now;
+  playUiSound(kind);
+}
+
 /**
  * Подключает щелчки к окну: мышь и касание играют при нажатии (без ожидания отпускания),
  * клавиатура (Enter, пробел) при активации. Возвращает функцию отключения.
  */
 export function attachUiSounds(target: Window | HTMLElement = window): () => void {
-  // Защита от дубля: нажатие и следующий за ним клик (в том числе вызванный программно)
-  // это одно действие, второй звук в пределах окна глушится.
-  let last = -Infinity;
-  const play = (kind: 'click' | 'switch') => {
-    const now = performance.now();
-    if (now - last < DEDUPE_MS) return;
-    last = now;
-    playUiSound(kind);
-  };
+  // Нажатие и следующий за ним клик (в том числе вызванный программно) это одно действие:
+  // второй звук в пределах окна глушится общей защитой playActionSound.
+  lastActionSound = -Infinity;
+  const play = playActionSound;
   const onDown = (event: Event) => {
     const e = event as PointerEvent;
     unlockAudio();
@@ -173,6 +182,7 @@ export function attachUiSounds(target: Window | HTMLElement = window): () => voi
 /** Только для тестов: сброс внутреннего состояния. */
 export function resetSoundForTests(): void {
   context = null;
+  lastActionSound = -Infinity;
   preloading = null;
   buffers.clear();
 }
