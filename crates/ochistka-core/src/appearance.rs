@@ -721,7 +721,7 @@ type RenderedCursor =
     Result<(crate::appearance_cursor::Role, &'static str, Vec<u8>), AppearanceError>;
 
 /// Версия рисования курсоров: меняется вместе с внешним видом, и тогда кэш пересоздаётся.
-const CURSOR_RENDER_VERSION: u32 = 2;
+const CURSOR_RENDER_VERSION: u32 = 3;
 
 /// Отпечаток схемы (FNV-1a): по нему найденные на диске файлы считаются готовыми.
 pub fn cursor_scheme_hash(spec: &CursorSpec) -> String {
@@ -749,6 +749,19 @@ fn cursor_file(dir: &str, role: crate::appearance_cursor::Role) -> String {
 /// Готовит файлы схемы курсора и возвращает пути ролей. Если папка схемы уже собрана с тем же
 /// отпечатком (флаг `ready-<отпечаток>.flag` пишется последним), рисование и запись пропускаются:
 /// повторное применение и применение после фоновой подготовки не тратят время.
+/// Замок на схему: две одновременные подготовки одной схемы (фоновый прогрев и клик по плитке)
+/// не рисуют её дважды, вторая дожидается первой и берёт готовые файлы.
+fn scheme_lock(key: &str) -> std::sync::Arc<std::sync::Mutex<()>> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
+    let mut map = LOCKS
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    Arc::clone(map.entry(key.to_string()).or_default())
+}
+
 pub fn prepare_cursor_scheme(
     files: &dyn FilePort,
     spec: &CursorSpec,
@@ -764,7 +777,14 @@ pub fn prepare_cursor_scheme(
             .map(|role| (role.registry_name(), cursor_file(dir, *role)))
             .collect()
     };
-    if files.exists(&flag) && paths_of(&dir).iter().all(|(_, p)| files.exists(p)) {
+    let ready = || files.exists(&flag) && paths_of(&dir).iter().all(|(_, p)| files.exists(p));
+    if ready() {
+        return Ok(paths_of(&dir));
+    }
+    let lock = scheme_lock(&flag);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    // Пока ждали замок, схему могли дорисовать: берём готовое.
+    if ready() {
         return Ok(paths_of(&dir));
     }
     let pattern = crate::appearance_cursor::Pattern::parse(spec.pattern)?;
@@ -1303,6 +1323,50 @@ mod tests {
         let second = prepare_cursor_scheme(&files, &spec("cursor-red")).unwrap();
         assert_eq!(first, second);
         assert_eq!(files.files.lock().unwrap()[arrow], b"keep");
+    }
+
+    struct CountingFiles {
+        inner: FakeFiles,
+        arrow_writes: std::sync::atomic::AtomicUsize,
+    }
+
+    impl FilePort for CountingFiles {
+        fn data_dir(&self) -> Result<String, AppearanceError> {
+            self.inner.data_dir()
+        }
+        fn exists(&self, path: &str) -> bool {
+            self.inner.exists(path)
+        }
+        fn write(&self, path: &str, bytes: &[u8]) -> Result<(), AppearanceError> {
+            if path.ends_with("\\Arrow.cur") {
+                self.arrow_writes
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+            self.inner.write(path, bytes)
+        }
+        fn copy(&self, from: &str, to: &str) -> Result<(), AppearanceError> {
+            self.inner.copy(from, to)
+        }
+    }
+
+    #[test]
+    fn simultaneous_preparations_of_one_scheme_draw_it_once() {
+        let files = CountingFiles {
+            inner: FakeFiles::default(),
+            arrow_writes: std::sync::atomic::AtomicUsize::new(0),
+        };
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                scope.spawn(|| {
+                    prepare_cursor_scheme(&files, &spec("cursor-lock")).unwrap();
+                });
+            }
+        });
+        assert_eq!(
+            files.arrow_writes.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "схема нарисована больше одного раза"
+        );
     }
 
     #[test]

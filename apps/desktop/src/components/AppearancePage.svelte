@@ -12,6 +12,7 @@
     appearanceErrorMessage,
     appearanceStatus,
     applyCursorScheme,
+    prepareCursorScheme,
     prepareCursorSchemes,
     applyWallpaperTile,
     isCancelled,
@@ -152,6 +153,13 @@
     });
   }
 
+  /** Наведение на плитку курсора: файлы схемы готовятся заранее, к клику они уже на диске. */
+  function warmCursor(id: string) {
+    if (kind !== 'cursor') return;
+    const def = cursorById.get(id);
+    if (def) prepareCursorScheme({ id, ...def });
+  }
+
   /** Клик по плитке: рамка сразу; повторный клик по выбранной возвращает прежнее. */
   function pick(id: string) {
     const tile = tiles.find((item) => item.id === id);
@@ -230,7 +238,7 @@
     // Схемы курсоров рисуются заранее, в фоне и не сразу: к первому выбору файлы уже готовы.
     const warm = setTimeout(
       () => prepareCursorSchemes(CURSOR_DEFS.map((def) => ({ id: def.id, ...def.cursor }))),
-      1500,
+      600,
     );
     return () => clearTimeout(warm);
   });
@@ -332,6 +340,8 @@
                 style:background-image={tile.preview.includes('gradient') ? tile.preview : null}
                 style:background-color={tile.preview.includes('gradient') ? null : tile.preview}
                 onclick={() => pick(tile.id)}
+                onpointerenter={() => warmCursor(tile.id)}
+                onfocus={() => warmCursor(tile.id)}
               >
                 {#if tile.id.startsWith('solid-')}
                   <!-- Узор фона приложения поверх цвета: так же рисуются сами обои -->

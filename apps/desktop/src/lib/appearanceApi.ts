@@ -88,6 +88,24 @@ export const applyCursorScheme = (id: string, color: string, secondary: string, 
 export const restoreCursorScheme = () => call({ action: 'restoreCursorScheme', confirmed: true });
 
 let cursorsPrepared = false;
+const hoverPrepared = new Set<string>();
+
+/**
+ * Наведение или фокус на плитке курсора: рисуем эту схему вне очереди (один раз за запуск), чтобы к
+ * клику файлы уже лежали готовые. Повторные наведения ничего не отправляют.
+ */
+export function prepareCursorScheme(scheme: {
+  id: string;
+  color: string;
+  secondary: string;
+  pattern: string;
+}): void {
+  if (cursorsPrepared || hoverPrepared.has(scheme.id)) return;
+  hoverPrepared.add(scheme.id);
+  void call({ action: 'prepareCursorSchemes', schemes: [scheme] }).catch(() => {
+    hoverPrepared.delete(scheme.id);
+  });
+}
 
 /**
  * Просит бэкенд заранее нарисовать файлы всех схем курсоров в фоне (один раз за запуск).

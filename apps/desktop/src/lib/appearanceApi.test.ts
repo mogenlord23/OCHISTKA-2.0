@@ -18,3 +18,19 @@ describe('prepareCursorSchemes', () => {
     });
   });
 });
+
+describe('prepareCursorScheme (hover)', () => {
+  it('sends one scheme once per launch', async () => {
+    vi.resetModules();
+    const invoke = vi.fn().mockResolvedValue({ kind: 'status', status: {} });
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke }));
+    const api = await import('./appearanceApi');
+    const scheme = { id: 'cursor-x', color: '#FF0000', secondary: '#00FF00', pattern: 'plain' };
+    api.prepareCursorScheme(scheme);
+    api.prepareCursorScheme(scheme);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith('appearance_request', {
+      request: { action: 'prepareCursorSchemes', schemes: [scheme] },
+    });
+  });
+});

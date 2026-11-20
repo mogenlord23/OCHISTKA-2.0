@@ -233,8 +233,13 @@ pub fn run(
             appearance::restore_cursor_scheme(reg, refresh, confirmed)?
         }
         R::PrepareCursorSchemes { schemes } => {
-            // Схема с ошибкой данных не мешает остальным: её просто пропускаем.
+            // Схема с ошибкой данных не мешает остальным: её просто пропускаем. Между схемами пауза:
+            // общий прогрев не занимает процессор подряд и не мешает клику по плитке.
+            let many = schemes.len() > 1;
             for scheme in &schemes {
+                if many {
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                }
                 let _ = appearance::prepare_cursor_scheme(
                     files,
                     &CursorSpec {

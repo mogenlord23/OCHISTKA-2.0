@@ -380,6 +380,10 @@ enum Ink {
     SecondFaint,
     /// Чёрный, приглушённый (дорожка в бейдже).
     BlackFaint,
+    /// Второй цвет с заданной силой в процентах (хвост бегущей дуги).
+    SecondFade(u8),
+    /// Чёрный с заданной силой в процентах (хвост бегущей дуги в бейдже).
+    BlackFade(u8),
 }
 
 enum Kind {
@@ -447,14 +451,38 @@ const RESIZE_ARROW: &str = "M3,32 L16,21 Q18,20 18,23 V29.5 H46 V23 Q46,20 48,21
 /// одинаковой доли толщины и длины, одинаковая скорость).
 fn spinner(cx: f64, cy: f64, r: f64, turn: f64, track: Ink, run: Ink) -> Vec<Item> {
     let width = r * 0.55;
-    vec![
-        line(&arc(cx, cy, r, 0.0, 360.0), width, track),
-        line(&arc(cx, cy, r, turn - 90.0, SPINNER_SPAN), width, run),
-    ]
+    let mut items = vec![line(&arc(cx, cy, r, 0.0, 360.0), width, track)];
+    // «Комета»: хвост из коротких дуг, чем старше участок, тем он бледнее; голова на полной силе.
+    let black = matches!(run, Ink::Black | Ink::BlackFaint | Ink::BlackFade(_));
+    let head = turn - 90.0;
+    for i in 0..SPINNER_SEGMENTS {
+        // i = 0 — самый старый участок хвоста, последний — голова.
+        let from = head - SPINNER_SPAN + SPINNER_SPAN * i as f64 / SPINNER_SEGMENTS as f64;
+        let power = 8.0 + 92.0 * ((i + 1) as f64 / SPINNER_SEGMENTS as f64).powf(1.6);
+        let fade = power.round().clamp(1.0, 100.0) as u8;
+        let ink = if black {
+            Ink::BlackFade(fade)
+        } else {
+            Ink::SecondFade(fade)
+        };
+        items.push(line(
+            &arc(
+                cx,
+                cy,
+                r,
+                from,
+                SPINNER_SPAN / SPINNER_SEGMENTS as f64 + 1.5,
+            ),
+            width,
+            ink,
+        ));
+    }
+    items
 }
 
-/// Длина бегущей дуги в градусах.
-const SPINNER_SPAN: f64 = 120.0;
+/// Длина хвоста бегущей дуги в градусах и число сегментов, из которых он нарисован.
+const SPINNER_SPAN: f64 = 160.0;
+const SPINNER_SEGMENTS: usize = 12;
 
 /// Все элементы рисунка роли в сетке 64×64 в порядке отрисовки. `phase` (0..1) — кадр
 /// анимации «Занят» и «Фоновая работа»: оборот бегущей дуги.
@@ -710,9 +738,25 @@ pub fn render_frame(
         dst[3] = alpha + dst[3] * inv;
     };
     let cover = |sd: f64, grow: f64| (0.5 - (sd - grow) * k).clamp(0.0, 1.0);
+    // Бегунок «Занят» рисуется на диске цвета схемы: если второй цвет почти совпадает с основным
+    // (однотонные схемы), берём тёмный или белый, иначе бегунок сливается с диском.
+    let spin = {
+        let dist = ((main[0] - second[0]).powi(2)
+            + (main[1] - second[1]).powi(2)
+            + (main[2] - second[2]).powi(2))
+        .sqrt();
+        let lum = 0.299 * main[0] + 0.587 * main[1] + 0.114 * main[2];
+        if dist > 110.0 {
+            second
+        } else if lum > 140.0 {
+            [18.0, 18.0, 22.0]
+        } else {
+            [255.0; 3]
+        }
+    };
     let ink_rgb = |ink: Ink| match ink {
-        Ink::Black | Ink::BlackFaint => [0.0; 3],
-        Ink::Second | Ink::SecondFaint => second,
+        Ink::Black | Ink::BlackFaint | Ink::BlackFade(_) => [0.0; 3],
+        Ink::Second | Ink::SecondFaint | Ink::SecondFade(_) => spin,
     };
 
     for item in items(role, phase) {
@@ -754,10 +798,10 @@ pub fn render_frame(
                         over(dst, second, cover(sd, -1.0));
                     }
                     Kind::Draw(color) => {
-                        let strength = if matches!(color, Ink::SecondFaint | Ink::BlackFaint) {
-                            0.3
-                        } else {
-                            1.0
+                        let strength = match color {
+                            Ink::SecondFaint | Ink::BlackFaint => 0.3,
+                            Ink::SecondFade(p) | Ink::BlackFade(p) => f64::from(p) / 100.0,
+                            _ => 1.0,
                         };
                         over(dst, ink_rgb(color), cover(sd, 0.0) * strength);
                     }
@@ -856,12 +900,12 @@ pub fn build_cur(
 /// Размеры кадров анимации: достаточно трёх, чтобы файл не рос.
 pub const ANI_SIZES: [usize; 3] = [32, 48, 64];
 /// Кадров на оборот.
-pub const ANI_FRAMES: usize = 16;
+pub const ANI_FRAMES: usize = 24;
 
 /// Длительность кадра в «джиффи» (1/60 с): обе занятые роли с одной скоростью.
 fn ani_jiffies(_role: Role) -> u32 {
-    // Обе занятые роли крутятся одинаково: единый стиль.
-    3
+    // Обе занятые роли крутятся одинаково: единый стиль. 24 кадра по 2/60 с: оборот около 0,8 с.
+    2
 }
 
 fn riff_chunk(out: &mut Vec<u8>, id: &[u8; 4], data: &[u8]) {
@@ -1242,5 +1286,17 @@ mod tests {
         assert!(Pattern::parse("wave").is_err());
         assert!(render(Role::Arrow, Pattern::Plain, "red", "#000000", 32).is_err());
         assert!(build_cur(Role::Arrow, Pattern::Plain, "#000000", "zz").is_err());
+    }
+
+    #[test]
+    fn busy_spinner_is_visible_on_a_single_colour_scheme() {
+        // Основной и второй цвета совпадают: бегунок обязан отличаться от диска.
+        let rgba = render_frame(Role::Wait, Pattern::Plain, "#FF0000", "#FF0000", 64, 0.0).unwrap();
+        let at = |x: usize, y: usize| {
+            let i = (y * 64 + x) * 4;
+            [rgba[i], rgba[i + 1], rgba[i + 2]]
+        };
+        // Голова дуги в фазе 0 наверху кольца, центр диска — чистый цвет схемы.
+        assert_ne!(at(32, 19), at(32, 32), "бегунок сливается с диском");
     }
 }
