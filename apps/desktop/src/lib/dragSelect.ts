@@ -96,8 +96,6 @@ export function dragSelect(node: HTMLElement, initial: DragSelectOptions) {
       /* без захвата ряд всё равно получает события пока курсор над ним */
     }
     document.body.classList.add('dragging');
-    // preventDefault на нажатии отменяет фокус кнопки: ставим его сами, чтобы работали стрелки.
-    items[index].focus({ preventScroll: true });
     options.onSelect(index, 'press');
   }
 
@@ -110,7 +108,6 @@ export function dragSelect(node: HTMLElement, initial: DragSelectOptions) {
     const index = hitIndex(options.axis, drag.box, drag.rects, event.clientX, event.clientY);
     if (index < 0 || index === drag.last) return;
     drag.last = index;
-    options.items()[index]?.focus({ preventScroll: true });
     options.onSelect(index, 'drag');
   }
 
