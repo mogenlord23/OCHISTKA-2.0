@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "OCHISTKA",
-        "width": 1200,
-        "height": 784,
+        "width": 900,
+        "height": 712,
         "minWidth": 900,
         "minHeight": 712,
         "decorations": false,

@@ -8,9 +8,9 @@ describe('i18n', () => {
 
   it('returns Russian by default and English after switching', () => {
     i18n.lang = 'ru';
-    expect(t('footer')).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
+    expect(t('section.viruses')).toBe('Вирусы');
     i18n.lang = 'en';
-    expect(t('footer')).toBe('LOCAL. UNDER YOUR CONTROL.');
+    expect(t('section.viruses')).toBe('Viruses');
     i18n.lang = 'ru';
   });
 

@@ -102,13 +102,14 @@ describe('FND-0020: sound control toggles and persists', () => {
 
   it('switches the interface language with RU and ENG', async () => {
     render(App);
-    const footer = () => document.querySelector('footer')?.textContent;
-    expect(footer()).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
+    const footer = () =>
+      screen.getByRole('button', { name: /^(Вирусы|Viruses)$/ }).textContent?.trim();
+    expect(footer()).toBe('Вирусы');
     await fireEvent.click(screen.getByRole('button', { name: 'ENG' }));
-    expect(footer()).toBe('LOCAL. UNDER YOUR CONTROL.');
+    expect(footer()).toBe('Viruses');
     expect(screen.getByRole('button', { name: 'ENG' }).getAttribute('aria-pressed')).toBe('true');
     await fireEvent.click(screen.getByRole('button', { name: 'RU' }));
-    expect(footer()).toBe('ЛОКАЛЬНО. ПОД ТВОИМ КОНТРОЛЕМ.');
+    expect(footer()).toBe('Вирусы');
   });
 
   it('shows English section and subsection titles after switching to ENG', async () => {

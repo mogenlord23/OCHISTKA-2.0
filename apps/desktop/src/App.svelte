@@ -113,7 +113,7 @@
       void sub;
       const all = Array.from(main.children);
       const head = sectionChanged ? all.filter((el) => el.matches('h1, .lead, .subtabs')) : [];
-      const body = all.filter((el) => !el.matches('h1, .lead, .subtabs, footer'));
+      const body = all.filter((el) => !el.matches('h1, .lead, .subtabs'));
       for (const el of [...head, ...body]) el.animate(FADE_IN, { duration: 90, easing: EASE });
     });
   });
@@ -199,8 +199,6 @@
         {:else}
           <PlaceholderPage />
         {/if}
-
-        <footer>{t('footer')}</footer>
       </main>
     </div>
 
@@ -429,15 +427,6 @@
     border: 0;
   }
 
-  footer {
-    transition: color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
-    margin-top: auto;
-    padding-top: 8px;
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--page-text);
-  }
-
   .side {
     display: flex;
     flex-direction: column;
@@ -445,6 +434,7 @@
     flex: none;
     width: 110px;
     background: var(--window);
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
   }
 
   /* Свёрнутый блок — только стрелка (высота 20 + нижний отступ 8). Раскрытая часть лежит
