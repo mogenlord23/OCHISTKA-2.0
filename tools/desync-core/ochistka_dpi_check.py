@@ -32,6 +32,18 @@ VERDICT_TEXT = {
 }
 
 
+def configure_unicode_output() -> None:
+    """Windows CI pipes may default to cp1252, which cannot print Russian prompts.
+
+    A standalone Windows executable must render its own messages reliably,
+    without relying on an external chcp or PYTHONIOENCODING setting.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def app_dir() -> pathlib.Path:
     if getattr(sys, "frozen", False):
         return pathlib.Path(sys.executable).resolve().parent
@@ -85,6 +97,7 @@ class Tee(io.TextIOBase):
 
 
 def run_interactive(ask=input, folder: pathlib.Path | None = None) -> int:
+    configure_unicode_output()
     print(TITLE)
     print("=" * len(TITLE))
     if sys.platform != "win32":
@@ -149,6 +162,7 @@ def run_interactive(ask=input, folder: pathlib.Path | None = None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_unicode_output()
     args = sys.argv[1:] if argv is None else argv
     if args == [SELF_CHECK]:
         try:

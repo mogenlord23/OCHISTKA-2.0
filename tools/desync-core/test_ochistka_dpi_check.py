@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import pathlib
 import sys
 import tempfile
@@ -128,6 +129,20 @@ class ConsentAndTargetTests(unittest.TestCase):
             reports = list(pathlib.Path(folder).glob("OCHISTKA-DPI-report-*.txt"))
             self.assertEqual(len(reports), 1)
             self.assertIn("example.org", reports[0].read_text(encoding="utf-8"))
+
+
+    def test_russian_console_under_windows_legacy_encoding(self) -> None:
+        # Simulate an ordinary Windows output pipe with cp1252 instead of
+        # weakening Russian UX or requiring the user to change their console.
+        output = io.BytesIO()
+        with io.TextIOWrapper(output, encoding="cp1252", write_through=True) as console:
+            with mock.patch.object(launcher.sys, "stdout", console), \
+                 mock.patch.object(launcher.sys, "platform", "win32"), \
+                 mock.patch.object(probe, "is_admin_windows", return_value=False):
+                self.assertEqual(launcher.run_interactive(lambda _q: "нет"), 1)
+                self.assertEqual(console.encoding.lower(), "utf-8")
+                console.flush()
+                self.assertIn("Нужны права администратора", output.getvalue().decode("utf-8"))
 
 
 if __name__ == "__main__":
