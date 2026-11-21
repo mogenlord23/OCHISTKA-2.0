@@ -683,7 +683,7 @@
     height: 48px;
     padding: 0 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--ink);
     font: inherit;
@@ -702,7 +702,7 @@
   button {
     padding: 10px 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: var(--black);
     color: var(--ink);
     font: inherit;

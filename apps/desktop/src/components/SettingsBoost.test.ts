@@ -80,7 +80,7 @@ describe('SettingsPage', () => {
   it('shows the saved-state note once and collapsible groups; no search field and no category chips', async () => {
     render(SettingsPage);
     await waitFor(() => expect(tweaksOverview).toHaveBeenCalled());
-    expect(screen.getAllByText(/Исходное состояние сохраняется перед применением/)).toHaveLength(1);
+    expect(screen.queryByText(/Исходное состояние сохраняется перед применением/)).toBeNull();
     // Первая группа открыта, остальные свёрнуты.
     expect(screen.getByText('Убрать прозрачность Windows')).toBeTruthy();
     expect(screen.queryByText('Убрать веб-подсказки из поиска')).toBeNull();
@@ -247,7 +247,7 @@ describe('BoostPage', () => {
       expect(within(group).getByRole('radio', { name })).toBeTruthy();
     }
     for (const tweak of BOOST_EXTRAS) expect(screen.getByText(tweak.title)).toBeTruthy();
-    expect(screen.getAllByText(/Исходное состояние сохраняется перед применением/)).toHaveLength(1);
+    expect(screen.queryByText(/Исходное состояние сохраняется перед применением/)).toBeNull();
   });
 
   it('marks the active profile and switches at once, the old one clears in the same tick', async () => {

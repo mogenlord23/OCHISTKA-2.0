@@ -13,10 +13,6 @@ export interface TweakCategory {
   tweaks: readonly TweakText[];
 }
 
-/** Служебная строка: показывается один раз вверху раздела, не в каждой строке. */
-export const SAVED_NOTE =
-  'Исходное состояние сохраняется перед применением. Любую настройку можно вернуть.';
-
 export const SETTINGS_CATEGORIES: readonly TweakCategory[] = [
   {
     id: 'look',

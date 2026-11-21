@@ -672,7 +672,7 @@
     min-width: 56px;
     min-height: 36px;
     border: 1px solid #343434;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--ink);
     font: inherit;

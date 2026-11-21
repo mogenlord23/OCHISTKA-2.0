@@ -9,7 +9,6 @@
   import { TweakRunner, tweakErrorText } from '../lib/tweakRunner.svelte';
   import {
     ACTIVATION_TEXT,
-    SAVED_NOTE,
     SETTINGS_CATEGORIES,
     SETTINGS_TWEAKS,
     restartText,
@@ -71,7 +70,6 @@
 
 <section class="page">
   <h2 class="sr-only">Настройки Windows</h2>
-  <p class="note">{SAVED_NOTE}</p>
 
   <div class="activation" aria-label="Активация Windows">
     <div class="activation-text">
@@ -144,12 +142,6 @@
     margin: 0 0 8px;
     font-size: var(--text-title);
     text-transform: uppercase;
-  }
-
-  .note {
-    margin: 0 0 8px;
-    font-size: var(--text-small);
-    color: var(--page-text);
   }
 
   .activation {

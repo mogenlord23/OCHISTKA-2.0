@@ -644,10 +644,17 @@
     white-space: nowrap;
   }
 
+  /* Три уровня промежутков: внутри карточки 8, между карточками и вкладками 12, между крупными
+     секциями 20. Верхняя панель вкладок стоит вплотную к верху колонки, как постер слева. */
+  .column :global(.subtabs) {
+    margin: 0;
+    min-height: 0;
+  }
+
   .column {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     min-width: 0;
     min-height: 0;
   }
@@ -666,11 +673,13 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 8px;
+    gap: 12px;
     min-height: 0;
     /* Обводка карточек (тень 2px) раньше обрезалась прокруткой: поле 2px внутри, минус снаружи. */
     margin: -2px;
     padding: 2px;
+    /* Обрезание прокручиваемого содержимого идёт по скруглённой границе, а не по прямой линии. */
+    border-radius: var(--radius-lg);
     overflow-y: auto;
     animation: pane-in 0.22s ease-out;
   }
@@ -1033,16 +1042,8 @@
   /* Невысокое окно (минимум 712): карточки компактнее, чтобы блок серверов и «Соединения»
      заканчивались на нижней линии постера, а не уходили под неё. Размеры вкладок те же. */
   @media (max-height: 780px) {
-    .pane {
-      gap: 6px;
-    }
-
     .card {
       padding: 12px 16px;
-    }
-
-    .list-head {
-      margin-top: 4px;
     }
 
     .servers-card {

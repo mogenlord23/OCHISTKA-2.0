@@ -230,7 +230,7 @@
   }
 </script>
 
-<p class="page-heading">Диски / {HEADINGS[subsection] ?? ''}</p>
+<p class="sr-only">Диски / {HEADINGS[subsection] ?? ''}</p>
 {#if disks.length > 0}
   <ul class="disk-tiles" aria-label="Диски">
     {#each disks as disk, index (disk.mountPoint)}
@@ -490,15 +490,6 @@
 {/if}
 
 <style>
-  .page-heading {
-    margin: 0 0 8px;
-    font-family: var(--font-heading);
-    font-size: var(--text-section);
-    font-weight: 900;
-    text-transform: uppercase;
-    color: var(--page-text);
-  }
-
   .disk-tiles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

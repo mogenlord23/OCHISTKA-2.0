@@ -416,7 +416,7 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden auto;
-    padding: 0 var(--content-gutter) 8px;
+    padding: 0 var(--content-gutter) 22px;
     overscroll-behavior: contain;
     contain: layout paint;
   }

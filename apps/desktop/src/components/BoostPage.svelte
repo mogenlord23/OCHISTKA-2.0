@@ -5,7 +5,6 @@
   import {
     BOOST_EXTRAS,
     BOOST_PROFILES,
-    SAVED_NOTE,
     VBS_CONFIRM,
     profileStepTitle,
     restartText,
@@ -76,9 +75,7 @@
 
 <section class="page">
   <h2 class="sr-only">Boost / Игры</h2>
-  <p class="note">
-    {SAVED_NOTE} Результат зависит от игры и оборудования: прироста FPS никто не обещает.
-  </p>
+  <p class="note">Результат зависит от игры и оборудования: прироста FPS никто не обещает.</p>
 
   <div class="toolbar">
     <button
@@ -221,7 +218,7 @@
     display: inline-flex;
     max-width: 100%;
     padding: 3px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-md);
     background: var(--black, #080808);
     box-shadow: 0 0 0 2px var(--ink, #fafafa);
   }
@@ -230,7 +227,7 @@
     min-height: 32px;
     padding: 4px 20px;
     border: 0;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--ink, #fafafa);
     font: inherit;
