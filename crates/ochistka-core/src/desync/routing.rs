@@ -108,7 +108,9 @@ fn choose_with_approved(
     if approved.iter().any(|entry| {
         entry.profile_id == candidate.id
             && entry.engine == candidate.engine
-            && requested.iter().all(|service| entry.covers.contains(service))
+            && requested
+                .iter()
+                .all(|service| entry.covers.contains(service))
     }) {
         RoutePlan::Use(AccessPath::Desync(candidate.id))
     } else {
@@ -151,11 +153,27 @@ mod tests {
             Some(&profile),
         );
         assert_eq!(
-            choose_access_path(inputs.0, Some(true), inputs.1, inputs.2, inputs.3, inputs.4, inputs.5),
+            choose_access_path(
+                inputs.0,
+                Some(true),
+                inputs.1,
+                inputs.2,
+                inputs.3,
+                inputs.4,
+                inputs.5
+            ),
             RoutePlan::Use(AccessPath::Direct),
         );
         assert_eq!(
-            choose_access_path(inputs.0, None, inputs.1, inputs.2, inputs.3, inputs.4, inputs.5),
+            choose_access_path(
+                inputs.0,
+                None,
+                inputs.1,
+                inputs.2,
+                inputs.3,
+                inputs.4,
+                inputs.5
+            ),
             RoutePlan::Block(RouteBlock::NeedDirectObservation),
         );
     }
@@ -165,16 +183,40 @@ mod tests {
         let profile = candidate();
         let requested = &[Coverage::Sites, Coverage::Telegram];
         assert_eq!(
-            choose_access_path(requested, Some(false), true, true, &Readiness::Ready, Platform::Windows, Some(&profile)),
+            choose_access_path(
+                requested,
+                Some(false),
+                true,
+                true,
+                &Readiness::Ready,
+                Platform::Windows,
+                Some(&profile)
+            ),
             RoutePlan::Use(AccessPath::Vpn),
         );
         assert_eq!(
-            choose_access_path(requested, Some(false), true, false, &Readiness::Ready, Platform::Windows, Some(&profile)),
+            choose_access_path(
+                requested,
+                Some(false),
+                true,
+                false,
+                &Readiness::Ready,
+                Platform::Windows,
+                Some(&profile)
+            ),
             RoutePlan::Block(RouteBlock::VpnNotVerified),
         );
         // A reported direct success must not override an active VPN.
         assert_eq!(
-            choose_access_path(requested, Some(true), true, false, &Readiness::Ready, Platform::Windows, Some(&profile)),
+            choose_access_path(
+                requested,
+                Some(true),
+                true,
+                false,
+                &Readiness::Ready,
+                Platform::Windows,
+                Some(&profile)
+            ),
             RoutePlan::Block(RouteBlock::VpnNotVerified),
         );
     }
@@ -188,10 +230,23 @@ mod tests {
             covers: &[Coverage::Sites, Coverage::Discord],
         }];
         let chosen = |wanted: &[Coverage], platform, readiness: &Readiness| {
-            choose_with_approved(wanted, Some(false), false, false, readiness, platform, Some(&profile), &approval)
+            choose_with_approved(
+                    wanted,
+                    Some(false),
+                    false,
+                    false,
+                    readiness,
+                    platform,
+                    Some(&profile),
+                    &approval
+                )
         };
         assert_eq!(
-            chosen(&[Coverage::Sites, Coverage::Discord], Platform::Windows, &Readiness::Ready),
+            chosen(
+                &[Coverage::Sites, Coverage::Discord],
+                Platform::Windows,
+                &Readiness::Ready
+            ),
             RoutePlan::Use(AccessPath::Desync(profile.id))
         );
         assert_eq!(
@@ -203,7 +258,11 @@ mod tests {
             RoutePlan::Block(RouteBlock::UnverifiedCoverage)
         );
         assert_eq!(
-            chosen(&[Coverage::Sites], Platform::Windows, &Readiness::NotImplemented("not verified".into())),
+            chosen(
+                &[Coverage::Sites],
+                Platform::Windows,
+                &Readiness::NotImplemented("not verified".into())
+            ),
             RoutePlan::Block(RouteBlock::DesyncAdapterUnavailable)
         );
     }
@@ -211,7 +270,15 @@ mod tests {
     #[test]
     fn empty_service_request_is_never_claimed_as_working() {
         assert_eq!(
-            choose_access_path(&[], Some(true), false, false, &Readiness::Ready, Platform::Windows, None),
+            choose_access_path(
+                &[],
+                Some(true),
+                false,
+                false,
+                &Readiness::Ready,
+                Platform::Windows,
+                None
+            ),
             RoutePlan::Block(RouteBlock::MissingServiceRequest),
         );
     }
