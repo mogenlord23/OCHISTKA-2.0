@@ -19,7 +19,16 @@ foreach ($src in $sources) {
     try {
         $api = Invoke-RestMethod -Uri ('https://api.github.com/repos/{0}/releases/latest' -f $src.Repo) -UserAgent 'OCHISTKA-verify' -TimeoutSec 25
     } catch {
-        Write-Host '  Не удалось получить сведения о последнем выпуске (нет сети или лимит GitHub).'
+        $resp = $_.Exception.Response
+        if ($null -ne $resp) {
+            $code = [int]$resp.StatusCode
+            $left = ''
+            try { $left = [string]$resp.Headers['X-RateLimit-Remaining'] } catch {}
+            Write-Host ('  GitHub ответил отказом: код {0}{1}' -f $code, $(if ($left -ne '') { ('; осталось запросов в этот час: {0}' -f $left) } else { '' }))
+        } else {
+            Write-Host ('  Не удалось связаться с GitHub (тип ошибки: {0}).' -f $_.Exception.GetType().Name)
+        }
+        Write-Host '  Если код 403 или 429: это лимит GitHub для запросов без входа, повторите через час.'
         continue
     }
     Write-Host ('  Выпуск: {0}, дата: {1}' -f $api.tag_name, $api.published_at)
