@@ -601,8 +601,9 @@ impl DesyncService {
         lock(&self.trial).phase = phase;
     }
 
-    /// Базовый замер ДО включения обхода (VPN к этому моменту уже выключен). Без замера — `None`
-    /// (транспорт не задан). Если базового замера нет ни по одному адресу — отказ: обход не включается.
+    /// Замер ДО включения обхода (VPN к этому моменту уже выключен): три адреса одновременно,
+    /// запрос ≤ 5 с, весь замер ≤ 8 с. Без транспорта — `None`. Результат «ничего не открылось»
+    /// обход не блокирует: сайт, закрытый без обхода, и есть цель обхода.
     fn measure_baseline(&self) -> Result<Option<speed::Measurement>, DesyncError> {
         let Some(probe) = lock(&self.speed).clone() else {
             return Ok(None);
@@ -614,17 +615,15 @@ impl DesyncService {
             }
             t.phase = TrialPhase::MeasuringBaseline;
         }
-        let baseline = speed::measure(&*probe, &speed::URLS);
+        let baseline = speed::measure(probe, &speed::URLS, speed::BASELINE);
         self.set_phase(TrialPhase::Idle);
-        if !speed::has_baseline(&baseline) {
-            return Err(DesyncError::NotAllowed(speed::NO_BASELINE_MESSAGE.into()));
-        }
         Ok(Some(baseline))
     }
 
-    /// Замер с обходом и сравнение с базовым. Медленнее — обход выключается (тем же надёжным
-    /// путём остановки, включая драйвер) с понятной причиной; иначе остаётся до конца 120 с.
-    /// Если пробный запуск уже остановлен (кнопка, таймер), результат не применяется.
+    /// Замер с обходом (в фоне, ≤ 10 с) и сравнение только по адресам, которые открылись без обхода.
+    /// Медленнее или перестал открываться — обход выключается (тем же надёжным путём остановки,
+    /// включая драйвер); иначе остаётся до конца 120 с. Если без обхода не открылось ничего,
+    /// откат не делается. Если пробный запуск уже остановлен (кнопка, таймер), результат не применяется.
     pub(crate) fn run_speed_check(&self, generation: u64, baseline: &speed::Measurement) {
         let Some(probe) = lock(&self.speed).clone() else {
             return;
@@ -636,10 +635,16 @@ impl DesyncService {
             }
             t.phase = TrialPhase::MeasuringAfter;
         }
-        let after = speed::measure(&*probe, &speed::URLS);
-        let slower = match speed::compare(baseline, &after) {
-            speed::Verdict::Slower(_) => true,
-            speed::Verdict::NotSlower | speed::Verdict::NoBaseline => false,
+        let after = speed::measure(probe, &speed::URLS, speed::AFTER);
+        let (note, rollback) = match speed::compare(baseline, &after) {
+            speed::Verdict::Slower(_) => (speed::SLOWER_MESSAGE, true),
+            speed::Verdict::NotSlower => (speed::NOT_SLOWER_MESSAGE, false),
+            speed::Verdict::NothingToCompare {
+                opened_with_bypass: true,
+            } => (speed::NO_COMPARE_MESSAGE, false),
+            speed::Verdict::NothingToCompare {
+                opened_with_bypass: false,
+            } => (speed::NO_INTERNET_MESSAGE, false),
         };
         {
             let mut t = lock(&self.trial);
@@ -647,16 +652,9 @@ impl DesyncService {
             if t.generation != generation {
                 return;
             }
-            t.speed_note = Some(
-                if slower {
-                    speed::SLOWER_MESSAGE
-                } else {
-                    speed::NOT_SLOWER_MESSAGE
-                }
-                .into(),
-            );
+            t.speed_note = Some(note.into());
         }
-        if slower {
+        if rollback {
             let _ = self.stop_trial();
         }
     }
@@ -2737,7 +2735,7 @@ mod tests {
             &flags,
             speed_fake(
                 Timing::done(ms(300), ms(900)),
-                Timing::timeout(speed::REQUEST_LIMIT),
+                Timing::timeout(speed::BASELINE.per_request),
             ),
         );
         s.start_trial(true, &mut |_| {}).unwrap();
@@ -2752,23 +2750,123 @@ mod tests {
     }
 
     #[test]
-    fn without_a_baseline_the_bypass_is_not_started() {
+    fn nothing_opening_without_the_bypass_never_blocks_or_rolls_back_the_bypass() {
+        // Сайты закрыты без обхода (это и есть цель) и открываются с обходом.
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(Timing::failed(ms(5)), Timing::done(ms(300), ms(900))),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1, "обход включился");
+        finish_speed_check(&s);
+        assert!(s.is_running(), "откат не выполняется");
+        assert_eq!(
+            s.trial_status(std::time::Instant::now())
+                .speed_note
+                .as_deref(),
+            Some(speed::NO_COMPARE_MESSAGE)
+        );
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn no_network_at_all_says_so_and_still_does_not_roll_back() {
         let flags = Arc::new(Flags::default());
         let s = speed_service(
             &flags,
             speed_fake(Timing::failed(ms(5)), Timing::failed(ms(5))),
         );
-        let err = s.start_trial(true, &mut |_| {}).unwrap_err();
-        assert!(
-            matches!(err, DesyncError::NotAllowed(ref m) if m == speed::NO_BASELINE_MESSAGE),
-            "{err:?}"
-        );
-        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(s.is_running());
         assert_eq!(
-            s.trial_status(std::time::Instant::now()).phase,
-            TrialPhase::Idle
+            s.trial_status(std::time::Instant::now())
+                .speed_note
+                .as_deref(),
+            Some(speed::NO_INTERNET_MESSAGE)
         );
-        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+        assert_eq!(speed::NO_INTERNET_MESSAGE, "Нет подключения к интернету");
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn the_button_is_on_right_after_the_engine_starts_without_waiting_for_the_check() {
+        // Замер с обходом (фоновый) «висит» на замке: start_trial всё равно возвращается сразу.
+        struct Gated {
+            calls: AtomicU32,
+            gate: Arc<(Mutex<bool>, std::sync::Condvar)>,
+        }
+        impl speed::TimedFetch for Gated {
+            fn fetch(&self, _: &str, _: Duration) -> Timing {
+                // Первые три вызова — замер до включения: сразу. Остальные ждут разрешения.
+                if self.calls.fetch_add(1, Ordering::SeqCst) >= 3 {
+                    let (lock_, cv) = &*self.gate;
+                    let mut open = lock_.lock().unwrap();
+                    let started = std::time::Instant::now();
+                    while !*open && started.elapsed() < Duration::from_secs(5) {
+                        open = cv.wait_timeout(open, Duration::from_millis(50)).unwrap().0;
+                    }
+                }
+                Timing::done(ms(100), ms(300))
+            }
+        }
+        let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let mut svc = make(
+            &flags,
+            |f| Host {
+                readiness: Readiness::NotImplemented("профиль не проверен".into()),
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        svc.candidate = profile();
+        svc.stop_wait = (2, Duration::from_millis(1));
+        svc.set_speed_probe(Arc::new(Gated {
+            calls: AtomicU32::new(0),
+            gate: gate.clone(),
+        }));
+        let s = Arc::new(svc);
+        let started = std::time::Instant::now();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "кнопка не ждёт замер с обходом"
+        );
+        assert!(s.is_running());
+        // Пока замер идёт, интерфейс видит «Проверяем…», обход уже включён.
+        let mut phase = TrialPhase::Idle;
+        for _ in 0..100 {
+            phase = s.trial_status(std::time::Instant::now()).phase;
+            if phase == TrialPhase::MeasuringAfter {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(phase, TrialPhase::MeasuringAfter);
+        assert!(s.trial_status(std::time::Instant::now()).active);
+        // Замер закончился: результат появляется отдельной строкой, обход остаётся.
+        *gate.0.lock().unwrap() = true;
+        gate.1.notify_all();
+        for _ in 0..200 {
+            if s.trial_status(std::time::Instant::now())
+                .speed_note
+                .is_some()
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(
+            s.trial_status(std::time::Instant::now())
+                .speed_note
+                .as_deref(),
+            Some(speed::NOT_SLOWER_MESSAGE)
+        );
+        s.stop_trial().unwrap();
     }
 
     #[test]

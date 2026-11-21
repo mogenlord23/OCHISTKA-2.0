@@ -1,16 +1,35 @@
 //! Замер скорости открытия сайтов до и после включения обхода (во время пробного запуска).
 //!
 //! Только измерение и сравнение; сеть выполняет подставляемый `TimedFetch` (в `ochistka-platform`).
-//! Результат НЕ доказывает работу обхода у провайдера и `functional_confirmed` не меняет.
+//! Три адреса запрашиваются ОДНОВРЕМЕННО, а общий лимит жёсткий: замер возвращается не позже
+//! лимита, даже если запрос завис. Результат НЕ доказывает работу обхода у провайдера и
+//! `functional_confirmed` не меняет.
 
-use std::time::Duration;
+use std::sync::{mpsc, Arc};
+use std::time::{Duration, Instant};
 
 use super::probe::{CONTROL_URL, DISCORD_URL, YOUTUBE_URL};
 
-/// Предел одного запроса и всего замера.
-pub const REQUEST_LIMIT: Duration = Duration::from_secs(15);
-pub const TOTAL_LIMIT: Duration = Duration::from_secs(45);
-/// Обход «медленнее»: во столько раз или на столько секунд и больше (по любому адресу и показателю).
+/// Пределы замера: на один запрос и на весь замер.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    pub per_request: Duration,
+    pub total: Duration,
+}
+
+/// Замер до включения обхода: запрос ≤ 5 с, весь замер ≤ 8 с.
+pub const BASELINE: Limits = Limits {
+    per_request: Duration::from_secs(5),
+    total: Duration::from_secs(8),
+};
+/// Замер с обходом (в фоне): запрос ≤ 5 с, весь замер ≤ 10 с.
+pub const AFTER: Limits = Limits {
+    per_request: Duration::from_secs(5),
+    total: Duration::from_secs(10),
+};
+
+/// Обход «медленнее»: в 1,5 раза (и не меньше порога шума) либо на 5 с и больше — по любому
+/// показателю любого адреса, который без обхода открывался. Адрес, переставший открываться, — тоже.
 pub const SLOWER_FACTOR: f64 = 1.5;
 pub const SLOWER_BY: Duration = Duration::from_secs(5);
 /// Разницу меньше этого порога не считаем замедлением по кратности (шум на миллисекундах).
@@ -18,11 +37,12 @@ pub const NOISE_FLOOR: Duration = Duration::from_millis(250);
 
 pub const URLS: [&str; 3] = [YOUTUBE_URL, DISCORD_URL, CONTROL_URL];
 
-pub const SLOWER_MESSAGE: &str = "С обходом сайты грузятся медленнее — обход отключён";
+/// Сообщения пользователю: простые слова, без технических терминов.
+pub const SLOWER_MESSAGE: &str = "С обходом сайты грузятся медленнее, обход выключен";
 pub const NOT_SLOWER_MESSAGE: &str =
     "Сайты отвечают быстрее или так же; это не доказывает работу у провайдера";
-pub const NO_BASELINE_MESSAGE: &str =
-    "Не удалось сделать базовый замер скорости: проверьте интернет. Обход не включён";
+pub const NO_COMPARE_MESSAGE: &str = "Без обхода сайты не открываются, сравнить нельзя. Обход включён на 120 секунд — проверьте сайты сами";
+pub const NO_INTERNET_MESSAGE: &str = "Нет подключения к интернету";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
@@ -31,13 +51,13 @@ pub enum Outcome {
     Failed,
 }
 
-/// Результат одного запроса: время до первого ответа и до полной загрузки, и сколько запрос занял.
+/// Результат одного запроса: время до первого ответа и до полной загрузки.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Timing {
     pub outcome: Outcome,
     pub first_byte: Option<Duration>,
     pub total: Option<Duration>,
-    /// Сколько времени запрос потратил (учитывается в общем лимите замера).
+    /// Сколько времени запрос потратил.
     pub spent: Duration,
 }
 
@@ -66,6 +86,9 @@ impl Timing {
             spent,
         }
     }
+    pub fn opened(&self) -> bool {
+        self.outcome == Outcome::Done
+    }
 }
 
 /// Загрузка адреса с ограничением по времени (без системного прокси). Реализация — в платформе.
@@ -78,33 +101,60 @@ pub struct Measurement {
     pub entries: Vec<(String, Timing)>,
 }
 
-/// Замер всех адресов. Каждый запрос ≤ 15 с, весь замер ≤ 45 с: когда время вышло, оставшиеся
-/// адреса считаются не проверенными (таймаут без запроса).
-pub fn measure(fetch: &dyn TimedFetch, urls: &[&str]) -> Measurement {
-    let mut left = TOTAL_LIMIT;
-    let mut entries = Vec::new();
-    for url in urls {
-        let limit = REQUEST_LIMIT.min(left);
-        let timing = if limit.is_zero() {
-            Timing::timeout(Duration::ZERO)
-        } else {
-            let t = fetch.fetch(url, limit);
-            left = left.saturating_sub(t.spent);
-            t
-        };
-        entries.push(((*url).to_string(), timing));
+impl Measurement {
+    /// Открылся ли хоть один адрес.
+    pub fn any_opened(&self) -> bool {
+        self.entries.iter().any(|(_, t)| t.opened())
     }
-    Measurement { entries }
+}
+
+/// Одновременный замер всех адресов. Возвращается не позже `limits.total`: адрес, не успевший
+/// ответить, считается не открывшимся (зависший запрос завершится сам по своему лимиту).
+pub fn measure(fetch: Arc<dyn TimedFetch>, urls: &[&str], limits: Limits) -> Measurement {
+    let (tx, rx) = mpsc::channel();
+    for (index, url) in urls.iter().enumerate() {
+        let (fetch, tx, url) = (fetch.clone(), tx.clone(), (*url).to_string());
+        std::thread::spawn(move || {
+            let timing = fetch.fetch(&url, limits.per_request);
+            let _ = tx.send((index, timing));
+        });
+    }
+    drop(tx);
+    let deadline = Instant::now() + limits.total;
+    let mut got: Vec<Option<Timing>> = vec![None; urls.len()];
+    let mut received = 0;
+    while received < urls.len() {
+        let left = deadline.saturating_duration_since(Instant::now());
+        match rx.recv_timeout(left) {
+            Ok((index, timing)) => {
+                got[index] = Some(timing);
+                received += 1;
+            }
+            Err(_) => break,
+        }
+    }
+    Measurement {
+        entries: urls
+            .iter()
+            .zip(got)
+            .map(|(url, t)| {
+                (
+                    (*url).to_string(),
+                    t.unwrap_or(Timing::timeout(limits.total)),
+                )
+            })
+            .collect(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verdict {
-    /// Не медленнее (быстрее, так же или сравнить нечем).
+    /// Не медленнее (быстрее, так же).
     NotSlower,
-    /// Медленнее; причины по адресам.
+    /// Медленнее или перестал открываться; причины по адресам.
     Slower(Vec<String>),
-    /// Базового замера нет ни по одному адресу.
-    NoBaseline,
+    /// Без обхода не открылся ни один адрес: сравнить нечем, откат не нужен.
+    NothingToCompare { opened_with_bypass: bool },
 }
 
 fn slower(base: Duration, after: Duration) -> bool {
@@ -116,29 +166,23 @@ fn slower(base: Duration, after: Duration) -> bool {
         || (diff >= NOISE_FLOOR && after.as_secs_f64() > base.as_secs_f64() * SLOWER_FACTOR)
 }
 
-pub fn has_baseline(baseline: &Measurement) -> bool {
-    baseline
-        .entries
-        .iter()
-        .any(|(_, t)| t.outcome == Outcome::Done)
-}
-
-/// Сравнивает замер с обходом с базовым. Адрес без успешного базового замера не сравнивается
-/// (обход его не ухудшил); адрес, который раньше открывался, а с обходом нет, — это замедление.
+/// Сравнивает замер с обходом с замером без него — только по адресам, которые без обхода открылись.
 pub fn compare(baseline: &Measurement, after: &Measurement) -> Verdict {
-    if !has_baseline(baseline) {
-        return Verdict::NoBaseline;
+    if !baseline.any_opened() {
+        return Verdict::NothingToCompare {
+            opened_with_bypass: after.any_opened(),
+        };
     }
     let mut reasons = Vec::new();
     for (url, base) in &baseline.entries {
-        if base.outcome != Outcome::Done {
-            continue;
+        if !base.opened() {
+            continue; // без обхода не открывался: это и есть цель обхода, не сравниваем
         }
         let Some((_, now)) = after.entries.iter().find(|(u, _)| u == url) else {
             continue;
         };
-        if now.outcome != Outcome::Done {
-            reasons.push(format!("{url}: с обходом не открылся"));
+        if !now.opened() {
+            reasons.push(format!("{url}: с обходом перестал открываться"));
             continue;
         }
         let (bf, bt) = (
@@ -217,6 +261,7 @@ pub(crate) mod testing {
 mod tests {
     use super::testing::Fake;
     use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     fn ms(n: u64) -> Duration {
         Duration::from_millis(n)
@@ -224,43 +269,98 @@ mod tests {
     fn ok(first: u64, total: u64) -> Timing {
         Timing::done(ms(first), ms(total))
     }
-
     fn all(t: Timing) -> Vec<(&'static str, Vec<Timing>)> {
         URLS.iter().map(|u| (*u, vec![t])).collect()
+    }
+    fn m(fake: Fake) -> Measurement {
+        measure(Arc::new(fake), &URLS, BASELINE)
+    }
+
+    #[test]
+    fn limits_are_five_seconds_per_request_and_eight_or_ten_in_total() {
+        assert_eq!(
+            (BASELINE.per_request, BASELINE.total),
+            (Duration::from_secs(5), Duration::from_secs(8))
+        );
+        assert_eq!(
+            (AFTER.per_request, AFTER.total),
+            (Duration::from_secs(5), Duration::from_secs(10))
+        );
     }
 
     #[test]
     fn slower_by_factor_by_five_seconds_but_not_by_noise() {
-        assert!(slower(ms(1000), ms(1600))); // >1,5 раза и разница ≥ 250 мс
-        assert!(!slower(ms(1000), ms(1500))); // ровно 1,5 раза — не медленнее
-        assert!(!slower(ms(20), ms(40))); // шум на миллисекундах
-        assert!(slower(ms(10_000), ms(15_000))); // +5 с и больше
+        assert!(slower(ms(1000), ms(1600)));
+        assert!(!slower(ms(1000), ms(1500)));
+        assert!(!slower(ms(20), ms(40)));
+        assert!(slower(ms(10_000), ms(15_000)));
         assert!(!slower(ms(10_000), ms(14_900)));
-        assert!(!slower(ms(2000), ms(1000))); // быстрее
+        assert!(!slower(ms(2000), ms(1000)));
+    }
+
+    /// Транспорт с настоящей задержкой: проверяет параллельность и жёсткий лимит.
+    struct Sleepy {
+        delay: Duration,
+        started: AtomicU32,
+        limit_seen: std::sync::Mutex<Vec<Duration>>,
+    }
+    impl TimedFetch for Sleepy {
+        fn fetch(&self, _url: &str, limit: Duration) -> Timing {
+            self.started.fetch_add(1, Ordering::SeqCst);
+            self.limit_seen.lock().unwrap().push(limit);
+            std::thread::sleep(self.delay);
+            Timing::done(self.delay, self.delay)
+        }
     }
 
     #[test]
-    fn measure_respects_the_per_request_and_total_limits() {
-        let f = Fake::new(&all(Timing::timeout(REQUEST_LIMIT)));
-        let m = measure(&f, &URLS);
-        assert_eq!(m.entries.len(), 3);
-        let calls = f.calls.lock().unwrap();
-        assert!(calls.iter().all(|(_, l)| *l <= REQUEST_LIMIT));
-        // Три запроса по 15 с = 45 с: больше времени нет.
-        let f = Fake::new(&all(Timing::timeout(REQUEST_LIMIT)));
-        let m = measure(&f, &[URLS[0], URLS[1], URLS[2], "https://extra.example/"]);
-        assert_eq!(
-            f.calls.lock().unwrap().len(),
-            3,
-            "четвёртый адрес не запрашивался: общий лимит 45 с"
+    fn the_three_addresses_are_requested_at_the_same_time() {
+        let f = Arc::new(Sleepy {
+            delay: ms(300),
+            started: AtomicU32::new(0),
+            limit_seen: Default::default(),
+        });
+        let started = Instant::now();
+        let result = measure(f.clone(), &URLS, BASELINE);
+        // Три запроса по 300 мс одновременно ≈ 300 мс, а не 900.
+        assert!(started.elapsed() < ms(800), "{:?}", started.elapsed());
+        assert!(result.entries.iter().all(|(_, t)| t.opened()));
+        assert_eq!(f.started.load(Ordering::SeqCst), 3);
+        assert!(f
+            .limit_seen
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|l| *l == BASELINE.per_request));
+    }
+
+    #[test]
+    fn the_total_limit_is_hard_even_when_a_request_hangs() {
+        let f = Arc::new(Sleepy {
+            delay: Duration::from_secs(4),
+            started: AtomicU32::new(0),
+            limit_seen: Default::default(),
+        });
+        let limits = Limits {
+            per_request: ms(150),
+            total: ms(200),
+        };
+        let started = Instant::now();
+        let result = measure(f, &URLS, limits);
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "замер не должен ждать зависший запрос"
         );
-        assert_eq!(m.entries[3].1.outcome, Outcome::Timeout);
+        assert!(result
+            .entries
+            .iter()
+            .all(|(_, t)| t.outcome == Outcome::Timeout));
     }
 
     #[test]
     fn slower_with_the_bypass_is_reported_with_reasons() {
-        let base = measure(&Fake::new(&all(ok(300, 900))), &URLS);
-        let after = measure(&Fake::new(&all(ok(300, 2500))), &URLS);
+        let base = m(Fake::new(&all(ok(300, 900))));
+        let after = m(Fake::new(&all(ok(300, 2500))));
         match compare(&base, &after) {
             Verdict::Slower(r) => assert!(r.iter().any(|x| x.contains("загрузка")), "{r:?}"),
             v => panic!("{v:?}"),
@@ -269,33 +369,80 @@ mod tests {
 
     #[test]
     fn same_or_faster_is_not_slower() {
-        let base = measure(&Fake::new(&all(ok(300, 900))), &URLS);
+        let base = m(Fake::new(&all(ok(300, 900))));
         assert_eq!(
-            compare(&base, &measure(&Fake::new(&all(ok(300, 900))), &URLS)),
+            compare(&base, &m(Fake::new(&all(ok(300, 900))))),
             Verdict::NotSlower
         );
         assert_eq!(
-            compare(&base, &measure(&Fake::new(&all(ok(100, 400))), &URLS)),
+            compare(&base, &m(Fake::new(&all(ok(100, 400))))),
             Verdict::NotSlower
         );
     }
 
     #[test]
-    fn a_timeout_with_the_bypass_counts_as_slower_when_the_baseline_worked() {
-        let base = measure(&Fake::new(&all(ok(300, 900))), &URLS);
-        let after = measure(&Fake::new(&all(Timing::timeout(REQUEST_LIMIT))), &URLS);
+    fn an_address_that_stops_opening_with_the_bypass_counts_as_slower() {
+        let base = m(Fake::new(&all(ok(300, 900))));
+        let after = m(Fake::new(&all(Timing::timeout(BASELINE.per_request))));
         assert!(matches!(compare(&base, &after), Verdict::Slower(_)));
     }
 
     #[test]
-    fn no_baseline_at_all_is_reported_and_a_blocked_address_is_not_compared() {
-        let dead = measure(&Fake::new(&all(Timing::failed(ms(10)))), &URLS);
-        assert_eq!(compare(&dead, &dead), Verdict::NoBaseline);
-        // Discord не открывался напрямую: с обходом открылся — это не замедление.
+    fn only_addresses_that_opened_without_the_bypass_are_compared() {
+        // Discord без обхода не открывался (это и есть цель обхода): с обходом открылся — не замедление,
+        // и даже медленно открывшийся не откатывает.
         let mut items = all(ok(300, 900));
-        items[1].1 = vec![Timing::timeout(REQUEST_LIMIT)];
-        let base = measure(&Fake::new(&items), &URLS);
-        let after = measure(&Fake::new(&all(ok(300, 900))), &URLS);
-        assert_eq!(compare(&base, &after), Verdict::NotSlower);
+        items[1].1 = vec![Timing::timeout(BASELINE.per_request)];
+        let base = m(Fake::new(&items));
+        let mut after_items = all(ok(300, 900));
+        after_items[1].1 = vec![ok(4000, 4900)];
+        assert_eq!(
+            compare(&base, &m(Fake::new(&after_items))),
+            Verdict::NotSlower
+        );
+    }
+
+    #[test]
+    fn when_nothing_opened_without_the_bypass_there_is_nothing_to_compare() {
+        let dead = m(Fake::new(&all(Timing::failed(ms(10)))));
+        let alive = m(Fake::new(&all(ok(300, 900))));
+        assert_eq!(
+            compare(&dead, &alive),
+            Verdict::NothingToCompare {
+                opened_with_bypass: true
+            }
+        );
+        assert_eq!(
+            compare(&dead, &dead),
+            Verdict::NothingToCompare {
+                opened_with_bypass: false
+            }
+        );
+    }
+
+    #[test]
+    fn user_messages_contain_no_technical_words() {
+        for text in [
+            SLOWER_MESSAGE,
+            NOT_SLOWER_MESSAGE,
+            NO_COMPARE_MESSAGE,
+            NO_INTERNET_MESSAGE,
+        ] {
+            let t = text.to_lowercase();
+            for bad in [
+                "замер",
+                "базов",
+                "служб",
+                "порт",
+                "драйвер",
+                "таймаут",
+                "timeout",
+                "dns",
+                "tls",
+            ] {
+                assert!(!t.contains(bad), "{text}: {bad}");
+            }
+        }
+        assert!(!NO_INTERNET_MESSAGE.contains("проверьте интернет"));
     }
 }

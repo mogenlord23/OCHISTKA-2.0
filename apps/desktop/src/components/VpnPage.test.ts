@@ -735,9 +735,9 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(sw.getAttribute('aria-checked')).toBe('true');
     state = {
       ...IDLE,
-      speedNote: 'С обходом сайты грузятся медленнее — обход отключён',
+      speedNote: 'С обходом сайты грузятся медленнее, обход выключен',
     };
-    await waitFor(() => expect(row()).toContain('обход отключён'), { timeout: 3000 });
+    await waitFor(() => expect(row()).toContain('обход выключен'), { timeout: 3000 });
     expect(sw.getAttribute('aria-checked')).toBe('false');
     expect(row()).toContain('Выключено');
   });
