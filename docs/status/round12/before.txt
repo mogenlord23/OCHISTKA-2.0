@@ -1,0 +1,12 @@
+900x712    VPN            poster 76-690 tabs 76-124 pane 134-692 tabs→first 12 gaps [12,12,12] paneScroll - mainScroll -
+900x712    Дополнительно  poster 76-690 tabs 76-124 pane 134-692 tabs→first 12 gaps [12,12,12,12,12] paneScroll Y mainScroll -
+900x712    Сеть           poster 76-690 tabs 76-124 pane 134-692 tabs→first 12 gaps [12,20] paneScroll Y mainScroll -
+900x712    Соединения     poster 76-690 tabs 76-124 pane 134-692 tabs→first 12 gaps [20,20] paneScroll - mainScroll -
+1179x803   VPN            poster 76-781 tabs 76-124 pane 134-783 tabs→first 12 gaps [12,12,12] paneScroll - mainScroll -
+1179x803   Дополнительно  poster 76-781 tabs 76-124 pane 134-783 tabs→first 12 gaps [12,12,12,12,12] paneScroll Y mainScroll -
+1179x803   Сеть           poster 76-781 tabs 76-124 pane 134-783 tabs→first 12 gaps [12,20] paneScroll Y mainScroll -
+1179x803   Соединения     poster 76-781 tabs 76-124 pane 134-783 tabs→first 12 gaps [20,20] paneScroll - mainScroll -
+1920x1080  VPN            poster 76-1058 tabs 76-124 pane 134-1060 tabs→first 12 gaps [12,12,12] paneScroll - mainScroll -
+1920x1080  Дополнительно  poster 76-1058 tabs 76-124 pane 134-1060 tabs→first 12 gaps [12,12,12,12,12] paneScroll - mainScroll -
+1920x1080  Сеть           poster 76-1058 tabs 76-124 pane 134-1060 tabs→first 12 gaps [12,20] paneScroll - mainScroll -
+1920x1080  Соединения     poster 76-1058 tabs 76-124 pane 134-1060 tabs→first 12 gaps [20,20] paneScroll - mainScroll -

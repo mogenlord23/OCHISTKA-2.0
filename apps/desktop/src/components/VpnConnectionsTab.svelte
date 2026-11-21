@@ -250,7 +250,7 @@
 
 <style>
   .count {
-    margin: 0 0 8px;
+    margin: 0;
     font-size: var(--text-caption);
     font-weight: 800;
     color: #000;
@@ -362,7 +362,7 @@
     flex-shrink: 0;
     gap: 2px;
     min-height: 64px;
-    margin-top: 8px;
+    margin-top: 0;
     padding: 10px 14px;
     border-radius: var(--radius-md);
     background: var(--surface-alt);
@@ -402,7 +402,7 @@
   }
 
   .state {
-    margin: 8px 2px;
+    margin: 0;
     color: #000;
   }
 </style>

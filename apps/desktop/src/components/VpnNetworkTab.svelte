@@ -144,7 +144,7 @@
   }
 
   .state {
-    margin: 8px 2px;
+    margin: 0;
     font-weight: 700;
     color: #000;
   }

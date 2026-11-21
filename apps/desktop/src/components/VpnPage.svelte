@@ -402,15 +402,13 @@
           </section>
 
           <h2 class="sr-only">Серверы / {servers.length}</h2>
-          {#if servers.length > 0}
-            <div class="list-head">
-              <button type="button" class="small" disabled={measuring} onclick={onMeasure}
-                >{measuring ? 'Проверяем…' : 'Проверить задержку'}</button
-              >
-            </div>
-          {/if}
           <section class="card servers-card">
             {#if servers.length > 0}
+              <div class="list-head">
+                <button type="button" class="small" disabled={measuring} onclick={onMeasure}
+                  >{measuring ? 'Проверяем…' : 'Проверить задержку'}</button
+                >
+              </div>
               <ul class="servers" aria-label="Серверы">
                 {#each servers as server (server.id)}
                   <li>
@@ -727,7 +725,12 @@
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    margin: 0;
+    margin: 0 0 8px;
+    /* Кнопка остаётся наверху карточки при прокрутке списка серверов. */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
   }
 
   button.small {
