@@ -233,6 +233,8 @@ pub enum DesyncError {
     /// Сервисы и так доступны напрямую или через VPN: перехват не нужен.
     #[error("{0}")]
     NotNeeded(String),
+    #[error("Не удалось надёжно остановить обход: {0}")]
+    Stop(String),
     #[error("Не удалось подготовить компоненты: {0}")]
     Prepare(String),
     #[error("Не удалось запустить обход: {0}")]
@@ -251,6 +253,11 @@ pub trait DesyncAdapter: Send + Sync {
     fn platform(&self) -> Platform;
     /// Готов ли адаптер. Не `Ready` — переключатель не включается, запуск отказывает.
     fn readiness(&self) -> Readiness;
+    /// Готовность ТОЛЬКО для явного пробного запуска. Обычную `readiness()` не меняет и не
+    /// разблокирует переключатель. По умолчанию пробный режим недоступен.
+    fn trial_readiness(&self) -> Readiness {
+        Readiness::NotImplemented("Пробный режим недоступен на этой системе".into())
+    }
     /// Путь к движку (`winws2` или `nfqws2`), если все компоненты на месте и их хэши совпали.
     fn locate(&self) -> Result<PathBuf, String>;
     /// Скачивает и проверяет закреплённые компоненты (только при подтверждённых хэшах).
@@ -290,8 +297,42 @@ pub struct DesyncService {
     settle: (u32, Duration),
     /// Общее право на сетевой режим (одно на VPN и обход); по умолчанию собственное.
     coord: Arc<coordinator::NetCoordinator>,
+    /// Пробный режим: срок, номер запуска (старый таймер сам завершается) и пометки пользователя.
+    trial: Mutex<TrialInner>,
+    trial_limit: Duration,
+    /// Сколько раз и как часто проверять, что процесс действительно завершился после остановки.
+    stop_wait: (u32, Duration),
     inner: Mutex<Inner>,
     op: Mutex<()>,
+}
+
+/// Максимальная длительность пробного запуска полного профиля.
+pub const TRIAL_LIMIT: Duration = Duration::from_secs(120);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrialVerdict {
+    Works,
+    Fails,
+    Unchecked,
+}
+
+#[derive(Default)]
+struct TrialInner {
+    deadline: Option<std::time::Instant>,
+    generation: u64,
+    notes: Vec<(Coverage, TrialVerdict)>,
+}
+
+/// Состояние пробного запуска для интерфейса. Пометки пользователя — только его наблюдения,
+/// они не являются подтверждением работы сервиса.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TrialStatus {
+    pub active: bool,
+    pub remaining_secs: u64,
+    pub message: String,
+    /// Причина, по которой пробный запуск сейчас невозможен (если невозможен).
+    pub unavailable: Option<String>,
+    pub notes: Vec<(Coverage, TrialVerdict)>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -319,6 +360,9 @@ impl DesyncService {
             installable: pinned().is_some(),
             vpn,
             coord: Arc::new(coordinator::NetCoordinator::new()),
+            trial: Mutex::new(TrialInner::default()),
+            trial_limit: TRIAL_LIMIT,
+            stop_wait: (50, Duration::from_millis(40)),
             candidate,
             confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
             settle: (5, Duration::from_millis(200)),
@@ -418,7 +462,7 @@ impl DesyncService {
         if let Err(denied) = self.coord.begin(coordinator::Owner::Desync) {
             return self.fail(DesyncError::NotAllowed(denied.to_string()));
         }
-        let result = self.start_locked(progress, &profile);
+        let result = self.start_locked(progress, &profile, false);
         match &result {
             Ok(()) => self.coord.activate(coordinator::Owner::Desync),
             Err(_) => self.coord.release(coordinator::Owner::Desync),
@@ -464,7 +508,7 @@ impl DesyncService {
         let Some(profile) = self.profile.clone() else {
             return self.fail(DesyncError::NoProfile);
         };
-        let result = self.start_locked(progress, &profile);
+        let result = self.start_locked(progress, &profile, false);
         self.record(&result);
         result
     }
@@ -473,8 +517,14 @@ impl DesyncService {
         &self,
         progress: &mut dyn FnMut(PrepareProgress),
         profile: &Profile,
+        trial: bool,
     ) -> Result<(), DesyncError> {
-        match self.adapter.readiness() {
+        let readiness = if trial {
+            self.adapter.trial_readiness()
+        } else {
+            self.adapter.readiness()
+        };
+        match readiness {
             Readiness::Ready => {}
             Readiness::NotImplemented(why) | Readiness::Unsupported(why) => {
                 return Err(DesyncError::Unavailable(why));
@@ -528,9 +578,206 @@ impl DesyncService {
         Ok(())
     }
 
+    fn end_trial(&self) {
+        let mut t = lock(&self.trial);
+        t.deadline = None;
+        t.generation += 1;
+    }
+
+    /// Пробный запуск ПОЛНОГО профиля NetZapret Universal V13 Lite. Только по явному согласию
+    /// (проверяется здесь, а не только в интерфейсе), только Windows, одним экземпляром, под
+    /// общим координатором (при VPN или его неочищенных настройках — отказ). Останавливается
+    /// автоматически через `TRIAL_LIMIT`. Обычную готовность адаптера и реестр подтверждённых
+    /// профилей не меняет.
+    pub fn start_trial(
+        self: &Arc<Self>,
+        consent: bool,
+        progress: &mut dyn FnMut(PrepareProgress),
+    ) -> Result<(), DesyncError> {
+        if !consent {
+            return Err(DesyncError::NotAllowed(
+                "Для пробного запуска нужно ваше явное согласие".into(),
+            ));
+        }
+        if self.adapter.platform() != Platform::Windows {
+            return Err(DesyncError::Unavailable(
+                "Пробный запуск доступен только в Windows".into(),
+            ));
+        }
+        let Some(profile) = self.candidate.clone() else {
+            return Err(DesyncError::NoProfile);
+        };
+        let Ok(_op) = self.op.try_lock() else {
+            return Err(DesyncError::Busy);
+        };
+        if self.status().0 == DesyncState::Running {
+            return Err(DesyncError::NotAllowed(
+                "Пробный запуск уже идёт: второй экземпляр не создаётся".into(),
+            ));
+        }
+        match self.adapter.trial_readiness() {
+            Readiness::Ready => {}
+            Readiness::NotImplemented(why) | Readiness::Unsupported(why) => {
+                return self.fail(DesyncError::Unavailable(why));
+            }
+        }
+        if let Err(denied) = self.coord.begin(coordinator::Owner::Desync) {
+            return self.fail(DesyncError::NotAllowed(denied.to_string()));
+        }
+        let result = self.start_locked(progress, &profile, true);
+        match &result {
+            Ok(()) => {
+                self.coord.activate(coordinator::Owner::Desync);
+                let generation = {
+                    let mut t = lock(&self.trial);
+                    t.generation += 1;
+                    t.notes.clear();
+                    t.deadline = Some(std::time::Instant::now() + self.trial_limit);
+                    t.generation
+                };
+                lock(&self.inner).message = format!(
+                    "Пробный запуск · {} · не более {} с",
+                    profile.title,
+                    self.trial_limit.as_secs()
+                );
+                self.spawn_trial_timer(generation);
+            }
+            Err(_) => self.coord.release(coordinator::Owner::Desync),
+        }
+        self.record(&result);
+        result
+    }
+
+    /// Таймер в Rust: следит за сроком и за самим процессом. Держит только `Weak`.
+    fn spawn_trial_timer(self: &Arc<Self>, generation: u64) {
+        let weak = Arc::downgrade(self);
+        std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_millis(250));
+            let Some(service) = weak.upgrade() else {
+                break;
+            };
+            if lock(&service.trial).generation != generation {
+                break;
+            }
+            if service.tick(std::time::Instant::now()) {
+                break;
+            }
+        });
+    }
+
+    /// Один шаг контроля: срок истёк или процесс завершился сам — останавливаем и очищаем.
+    /// Возвращает `true`, если пробный запуск закончен (успешно или с ошибкой остановки).
+    pub(crate) fn tick(&self, now: std::time::Instant) -> bool {
+        let Some(deadline) = lock(&self.trial).deadline else {
+            return true;
+        };
+        let died = lock(&self.inner)
+            .process
+            .as_mut()
+            .is_some_and(|p| p.has_exited());
+        let expired = now >= deadline;
+        if !expired && !died {
+            return false;
+        }
+        let why = if expired {
+            "Пробный запуск остановлен: истекло время"
+        } else {
+            "Пробный запуск остановлен: процесс завершился сам"
+        };
+        if self.stop_trial().is_ok() {
+            lock(&self.inner).message = why.into();
+        }
+        true
+    }
+
+    /// Ручная или автоматическая остановка. Освобождает право только если процесс действительно
+    /// завершился; иначе остаётся ошибка, право не освобождается, остановку можно повторить.
+    pub fn stop_trial(&self) -> Result<(), DesyncError> {
+        let _op = lock(&self.op);
+        self.end_trial();
+        self.coord.begin_stop(coordinator::Owner::Desync);
+        let mut inner = lock(&self.inner);
+        if let Some(mut p) = inner.process.take() {
+            p.kill();
+            let mut gone = p.has_exited();
+            for _ in 0..self.stop_wait.0 {
+                if gone {
+                    break;
+                }
+                std::thread::sleep(self.stop_wait.1);
+                gone = p.has_exited();
+            }
+            if !gone {
+                inner.process = Some(p);
+                inner.state = DesyncState::Error;
+                inner.message =
+                    "Не удалось остановить обход. Повторите остановку или перезапустите OCHISTKA"
+                        .into();
+                drop(inner);
+                self.coord.mark_unclean(coordinator::Owner::Desync);
+                return Err(DesyncError::Stop("процесс не завершился".into()));
+            }
+        }
+        let _ = std::fs::remove_file(self.pid_file());
+        inner.state = DesyncState::Off;
+        inner.message = "Выключено".into();
+        drop(inner);
+        self.coord.release(coordinator::Owner::Desync);
+        Ok(())
+    }
+
+    /// Пометка пользователя («работает / не работает / не проверено») во время испытания.
+    /// Это только его наблюдение: подтверждением работы сервиса оно не становится.
+    pub fn note_trial(&self, service: Coverage, verdict: TrialVerdict) -> Result<(), DesyncError> {
+        let mut t = lock(&self.trial);
+        if t.deadline.is_none() {
+            return Err(DesyncError::NotAllowed(
+                "Пометки доступны только во время пробного запуска".into(),
+            ));
+        }
+        match t.notes.iter_mut().find(|(s, _)| *s == service) {
+            Some(entry) => entry.1 = verdict,
+            None => t.notes.push((service, verdict)),
+        }
+        Ok(())
+    }
+
+    pub fn trial_status(&self, now: std::time::Instant) -> TrialStatus {
+        let t = lock(&self.trial);
+        let active = t.deadline.is_some() && self.is_running();
+        let remaining_secs = t
+            .deadline
+            .map_or(0, |d| d.saturating_duration_since(now).as_secs());
+        let notes = t.notes.clone();
+        drop(t);
+        let unavailable = if active {
+            None
+        } else if self.adapter.platform() != Platform::Windows {
+            Some("Пробный запуск доступен только в Windows".into())
+        } else if self.candidate.is_none() {
+            Some("Профиль NetZapret недоступен в этой сборке".into())
+        } else {
+            match self.adapter.trial_readiness() {
+                Readiness::Ready if !self.adapter.has_privileges() => {
+                    Some("Нужны права администратора".into())
+                }
+                Readiness::Ready => None,
+                Readiness::NotImplemented(why) | Readiness::Unsupported(why) => Some(why),
+            }
+        };
+        TrialStatus {
+            active,
+            remaining_secs,
+            message: lock(&self.inner).message.clone(),
+            unavailable,
+            notes,
+        }
+    }
+
     /// Останавливает движок и освобождает файл номера процесса. Без запущенного обхода безвредно.
     pub fn stop(&self) {
         let _op = lock(&self.op);
+        self.end_trial();
         self.coord.begin_stop(coordinator::Owner::Desync);
         let mut inner = lock(&self.inner);
         if let Some(mut p) = inner.process.take() {
@@ -659,10 +906,12 @@ mod tests {
         present: AtomicBool,
         exited: Arc<AtomicBool>,
         killed: Arc<AtomicBool>,
+        /// Если `true`, убитый процесс действительно завершается (как настоящий).
+        exit_on_kill: Arc<AtomicBool>,
         stale: Mutex<Vec<u32>>,
     }
 
-    struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>);
+    struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>);
     impl CoreProcess for FakeProcess {
         fn pid(&self) -> u32 {
             777
@@ -672,6 +921,9 @@ mod tests {
         }
         fn kill(&mut self) {
             self.1.store(true, Ordering::SeqCst);
+            if self.2.load(Ordering::SeqCst) {
+                self.0.store(true, Ordering::SeqCst);
+            }
         }
     }
 
@@ -679,6 +931,7 @@ mod tests {
         flags: Arc<Flags>,
         elevated: bool,
         readiness: Readiness,
+        trial: Readiness,
         install_fails: bool,
         spawn_fails: bool,
     }
@@ -689,6 +942,9 @@ mod tests {
         }
         fn readiness(&self) -> Readiness {
             self.readiness.clone()
+        }
+        fn trial_readiness(&self) -> Readiness {
+            self.trial.clone()
         }
         fn locate(&self) -> Result<PathBuf, String> {
             if self.flags.present.load(Ordering::SeqCst) {
@@ -720,6 +976,7 @@ mod tests {
             Ok(Box::new(FakeProcess(
                 self.flags.exited.clone(),
                 self.flags.killed.clone(),
+                self.flags.exit_on_kill.clone(),
             )))
         }
         fn kill_stale(&self, pid: u32) {
@@ -773,6 +1030,7 @@ mod tests {
             flags,
             elevated: true,
             readiness: Readiness::Ready,
+            trial: Readiness::Ready,
             install_fails: false,
             spawn_fails: false,
         }
@@ -1176,6 +1434,247 @@ mod tests {
         assert!(d ^ v, "desync={d} vpn={v}");
         assert!(flags.spawned.load(Ordering::SeqCst) <= 1);
         s.shutdown();
+    }
+
+    // ----- пробный запуск полного профиля -----
+
+    fn trial_service(flags: &Arc<Flags>, vpn: bool) -> Arc<DesyncService> {
+        flags.present.store(true, Ordering::SeqCst);
+        flags.exit_on_kill.store(true, Ordering::SeqCst);
+        // Обычная готовность адаптера закрыта, пробная — открыта.
+        let mut s = make(
+            flags,
+            |f| Host {
+                readiness: Readiness::NotImplemented("профиль не проверен".into()),
+                ..good(f)
+            },
+            true,
+            vpn,
+        );
+        s.candidate = profile();
+        s.stop_wait = (2, Duration::from_millis(1));
+        Arc::new(s)
+    }
+
+    #[test]
+    fn trial_needs_explicit_consent_and_leaves_normal_state_closed() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        let err = s.start_trial(false, &mut |_| {}).unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        // Обычная готовность и реестр подтверждений не изменились.
+        assert!(matches!(
+            s.adapter.readiness(),
+            Readiness::NotImplemented(_)
+        ));
+        assert!(routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
+        let plan = s.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
+        assert!(matches!(plan.overall, RoutePlan::Block(_)));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(matches!(
+            s.adapter.readiness(),
+            Readiness::NotImplemented(_)
+        ));
+        assert!(matches!(
+            s.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]))
+                .overall,
+            RoutePlan::Block(_)
+        ));
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn trial_is_refused_with_vpn_unprepared_engine_or_no_privileges() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, true);
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        // Координатор: VPN уже владеет режимом (или не очистил настройки) — отказ.
+        let s = trial_service(&flags, false);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+        s.coord.mark_unclean(coordinator::Owner::Vpn);
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        // Движок не подготовлен и скачать нельзя.
+        let flags2 = Arc::new(Flags::default());
+        let mut raw = make(&flags2, good, false, false);
+        raw.candidate = profile();
+        let raw = Arc::new(raw);
+        assert!(matches!(
+            raw.start_trial(true, &mut |_| {}).unwrap_err(),
+            DesyncError::NotPrepared(_)
+        ));
+        assert_eq!(flags2.spawned.load(Ordering::SeqCst), 0);
+        // Нет готовности пробного режима.
+        let mut notready = make(
+            &flags2,
+            |f| Host {
+                trial: Readiness::NotImplemented("нет".into()),
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        notready.candidate = profile();
+        assert!(matches!(
+            Arc::new(notready)
+                .start_trial(true, &mut |_| {})
+                .unwrap_err(),
+            DesyncError::Unavailable(_)
+        ));
+        // Нет прав администратора.
+        let flags3 = Arc::new(Flags::default());
+        flags3.present.store(true, Ordering::SeqCst);
+        let mut noadmin = make(
+            &flags3,
+            |f| Host {
+                elevated: false,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        noadmin.candidate = profile();
+        assert_eq!(
+            Arc::new(noadmin)
+                .start_trial(true, &mut |_| {})
+                .unwrap_err(),
+            DesyncError::NeedsAdmin
+        );
+        assert_eq!(flags3.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn trial_runs_one_instance_and_stops_manually_and_twice_safely() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(s.is_running());
+        let st = s.trial_status(std::time::Instant::now());
+        assert!(st.active && st.remaining_secs > 0 && st.remaining_secs <= 120);
+        // Повторный вызов второй экземпляр не создаёт.
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        // VPN не получает право, пока идёт испытание.
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        s.stop_trial().unwrap();
+        s.stop_trial().unwrap();
+        assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
+        assert!(!s.trial_status(std::time::Instant::now()).active);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn trial_stops_by_itself_after_the_time_limit() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let soon = std::time::Instant::now() + Duration::from_secs(60);
+        assert!(!s.tick(soon));
+        assert!(s.is_running());
+        let late = std::time::Instant::now() + Duration::from_secs(121);
+        assert!(s.tick(late));
+        assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
+        assert!(s.trial_status(late).message.contains("истекло время"));
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn real_rust_timer_stops_a_short_trial_without_the_ui() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        flags.exit_on_kill.store(true, Ordering::SeqCst);
+        let mut s = make(&flags, good, true, false);
+        s.candidate = profile();
+        s.trial_limit = Duration::from_millis(20);
+        let s = Arc::new(s);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        for _ in 0..100 {
+            if !s.is_running() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(!s.is_running(), "таймер Rust должен остановить испытание");
+    }
+
+    #[test]
+    fn failed_stop_is_not_reported_as_success_and_keeps_the_right() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.exit_on_kill.store(false, Ordering::SeqCst); // процесс не умирает
+        let err = s.stop_trial().unwrap_err();
+        assert!(matches!(err, DesyncError::Stop(_)), "{err:?}");
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        // Повтор после того, как процесс всё-таки завершился.
+        flags.exit_on_kill.store(true, Ordering::SeqCst);
+        flags.exited.store(true, Ordering::SeqCst);
+        s.stop_trial().unwrap();
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn failed_trial_start_cleans_up_and_shutdown_stops_the_trial() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let mut s = make(
+            &flags,
+            |f| Host {
+                spawn_fails: true,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        s.candidate = profile();
+        let s = Arc::new(s);
+        assert!(matches!(
+            s.start_trial(true, &mut |_| {}).unwrap_err(),
+            DesyncError::Start(_)
+        ));
+        assert!(!s.is_running());
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+        s.coord.release(coordinator::Owner::Vpn);
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        s.shutdown();
+        assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
+        assert!(!s.trial_status(std::time::Instant::now()).active);
+    }
+
+    #[test]
+    fn user_notes_are_observations_not_proof() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        assert!(s
+            .note_trial(Coverage::Youtube, TrialVerdict::Works)
+            .is_err());
+        s.start_trial(true, &mut |_| {}).unwrap();
+        s.note_trial(Coverage::Youtube, TrialVerdict::Works)
+            .unwrap();
+        s.note_trial(Coverage::Youtube, TrialVerdict::Fails)
+            .unwrap();
+        s.note_trial(Coverage::Discord, TrialVerdict::Unchecked)
+            .unwrap();
+        let st = s.trial_status(std::time::Instant::now());
+        assert_eq!(
+            st.notes,
+            vec![
+                (Coverage::Youtube, TrialVerdict::Fails),
+                (Coverage::Discord, TrialVerdict::Unchecked)
+            ]
+        );
+        // Пометки не меняют маршрут и не разрешают обычный запуск.
+        assert!(matches!(
+            s.plan_access(&[Coverage::Youtube], &ServiceObservations::new())
+                .overall,
+            RoutePlan::Block(_)
+        ));
+        s.stop_trial().unwrap();
     }
 
     #[test]

@@ -104,6 +104,16 @@ fn preset_assets_valid(dir: &Path) -> bool {
     })
 }
 
+/// Хэши встроенных ресурсов проверяются один раз за запуск приложения.
+fn embedded_resources_intact() -> bool {
+    static OK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *OK.get_or_init(|| {
+        PINNED_RESOURCES
+            .iter()
+            .all(|(_, bytes, digest)| engine::sha256_hex(bytes) == *digest)
+    })
+}
+
 fn preset_asset_error(detail: impl Into<String>) -> PrepareError {
     PrepareError {
         reason: "не удалось подготовить проверенные файлы обхода".into(),
@@ -260,6 +270,27 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         }
     }
 
+    /// Только для явного пробного запуска полного профиля: закреплённый движок известен и
+    /// все встроенные ресурсы совпали со своими SHA-256. Установленные файлы и WinDivert
+    /// перепроверяются при `locate`/`install`/`spawn`; права — при запуске. Обычную
+    /// `readiness()` это не меняет.
+    fn trial_readiness(&self) -> Readiness {
+        if !cfg!(windows) {
+            return Readiness::NotImplemented("Эта сборка не для Windows".into());
+        }
+        if self.spec.is_none() {
+            return Readiness::NotImplemented(
+                "Файлы движка не закреплены: пробный запуск недоступен".into(),
+            );
+        }
+        if !embedded_resources_intact() {
+            return Readiness::NotImplemented(
+                "Встроенные файлы пресета не прошли проверку SHA-256".into(),
+            );
+        }
+        Readiness::Ready
+    }
+
     fn locate(&self) -> Result<PathBuf, String> {
         let spec = self
             .spec
@@ -395,6 +426,22 @@ pub fn adapter_for_current_os(dir: PathBuf) -> Box<dyn DesyncAdapter> {
 mod tests {
     use super::*;
     use ochistka_core::vpn::engine::sha256_hex;
+
+    #[test]
+    fn trial_readiness_does_not_change_normal_readiness() {
+        let adapter = WindowsDesyncAdapter::with_spec(temp("trial"), None);
+        assert!(matches!(adapter.readiness(), Readiness::NotImplemented(_)));
+        assert!(matches!(
+            adapter.trial_readiness(),
+            Readiness::NotImplemented(_)
+        ));
+        assert!(embedded_resources_intact());
+        let pinned = WindowsDesyncAdapter::new(temp("trial2"));
+        assert!(matches!(pinned.readiness(), Readiness::NotImplemented(_)));
+        if cfg!(windows) && desync::pinned().is_some() {
+            assert_eq!(pinned.trial_readiness(), Readiness::Ready);
+        }
+    }
 
     fn temp(name: &str) -> PathBuf {
         let dir =

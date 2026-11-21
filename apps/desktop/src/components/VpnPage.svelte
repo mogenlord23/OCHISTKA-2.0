@@ -15,6 +15,7 @@
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
+  import DesyncTrialPanel from './DesyncTrialPanel.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
     IMPORTING_LABEL,
@@ -618,6 +619,7 @@
               onclose={closeDnsMenu}
             />
           {/if}
+          <DesyncTrialPanel />
           <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'network'}
           <VpnNetworkTab />

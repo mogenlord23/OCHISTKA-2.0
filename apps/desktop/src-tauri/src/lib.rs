@@ -2,6 +2,7 @@
 
 pub mod appearance;
 pub mod commands;
+pub mod desync_trial;
 pub mod disks;
 pub mod drivers;
 pub mod hardware;
@@ -108,6 +109,10 @@ pub fn run() {
             network::geo_lookup,
             speedtest::speedtest_start,
             speedtest::speedtest_cancel,
+            desync_trial::desync_trial_status,
+            desync_trial::desync_trial_start,
+            desync_trial::desync_trial_stop,
+            desync_trial::desync_trial_note,
             service_check::service_check,
             service_check::service_access_plan,
             vpn::vpn_snapshot,

@@ -551,7 +551,10 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.getAllByText('DNS', { exact: true })).toHaveLength(1);
     // Telegram не отдельная возможность: только упоминание внутри одной карточки.
     expect(screen.queryByRole('switch', { name: /Telegram/ })).toBeNull();
-    expect(screen.queryByText(/Zapret|Xbox/)).toBeNull();
+    // Единственное место с этим словом — отдельный блок пробной проверки (по требованию владельца).
+    expect(screen.queryAllByText(/Zapret|Xbox/).filter((el) => !el.closest('.trial'))).toHaveLength(
+      0,
+    );
     for (const name of ['Обход блокировок', 'DNS']) {
       const sw = screen.getByRole('switch', { name });
       expect(sw.getAttribute('aria-checked')).toBe('false');
