@@ -140,7 +140,7 @@ pub static PINNED_WINDOWS: PinnedEngine = PinnedEngine {
 
 /// Выпуск доступен только Windows; Linux и macOS пока без установленного движка.
 pub fn pinned() -> Option<&'static PinnedEngine> {
-    if cfg!(target_os = "windows") {
+    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
         Some(&PINNED_WINDOWS)
     } else {
         None
@@ -160,6 +160,36 @@ pub struct Profile {
 /// придумывать параметры обхода нельзя.
 pub fn site_discord_profile(_platform: Platform) -> Option<Profile> {
     None
+}
+
+/// Кандидат TCP-профиля для Windows, НЕ подтверждённый на реальной сети.
+/// Аргументы повторяют пример из bol-van/zapret2/docs/readme.md на коммите
+/// 1eb4fd887b6091ccaf59feea7486162ac64c9319 (с WinDivert --wf-tcp-out).
+/// Это только HTTP/TLS (80/443): не заявляем поддержку голосового UDP Discord,
+/// Telegram, игр, QUIC или всех сайтов. Пока нет проверки, пользовательский
+/// профиль выше остаётся None, и включение обхода недоступно.
+pub fn windows_tcp_candidate_profile() -> Profile {
+    Profile {
+        id: "windows-tcp-http-tls-candidate",
+        engine: Engine::Winws2,
+        title: "Пробный TCP-профиль для HTTP/HTTPS",
+        args: [
+            "--wf-tcp-out=80,443",
+            "--lua-init=@zapret-lib.lua",
+            "--lua-init=@zapret-antidpi.lua",
+            "--filter-tcp=80,443",
+            "--filter-l7=tls,http",
+            "--payload=tls_client_hello",
+            "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,rndsni,dupsid",
+            "--payload=http_req",
+            "--lua-desync=fake:blob=fake_default_http:tcp_md5",
+            "--payload=tls_client_hello,http_req",
+            "--lua-desync=multisplit:pos=1:seqovl=5:seqovl_pattern=0x1603030000",
+        ]
+        .iter()
+        .map(|arg| (*arg).to_string())
+        .collect(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -569,6 +599,19 @@ mod tests {
     }
 
     #[test]
+    fn candidate_profile_follows_upstream_tcp_example_but_is_not_activated() {
+        let candidate = windows_tcp_candidate_profile();
+        assert_eq!(candidate.engine, Engine::Winws2);
+        assert_eq!(candidate.args[0], "--wf-tcp-out=80,443");
+        assert_eq!(candidate.args[1], "--lua-init=@zapret-lib.lua");
+        assert_eq!(candidate.args[2], "--lua-init=@zapret-antidpi.lua");
+        assert!(candidate.args.iter().any(|arg| arg.starts_with("--lua-desync=fake:")));
+        assert!(candidate.args.iter().any(|arg| arg.starts_with("--lua-desync=multisplit:")));
+        assert!(!candidate.args.iter().any(|arg| arg.starts_with("--wf-udp")));
+        assert!(site_discord_profile(Platform::Windows).is_none());
+    }
+
+    #[test]
     fn verified_windows_engine_is_pinned_but_profile_remains_disabled() {
         let spec = &PINNED_WINDOWS;
         assert!(crate::vpn::engine::url_allowed_under(
@@ -591,7 +634,10 @@ mod tests {
             assert!(spec.files.iter().any(|(name, _)| *name == required_name));
         }
         assert!(spec.files.iter().all(|(_, hash)| hash.len() == 64));
-        assert_eq!(pinned().is_some(), cfg!(target_os = "windows"));
+        assert_eq!(
+            pinned().is_some(),
+            cfg!(all(target_os = "windows", target_arch = "x86_64"))
+        );
 
         for platform in [Platform::Windows, Platform::Linux, Platform::MacOs] {
             assert!(

@@ -7,8 +7,10 @@
 //! исключений не добавляем).
 //!
 //! Движок Windows из проверенного Release с закреплёнными хэшами доступен для установки.
-//! Рабочие аргументы обхода ещё не проверены; до появления профиля адаптер сообщает
-//! NotImplemented и ничего не запускает. Подписанный драйвер используем без переименования;
+//! Оригинальные Lua-скрипты из того же upstream-коммита встроены в приложение и
+//! записываются рядом с движком с проверкой целостности. Кандидат аргументов взят из
+//! документации Zapret 2, но не проверен на реальной сети. До такой проверки адаптер
+//! сообщает NotImplemented и ничего не запускает. Подписанный драйвер используем без переименования;
 //! защиту Windows не отключаем.
 
 use std::path::{Path, PathBuf};
@@ -21,6 +23,51 @@ use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use crate::vpn::spawn_logged;
 
 pub const ENGINE_EXE: &str = "winws2.exe";
+
+/// Не модифицированные Lua-исходники из bol-van/zapret2@1eb4fd887b6091ccaf59feea7486162ac64c9319.
+/// Upstream git blob SHA: lib=92fb6a01b78597f673cc20dd869a9d1bf7d41b27,
+/// antidpi=9022555c59d7e986a7385c2ecae524130ae9cc7b. MIT (см. LICENSE-zapret2.txt).
+const LUA_ASSETS: [(&str, &[u8]); 2] = [
+    (
+        "zapret-lib.lua",
+        include_bytes!("../../../assets/desync/zapret-lib.lua"),
+    ),
+    (
+        "zapret-antidpi.lua",
+        include_bytes!("../../../assets/desync/zapret-antidpi.lua"),
+    ),
+];
+
+fn lua_assets_valid(dir: &Path) -> bool {
+    LUA_ASSETS.iter().all(|(name, data)| {
+        std::fs::read(dir.join(name))
+            .is_ok_and(|file| file.as_slice() == *data)
+    })
+}
+
+/// Сохраняем оригинальные Lua-файлы только в каталог проверенного движка.
+/// Повторная запись исправляет отсутствующие или изменённые Lua-файлы; проверка
+/// целостности после подготовки обязательна, а запуск при подмене блокируется.
+fn install_lua_assets(dir: &Path) -> Result<(), PrepareError> {
+    std::fs::create_dir_all(dir).map_err(|err| PrepareError::disk(err.to_string()))?;
+    for (name, data) in LUA_ASSETS {
+        let path = dir.join(name);
+        if std::fs::read(&path).is_ok_and(|file| file.as_slice() == data) {
+            continue;
+        }
+        let tmp = dir.join(format!("{name}.part"));
+        std::fs::write(&tmp, data).map_err(|err| PrepareError::disk(err.to_string()))?;
+        // Удаляем только свой одноимённый ресурс, не чужие файлы и каталоги.
+        if path.is_file() {
+            std::fs::remove_file(&path).map_err(|err| PrepareError::disk(err.to_string()))?;
+        }
+        std::fs::rename(&tmp, &path).map_err(|err| PrepareError::disk(err.to_string()))?;
+    }
+    if !lua_assets_valid(dir) {
+        return Err(PrepareError::integrity("Lua-скрипты не прошли проверку целостности"));
+    }
+    Ok(())
+}
 
 pub struct WindowsDesyncAdapter {
     dir: PathBuf,
@@ -106,10 +153,10 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let spec = self
             .spec
             .ok_or("файлы движка не закреплены: нет подтверждённых версий и хэшей")?;
-        if engine::is_installed(spec, &self.dir) {
+        if engine::is_installed(spec, &self.dir) && lua_assets_valid(&self.dir) {
             Ok(self.exe_path())
         } else {
-            Err("компоненты обхода не найдены или изменены (хэши не совпали)".into())
+            Err("компоненты обхода или Lua-скрипты отсутствуют либо изменены".into())
         }
     }
 
@@ -132,8 +179,9 @@ impl DesyncAdapter for WindowsDesyncAdapter {
                     e
                 }
             })?;
+            install_lua_assets(&self.dir)?;
             // Защита могла убрать файл сразу после записи.
-            if engine::is_installed(spec, &self.dir) {
+            if engine::is_installed(spec, &self.dir) && lua_assets_valid(&self.dir) {
                 Ok(())
             } else {
                 Err(protection_error(
@@ -161,6 +209,12 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         // Только наш файл из папки компонентов: чужой путь не запускаем.
         if exe != self.exe_path() {
             return Err("запуск чужого файла отклонён".into());
+        }
+        let Some(spec) = self.spec else {
+            return Err("движок не закреплён".into());
+        };
+        if !engine::is_installed(spec, &self.dir) || !lua_assets_valid(&self.dir) {
+            return Err("запуск отклонён: целостность движка или Lua-скриптов нарушена".into());
         }
         let workdir = exe.parent().unwrap_or(Path::new("."));
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -260,6 +314,7 @@ mod tests {
         for (name, data) in files {
             std::fs::write(dir.join(name), data).unwrap();
         }
+        install_lua_assets(&dir).unwrap();
         assert!(adapter.locate().is_ok());
         for (name, data) in files {
             std::fs::write(dir.join(name), b"tampered").unwrap();
@@ -291,9 +346,26 @@ mod tests {
         assert!(adapter.locate().is_err(), "файлов нет");
         std::fs::write(dir.join(ENGINE_EXE), b"engine").unwrap();
         std::fs::write(dir.join("WinDivert.dll"), b"dll").unwrap();
+        install_lua_assets(&dir).unwrap();
         assert_eq!(adapter.locate().unwrap(), dir.join(ENGINE_EXE));
         std::fs::write(dir.join("WinDivert.dll"), b"tampered").unwrap();
         assert!(adapter.locate().unwrap_err().contains("хэши не совпали"));
+    }
+
+    #[test]
+    fn pinned_upstream_lua_assets_are_written_and_tampering_is_detected() {
+        let dir = temp("lua-assets");
+        assert!(!lua_assets_valid(&dir));
+        install_lua_assets(&dir).unwrap();
+        assert!(lua_assets_valid(&dir));
+        for (name, original) in LUA_ASSETS {
+            assert_eq!(std::fs::read(dir.join(name)).unwrap(), original);
+            std::fs::write(dir.join(name), b"tampered").unwrap();
+            assert!(!lua_assets_valid(&dir), "подмена {name} обнаружена");
+            install_lua_assets(&dir).unwrap();
+            assert!(lua_assets_valid(&dir));
+            assert_eq!(std::fs::read(dir.join(name)).unwrap(), original);
+        }
     }
 
     #[test]
