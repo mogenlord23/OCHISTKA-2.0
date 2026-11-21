@@ -7,6 +7,7 @@ on:
       - claude/epic-knuth-0zhg19
     paths:
       - crates/ochistka-core/src/desync.rs
+      - crates/ochistka-core/src/desync/**
       - crates/platform/src/desync.rs
       - assets/desync/**
       - tools/desync-core/external_dpi_probe.py
