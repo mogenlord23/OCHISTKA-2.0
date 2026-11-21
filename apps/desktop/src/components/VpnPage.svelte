@@ -40,7 +40,8 @@
   } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
 
-  let { subsection }: { subsection: string } = $props();
+  let { subsection, onSubsection }: { subsection: string; onSubsection?: (id: string) => void } =
+    $props();
 
   const vpnSubs = SECTIONS.find((section) => section.id === 'vpn')?.subsections ?? [];
 
@@ -314,7 +315,14 @@
       <p class="tagline">Подписка, серверы, маршруты · сеть и соединения</p>
     </header>
 
-    <Subtabs items={vpnSubs} active={tab} onSelect={(id) => (tab = tabOf(id))} />
+    <Subtabs
+      items={vpnSubs}
+      active={tab}
+      onSelect={(id) => {
+        tab = tabOf(id);
+        onSubsection?.(tab);
+      }}
+    />
 
     {#key tab}
       <div class="pane" role="tabpanel" aria-label={tabLabel}>

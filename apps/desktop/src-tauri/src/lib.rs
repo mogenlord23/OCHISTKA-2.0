@@ -58,11 +58,12 @@ pub fn run() {
             }
             let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
             let (files, refresh) = ochistka_platform::current_appearance_system_ports();
-            let resources = app
-                .path()
-                .resource_dir()
-                .ok()
-                .map(|dir| appearance::plain_path(&dir));
+            let resources = appearance::pick_resource_dir(
+                app.path()
+                    .resource_dir()
+                    .ok()
+                    .map(|dir| appearance::plain_path(&dir)),
+            );
             app.manage(appearance::AppearanceState::new(
                 registry, wallpaper, files, refresh, resources,
             ));

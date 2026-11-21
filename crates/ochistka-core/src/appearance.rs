@@ -28,12 +28,31 @@ pub enum AppearanceError {
     /// Подробности (`{0}`) нужны для журнала; человеку показывается только фраза без техники.
     #[error("Windows не приняла изменение. Попробуйте ещё раз.")]
     Registry(String),
-    #[error("Не получилось сменить обои. Попробуйте ещё раз или выберите другие.")]
+    /// Подробность (`{0}`) уходит в файл `last-error.txt`; человеку — фраза по причине без кодов.
+    #[error("{}", wallpaper_message(.0))]
     Wallpaper(String),
     #[error("Эта функция доступна только в Windows")]
     Unsupported,
     #[error("Выбор отменён")]
     Cancelled,
+}
+
+/// Понятная причина, по которой не поставились обои. Без кодов и слов про реестр.
+fn wallpaper_message(detail: &str) -> &'static str {
+    let low = detail.to_lowercase();
+    if low.contains("нет в установке") || low.contains("папка ресурсов") {
+        "Файла этих обоев нет в установке приложения. Переустановите приложение или выберите другие обои."
+    } else if low.contains("os error 5") || low.contains("access") || low.contains("отказано")
+    {
+        "Нет доступа к папке с обоями. Проверьте права на папку профиля или защиту от изменений и попробуйте ещё раз."
+    } else if low.contains("os error 2") || low.contains("os error 3") || low.contains("нет файла")
+    {
+        "Файл обоев не найден. Выберите другие обои или попробуйте ещё раз."
+    } else if low.contains("windows") && low.contains("не принял") {
+        "Windows не приняла эти обои. Попробуйте другие."
+    } else {
+        "Не получилось сменить обои. Попробуйте ещё раз или выберите другие."
+    }
 }
 
 /// Реестр текущего пользователя: ключи заданы относительно HKCU.
@@ -649,6 +668,26 @@ pub fn apply_wallpaper_tile(
     if !is_safe_id(id) {
         return Err(AppearanceError::Invalid("недопустимое имя обоев".into()));
     }
+    let result = apply_wallpaper_tile_inner(reg, wallpaper, files, resource_dir, id);
+    if let Err(err) = &result {
+        // Подробность для поддержки: человеку она не показывается.
+        if let Ok(dir) = wallpapers_dir(files) {
+            let _ = files.write(
+                &format!("{dir}\\last-error.txt"),
+                format!("{id}: {err:?}").as_bytes(),
+            );
+        }
+    }
+    result
+}
+
+fn apply_wallpaper_tile_inner(
+    reg: &dyn RegistryPort,
+    wallpaper: &dyn WallpaperPort,
+    files: &dyn FilePort,
+    resource_dir: Option<&str>,
+    id: &str,
+) -> Result<String, AppearanceError> {
     if id.starts_with("solid-") {
         let (w, h) = wallpaper.screen_size().unwrap_or(FALLBACK_SCREEN);
         let png = crate::appearance_wallpaper::render_solid(id, w, h)?;
@@ -1561,6 +1600,37 @@ mod tests {
             reg.get(DESKTOP, "JPEGImportQuality"),
             Some(RegValue::Dword(100))
         );
+    }
+
+    #[test]
+    fn wallpaper_errors_name_the_cause_in_plain_words_and_leave_a_detail_file() {
+        for (detail, expect) in [
+            (
+                "файла этих обоев нет в установке приложения",
+                "Переустановите",
+            ),
+            ("папка ресурсов приложения не найдена", "Переустановите"),
+            ("os error 5", "Нет доступа"),
+            ("нет файла", "не найден"),
+            ("что-то иное", "Не получилось сменить обои"),
+        ] {
+            let text = AppearanceError::Wallpaper(detail.into()).to_string();
+            assert!(text.contains(expect), "{detail} -> {text}");
+            assert!(!text.contains("os error"), "{text}");
+        }
+        let (reg, wp, files) = windows_default();
+        // Ресурсов нет: понятная причина и подробность в файле для поддержки.
+        let err = apply_wallpaper_tile(&reg, &wp, &files, None, "photo-zz", true).unwrap_err();
+        assert!(err.to_string().contains("Переустановите"), "{err}");
+        let detail = files
+            .files
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|(path, _)| path.ends_with("last-error.txt"))
+            .map(|(_, bytes)| String::from_utf8_lossy(bytes).to_string())
+            .expect("файл last-error.txt не записан");
+        assert!(detail.contains("photo-zz"), "{detail}");
     }
 
     #[test]

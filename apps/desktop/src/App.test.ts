@@ -129,3 +129,30 @@ describe('FND-0020: sound control toggles and persists', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Вирусы');
   });
 });
+
+describe('App subsection memory', () => {
+  it('returns to the last subsection of each section', async () => {
+    try {
+      localStorage.removeItem('ochistka.subsections');
+    } catch {
+      /* нет хранилища */
+    }
+    render(App);
+    // VPN → Сеть (у VPN вкладки внутри страницы), затем Оформление → Курсоры, затем обратно.
+    await fireEvent.click(screen.getAllByRole('tab', { name: 'Сеть' }).at(-1)!);
+    await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
+    await fireEvent.click(screen.getAllByRole('tab', { name: 'Курсоры' }).at(-1)!);
+    await fireEvent.click(screen.getByRole('button', { name: 'VPN' }));
+    expect(screen.getAllByRole('tab', { name: 'Сеть' }).at(-1)!.getAttribute('aria-selected')).toBe(
+      'true',
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Оформление' }));
+    expect(
+      screen.getAllByRole('tab', { name: 'Курсоры' }).at(-1)!.getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(JSON.parse(localStorage.getItem('ochistka.subsections') ?? '{}')).toMatchObject({
+      vpn: 'network',
+      design: 'cursors',
+    });
+  });
+});

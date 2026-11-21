@@ -107,6 +107,24 @@ pub enum AppearanceResponse {
     Status { status: AppearanceStatus },
 }
 
+/// Папка ресурсов для обоев. В собранном приложении это `resource_dir`; при запуске из исходников
+/// (`tauri dev`) файлы лежат в `src-tauri/resources`, и если рядом с программой их нет, берём их оттуда.
+pub fn pick_resource_dir(primary: Option<String>) -> Option<String> {
+    let has_wallpapers = |dir: &str| std::path::Path::new(dir).join("wallpapers").is_dir();
+    if let Some(dir) = primary.as_deref() {
+        if has_wallpapers(dir) {
+            return primary;
+        }
+    }
+    if cfg!(debug_assertions) {
+        let dev = concat!(env!("CARGO_MANIFEST_DIR"), "/resources");
+        if has_wallpapers(dev) {
+            return Some(plain_path(std::path::Path::new(dev)));
+        }
+    }
+    primary
+}
+
 pub struct AppearanceState {
     registry: Arc<dyn RegistryPort>,
     wallpaper: Arc<dyn WallpaperPort>,

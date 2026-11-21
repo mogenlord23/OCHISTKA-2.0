@@ -12,6 +12,7 @@
   import AppearancePage from './components/AppearancePage.svelte';
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, setLang, t } from './lib/i18n.svelte';
+  import { loadSubsections, saveSubsections, subFor, type SubMemory } from './lib/sectionMemory';
   import { onMount, tick } from 'svelte';
   import { navigation } from './lib/navigation.svelte';
   import { watchMaximized } from './lib/windowState';
@@ -90,8 +91,17 @@
     document.documentElement.dataset.maximized = String(maximized);
   });
 
+  // Для каждого раздела помним последний открытый подраздел (и после перезапуска).
+  let subMemory = $state<SubMemory>(loadSubsections());
   let activeId = $state<SectionId>('vpn');
-  let activeSub = $state('subscription');
+  // svelte-ignore state_referenced_locally
+  let activeSub = $state(subFor('vpn', subMemory));
+
+  function chooseSub(id: string) {
+    activeSub = id;
+    subMemory = { ...subMemory, [activeId]: id };
+    saveSubsections(subMemory);
+  }
 
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
 
@@ -133,7 +143,7 @@
 
   function select(id: SectionId) {
     activeId = id;
-    activeSub = SECTIONS.find((item) => item.id === id)?.subsections[0]?.id ?? '';
+    activeSub = subFor(id, subMemory);
   }
 </script>
 
@@ -180,15 +190,11 @@
         <h1 class="sr-only">{t(section.titleKey)}</h1>
 
         {#if section.subsections.length > 0}
-          <Subtabs
-            items={section.subsections}
-            active={activeSub}
-            onSelect={(id) => (activeSub = id)}
-          />
+          <Subtabs items={section.subsections} active={activeSub} onSelect={chooseSub} />
         {/if}
 
         {#if activeId === 'vpn'}
-          <VpnPage subsection={activeSub} />
+          <VpnPage subsection={activeSub} onSubsection={chooseSub} />
         {:else if activeId === 'viruses'}
           <VirusesPage subsection={activeSub} />
         {:else if activeId === 'computer'}
