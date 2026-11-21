@@ -1,0 +1,194 @@
+{
+ "schema_version": 1,
+ "source": "RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa",
+ "license": "MIT (NetZapret © 2026 RixyPow; Zapret GUI © censorliber/loop-uh)",
+ "note": "Только данные (списки адресов и образцы). 135 закреплённых файлов не менялись.",
+ "files": [
+  {
+   "destination": "lists/discord-images.txt",
+   "source_path": "vendor/zapret-gui/lists/discord-images.txt",
+   "sha256": "008a0b47a57f6ece4d5be9777a4c263ad342fd14c4e0c96f7dac2a91584eb6a0",
+   "size_bytes": 76
+  },
+  {
+   "destination": "lists/google-backend.txt",
+   "source_path": "vendor/zapret-gui/lists/google-backend.txt",
+   "sha256": "3c0fb75c2ebdef99ef1a3d8226ea735dae2d387d88905c161952d17a9714c881",
+   "size_bytes": 75
+  },
+  {
+   "destination": "lists/ipset-akamai.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-akamai.txt",
+   "sha256": "11ce16478645955046e8a6cd4c58757642620818630e221e46e550fcaa00fe51",
+   "size_bytes": 1653
+  },
+  {
+   "destination": "lists/ipset-cloudflare.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-cloudflare.txt",
+   "sha256": "9fbc8ead1e06ac7bfe520ef904da368a004d90365e1b2612e8bd479e23e26b15",
+   "size_bytes": 2040
+  },
+  {
+   "destination": "lists/ipset-datacamp.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-datacamp.txt",
+   "sha256": "4931656d9132af4420c04d0989468fb3852d56d94c8afd105c3e136d4bdf9c0a",
+   "size_bytes": 3176
+  },
+  {
+   "destination": "lists/ipset-digitalocean.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-digitalocean.txt",
+   "sha256": "b1520a60f2db3b098c6825437325c91d347ffcdf5557d8a57cab1ed7a8fb49bd",
+   "size_bytes": 13885
+  },
+  {
+   "destination": "lists/ipset-facebook.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-facebook.txt",
+   "sha256": "1e7a75ca3e64dc755783ab76f6f8cf65bf99883c2ff96825ba38850e71a60d1b",
+   "size_bytes": 3603
+  },
+  {
+   "destination": "lists/ipset-fastly.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-fastly.txt",
+   "sha256": "92e066f7886c1015483b4534bce1d6d177509b1cf72aeee5aa6c25f3f1a637be",
+   "size_bytes": 3624
+  },
+  {
+   "destination": "lists/ipset-frantech.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-frantech.txt",
+   "sha256": "c0d7983cbdd84472e9677a851793d19383b10cc574c771ec9a7b3d15241e9d42",
+   "size_bytes": 1358
+  },
+  {
+   "destination": "lists/ipset-google.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-google.txt",
+   "sha256": "9eba67a582b14675db2774738b36034fd42393fe098fd00a3c37071637fba812",
+   "size_bytes": 3304
+  },
+  {
+   "destination": "lists/ipset-lol-euw.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-lol-euw.txt",
+   "sha256": "99caac1495122dd720849b78f3b54ed12f7fa53a545930a125a36a176c8c5408",
+   "size_bytes": 127
+  },
+  {
+   "destination": "lists/ipset-lol-ru.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-lol-ru.txt",
+   "sha256": "6aaab24e764239795f48179818ea42c2fb714278e2c0a99cf73aa7a52115cfa2",
+   "size_bytes": 106
+  },
+  {
+   "destination": "lists/ipset-novoserve.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-novoserve.txt",
+   "sha256": "0729f63d88566f1afb52cc54791559862c906b22a81d73095a6c7b5c4b363ace",
+   "size_bytes": 1588
+  },
+  {
+   "destination": "lists/ipset-ovh.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-ovh.txt",
+   "sha256": "b9794c52f68b0f3de8ea46fe6d44ff267de56d02a1cc4c81b76e43c4089dc7e5",
+   "size_bytes": 2296
+  },
+  {
+   "destination": "lists/ipset-railway.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-railway.txt",
+   "sha256": "139f08f5328b4bf78c1119e36ef8a8b7c6e1cd09a5b3883fa0780cb7baa936b5",
+   "size_bytes": 315
+  },
+  {
+   "destination": "lists/ipset-roblox.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-roblox.txt",
+   "sha256": "9bfcdee06e4f03360f5f2a189d3c949e5706849f452d2738b95bfd1386ee7207",
+   "size_bytes": 980
+  },
+  {
+   "destination": "lists/ipset-tankix.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-tankix.txt",
+   "sha256": "cd8fce26f3cfb5b7d8de2c4c1541883f737b311a12e30f9adbc679221e8ec9f2",
+   "size_bytes": 272
+  },
+  {
+   "destination": "lists/ipset-timeweb.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-timeweb.txt",
+   "sha256": "1c7edb31607bf4a99c8a44ad84d2db314fb5b9cfea05fb7518794b122ad022e2",
+   "size_bytes": 4799
+  },
+  {
+   "destination": "lists/ipset-usa-google.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-usa-google.txt",
+   "sha256": "a123ecdc787322ea5319445695c68f4c209c5f43db052e35397142bca750ed1d",
+   "size_bytes": 3346
+  },
+  {
+   "destination": "lists/ipset-warp.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-warp.txt",
+   "sha256": "5c9cb9c2dfa9edc074f8a836546d8d365d8a0559b45b58369a301ce2145152a6",
+   "size_bytes": 157
+  },
+  {
+   "destination": "lists/ipset-whatsapp.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-whatsapp.txt",
+   "sha256": "f7655c546cb8cf60ee3d631d1f1ca0c4aa11462fb9213cb2aaf94498d2175298",
+   "size_bytes": 11840
+  },
+  {
+   "destination": "lists/ipset-worldstream.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-worldstream.txt",
+   "sha256": "0dd3555c7c6d809f71866a35dbe670050e52079e08b1b2452d80ed8aff660875",
+   "size_bytes": 1922
+  },
+  {
+   "destination": "lists/ipset-zapretkvn.txt",
+   "source_path": "vendor/zapret-gui/lists/ipset-zapretkvn.txt",
+   "sha256": "f9ce8a7290fe6d42dde33bff0293b868c25557d1d4c69bc28c85d16286d89036",
+   "size_bytes": 10718
+  },
+  {
+   "destination": "lists/matrix.txt",
+   "source_path": "vendor/zapret-gui/lists/matrix.txt",
+   "sha256": "0019f9cd1002f270d0ec7b0748e4d6f2a04b654c3b7a28b5c8de1dcf6bcfc556",
+   "size_bytes": 32
+  },
+  {
+   "destination": "lists/netrogat.txt",
+   "source_path": "vendor/zapret-gui/lists/netrogat.txt",
+   "sha256": "9f94f73c2fa191b2a9230d72340905a181dccef5bc66298fd10b65a9f9cff5ed",
+   "size_bytes": 889
+  },
+  {
+   "destination": "lists/roblox.txt",
+   "source_path": "vendor/zapret-gui/lists/roblox.txt",
+   "sha256": "278ede5763d33be4bfcb3016790cccc4bea71d53a62d0f0a63941145a36b5185",
+   "size_bytes": 1048
+  },
+  {
+   "destination": "lists/signal.txt",
+   "source_path": "vendor/zapret-gui/lists/signal.txt",
+   "sha256": "43e6e23a15674a02783f724d9521491345350b0e5264b254bc67241f01533583",
+   "size_bytes": 11
+  },
+  {
+   "destination": "lists/simplex.txt",
+   "source_path": "vendor/zapret-gui/lists/simplex.txt",
+   "sha256": "09f535c5d1109f33e7b3802729089a26c2bdcedbbe4df03f90f1de115d3652b6",
+   "size_bytes": 42
+  },
+  {
+   "destination": "lists/tankix.txt",
+   "source_path": "vendor/zapret-gui/lists/tankix.txt",
+   "sha256": "e1e32a5f19a70771c1161de02dad27b5aa844f960591c2d7f856dca869025099",
+   "size_bytes": 54
+  },
+  {
+   "destination": "lists/telegram.txt",
+   "source_path": "vendor/zapret-gui/lists/telegram.txt",
+   "sha256": "ed0d58e4ba5af9bc70b901e0943cfb3fd96e102ae7b42aaf05539ebc8d33bcfd",
+   "size_bytes": 122
+  },
+  {
+   "destination": "lists/tiktok.txt",
+   "source_path": "vendor/zapret-gui/lists/tiktok.txt",
+   "sha256": "7169d3a00ee86df654e795d25eef0bf849adfb7a19fb75793d874b807875a090",
+   "size_bytes": 333
+  }
+ ]
+}
