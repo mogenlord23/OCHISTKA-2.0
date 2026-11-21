@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,7 @@ use super::parse::{ImportReport, Server};
 use super::routes::{RoutingRules, PRESETS};
 use super::sysproxy::{Restored, SystemProxy};
 use super::VpnError;
+use crate::desync::coordinator::{NetCoordinator, Owner};
 
 /// Дочерний процесс ядра.
 pub trait CoreProcess: Send {
@@ -177,6 +178,8 @@ pub struct VpnService {
     op: Mutex<()>,
     /// Возвращает причину отказа, если уже работает перехват трафика обхода блокировок.
     conflict_guard: Mutex<Option<ConflictGuard>>,
+    /// Общее право на сетевой режим (одно на VPN и обход).
+    coord: Arc<NetCoordinator>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -213,7 +216,14 @@ impl VpnService {
             conn: Mutex::new(Conn::idle()),
             op: Mutex::new(()),
             conflict_guard: Mutex::new(None),
+            coord: Arc::new(NetCoordinator::new()),
         }
+    }
+
+    /// Подключает общий координатор (один экземпляр на VPN и обход).
+    pub fn with_coordinator(mut self, coord: Arc<NetCoordinator>) -> Self {
+        self.coord = coord;
+        self
     }
 
     /// Задаёт проверку «не работает ли перехват трафика»: два механизма одновременно не запускаются.
@@ -419,7 +429,22 @@ impl VpnService {
                 .ok_or(VpnError::NoServer)?;
             (server, data.rules.clone())
         };
+        // Право занимается атомарно ДО побочных эффектов запуска.
+        if let Err(denied) = self.coord.begin(Owner::Vpn) {
+            let err = VpnError::ProxyConflict(denied.to_string());
+            let mut conn = lock(&self.conn);
+            *conn = Conn::idle();
+            conn.state = ConnState::Error;
+            conn.message = err.to_string();
+            return Err(err);
+        }
         if let Err(err) = self.prepare_system_proxy() {
+            // Не вернули прежний прокси — право не освобождаем.
+            if matches!(err, VpnError::Proxy(_)) {
+                self.coord.mark_unclean(Owner::Vpn);
+            } else {
+                self.coord.release(Owner::Vpn);
+            }
             let mut conn = lock(&self.conn);
             *conn = Conn::idle();
             conn.state = ConnState::Error;
@@ -439,6 +464,7 @@ impl VpnService {
             Err(_) => match self.prepare_core(progress) {
                 Ok(path) => path,
                 Err(err) => {
+                    self.coord.release(Owner::Vpn);
                     let mut conn = lock(&self.conn);
                     *conn = Conn::idle();
                     conn.state = ConnState::Error;
@@ -449,6 +475,7 @@ impl VpnService {
         };
         match self.start(&core, &server, &rules) {
             Ok((process, verified)) => {
+                self.coord.activate(Owner::Vpn);
                 let mut conn = lock(&self.conn);
                 conn.process = Some(process);
                 conn.state = ConnState::Connected;
@@ -466,6 +493,11 @@ impl VpnService {
             Err(err) => {
                 let mut conn = lock(&self.conn);
                 let outcome = self.cleanup_locked(&mut conn);
+                if outcome.is_ok() {
+                    self.coord.release(Owner::Vpn);
+                } else {
+                    self.coord.mark_unclean(Owner::Vpn);
+                }
                 *conn = Conn::idle();
                 conn.state = ConnState::Error;
                 conn.message = err.to_string();
@@ -589,7 +621,14 @@ impl VpnService {
         let _op = lock(&self.op);
         {
             let mut conn = lock(&self.conn);
+            self.coord.begin_stop(Owner::Vpn);
             let outcome = self.cleanup_locked(&mut conn);
+            // Право свободно только после успешного возврата прокси.
+            if outcome.is_ok() {
+                self.coord.release(Owner::Vpn);
+            } else {
+                self.coord.mark_unclean(Owner::Vpn);
+            }
             *conn = Conn::idle();
             Self::note_restore(&mut conn, outcome);
         }
@@ -630,6 +669,9 @@ impl VpnService {
     /// Вызывается при запуске: убирает ядро и системный прокси после аварийного завершения.
     pub fn recover_on_start(&self) {
         let outcome = self.recover();
+        if outcome.is_err() {
+            self.coord.mark_unclean(Owner::Vpn);
+        }
         let mut conn = lock(&self.conn);
         Self::note_restore(&mut conn, outcome);
     }
@@ -643,11 +685,11 @@ impl VpnService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::desync::coordinator::Mode;
     use crate::vpn::fetch::FetchResponse;
     use crate::vpn::sysproxy::fake::{FakeRegistry, V};
     use crate::vpn::sysproxy::{NoRefresh, BACKUP_KEY, INTERNET_KEY};
     use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-    use std::sync::Arc;
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -961,6 +1003,70 @@ mod tests {
         let secret = "b831381d-6324-4d53-ad4f-8cda48b30811";
         let masked = mask_secrets(&format!("FATAL decode uuid {secret}"));
         assert!(!masked.contains(secret) && masked.contains("FATAL"));
+    }
+
+    #[test]
+    fn vpn_is_refused_while_desync_owns_the_network_mode() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.coord.begin(Owner::Desync).unwrap();
+        let err = s.connect().unwrap_err();
+        assert!(matches!(err, VpnError::ProxyConflict(_)), "{err:?}");
+        assert!(!dir.join("session").join("config.json").exists());
+        assert!(reg.get(INTERNET_KEY, "ProxyEnable").is_none());
+        // Чужое право не сброшено ни неудачей подключения, ни отключением.
+        s.disconnect();
+        assert_eq!(s.coord.mode(), Some(Mode::Starting(Owner::Desync)));
+    }
+
+    #[test]
+    fn failed_start_releases_the_reservation_after_cleanup() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let host = FakeHost {
+            check_fails: true,
+            ..FakeHost::good(&flags)
+        };
+        let (s, _reg) = make(host, Box::new(NoNet), &dir);
+        s.import(LIST).unwrap();
+        assert!(s.connect().is_err());
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        s.coord.begin(Owner::Desync).unwrap();
+    }
+
+    #[test]
+    fn unfinished_rollback_keeps_the_other_mechanism_out() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        reg.fail_internet_writes.store(true, Ordering::SeqCst);
+        assert_eq!(s.disconnect().state, ConnState::Error);
+        assert_eq!(s.coord.mode(), Some(Mode::Unclean(Owner::Vpn)));
+        assert!(s.coord.begin(Owner::Desync).is_err());
+        reg.fail_internet_writes.store(false, Ordering::SeqCst);
+        assert_eq!(s.disconnect().state, ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        s.coord.begin(Owner::Desync).unwrap();
+    }
+
+    #[test]
+    fn reconnect_and_shutdown_keep_one_owner_and_do_not_hang() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        s.connect().unwrap(); // повторное подключение: без второго процесса и без отказа
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        s.disconnect();
+        s.connect().unwrap();
+        s.shutdown();
+        s.shutdown();
+        assert!(flags.killed.load(Ordering::SeqCst));
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        assert_eq!(s.status().state, ConnState::Disconnected);
     }
 
     #[test]

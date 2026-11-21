@@ -58,7 +58,10 @@ pub fn core_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
 
 /// Собирает сервис и сразу убирает последствия аварийного завершения прошлого запуска
 /// (оставшееся ядро и системный прокси).
-pub fn build_service(resource_dir: Option<PathBuf>) -> VpnState {
+pub fn build_service(
+    resource_dir: Option<PathBuf>,
+    coord: Arc<ochistka_core::desync::coordinator::NetCoordinator>,
+) -> VpnState {
     let service = VpnService::new(
         ochistka_platform::vpn::vpn_data_dir(),
         ochistka_platform::vpn::current_vpn_host(core_dirs(resource_dir)),
@@ -68,7 +71,8 @@ pub fn build_service(resource_dir: Option<PathBuf>) -> VpnState {
         ),
         ochistka_platform::vpn::current_http_fetch(),
         ochistka_platform::vpn::current_dialer(),
-    );
+    )
+    .with_coordinator(coord);
     service.recover_on_start();
     VpnState(Arc::new(service))
 }
@@ -178,14 +182,20 @@ mod tests {
 pub struct DesyncState(pub Arc<ochistka_core::desync::DesyncService>);
 
 /// Создаёт `DesyncService` и связывает его с VPN в обе стороны через `Weak` (без циклов владения).
-pub fn build_desync(vpn: &VpnState) -> DesyncState {
+pub fn build_desync(
+    vpn: &VpnState,
+    coord: Arc<ochistka_core::desync::coordinator::NetCoordinator>,
+) -> DesyncState {
     use ochistka_core::desync::{desync_conflict_guard, vpn_signal_source, DesyncService};
     let dir = ochistka_platform::desync::desync_data_dir();
-    let desync = Arc::new(DesyncService::new(
-        dir.clone(),
-        ochistka_platform::desync::adapter_for_current_os(dir),
-        vpn_signal_source(Arc::downgrade(&vpn.0)),
-    ));
+    let desync = Arc::new(
+        DesyncService::new(
+            dir.clone(),
+            ochistka_platform::desync::adapter_for_current_os(dir),
+            vpn_signal_source(Arc::downgrade(&vpn.0)),
+        )
+        .with_coordinator(coord),
+    );
     vpn.0
         .set_conflict_guard(desync_conflict_guard(Arc::downgrade(&desync)));
     desync.recover_on_start();

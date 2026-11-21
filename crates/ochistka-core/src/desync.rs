@@ -11,11 +11,12 @@
 //! Ничего не скачивается и не запускается без подтверждённых источников и хэшей.
 //! Системный прокси, DNS, hosts и маршруты здесь не трогаются.
 
+pub mod coordinator;
 pub mod preset;
 pub mod routing;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
 use thiserror::Error;
@@ -285,6 +286,8 @@ pub struct DesyncService {
     confirmed: &'static [routing::ConfirmedCoverage],
     /// Сколько раз и как часто проверять, что процесс не завершился сразу после запуска.
     settle: (u32, Duration),
+    /// Общее право на сетевой режим (одно на VPN и обход); по умолчанию собственное.
+    coord: Arc<coordinator::NetCoordinator>,
     inner: Mutex<Inner>,
     op: Mutex<()>,
 }
@@ -313,6 +316,7 @@ impl DesyncService {
             profile,
             installable: pinned().is_some(),
             vpn,
+            coord: Arc::new(coordinator::NetCoordinator::new()),
             candidate,
             confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
             settle: (5, Duration::from_millis(200)),
@@ -408,9 +412,23 @@ impl DesyncService {
                 }
             }
         };
+        // Право занимается атомарно ДО побочных эффектов запуска.
+        if let Err(denied) = self.coord.begin(coordinator::Owner::Desync) {
+            return self.fail(DesyncError::NotAllowed(denied.to_string()));
+        }
         let result = self.start_locked(progress, &profile);
+        match &result {
+            Ok(()) => self.coord.activate(coordinator::Owner::Desync),
+            Err(_) => self.coord.release(coordinator::Owner::Desync),
+        }
         self.record(&result);
         result
+    }
+
+    /// Подключает общий координатор (один экземпляр на VPN и обход).
+    pub fn with_coordinator(mut self, coord: Arc<coordinator::NetCoordinator>) -> Self {
+        self.coord = coord;
+        self
     }
 
     /// Запись ошибки в состояние сервиса и возврат её же.
@@ -511,6 +529,7 @@ impl DesyncService {
     /// Останавливает движок и освобождает файл номера процесса. Без запущенного обхода безвредно.
     pub fn stop(&self) {
         let _op = lock(&self.op);
+        self.coord.begin_stop(coordinator::Owner::Desync);
         let mut inner = lock(&self.inner);
         if let Some(mut p) = inner.process.take() {
             p.kill();
@@ -518,6 +537,9 @@ impl DesyncService {
         let _ = std::fs::remove_file(self.pid_file());
         inner.state = DesyncState::Off;
         inner.message = "Выключено".into();
+        drop(inner);
+        // Процесс остановлен и файл номера убран: право свободно.
+        self.coord.release(coordinator::Owner::Desync);
     }
 
     /// Убирает остаток прошлого запуска (аварийное завершение приложения).
@@ -1068,6 +1090,90 @@ mod tests {
         // Нет циклов владения: после удаления сервиса защита отказывает.
         drop(s);
         assert!(guard().is_some());
+    }
+
+    #[test]
+    fn desync_is_refused_while_vpn_owns_the_mode_and_reservation_is_released_on_errors() {
+        use coordinator::{Mode, NetCoordinator, Owner};
+        let flags = Arc::new(Flags::default());
+        let coord = Arc::new(NetCoordinator::new());
+        let s = make_confirmed(&flags, false).with_coordinator(coord.clone());
+        let want = [Coverage::Sites];
+        // VPN уже запускается: обход отклонён без запуска движка.
+        coord.begin(Owner::Vpn).unwrap();
+        let err = s
+            .start_planned(&want, &blocked(&want), &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        assert_eq!(coord.mode(), Some(Mode::Starting(Owner::Vpn)));
+        s.stop(); // чужое право не сбрасывается
+        assert_eq!(coord.mode(), Some(Mode::Starting(Owner::Vpn)));
+        // VPN освободил право: запуск проходит, и теперь VPN отклоняется.
+        coord.release(Owner::Vpn);
+        s.start_planned(&want, &blocked(&want), &mut |_| {})
+            .unwrap();
+        assert_eq!(coord.mode(), Some(Mode::Active(Owner::Desync)));
+        assert!(coord.begin(Owner::Vpn).is_err());
+        // Повторный запуск не создаёт второй процесс; остановка освобождает право.
+        s.start_planned(&want, &blocked(&want), &mut |_| {})
+            .unwrap();
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        s.shutdown();
+        s.shutdown();
+        assert_eq!(coord.mode(), Some(Mode::Idle));
+        coord.begin(Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn failed_desync_start_releases_the_reservation() {
+        use coordinator::{Mode, NetCoordinator};
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let coord = Arc::new(NetCoordinator::new());
+        let mut s = make(
+            &flags,
+            |f| Host {
+                spawn_fails: true,
+                ..good(f)
+            },
+            true,
+            false,
+        )
+        .with_coordinator(coord.clone());
+        s.candidate = profile();
+        s.confirmed = &TEST_CONFIRMED;
+        let want = [Coverage::Sites];
+        assert!(s
+            .start_planned(&want, &blocked(&want), &mut |_| {})
+            .is_err());
+        assert_eq!(coord.mode(), Some(Mode::Idle));
+    }
+
+    #[test]
+    fn simultaneous_vpn_and_desync_starts_give_the_right_to_at_most_one() {
+        use coordinator::{NetCoordinator, Owner};
+        use std::sync::Barrier;
+        let flags = Arc::new(Flags::default());
+        let coord = Arc::new(NetCoordinator::new());
+        let s = Arc::new(make_confirmed(&flags, false).with_coordinator(coord.clone()));
+        let gate = Arc::new(Barrier::new(2));
+        let (s2, g2) = (s.clone(), gate.clone());
+        let desync = std::thread::spawn(move || {
+            g2.wait();
+            let want = [Coverage::Sites];
+            s2.start_planned(&want, &blocked(&want), &mut |_| {})
+                .is_ok()
+        });
+        let (c2, g3) = (coord.clone(), gate.clone());
+        let vpn = std::thread::spawn(move || {
+            g3.wait();
+            c2.begin(Owner::Vpn).is_ok()
+        });
+        let (d, v) = (desync.join().unwrap(), vpn.join().unwrap());
+        assert!(d ^ v, "desync={d} vpn={v}");
+        assert!(flags.spawned.load(Ordering::SeqCst) <= 1);
+        s.shutdown();
     }
 
     #[test]

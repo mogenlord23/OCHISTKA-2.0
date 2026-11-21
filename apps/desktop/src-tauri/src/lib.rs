@@ -67,8 +67,11 @@ pub fn run() {
             app.manage(appearance::AppearanceState::new(
                 registry, wallpaper, files, refresh, resources,
             ));
-            let vpn_state = vpn::build_service(app.path().resource_dir().ok());
-            let desync_state = vpn::build_desync(&vpn_state);
+            // Одно общее право на сетевой режим для VPN и обхода.
+            let coord =
+                std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
+            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord.clone());
+            let desync_state = vpn::build_desync(&vpn_state, coord);
             app.manage(vpn_state);
             app.manage(desync_state);
             Ok(())
