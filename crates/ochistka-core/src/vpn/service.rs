@@ -479,9 +479,12 @@ impl VpnService {
             serde_json::to_string_pretty(&config).map_err(|e| VpnError::Engine(e.to_string()))?;
         std::fs::write(&config_path, text)
             .map_err(|e| VpnError::Engine(format!("Не удалось записать конфигурацию: {e}")))?;
-        self.host
-            .check_config(core, &config_path)
-            .map_err(|e| VpnError::Engine(format!("VPN не принял параметры сервера: {e}")))?;
+        self.host.check_config(core, &config_path).map_err(|e| {
+            VpnError::Engine(format!(
+                "VPN не принял параметры сервера: {}",
+                mask_secrets(&e)
+            ))
+        })?;
         let log = session.join("engine.log");
         let mut process = self
             .host
@@ -845,6 +848,37 @@ mod tests {
         let dir = temp_dir();
         let (s, _) = make(FakeHost::good(&Flags::default()), Box::new(NoNet), &dir);
         assert_eq!(s.connect().unwrap_err(), VpnError::NoServer);
+    }
+
+    #[test]
+    fn xray_subscription_imports_connects_and_restores_the_proxy() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = make(FakeHost::good(&flags), Box::new(NoNet), &dir);
+        let r = s
+            .import(&crate::vpn::xray::tests::fictional_subscription())
+            .unwrap();
+        assert_eq!((r.count, r.skipped), (10, 0));
+        // gRPC + REALITY (первый) и TCP + TLS (седьмой) подключаются через общий путь проверки.
+        for index in [0usize, 6] {
+            let id = s.snapshot().servers[index].id.clone();
+            s.select(&id).unwrap();
+            assert_eq!(s.connect().unwrap().state, ConnState::Connected);
+            assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+            s.disconnect();
+            assert_ne!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+            assert!(
+                !s.session_dir().join("config.json").exists(),
+                "ключи стёрты после отключения"
+            );
+        }
+    }
+
+    #[test]
+    fn core_check_output_with_ids_is_masked_in_the_message() {
+        let secret = "b831381d-6324-4d53-ad4f-8cda48b30811";
+        let masked = mask_secrets(&format!("FATAL decode uuid {secret}"));
+        assert!(!masked.contains(secret) && masked.contains("FATAL"));
     }
 
     #[test]

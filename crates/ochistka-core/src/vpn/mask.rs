@@ -8,6 +8,10 @@ fn is_end(c: char) -> bool {
 /// Заменяет в тексте каждую ссылку `схема://…`: у http(s) остаётся хост (без логина и порта
 /// не трогаем), всё остальное становится `***`; у прочих схем (vless, trojan…) остаётся схема.
 pub fn mask_secrets(text: &str) -> String {
+    mask_ids(&mask_links(text))
+}
+
+fn mask_links(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(pos) = rest.find("://") {
@@ -47,6 +51,43 @@ pub fn mask_secrets(text: &str) -> String {
     out
 }
 
+/// Скрывает UUID (8-4-4-4-12) и длинные ключеподобные строки (24+ знака из букв, цифр, `+/_=-`,
+/// с буквами и цифрами сразу): ключи REALITY, пароли и токены, которые ядро могло напечатать.
+fn mask_ids(text: &str) -> String {
+    fn is_uuid(w: &str) -> bool {
+        let g: Vec<&str> = w.split('-').collect();
+        g.len() == 5
+            && [8, 4, 4, 4, 12]
+                .iter()
+                .zip(&g)
+                .all(|(n, p)| p.len() == *n && p.chars().all(|c| c.is_ascii_hexdigit()))
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut word = String::new();
+    let flush = |word: &mut String, out: &mut String| {
+        if !word.is_empty() {
+            let letters = word.chars().any(|c| c.is_ascii_alphabetic());
+            let digits = word.chars().any(|c| c.is_ascii_digit());
+            if is_uuid(word) || (word.len() >= 24 && letters && digits) {
+                out.push_str("***");
+            } else {
+                out.push_str(word);
+            }
+            word.clear();
+        }
+    };
+    for c in text.chars() {
+        if c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '_' | '=' | '-') {
+            word.push(c);
+        } else {
+            flush(&mut word, &mut out);
+            out.push(c);
+        }
+    }
+    flush(&mut word, &mut out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::mask_secrets;
@@ -72,5 +113,25 @@ mod tests {
         assert_eq!(mask_secrets("без ссылок"), "без ссылок");
         assert_eq!(mask_secrets("https://github.com"), "https://github.com");
         assert_eq!(mask_secrets("x ://y"), "x ://y");
+    }
+
+    #[test]
+    fn uuids_and_long_keys_in_core_output_are_hidden() {
+        let m = mask_secrets(
+            "decode b831381d-6324-4d53-ad4f-8cda48b30811 key Zq7aB3kN9xW2pR5tY8uI1oP4sD6fG0hJ done",
+        );
+        assert!(
+            !m.contains("b831381d") && !m.contains("Zq7aB3kN9xW2pR5tY8uI1oP4sD6fG0hJ"),
+            "{m}"
+        );
+        assert!(m.starts_with("decode ***") && m.ends_with("done"), "{m}");
+        assert_eq!(
+            mask_secrets("обычная ошибка 12345 timeout"),
+            "обычная ошибка 12345 timeout"
+        );
+        assert_eq!(
+            mask_secrets("dial tcp 127.0.0.1:443: refused"),
+            "dial tcp 127.0.0.1:443: refused"
+        );
     }
 }

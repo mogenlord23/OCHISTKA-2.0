@@ -83,13 +83,18 @@ pub fn convert(item: &Value, name: &str) -> Result<(String, Value), String> {
         }
         "hysteria" | "hysteria2" => {
             // Xray: адрес в settings, пароль — в streamSettings.hysteriaSettings.auth.
+            // Версию не угадываем: Hysteria 2 берём только если она явно указана в конфигурации.
             let version = text(&settings["version"])
-                .or_else(|| text(&item["streamSettings"]["hysteriaSettings"]["version"]))
-                .unwrap_or_else(|| "2".into());
-            if version != "2" {
-                return Err(format!(
-                    "Hysteria версии {version} не поддерживается (нужна 2)"
-                ));
+                .or_else(|| text(&item["streamSettings"]["hysteriaSettings"]["version"]));
+            match version.as_deref() {
+                Some("2") => {}
+                Some(other) => {
+                    return Err(format!(
+                        "Hysteria версии {other} не поддерживается (нужна 2)"
+                    ))
+                }
+                None if protocol == "hysteria2" => {}
+                None => return Err("версия Hysteria не указана, определить протокол нельзя".into()),
             }
             host = text(&settings["address"]).ok_or("нет адреса сервера")?;
             port = port_of(&settings["port"]).ok_or("неверный порт")?;
@@ -205,7 +210,7 @@ fn apply_stream(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     #[test]
@@ -257,7 +262,7 @@ mod tests {
 
     /// Вымышленная подписка той же структуры, что у реального сервиса: 10 конфигов Xray JSON,
     /// 9 VLESS (6 gRPC + REALITY, 3 TCP) и 1 Hysteria; в каждом ещё freedom и blackhole.
-    fn fictional_subscription() -> String {
+    pub(crate) fn fictional_subscription() -> String {
         let mut configs = Vec::new();
         for i in 0..9 {
             let grpc = i < 6;
@@ -334,6 +339,24 @@ mod tests {
     fn hysteria_version_one_and_missing_auth_are_reported() {
         let v1 = json!({"protocol":"hysteria","settings":{"version":1,"address":"h","port":443}});
         assert!(convert(&v1, "").unwrap_err().contains("версии 1"));
+        // Версия не указана: не считаем её второй.
+        let unknown = json!({"protocol":"hysteria","settings":{"address":"h","port":443},
+            "streamSettings":{"hysteriaSettings":{"auth":"X"}}});
+        assert!(convert(&unknown, "")
+            .unwrap_err()
+            .contains("версия Hysteria не указана"));
+        // Версия 2 подтверждена в streamSettings.
+        let in_stream = json!({"protocol":"hysteria","settings":{"address":"h.example.com","port":443},
+            "streamSettings":{"hysteriaSettings":{"version":2,"auth":"X"}}});
+        assert_eq!(convert(&in_stream, "").unwrap().1["type"], "hysteria2");
+        // Явный protocol hysteria2 — версия 2 по определению.
+        let explicit = json!({"protocol":"hysteria2","settings":{"address":"h.example.com","port":443},
+            "streamSettings":{"hysteriaSettings":{"auth":"X"}}});
+        assert_eq!(convert(&explicit, "").unwrap().1["type"], "hysteria2");
+        // VLESS не затронут.
+        let vless = json!({"protocol":"vless","settings":{"vnext":[{"address":"v.example.com","port":443,
+            "users":[{"id":"b831381d-6324-4d53-ad4f-8cda48b30811"}]}]}});
+        assert_eq!(convert(&vless, "").unwrap().1["type"], "vless");
         let none = json!({"protocol":"hysteria","settings":{"version":2,"address":"h","port":443}});
         assert!(convert(&none, "").unwrap_err().contains("нет пароля"));
     }
