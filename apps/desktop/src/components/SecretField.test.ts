@@ -10,45 +10,57 @@ afterEach(() => {
 });
 
 describe('SecretField', () => {
-  it('shows the label with an empty field and lifts it when there is a value', async () => {
+  it('has no show/hide button and no extra controls', () => {
+    render(SecretField, { value: URL_TEXT });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('lifts the label when there is a value or focus', async () => {
     const { container } = render(SecretField, { value: '' });
     expect(container.querySelector('.field.lifted')).toBeNull();
-    await fireEvent.input(screen.getByLabelText('Ссылка подписки'), { target: { value: 'x' } });
+    const input = screen.getByLabelText('Ссылка подписки');
+    await fireEvent.focus(input);
+    expect(container.querySelector('.field.lifted')).not.toBeNull();
+    await fireEvent.blur(input);
+    await fireEvent.input(input, { target: { value: 'x' } });
     expect(container.querySelector('.field.lifted')).not.toBeNull();
   });
 
-  it('hides the secret part on screen but keeps the real value', () => {
+  it('shows a decoy line instead of the secret and keeps the real value intact', () => {
     const { container } = render(SecretField, { value: URL_TEXT });
     const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
     expect(input.value).toBe(URL_TEXT);
     const overlay = container.querySelector('.overlay')?.textContent ?? '';
-    expect(overlay.startsWith('https://sub.test/')).toBe(true);
-    expect(overlay).not.toContain('SECRET-TOKEN');
-    expect(container.textContent).not.toContain('SECRET-TOKEN');
+    expect(overlay).toContain('https://sub.test/');
+    expect(overlay).not.toContain('SECRET');
+    expect(overlay).not.toContain('TOKEN');
+    expect(overlay).not.toContain('•');
   });
 
-  it('shows the link on request and hides it again', async () => {
+  it('never exposes the secret on any animation frame', async () => {
     vi.useFakeTimers();
     const { container } = render(SecretField, { value: URL_TEXT });
-    const toggle = screen.getByRole('button', { name: 'Показать ссылку' });
-    await fireEvent.click(toggle);
-    await vi.advanceTimersByTimeAsync(50);
-    expect(screen.getByRole('button', { name: 'Скрыть ссылку' }).getAttribute('aria-pressed')).toBe(
-      'true',
-    );
-    expect(container.querySelector('.overlay')).toBeNull();
-    await fireEvent.click(screen.getByRole('button', { name: 'Скрыть ссылку' }));
-    // Пока маска «собирается» эффектом, ни на одном кадре в страницу не попадает секретная часть.
-    for (let i = 0; i < 14; i++) {
-      expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('SECRET');
-      expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('TOKEN');
-      await vi.advanceTimersByTimeAsync(40);
+    for (let i = 0; i < 80; i++) {
+      const text = container.querySelector('.overlay')?.textContent ?? '';
+      expect(text).not.toMatch(/SECRET|TOKEN|123/);
+      await vi.advanceTimersByTimeAsync(120);
     }
-    expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('SECRET-TOKEN');
-    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe(URL_TEXT);
   });
 
-  it('pasting a full link works while hidden and Enter triggers the import', async () => {
+  it('lets the user edit the real link in focus and brings the decoy back after blur', async () => {
+    const { container } = render(SecretField, { value: URL_TEXT });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await fireEvent.focus(input);
+    expect(container.querySelector('.overlay')).toBeNull();
+    expect(input.classList.contains('hide-text')).toBe(false);
+    await fireEvent.input(input, { target: { value: URL_TEXT + '-NEW' } });
+    expect(input.value).toBe(URL_TEXT + '-NEW');
+    await fireEvent.blur(input);
+    expect(container.querySelector('.overlay')).not.toBeNull();
+    expect(container.querySelector('.overlay')?.textContent).not.toContain('NEW');
+  });
+
+  it('accepts a pasted link and Enter triggers the import', async () => {
     const onenter = vi.fn();
     render(SecretField, { value: '', onenter });
     const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;

@@ -1,57 +1,47 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import DecryptedText from './DecryptedText.svelte';
-  import { maskSubscriptionUrl } from '../lib/secretMask';
+  import { segments, visualLine } from '../lib/secretMask';
 
-  /** Поле для секретной ссылки: плавающая подпись, маска (видны схема и сервер) и показ по кнопке.
-      Значение `value` всегда настоящее: именно оно уходит в импорт. Эффект Decrypted Text (порт React
-      Bits) играет только на маске: при вставке и при повторном скрытии. Настоящая ссылка в
-      анимацию не попадает ни одним кадром. */
+  /** Поле для секретной ссылки: плавающая подпись внутри поля. Пока поле не редактируется, вместо
+      ссылки показана «приманка»: адрес сервера и случайные символы вместо токена, по которым спокойно
+      пробегает эффект Decrypted Text (порт React Bits): участки строки перемешиваются по очереди.
+      В фокусе поле обычное: можно править, выделять и вставлять настоящую ссылку. Настоящее значение
+      `value` не меняется и уходит в импорт. Приманка не выводится из символов токена. */
   let {
     value = $bindable(''),
     label = 'Ссылка подписки',
     onenter,
   }: { value?: string; label?: string; onenter?: () => void } = $props();
 
-  let revealed = $state(false);
+  const PARTS = 3;
+  const PERIOD = 4200; // один круг: участок 1, участок 2, участок 3 и пауза
+  const GAP = 1100;
+
   let focused = $state(false);
   let hovered = $state(false);
-  let decrypt = $state<{ play: () => void }>();
+  let parts = $state<({ play: () => void } | undefined)[]>([]);
 
   const hasValue = $derived(value !== '');
   const lifted = $derived(focused || hovered || hasValue);
-  const masked = $derived(!revealed);
-  const overlay = $derived(maskSubscriptionUrl(value));
-  const showOverlay = $derived(hasValue && masked && !focused);
+  const showOverlay = $derived(hasValue && !focused);
+  // Новая приманка только при смене ссылки, а не на каждый кадр анимации.
+  const line = $derived(visualLine(value));
+  const chunks = $derived(segments(line, PARTS));
 
-  /** Маска «собирается» из случайных символов; запускаем после обновления DOM. */
-  let playWhenShown = false;
-
-  async function replay() {
-    await tick();
-    if (decrypt) decrypt.play();
-    else playWhenShown = true;
-  }
-
-  // Вставка делается при фокусе, когда маски на экране ещё нет: эффект сыграет, как только она появится.
   $effect(() => {
-    if (showOverlay && decrypt && playWhenShown) {
-      playWhenShown = false;
-      decrypt.play();
-    }
+    if (!showOverlay || chunks.length === 0) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const circle = () => {
+      chunks.forEach((_, i) => timers.push(setTimeout(() => parts[i]?.play(), i * GAP)));
+    };
+    timers.push(setTimeout(circle, 500));
+    const loop = setInterval(circle, PERIOD + chunks.length * GAP);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(loop);
+    };
   });
-
-  async function toggle() {
-    revealed = !revealed;
-    if (!revealed) await replay();
-  }
-
-  /** Вставка в пустое поле: после ухода фокуса маска проявится эффектом. */
-  function onInput(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const pasted = (event as InputEvent).inputType === 'insertFromPaste';
-    if (pasted && input.value !== '') void replay();
-  }
 </script>
 
 <div
@@ -64,7 +54,6 @@
 >
   <input
     bind:value
-    class:masked
     class:hide-text={showOverlay}
     type="text"
     autocomplete="off"
@@ -72,35 +61,23 @@
     aria-label={label}
     onfocus={() => (focused = true)}
     onblur={() => (focused = false)}
-    oninput={onInput}
     onkeydown={(e) => e.key === 'Enter' && onenter?.()}
   />
   <span class="lbl" aria-hidden="true">{label}</span>
   {#if showOverlay}
     <span class="overlay" aria-hidden="true">
-      <DecryptedText
-        bind:this={decrypt}
-        text={overlay}
-        animateOn="manual"
-        speed={40}
-        maxIterations={9}
-      />
+      {#each chunks as chunk, i (i)}
+        <DecryptedText
+          bind:this={parts[i]}
+          text={chunk}
+          animateOn="manual"
+          speed={70}
+          maxIterations={12}
+          sequential={false}
+        />
+      {/each}
     </span>
   {/if}
-  <button
-    type="button"
-    class="eye"
-    aria-pressed={revealed}
-    aria-label={revealed ? 'Скрыть ссылку' : 'Показать ссылку'}
-    title={revealed ? 'Скрыть ссылку' : 'Показать ссылку'}
-    onclick={toggle}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
-      {#if !revealed}<path d="M4 4l16 16" />{/if}
-    </svg>
-  </button>
 </div>
 
 <style>
@@ -127,7 +104,7 @@
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    padding: 20px 46px 6px 16px;
+    padding: 20px 16px 6px;
     border: 0;
     border-radius: inherit;
     background: transparent;
@@ -136,15 +113,9 @@
     outline: none;
   }
 
-  /* Скрыто и поле в фокусе: ввод идёт точками, счёт символов настоящий, каретка на месте. */
-  input.masked {
-    -webkit-text-security: disc;
-  }
-
-  /* Скрыто и вне фокуса: вместо текста показана маска поверх (схема и сервер видны). */
+  /* Не редактируется: вместо настоящего текста показана приманка поверх. */
   input.hide-text {
     color: transparent;
-    -webkit-text-security: none;
   }
 
   .lbl,
@@ -174,46 +145,12 @@
 
   .overlay {
     top: 20px;
-    right: 46px;
+    right: 16px;
+    /* Участки строки стоят вплотную, без пробелов между ними. */
+    display: flex;
     overflow: hidden;
     color: var(--ink);
     text-overflow: clip;
-  }
-
-  .eye {
-    position: absolute;
-    top: 50%;
-    right: 6px;
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--ink);
-    transform: translateY(-50%);
-    cursor: pointer;
-  }
-
-  .eye:hover {
-    background: rgba(255, 255, 255, 0.09);
-  }
-
-  .eye:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: -2px;
-  }
-
-  .eye svg {
-    width: 20px;
-    height: 20px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
   }
 
   @media (prefers-reduced-motion: reduce) {

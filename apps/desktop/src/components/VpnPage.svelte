@@ -329,7 +329,7 @@
       <div class="pane" role="tabpanel" aria-label={tabLabel}>
         {#if tab === 'vpn'}
           <section class="card">
-            <h2>Ссылка подписки / импорта</h2>
+            <h2 class="sr-only">Ссылка подписки / импорта</h2>
             <div class="row">
               <SecretField bind:value={urlInput} onenter={onImport} />
               <button type="button" disabled={importing} onclick={onImport}
@@ -401,14 +401,14 @@
             </p>
           </section>
 
-          <div class="list-head">
-            <h2 class="list-title">Серверы / {servers.length}</h2>
-            {#if servers.length > 0}
+          <h2 class="sr-only">Серверы / {servers.length}</h2>
+          {#if servers.length > 0}
+            <div class="list-head">
               <button type="button" class="small" disabled={measuring} onclick={onMeasure}
                 >{measuring ? 'Проверяем…' : 'Проверить задержку'}</button
               >
-            {/if}
-          </div>
+            </div>
+          {/if}
           <section class="card servers-card">
             {#if servers.length > 0}
               <ul class="servers" aria-label="Серверы">
@@ -723,17 +723,12 @@
     color: var(--ink);
   }
 
-  .list-title {
-    margin: 0;
-    color: #000;
-  }
-
   .list-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 8px;
-    margin: 8px 0 -2px;
+    margin: 0;
   }
 
   button.small {
