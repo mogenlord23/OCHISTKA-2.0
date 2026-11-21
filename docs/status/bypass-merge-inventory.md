@@ -1,6 +1,6 @@
 # Инвентаризация пресетов десинка (RixyPow/netzapret)
 
-Источник: RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa. Лицензия данных: MIT (NetZapret © 2026 RixyPow; Zapret GUI © censorliber/loop-uh). Код не копируется, разобраны только файлы настроек. Файл создан инструментом `tools/bypass-merge/merge_presets.py`, вручную не правится.
+Источник: RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de. Лицензия данных: MIT (NetZapret © 2026 RixyPow; Zapret GUI © censorliber/loop-uh). Код не копируется, разобраны только файлы настроек. Файл создан инструментом `tools/bypass-merge/merge_presets.py`, вручную не правится.
 
 ## Сводка
 

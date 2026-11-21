@@ -1,6 +1,6 @@
 # Конфликты и исключения при слиянии пресетов
 
-Источник: RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa. Основа слияния: `Universal V13 Lite.txt` (Universal V13 Lite без изменений — порядок, аргументы и поведение сохранены). Файл создан `tools/bypass-merge/merge_presets.py`, вручную не правится.
+Источник: RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de. Основа слияния: `Universal V13 YT FIX.txt` (Universal V13 Lite без изменений — порядок, аргументы и поведение сохранены). Файл создан `tools/bypass-merge/merge_presets.py`, вручную не правится.
 
 ## Правила выбора («вариант с наименьшим риском»)
 
@@ -18,313 +18,325 @@
 
 Telegram, Steam и Riot / Valorant убраны из обхода; подробности: `docs/status/bypass-remove-steam-riot.md`.
 
-- X001: Universal V13 Lite.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X002: Universal V13 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X003: Universal V13 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X004: Universal V13.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X006: Universal V13.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X008: Universal V13.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X009: Universal V13 YT FIX.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X012: Universal V13 YT FIX.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X013: Universal V13 YT FIX.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X001: Universal V13 YT FIX.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X002: Universal V13 YT FIX.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X003: Universal V13 YT FIX.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X004: Universal V13 Lite.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X007: Universal V13 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X008: Universal V13 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X009: Universal V13.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X013: Universal V13.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X015: Universal V13.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
 - X016: Universal V12 Lite.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X017: Universal V12 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X019: Universal V12 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X020: Universal V12.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X022: Universal V12.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X025: Universal V12.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X026: Universal V11 Lite.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X027: Universal V11 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X029: Universal V11 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X030: Universal V11.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X032: Universal V11.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X035: Universal V11.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X036: Universal V10.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X038: Universal V10.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X041: Universal V10.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X043: Universal V9.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X045: Universal V9.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X048: Universal V9.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X049: Universal V8.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
-- X051: Universal V8.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X054: Universal V8.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X075: Default v1 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X076: Default v1 (game filter).txt — Steam: Steam: исключён по решению владельца (слово «steam»)
-- X139: Default v3 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X189: Default v4 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X198: Default v5 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
-- X230: Universal V13 Lite.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
-- X231: Universal V13 Lite.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
-- X232: Universal V13 Lite.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
-- X233: Universal V13 Lite.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
-- X235: Universal V13.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X236: Universal V13.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X237: Universal V13.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X238: Universal V13.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X242: Universal V13 YT FIX.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X243: Universal V13 YT FIX.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X244: Universal V13 YT FIX.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X245: Universal V13 YT FIX.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X246: Universal V12 Lite.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X247: Universal V12 Lite.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X248: Universal V12 Lite.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X249: Universal V12 Lite.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X251: Universal V12.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X252: Universal V12.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X253: Universal V12.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
-- X254: Universal V12.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X019: Universal V12 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X021: Universal V12 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X022: Universal V12.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X026: Universal V12.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X029: Universal V12.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X030: Universal V11 Lite.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X033: Universal V11 Lite.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X035: Universal V11 Lite.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X036: Universal V11.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X040: Universal V11.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X043: Universal V11.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X044: Universal V10.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X048: Universal V10.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X051: Universal V10.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X053: Universal V9.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X057: Universal V9.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X060: Universal V9.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X061: Universal V8.txt — Riot / Valorant TCP: Riot / Valorant: исключён по решению владельца (слово «riot»)
+- X065: Universal V8.txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X068: Universal V8.txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X089: Default v1 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X090: Default v1 (game filter).txt — Steam: Steam: исключён по решению владельца (слово «steam»)
+- X154: Default v3 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X204: Default v4 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X213: Default v5 (game filter).txt — Telegram: Telegram: прокси в программе нет, записи удалены (решение владельца) (слово «telegram»)
+- X245: Universal V13 YT FIX.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
+- X246: Universal V13 YT FIX.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
+- X247: Universal V13 YT FIX.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
+- X248: Universal V13 YT FIX.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец объявлен, но не используется
+- X249: Universal V13 Lite.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X250: Universal V13 Lite.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X251: Universal V13 Lite.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X252: Universal V13 Lite.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X254: Universal V13.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X255: Universal V13.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X256: Universal V13.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X257: Universal V13.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X258: Universal V12 Lite.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X259: Universal V12 Lite.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X260: Universal V12 Lite.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X261: Universal V12 Lite.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X263: Universal V12.txt — `--blob=tls_steam_chat:@bin/nz-tls_clienthello_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X264: Universal V12.txt — `--blob=tls_steamstatic:@bin/nz-tls_clienthello_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X265: Universal V12.txt — `--blob=quic_steam_chat:@bin/nz-quic_initial_steam_chat_com.bin`: Steam: исключён по решению владельца: образец не нужен
+- X266: Universal V12.txt — `--blob=quic_steamstatic:@bin/nz-quic_initial_steamstatic_com.bin`: Steam: исключён по решению владельца: образец не нужен
 
-## Секции (194)
+## Секции (209)
 
 | № | Пресет | Секция | Вид | Что выбрано и почему |
 |---|---|---|---|---|
-| X005 | Universal V13.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X007 | Universal V13.txt №42 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X010 | Universal V13 YT FIX.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
-| X011 | Universal V13 YT FIX.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X014 | Universal V13 YT FIX.txt №73 | Узлы видео Google: малое окно по надобности | исключена | функция nz_first2 не входит в поставляемые Lua-модули (это код, не данные) |
-| X015 | Universal V13 YT FIX.txt №74 | Узлы видео Google: малое окно по надобности, запасные сети | исключена | функция nz_first2 не входит в поставляемые Lua-модули (это код, не данные) |
-| X018 | Universal V12 Lite.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X021 | Universal V12.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X023 | Universal V12.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X024 | Universal V12.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X028 | Universal V11 Lite.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X031 | Universal V11.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X033 | Universal V11.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X034 | Universal V11.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X037 | Universal V10.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X039 | Universal V10.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X040 | Universal V10.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X042 | Universal V9.txt №6 | Выбрано вручную: *.virustotal | конфликт | тот же трафик, другое действие; оставлено действие секции «virustotal.com» как в основе или более раннем пресете |
-| X044 | Universal V9.txt №24 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X046 | Universal V9.txt №28 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X047 | Universal V9.txt №39 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X050 | Universal V8.txt №18 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X052 | Universal V8.txt №22 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X053 | Universal V8.txt №33 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X055 | Default + YouTube no QUIC + wssize.txt №4 | YouTube · сайт и приложение | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X056 | Default + YouTube no QUIC + wssize.txt №5 | YouTube · быстрый протокол QUIC | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X057 | Default + YouTube no QUIC + wssize.txt №7 | YouTube · видео (googlevideo.com) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
-| X058 | Default + YouTube no QUIC + wssize.txt №11 | Discord · обновления | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
-| X059 | Default + YouTube no QUIC + wssize.txt №13 | Discord · сайт и приложение | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
-| X060 | Default + YouTube no QUIC + wssize.txt №14 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X061 | Default + YouTube no QUIC + wssize.txt №19 | itch.io | конфликт | тот же трафик, другое действие; оставлено действие секции «itch.io» как в основе или более раннем пресете |
-| X062 | Default + YouTube no QUIC + wssize.txt №22 | WhatsApp · сообщения | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
-| X063 | Default + YouTube no QUIC + wssize.txt №23 | Discord · голос и видео (discord.media) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
-| X064 | Default + YouTube no QUIC + wssize.txt №24 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
-| X065 | Default + YouTube no QUIC + wssize.txt №25 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X066 | Default + YouTube no QUIC + wssize.txt №26 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
-| X067 | Default + YouTube no QUIC + wssize.txt №27 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X068 | Default v1 (game filter).txt №1 | chatgpt | конфликт | тот же трафик, другое действие; оставлено действие секции «chatgpt» как в основе или более раннем пресете |
-| X069 | Default v1 (game filter).txt №5 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X070 | Default v1 (game filter).txt №6 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X071 | Default v1 (game filter).txt №9 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
-| X072 | Default v1 (game filter).txt №10 | updates.discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
-| X073 | Default v1 (game filter).txt №11 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
-| X074 | Default v1 (game filter).txt №13 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
-| X077 | Default v1 (game filter).txt №19 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
-| X078 | Default v1 (game filter).txt №23 | Twitch | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitch» как в основе или более раннем пресете |
-| X079 | Default v1 (game filter).txt №26 | SoundCloud | конфликт | тот же трафик, другое действие; оставлено действие секции «SoundCloud» как в основе или более раннем пресете |
-| X080 | Default v1 (game filter).txt №27 | rutor.info (.is) | конфликт | тот же трафик, другое действие; оставлено действие секции «rutor.info (.is)» как в основе или более раннем пресете |
-| X081 | Default v1 (game filter).txt №29 | static.whatsapp.net | конфликт | тот же трафик, другое действие; оставлено действие секции «static.whatsapp.net» как в основе или более раннем пресете |
-| X082 | Default v1 (game filter).txt №30 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
-| X083 | Default v1 (game filter).txt №34 | githubusercontent.com | конфликт | тот же трафик, другое действие; оставлено действие секции «githubusercontent.com» как в основе или более раннем пресете |
-| X084 | Default v1 (game filter).txt №35 | GitHub | конфликт | тот же трафик, другое действие; оставлено действие секции «GitHub» как в основе или более раннем пресете |
-| X085 | Default v1 (game filter).txt №37 | Hetzner TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Hetzner TCP» как в основе или более раннем пресете |
-| X086 | Default v1 (game filter).txt №48 | Amazon TCP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X087 | Default v1 (game filter).txt №54 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X088 | Default v1 (game filter).txt №55 | DigitalOcean UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X089 | Default v1 (game filter).txt №56 | Datacamp UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X090 | Default v1 (game filter).txt №57 | NovoServe UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X091 | Default v1 (game filter).txt №58 | FranTech Solutions UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X092 | Default v1 (game filter).txt №59 | Fastly UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X093 | Default v1 (game filter).txt №60 | Akamai UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X094 | Default v1 (game filter).txt №61 | Railway UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X095 | Default v1 (game filter).txt №62 | Google Cloud UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X096 | Default v1 (game filter).txt №63 | Hetzner UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X097 | Default v1 (game filter).txt №64 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X098 | Default v1 (game filter).txt №65 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X099 | Default v1 (game filter).txt №66 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X100 | Default v1 (game filter).txt №67 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X101 | Default v1 (game filter).txt №68 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X102 | Default v1 (game filter).txt №69 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X103 | Default v2 (game filter).txt №1 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X104 | Default v2 (game filter).txt №2 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X105 | Default v2 (game filter).txt №9 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X106 | Default v2 (game filter).txt №10 | SoundCloud | конфликт | тот же трафик, другое действие; оставлено действие секции «SoundCloud» как в основе или более раннем пресете |
-| X107 | Default v2 (game filter).txt №11 | rutracker.org | конфликт | тот же трафик, другое действие; оставлено действие секции «rutracker.org» как в основе или более раннем пресете |
-| X108 | Default v2 (game filter).txt №12 | rutor.info (.is) | конфликт | тот же трафик, другое действие; оставлено действие секции «rutor.info (.is)» как в основе или более раннем пресете |
-| X109 | Default v2 (game filter).txt №13 | Roblox TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Roblox · игра» как в основе или более раннем пресете |
-| X110 | Default v2 (game filter).txt №14 | itch.io | конфликт | тот же трафик, другое действие; оставлено действие секции «itch.io» как в основе или более раннем пресете |
-| X111 | Default v2 (game filter).txt №15 | Facebook | конфликт | тот же трафик, другое действие; оставлено действие секции «Facebook» как в основе или более раннем пресете |
-| X112 | Default v2 (game filter).txt №16 | Instagram | конфликт | тот же трафик, другое действие; оставлено действие секции «Instagram» как в основе или более раннем пресете |
-| X113 | Default v2 (game filter).txt №17 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
-| X114 | Default v2 (game filter).txt №18 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
-| X115 | Default v2 (game filter).txt №19 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
-| X116 | Default v2 (game filter).txt №20 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
-| X117 | Default v2 (game filter).txt №21 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
-| X118 | Default v2 (game filter).txt №22 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X119 | Default v2 (game filter).txt №35 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X120 | Default v2 (game filter).txt №36 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X121 | Default v2 (game filter).txt №37 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X122 | Default v2 (game filter).txt №38 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X123 | Default v2 (game filter).txt №39 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X124 | Default v2 (game filter).txt №40 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X125 | Default v2 (game filter).txt №41 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X126 | Default v2 (game filter).txt №42 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X127 | Default v2 (game filter).txt №43 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X128 | Default v2 (game filter).txt №44 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X129 | Default v2 (game filter).txt №45 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X130 | Default v2 (game filter).txt №46 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X131 | Default v2 (game filter).txt №47 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X132 | Default v2 (game filter).txt №48 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X133 | Default v3 (game filter).txt №1 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
-| X134 | Default v3 (game filter).txt №2 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X135 | Default v3 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X136 | Default v3 (game filter).txt №8 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
-| X137 | Default v3 (game filter).txt №11 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
-| X138 | Default v3 (game filter).txt №12 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X140 | Default v3 (game filter).txt №14 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
-| X141 | Default v3 (game filter).txt №17 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
-| X142 | Default v3 (game filter).txt №18 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
-| X143 | Default v3 (game filter).txt №19 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X144 | Default v3 (game filter).txt №20 | Игровые UDP порты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X145 | Default v3 (game filter).txt №21 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X146 | Default v3 (game filter).txt №22 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X147 | Default v3 (game filter).txt №24 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
-| X148 | Default v3 (game filter).txt №25 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
-| X149 | Default v3 (game filter).txt №26 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
-| X150 | Default v3 (game filter).txt №27 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
-| X151 | Default v3 (game filter).txt №28 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X152 | Default v3 (game filter).txt №29 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X153 | Default v3 (game filter).txt №30 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X154 | Default v3 (game filter).txt №31 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X155 | Default v3 (game filter).txt №32 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X156 | Default v3 (game filter).txt №33 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X157 | Default v3 (game filter).txt №34 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X158 | Default v4 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X159 | Default v4 (game filter).txt №12 | Голосовые звонки/чаты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X160 | Default v4 (game filter).txt №13 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
-| X161 | Default v4 (game filter).txt №15 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X162 | Default v4 (game filter).txt №16 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X163 | Default v4 (game filter).txt №17 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X164 | Default v4 (game filter).txt №18 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X165 | Default v4 (game filter).txt №19 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X166 | Default v4 (game filter).txt №20 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
-| X167 | Default v4 (game filter).txt №21 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
-| X168 | Default v4 (game filter).txt №22 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
-| X169 | Default v4 (game filter).txt №23 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
-| X170 | Default v4 (game filter).txt №24 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
-| X171 | Default v4 (game filter).txt №25 | League of Legends RU TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends RU TCP» как в основе или более раннем пресете |
-| X172 | Default v4 (game filter).txt №26 | League of Legends EUW TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends EUW TCP» как в основе или более раннем пресете |
-| X173 | Default v4 (game filter).txt №27 | OVH TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «OVH TCP» как в основе или более раннем пресете |
-| X174 | Default v4 (game filter).txt №28 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
-| X175 | Default v4 (game filter).txt №29 | WARP TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «WARP TCP» как в основе или более раннем пресете |
-| X176 | Default v4 (game filter).txt №30 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
-| X177 | Default v4 (game filter).txt №31 | Timeweb TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Timeweb TCP» как в основе или более раннем пресете |
-| X178 | Default v4 (game filter).txt №32 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X179 | Default v4 (game filter).txt №33 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X180 | Default v4 (game filter).txt №34 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X181 | Default v4 (game filter).txt №35 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X182 | Default v4 (game filter).txt №36 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X183 | Default v4 (game filter).txt №37 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X184 | Default v4 (game filter).txt №38 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X185 | Default v4 (game filter).txt №39 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X186 | Default v4 (game filter).txt №40 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X187 | Default v4 (game filter).txt №41 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X188 | Default v4 (game filter).txt №42 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X190 | Default v5 (game filter).txt №1 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
-| X191 | Default v5 (game filter).txt №2 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
-| X192 | Default v5 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
-| X193 | Default v5 (game filter).txt №6 | updates.discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
-| X194 | Default v5 (game filter).txt №7 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
-| X195 | Default v5 (game filter).txt №8 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com (IP fallback)» как в основе или более раннем пресете |
-| X196 | Default v5 (game filter).txt №9 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
-| X197 | Default v5 (game filter).txt №10 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X199 | Default v5 (game filter).txt №13 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X200 | Default v5 (game filter).txt №14 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
-| X201 | Default v5 (game filter).txt №15 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
-| X202 | Default v5 (game filter).txt №17 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
-| X203 | Default v5 (game filter).txt №18 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
-| X204 | Default v5 (game filter).txt №20 | League of Legends RU TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends RU TCP» как в основе или более раннем пресете |
-| X205 | Default v5 (game filter).txt №21 | League of Legends EUW TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends EUW TCP» как в основе или более раннем пресете |
-| X206 | Default v5 (game filter).txt №22 | OVH TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «OVH TCP» как в основе или более раннем пресете |
-| X207 | Default v5 (game filter).txt №23 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
-| X208 | Default v5 (game filter).txt №24 | WARP TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «WARP TCP» как в основе или более раннем пресете |
-| X209 | Default v5 (game filter).txt №25 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
-| X210 | Default v5 (game filter).txt №26 | Timeweb TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Timeweb TCP» как в основе или более раннем пресете |
-| X211 | Default v5 (game filter).txt №27 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X212 | Default v5 (game filter).txt №28 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X213 | Default v5 (game filter).txt №29 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X214 | Default v5 (game filter).txt №30 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X215 | Default v5 (game filter).txt №31 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X216 | Default v5 (game filter).txt №32 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X217 | Default v5 (game filter).txt №33 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X218 | Default v5 (game filter).txt №34 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X219 | Default v5 (game filter).txt №35 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X220 | Default v5 (game filter).txt №36 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X221 | Default v5 (game filter).txt №37 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X222 | Default v5 (game filter).txt №38 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X223 | ALL TCP & UDP multisplit_stun.txt №1 | Discord UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
-| X224 | ALL TCP & UDP multisplit_stun.txt №6 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X225 | ALL TCP & UDP multisplit_stun.txt №7 | Все сайты UDP (исключение) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X226 | white sni (circular).txt №3 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X227 | white sni (circular).txt №4 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X228 | shadow probes (circular).txt №3 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
-| X229 | shadow probes (circular).txt №4 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X005 | Universal V13 Lite.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X006 | Universal V13 Lite.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X010 | Universal V13.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X011 | Universal V13.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X012 | Universal V13.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X014 | Universal V13.txt №42 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X017 | Universal V12 Lite.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X018 | Universal V12 Lite.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X020 | Universal V12 Lite.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X023 | Universal V12.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X024 | Universal V12.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X025 | Universal V12.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X027 | Universal V12.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X028 | Universal V12.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X031 | Universal V11 Lite.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X032 | Universal V11 Lite.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X034 | Universal V11 Lite.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X037 | Universal V11.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X038 | Universal V11.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X039 | Universal V11.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X041 | Universal V11.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X042 | Universal V11.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X045 | Universal V10.txt №17 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X046 | Universal V10.txt №18 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X047 | Universal V10.txt №26 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X049 | Universal V10.txt №30 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X050 | Universal V10.txt №41 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X052 | Universal V9.txt №6 | Выбрано вручную: *.virustotal | конфликт | тот же трафик, другое действие; оставлено действие секции «virustotal.com» как в основе или более раннем пресете |
+| X054 | Universal V9.txt №15 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X055 | Universal V9.txt №16 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X056 | Universal V9.txt №24 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X058 | Universal V9.txt №28 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X059 | Universal V9.txt №39 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X062 | Universal V8.txt №9 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X063 | Universal V8.txt №10 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X064 | Universal V8.txt №18 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X066 | Universal V8.txt №22 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X067 | Universal V8.txt №33 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X069 | Default + YouTube no QUIC + wssize.txt №4 | YouTube · сайт и приложение | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X070 | Default + YouTube no QUIC + wssize.txt №5 | YouTube · быстрый протокол QUIC | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X071 | Default + YouTube no QUIC + wssize.txt №7 | YouTube · видео (googlevideo.com) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X072 | Default + YouTube no QUIC + wssize.txt №11 | Discord · обновления | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
+| X073 | Default + YouTube no QUIC + wssize.txt №13 | Discord · сайт и приложение | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
+| X074 | Default + YouTube no QUIC + wssize.txt №14 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X075 | Default + YouTube no QUIC + wssize.txt №19 | itch.io | конфликт | тот же трафик, другое действие; оставлено действие секции «itch.io» как в основе или более раннем пресете |
+| X076 | Default + YouTube no QUIC + wssize.txt №22 | WhatsApp · сообщения | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
+| X077 | Default + YouTube no QUIC + wssize.txt №23 | Discord · голос и видео (discord.media) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
+| X078 | Default + YouTube no QUIC + wssize.txt №24 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
+| X079 | Default + YouTube no QUIC + wssize.txt №25 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X080 | Default + YouTube no QUIC + wssize.txt №26 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
+| X081 | Default + YouTube no QUIC + wssize.txt №27 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X082 | Default v1 (game filter).txt №1 | chatgpt | конфликт | тот же трафик, другое действие; оставлено действие секции «chatgpt» как в основе или более раннем пресете |
+| X083 | Default v1 (game filter).txt №5 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X084 | Default v1 (game filter).txt №6 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X085 | Default v1 (game filter).txt №9 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
+| X086 | Default v1 (game filter).txt №10 | updates.discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
+| X087 | Default v1 (game filter).txt №11 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
+| X088 | Default v1 (game filter).txt №13 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
+| X091 | Default v1 (game filter).txt №19 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
+| X092 | Default v1 (game filter).txt №23 | Twitch | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitch» как в основе или более раннем пресете |
+| X093 | Default v1 (game filter).txt №26 | SoundCloud | конфликт | тот же трафик, другое действие; оставлено действие секции «SoundCloud» как в основе или более раннем пресете |
+| X094 | Default v1 (game filter).txt №27 | rutor.info (.is) | конфликт | тот же трафик, другое действие; оставлено действие секции «rutor.info (.is)» как в основе или более раннем пресете |
+| X095 | Default v1 (game filter).txt №29 | static.whatsapp.net | конфликт | тот же трафик, другое действие; оставлено действие секции «static.whatsapp.net» как в основе или более раннем пресете |
+| X096 | Default v1 (game filter).txt №30 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
+| X097 | Default v1 (game filter).txt №34 | githubusercontent.com | конфликт | тот же трафик, другое действие; оставлено действие секции «githubusercontent.com» как в основе или более раннем пресете |
+| X098 | Default v1 (game filter).txt №35 | GitHub | конфликт | тот же трафик, другое действие; оставлено действие секции «GitHub» как в основе или более раннем пресете |
+| X099 | Default v1 (game filter).txt №37 | Hetzner TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Hetzner TCP» как в основе или более раннем пресете |
+| X100 | Default v1 (game filter).txt №48 | Amazon TCP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X101 | Default v1 (game filter).txt №54 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X102 | Default v1 (game filter).txt №55 | DigitalOcean UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X103 | Default v1 (game filter).txt №56 | Datacamp UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X104 | Default v1 (game filter).txt №57 | NovoServe UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X105 | Default v1 (game filter).txt №58 | FranTech Solutions UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X106 | Default v1 (game filter).txt №59 | Fastly UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X107 | Default v1 (game filter).txt №60 | Akamai UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X108 | Default v1 (game filter).txt №61 | Railway UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X109 | Default v1 (game filter).txt №62 | Google Cloud UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X110 | Default v1 (game filter).txt №63 | Hetzner UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X111 | Default v1 (game filter).txt №64 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X112 | Default v1 (game filter).txt №65 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X113 | Default v1 (game filter).txt №66 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X114 | Default v1 (game filter).txt №67 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X115 | Default v1 (game filter).txt №68 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X116 | Default v1 (game filter).txt №69 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X117 | Default v2 (game filter).txt №1 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X118 | Default v2 (game filter).txt №2 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X119 | Default v2 (game filter).txt №3 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X120 | Default v2 (game filter).txt №9 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X121 | Default v2 (game filter).txt №10 | SoundCloud | конфликт | тот же трафик, другое действие; оставлено действие секции «SoundCloud» как в основе или более раннем пресете |
+| X122 | Default v2 (game filter).txt №11 | rutracker.org | конфликт | тот же трафик, другое действие; оставлено действие секции «rutracker.org» как в основе или более раннем пресете |
+| X123 | Default v2 (game filter).txt №12 | rutor.info (.is) | конфликт | тот же трафик, другое действие; оставлено действие секции «rutor.info (.is)» как в основе или более раннем пресете |
+| X124 | Default v2 (game filter).txt №13 | Roblox TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Roblox · игра» как в основе или более раннем пресете |
+| X125 | Default v2 (game filter).txt №14 | itch.io | конфликт | тот же трафик, другое действие; оставлено действие секции «itch.io» как в основе или более раннем пресете |
+| X126 | Default v2 (game filter).txt №15 | Facebook | конфликт | тот же трафик, другое действие; оставлено действие секции «Facebook» как в основе или более раннем пресете |
+| X127 | Default v2 (game filter).txt №16 | Instagram | конфликт | тот же трафик, другое действие; оставлено действие секции «Instagram» как в основе или более раннем пресете |
+| X128 | Default v2 (game filter).txt №17 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
+| X129 | Default v2 (game filter).txt №18 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
+| X130 | Default v2 (game filter).txt №19 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
+| X131 | Default v2 (game filter).txt №20 | Twitter/X | конфликт | тот же трафик, другое действие; оставлено действие секции «Twitter/X» как в основе или более раннем пресете |
+| X132 | Default v2 (game filter).txt №21 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
+| X133 | Default v2 (game filter).txt №22 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X134 | Default v2 (game filter).txt №35 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X135 | Default v2 (game filter).txt №36 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X136 | Default v2 (game filter).txt №37 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X137 | Default v2 (game filter).txt №38 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X138 | Default v2 (game filter).txt №39 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X139 | Default v2 (game filter).txt №40 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X140 | Default v2 (game filter).txt №41 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X141 | Default v2 (game filter).txt №42 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X142 | Default v2 (game filter).txt №43 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X143 | Default v2 (game filter).txt №44 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X144 | Default v2 (game filter).txt №45 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X145 | Default v2 (game filter).txt №46 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X146 | Default v2 (game filter).txt №47 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X147 | Default v2 (game filter).txt №48 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X148 | Default v3 (game filter).txt №1 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X149 | Default v3 (game filter).txt №2 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X150 | Default v3 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X151 | Default v3 (game filter).txt №8 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
+| X152 | Default v3 (game filter).txt №11 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
+| X153 | Default v3 (game filter).txt №12 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X155 | Default v3 (game filter).txt №14 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
+| X156 | Default v3 (game filter).txt №17 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
+| X157 | Default v3 (game filter).txt №18 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
+| X158 | Default v3 (game filter).txt №19 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X159 | Default v3 (game filter).txt №20 | Игровые UDP порты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X160 | Default v3 (game filter).txt №21 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X161 | Default v3 (game filter).txt №22 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X162 | Default v3 (game filter).txt №24 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
+| X163 | Default v3 (game filter).txt №25 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
+| X164 | Default v3 (game filter).txt №26 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
+| X165 | Default v3 (game filter).txt №27 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
+| X166 | Default v3 (game filter).txt №28 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X167 | Default v3 (game filter).txt №29 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X168 | Default v3 (game filter).txt №30 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X169 | Default v3 (game filter).txt №31 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X170 | Default v3 (game filter).txt №32 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X171 | Default v3 (game filter).txt №33 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X172 | Default v3 (game filter).txt №34 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X173 | Default v4 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X174 | Default v4 (game filter).txt №12 | Голосовые звонки/чаты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X175 | Default v4 (game filter).txt №13 | ntc.party | конфликт | тот же трафик, другое действие; оставлено действие секции «ntc.party» как в основе или более раннем пресете |
+| X176 | Default v4 (game filter).txt №15 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X177 | Default v4 (game filter).txt №16 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X178 | Default v4 (game filter).txt №17 | Russia blacklist TCP 443 | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X179 | Default v4 (game filter).txt №18 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X180 | Default v4 (game filter).txt №19 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X181 | Default v4 (game filter).txt №20 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com» как в основе или более раннем пресете |
+| X182 | Default v4 (game filter).txt №21 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
+| X183 | Default v4 (game filter).txt №22 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
+| X184 | Default v4 (game filter).txt №23 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
+| X185 | Default v4 (game filter).txt №24 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
+| X186 | Default v4 (game filter).txt №25 | League of Legends RU TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends RU TCP» как в основе или более раннем пресете |
+| X187 | Default v4 (game filter).txt №26 | League of Legends EUW TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends EUW TCP» как в основе или более раннем пресете |
+| X188 | Default v4 (game filter).txt №27 | OVH TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «OVH TCP» как в основе или более раннем пресете |
+| X189 | Default v4 (game filter).txt №28 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
+| X190 | Default v4 (game filter).txt №29 | WARP TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «WARP TCP» как в основе или более раннем пресете |
+| X191 | Default v4 (game filter).txt №30 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
+| X192 | Default v4 (game filter).txt №31 | Timeweb TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Timeweb TCP» как в основе или более раннем пресете |
+| X193 | Default v4 (game filter).txt №32 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X194 | Default v4 (game filter).txt №33 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X195 | Default v4 (game filter).txt №34 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X196 | Default v4 (game filter).txt №35 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X197 | Default v4 (game filter).txt №36 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X198 | Default v4 (game filter).txt №37 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X199 | Default v4 (game filter).txt №38 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X200 | Default v4 (game filter).txt №39 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X201 | Default v4 (game filter).txt №40 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X202 | Default v4 (game filter).txt №41 | WhatsApp UDP wide | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X203 | Default v4 (game filter).txt №42 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X205 | Default v5 (game filter).txt №1 | googlevideo.com (CDN сервера) | конфликт | тот же трафик, другое действие; оставлено действие секции «googlevideo.com (CDN сервера)» как в основе или более раннем пресете |
+| X206 | Default v5 (game filter).txt №2 | youtube.com (интерфейс) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (интерфейс)» как в основе или более раннем пресете |
+| X207 | Default v5 (game filter).txt №3 | youtube.com (QUIC) | конфликт | тот же трафик, другое действие; оставлено действие секции «youtube.com (QUIC)» как в основе или более раннем пресете |
+| X208 | Default v5 (game filter).txt №6 | updates.discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «updates.discord.com» как в основе или более раннем пресете |
+| X209 | Default v5 (game filter).txt №7 | discord.media (voice RTC) | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.media (voice RTC)» как в основе или более раннем пресете |
+| X210 | Default v5 (game filter).txt №8 | discord.com | конфликт | тот же трафик, другое действие; оставлено действие секции «discord.com (IP fallback)» как в основе или более раннем пресете |
+| X211 | Default v5 (game filter).txt №9 | Голосовые звонки/чаты | конфликт | тот же трафик, другое действие; оставлено действие секции «Голосовые звонки/чаты» как в основе или более раннем пресете |
+| X212 | Default v5 (game filter).txt №10 | Discord UDP (обычно не нужно) | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X214 | Default v5 (game filter).txt №13 | Мои сайты | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X215 | Default v5 (game filter).txt №14 | Cloudflare TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Cloudflare TCP» как в основе или более раннем пресете |
+| X216 | Default v5 (game filter).txt №15 | cloudfront.net | конфликт | тот же трафик, другое действие; оставлено действие секции «cloudfront.net» как в основе или более раннем пресете |
+| X217 | Default v5 (game filter).txt №17 | Amazon TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Amazon TCP» как в основе или более раннем пресете |
+| X218 | Default v5 (game filter).txt №18 | EpicGames & Fortnite | конфликт | тот же трафик, другое действие; оставлено действие секции «EpicGames & Fortnite» как в основе или более раннем пресете |
+| X219 | Default v5 (game filter).txt №20 | League of Legends RU TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends RU TCP» как в основе или более раннем пресете |
+| X220 | Default v5 (game filter).txt №21 | League of Legends EUW TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «League of Legends EUW TCP» как в основе или более раннем пресете |
+| X221 | Default v5 (game filter).txt №22 | OVH TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «OVH TCP» как в основе или более раннем пресете |
+| X222 | Default v5 (game filter).txt №23 | WhatsApp | конфликт | тот же трафик, другое действие; оставлено действие секции «WhatsApp» как в основе или более раннем пресете |
+| X223 | Default v5 (game filter).txt №24 | WARP TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «WARP TCP» как в основе или более раннем пресете |
+| X224 | Default v5 (game filter).txt №25 | ZapretKVN TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «ZapretKVN TCP» как в основе или более раннем пресете |
+| X225 | Default v5 (game filter).txt №26 | Timeweb TCP | конфликт | тот же трафик, другое действие; оставлено действие секции «Timeweb TCP» как в основе или более раннем пресете |
+| X226 | Default v5 (game filter).txt №27 | Cloudflare UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X227 | Default v5 (game filter).txt №28 | Cloudflare legacy UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X228 | Default v5 (game filter).txt №29 | Cloudflare IPv6 legacy UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X229 | Default v5 (game filter).txt №30 | Cloudflare alt UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X230 | Default v5 (game filter).txt №31 | Amazon UDP | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X231 | Default v5 (game filter).txt №32 | Roblox UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X232 | Default v5 (game filter).txt №33 | League of Legends RU UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X233 | Default v5 (game filter).txt №34 | League of Legends EUW UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X234 | Default v5 (game filter).txt №35 | OVH UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X235 | Default v5 (game filter).txt №36 | WARP UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X236 | Default v5 (game filter).txt №37 | ZapretKVN UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X237 | Default v5 (game filter).txt №38 | Timeweb UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X238 | ALL TCP & UDP multisplit_stun.txt №1 | Discord UDP | исключена | filter-udp=443-65535 вне базового перехвата (443,6568,19294-19344,50000-51000): расширять перехват WinDivert не стали (производительность, риск для игр) |
+| X239 | ALL TCP & UDP multisplit_stun.txt №6 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X240 | ALL TCP & UDP multisplit_stun.txt №7 | Все сайты UDP (исключение) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X241 | white sni (circular).txt №3 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X242 | white sni (circular).txt №4 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X243 | shadow probes (circular).txt №3 | Все сайты (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
+| X244 | shadow probes (circular).txt №4 | Все сайты UDP (айпи) | исключена | секция без списка адресов или доменов (или со списком на почти весь интернет): перехватывала бы весь трафик; риск, не включена |
 
-## Общие аргументы (48)
+## Общие аргументы (45)
 
 | № | Пресет | Аргумент | Вид | Что выбрано и почему |
 |---|---|---|---|---|
-| X234 | Universal V13.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X239 | Universal V13 YT FIX.txt | `--lua-init=@lua/nz-video.lua` | не взято | Lua-модуль не входит в поставляемые (код, не данные) или не нужен включённым секциям |
-| X240 | Universal V13 YT FIX.txt | `--wf-tcp-empty=1` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X241 | Universal V13 YT FIX.txt | `--wf-raw-filter=(!tcp or tcp.Syn or tcp.Rst or tcp.Fin or tcp.PayloadLength>0 or (outbound and tcp.DstPort==443 and ((ip.DstAddr>=74.125.0.0 and ip.DstAddr<=74.125.255.255) or (ip.DstAddr>=173.194.0.0 and ip.DstAddr<=173.194.255.255))))` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X250 | Universal V12.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X255 | Universal V11.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X256 | Universal V10.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X257 | Universal V9.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X258 | Universal V8.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X259 | Default + YouTube no QUIC + wssize.txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X260 | Default + YouTube no QUIC + wssize.txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,8443,8080` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
-| X261 | Default + YouTube no QUIC + wssize.txt | `--wf-udp-out=80,443` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X262 | Default + YouTube no QUIC + wssize.txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X263 | Default + YouTube no QUIC + wssize.txt | `--name=zapret.moe` | не взято | не нужен включённым секциям; перехват как в основе |
-| X264 | Default + YouTube no QUIC + wssize.txt | `--hostlist=lists/zapret-moe.txt` | не взято | не нужен включённым секциям; перехват как в основе |
-| X265 | Default v1 (game filter).txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,5050,8443,8080,45631` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
-| X266 | Default v1 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X267 | Default v1 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X268 | Default v2 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X269 | Default v2 (game filter).txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,8443,8080` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
-| X270 | Default v2 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X271 | Default v2 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X272 | Default v3 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X273 | Default v3 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X274 | Default v3 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X275 | Default v4 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X276 | Default v4 (game filter).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X277 | Default v4 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X278 | Default v5 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X279 | Default v5 (game filter).txt | `--wf-udp-out=80,444-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X280 | Default v5 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X281 | ALL TCP & UDP multisplit_stun.txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X282 | ALL TCP & UDP multisplit_stun.txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X283 | ALL TCP & UDP multisplit_stun.txt | `--name=Голосовые звонки/чаты` | не взято | не нужен включённым секциям; перехват как в основе |
-| X284 | ALL TCP & UDP multisplit_stun.txt | `--skip` | не взято | не нужен включённым секциям; перехват как в основе |
-| X285 | ALL TCP & UDP multisplit_stun.txt | `--filter-l7=stun,discord` | не взято | не нужен включённым секциям; перехват как в основе |
-| X286 | ALL TCP & UDP multisplit_stun.txt | `--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:payload=all:repeats=10` | не взято | не нужен включённым секциям; перехват как в основе |
-| X287 | white sni (circular).txt | `--writable=user/winws2` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X288 | white sni (circular).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X289 | white sni (circular).txt | `--wf-tcp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X290 | white sni (circular).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X291 | white sni (circular).txt | `--wf-udp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X292 | white sni (circular).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
-| X293 | shadow probes (circular).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
-| X294 | shadow probes (circular).txt | `--wf-tcp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X295 | shadow probes (circular).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
-| X296 | shadow probes (circular).txt | `--wf-udp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
-| X297 | shadow probes (circular).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X253 | Universal V13.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X262 | Universal V12.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X267 | Universal V11.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X268 | Universal V10.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X269 | Universal V9.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X270 | Universal V8.txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X271 | Default + YouTube no QUIC + wssize.txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X272 | Default + YouTube no QUIC + wssize.txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,8443,8080` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
+| X273 | Default + YouTube no QUIC + wssize.txt | `--wf-udp-out=80,443` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X274 | Default + YouTube no QUIC + wssize.txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X275 | Default + YouTube no QUIC + wssize.txt | `--name=zapret.moe` | не взято | не нужен включённым секциям; перехват как в основе |
+| X276 | Default + YouTube no QUIC + wssize.txt | `--hostlist=lists/zapret-moe.txt` | не взято | не нужен включённым секциям; перехват как в основе |
+| X277 | Default v1 (game filter).txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,5050,8443,8080,45631` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
+| X278 | Default v1 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X279 | Default v1 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X280 | Default v2 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X281 | Default v2 (game filter).txt | `--wf-tcp-out=80,443,1080,2053,2083,2087,2096,8443,8080` | конфликт | оставлено значение основы: --wf-tcp-out=80,443-65535 |
+| X282 | Default v2 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X283 | Default v2 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X284 | Default v3 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X285 | Default v3 (game filter).txt | `--wf-udp-out=443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X286 | Default v3 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X287 | Default v4 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X288 | Default v4 (game filter).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X289 | Default v4 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X290 | Default v5 (game filter).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X291 | Default v5 (game filter).txt | `--wf-udp-out=80,444-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X292 | Default v5 (game filter).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X293 | ALL TCP & UDP multisplit_stun.txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X294 | ALL TCP & UDP multisplit_stun.txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X295 | ALL TCP & UDP multisplit_stun.txt | `--name=Голосовые звонки/чаты` | не взято | не нужен включённым секциям; перехват как в основе |
+| X296 | ALL TCP & UDP multisplit_stun.txt | `--skip` | не взято | не нужен включённым секциям; перехват как в основе |
+| X297 | ALL TCP & UDP multisplit_stun.txt | `--filter-l7=stun,discord` | не взято | не нужен включённым секциям; перехват как в основе |
+| X298 | ALL TCP & UDP multisplit_stun.txt | `--lua-desync=fake:blob=quic_google:ip_autottl=-2,3-20:ip6_autottl=-2,3-20:payload=all:repeats=10` | не взято | не нужен включённым секциям; перехват как в основе |
+| X299 | white sni (circular).txt | `--writable=user/winws2` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
+| X300 | white sni (circular).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X301 | white sni (circular).txt | `--wf-tcp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
+| X302 | white sni (circular).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X303 | white sni (circular).txt | `--wf-udp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
+| X304 | white sni (circular).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
+| X305 | shadow probes (circular).txt | `--ipcache-hostname=1` | конфликт | оставлено значение основы: --ipcache-hostname=0 |
+| X306 | shadow probes (circular).txt | `--wf-tcp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
+| X307 | shadow probes (circular).txt | `--wf-udp-out=80,443-65535` | конфликт | оставлено значение основы: --wf-udp-out=443,6568,19294-19344,50000-51000 |
+| X308 | shadow probes (circular).txt | `--wf-udp-in=80,443-65535` | конфликт | в основе опции нет; не добавлена (перехват и настройки как в основе) |
+| X309 | shadow probes (circular).txt | `--blob=tls_sber_v2:@bin/tls_clienthello_sberbank_ru_v2.bin` | не взято | образец не нужен ни одной включённой секции |
 
 ## Маршруты (2 конфликтов с пресетом)
 
@@ -334,3 +346,12 @@ Telegram, Steam и Riot / Valorant убраны из обхода; подроб�
 |---|---|---|
 | R001 | `lists/nz-ipset-ru.txt` | маршрут direct для «ru», но в пресете есть секция с этим списком; оставлено поведение пресета (основа не меняется), проверить на Windows |
 | R002 | `lists/nz-twitch.txt` | маршрут direct для «twitch», но в пресете есть секция с этим списком; оставлено поведение пресета (основа не меняется), проверить на Windows |
+
+## Проверка после смены основы (ADR 0017)
+
+- Основа: «Universal V13 YT FIX» (было «Universal V13 Lite»).
+- Секций: было 133, стало 135. Общих аргументов: было 83, стало 86.
+- Исключения Telegram, Steam, Riot / Valorant: в пресете нет, в маршрутах нет.
+- Claude: `lists/nz-claude-content.txt` — vpn-only, `lists/nz-claude.txt` — vpn-only (только через VPN, отдельного обхода нет).
+- Секции со списками youtube и googlevideo в итоговом пресете: 7 (есть).
+- Lua-модуль основы `lua/nz-video.lua` (MIT, RixyPow) добавлен как закреплённый ресурс с SHA-256 (`bypass-merge-resources.json`); без него основа не запускается (`--lua-init=@lua/nz-video.lua`, шаг `nz_first2`).

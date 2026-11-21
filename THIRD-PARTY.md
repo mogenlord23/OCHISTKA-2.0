@@ -53,3 +53,4 @@
 - Лицензии: NetZapret — MIT © 2026 RixyPow; пресеты и секции Zapret GUI — MIT © 2025–2026 censorliber/loop-uh (тексты в `assets/desync/presets/LICENSE-NetZapret.txt`, `LICENSE-ZapretGUI.txt`). Списки адресов Zapret GUI могут содержать материалы v2fly/domain-list-community (MIT).
 - Компоненты вне этого этапа, не копируются без отдельного решения о лицензии OCHISTKA: код движков (GPL v3), библиотеки LGPL, Wintun (проприетарный).
 - Состав и причины исключений: `docs/status/bypass-merge-inventory.md`, `bypass-merge-conflicts.md`, `bypass-merge-coverage.json`, `bypass-merge-resources.json` (SHA-256 каждого нового файла).
+- Основа объединённого пресета — «Universal V13 YT FIX» (ADR 0017); ей нужен Lua-модуль `config/lua/video.lua` из `RixyPow/netzapret` (MIT © 2026 RixyPow), встроенный как `lua/nz-video.lua` с SHA-256 в `docs/status/bypass-merge-resources.json`. Источник данных теперь `RixyPow/netzapret@11f073c`.

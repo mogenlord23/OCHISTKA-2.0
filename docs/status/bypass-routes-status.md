@@ -1,6 +1,6 @@
 # Статус маршрутов «Обхода блокировок»
 
-Источник: RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa. Создано `tools/bypass-merge/merge_presets.py`. **Не проверено на Windows у провайдера:** ни один сервис не объявляется работающим.
+Источник: RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de. Создано `tools/bypass-merge/merge_presets.py`. **Не проверено на Windows у провайдера:** ни один сервис не объявляется работающим.
 
 ## Сервис → статус (решения владельца)
 
@@ -11,7 +11,7 @@
 | Telegram | исключён: прокси в программе нет, записи удалены |
 | Claude | только через VPN (`vpn-only`), отдельного обхода нет |
 
-## Все маршруты (124)
+## Все маршруты (125)
 
 | Сервис / адрес | Вид | Категория | Режим RixyPow | Статус |
 |---|---|---|---|---|
@@ -28,6 +28,7 @@
 | rutracker.org | domain | domain | proxy | только через VPN (этим переключателем не применяется) |
 | wardogs.bulkhead.pragmaengine.com | domain | domain | desync | щит pass (обход не вмешивается) |
 | amazon | hostlist | domain | catalog | в пресете обхода |
+| antigravity | hostlist | domain | proxy | только через VPN (этим переключателем не применяется) |
 | apple | hostlist | domain | catalog | в пресете обхода |
 | arc-raiders-voice | hostlist | game | catalog | справочно: действие не задано |
 | arc-raiders | hostlist | game | catalog | справочно: действие не задано |
@@ -140,6 +141,6 @@
 | photon-network | ipset | game | catalog | справочно: действие не задано |
 | roblox-network | ipset | game | catalog | справочно: действие не задано |
 
-## Секции итогового пресета (133)
+## Секции итогового пресета (135)
 
 Основа Universal V13 Lite (без удалённых сервисов) + секции из других пресетов + щиты pass. Состав по секциям: `assets/desync/presets/OCHISTKA Merged.txt`; причины исключений: `bypass-merge-conflicts.md`.

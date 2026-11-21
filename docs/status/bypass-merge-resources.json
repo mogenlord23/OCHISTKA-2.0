@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "source": "RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa",
+ "source": "RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de",
  "license": "MIT (NetZapret © 2026 RixyPow; Zapret GUI © censorliber/loop-uh)",
  "note": "Только данные (списки адресов и образцы). 135 закреплённых файлов не менялись.",
  "files": [
@@ -147,6 +147,12 @@
    "source_path": "config/lists/amazon.txt",
    "sha256": "703ee47cab6a37a8cdbf87e79cf05298f4b6972c701f17a1c0bb129e20fbb1c0",
    "size_bytes": 68
+  },
+  {
+   "destination": "lists/nz-antigravity.txt",
+   "source_path": "config/lists/antigravity.txt",
+   "sha256": "579b527f2405bd9e978b00117b8129a5d1ee7e78813aecb1758767a4184828f5",
+   "size_bytes": 531
   },
   {
    "destination": "lists/nz-apple.txt",
@@ -349,8 +355,8 @@
   {
    "destination": "lists/nz-gemini.txt",
    "source_path": "config/lists/gemini.txt",
-   "sha256": "629930f2ea412eea1dbe9c0d66cd4dbbc8bd3f9fd3d97b7a7227cbbfa1c4605c",
-   "size_bytes": 1293
+   "sha256": "5766babf0f0a669872991d2ce1a507a847846f0fe81cf57e06fdf64cda648a46",
+   "size_bytes": 1285
   },
   {
    "destination": "lists/nz-gog.txt",
@@ -747,6 +753,12 @@
    "source_path": "vendor/zapret-gui/lists/tiktok.txt",
    "sha256": "7169d3a00ee86df654e795d25eef0bf849adfb7a19fb75793d874b807875a090",
    "size_bytes": 333
+  },
+  {
+   "destination": "lua/nz-video.lua",
+   "source_path": "config/lua/video.lua",
+   "sha256": "4509cdb698c11241a82a7bb66a5aaea6411b5cbb63937fee6264f516364023b2",
+   "size_bytes": 26577
   }
  ]
 }
