@@ -11,6 +11,10 @@ on:
       - assets/desync/**
       - tools/desync-core/external_dpi_probe.py
       - tools/desync-core/test_external_dpi_probe.py
+      - tools/desync-core/ochistka_dpi_check.py
+      - tools/desync-core/test_ochistka_dpi_check.py
+      - tools/desync-core/package/**
+      - .github/workflows/build-desync-diagnostic-package.yml
       - .github/workflows/validate-desync-pin.yml
 
 permissions:
@@ -27,7 +31,7 @@ jobs:
       - name: Test core and platform
         run: cargo test -p ochistka-core -p ochistka-platform --lib
       - name: Offline external probe safety tests (no network / no driver)
-        run: python3 -m unittest discover -s tools/desync-core -p 'test_external_dpi_probe.py' -q
+        run: python3 -m unittest discover -s tools/desync-core -p 'test_*.py' -q
 
   windows-offline:
     # Only Python unit tests and no-op planning. Never --execute or start WinDivert.
@@ -38,7 +42,7 @@ jobs:
       - name: Offline probe safety tests on Windows (no driver)
         shell: pwsh
         run: |
-          python -m unittest discover -s tools/desync-core -p 'test_external_dpi_probe.py' -q
+          python -m unittest discover -s tools/desync-core -p 'test_*.py' -q
           if ($LASTEXITCODE -ne 0) { throw 'Offline probe tests failed on Windows' }
       - name: Plan-only mode (no network and no driver)
         shell: pwsh

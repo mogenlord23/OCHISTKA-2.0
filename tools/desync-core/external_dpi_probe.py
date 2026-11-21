@@ -33,7 +33,12 @@ PINNED_FILES = {
     "WinDivert.dll": "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2",
     "WinDivert64.sys": "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2",
 }
-LUA_FILES = ("zapret-lib.lua", "zapret-antidpi.lua")
+LUA_PINNED = {
+    # Unmodified bol-van/zapret2@1eb4fd88 scripts (same files as assets/desync and the Rust adapter).
+    "zapret-lib.lua": "79046853613128d8fcba19921a90ec91187f877ead6b893b155c1d7f7804e74e",
+    "zapret-antidpi.lua": "ff6165a12d37915a98caef6462fe5bdd0138e567e447d1f65e33b5bb4e398424",
+}
+LUA_FILES = tuple(LUA_PINNED)
 PORT = 443
 TIMEOUT_SECONDS = 7.0
 STARTUP_SECONDS = 12.0
@@ -176,17 +181,34 @@ def verify_release_files(path: pathlib.Path) -> None:
             raise RuntimeError(f"Pinned SHA-256 mismatch: {filename}")
 
 
-def prepare_runtime(bundle: pathlib.Path, runtime: pathlib.Path) -> pathlib.Path:
+def lua_source_dir() -> pathlib.Path:
+    """Repository checkout, or the `assets/desync` folder next to a packaged executable."""
+    if getattr(sys, "frozen", False):
+        return pathlib.Path(sys.executable).resolve().parent / "assets" / "desync"
+    return pathlib.Path(__file__).resolve().parents[2] / "assets" / "desync"
+
+
+def verify_lua_files(folder: pathlib.Path) -> None:
+    for name, expected in LUA_PINNED.items():
+        target = folder / name
+        if not target.is_file() or target.is_symlink():
+            raise RuntimeError(f"Missing original Lua: {name}")
+        if file_sha256(target) != expected:
+            raise RuntimeError(f"Pinned SHA-256 mismatch (Lua): {name}")
+
+
+def prepare_runtime(
+    bundle: pathlib.Path, runtime: pathlib.Path, lua_dir: pathlib.Path | None = None
+) -> pathlib.Path:
     verify_release_files(bundle)
-    repo_root = pathlib.Path(__file__).resolve().parents[2]
+    source_dir = lua_dir if lua_dir is not None else lua_source_dir()
+    verify_lua_files(source_dir)
     for name in PINNED_FILES:
         shutil.copyfile(bundle / name, runtime / name)
     for name in LUA_FILES:
-        source = repo_root / "assets" / "desync" / name
-        if not source.is_file() or source.is_symlink():
-            raise RuntimeError(f"Missing checked-in original Lua: {name}")
-        shutil.copyfile(source, runtime / name)
+        shutil.copyfile(source_dir / name, runtime / name)
     verify_release_files(runtime)
+    verify_lua_files(runtime)
     return runtime / "winws2.exe"
 
 
