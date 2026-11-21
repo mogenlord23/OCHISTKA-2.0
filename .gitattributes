@@ -2,3 +2,4 @@
 # Prevent Git for Windows from converting LF into CRLF during checkout.
 assets/desync/*.lua text eol=lf
 assets/desync/presets/*.txt text eol=lf
+assets/desync/runtime/** -text
