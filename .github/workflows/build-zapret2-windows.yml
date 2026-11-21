@@ -64,35 +64,72 @@ jobs:
             make
             zlib-devel
 
-      - name: Build LuaJIT (static, as in the official build.yml)
-        shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
-        env:
-          MINSIZE: -Os -flto=auto -ffunction-sections -fdata-sections
-          LDMINSIZE: -Wl,--gc-sections -flto=auto
+      - name: Write build scripts (LF line endings, UTF-8 without BOM)
+        shell: pwsh
         run: |
+          # Скрипты Bash создаются здесь с явными окончаниями LF: временные файлы шагов Actions
+          # на Windows имеют CRLF, и Cygwin Bash читает «\r» как часть команды.
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          $common = @'
+          set -eo pipefail
+          WS="$(cd "$(dirname "$0")/.." && pwd)"
+          # Проверка рабочей папки до компиляции.
+          case "$WS" in *[[:cntrl:]]*) echo "В пути рабочей папки есть управляющие символы"; exit 1;; esac
+          test -d "$WS/zapret2/nfq2" || { echo "Нет папки zapret2/nfq2 в $WS"; exit 1; }
+          test -d "$WS/luajit2" || { echo "Нет папки luajit2 в $WS"; exit 1; }
           export MAKEFLAGS=-j$(nproc)
-          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')"
+          '@
+          $luajit = $common + @'
+          MINSIZE="-Os -flto=auto -ffunction-sections -fdata-sections"
+          LDMINSIZE="-Wl,--gc-sections -flto=auto"
+          cd "$WS"
           make -C luajit2 BUILDMODE=static XCFLAGS="-DLUAJIT_USE_SYSMALLOC -DLUAJIT_DISABLE_FFI -ffat-lto-objects" TARGET_CFLAGS="$MINSIZE $CFLAGS" TARGET_LDFLAGS="$LDMINSIZE $LDFLAGS"
           make -C luajit2 install
-
-      - name: Build winws2.exe (make cygwin64)
-        shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
-        run: |
-          export MAKEFLAGS=-j$(nproc)
+          '@
+          $winws = $common + @'
           export CFLAGS="-DZAPRET_GH_VER=ochistka-build -DZAPRET_GH_HASH=$ZAPRET2_COMMIT"
-          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')/zapret2"
+          cd "$WS/zapret2"
           make -C nfq2 cygwin64
           test -f nfq2/winws2.exe
-
-      - name: Collect Cygwin runtime and package versions
-        shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
-        run: |
-          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')"
+          '@
+          $collect = $common + @'
+          cd "$WS"
           mkdir -p output
           cp -a zapret2/nfq2/winws2.exe output/
           cp -a /usr/bin/cygwin1.dll output/
           cygcheck -c cygwin gcc-core make zlib-devel > output/cygwin-packages.txt
           uname -r > output/cygwin-version.txt
+          '@
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          foreach ($pair in @(@('luajit.sh', $luajit), @('winws.sh', $winws), @('collect.sh', $collect))) {
+            $text = $pair[1].Replace("`r`n", "`n").Replace("`r", "`n")
+            [IO.File]::WriteAllText((Join-Path "$env:GITHUB_WORKSPACE\build" $pair[0]), $text, $utf8)
+          }
+          # Проверка: в файлах нет CR.
+          foreach ($n in 'luajit.sh', 'winws.sh', 'collect.sh') {
+            if ([IO.File]::ReadAllText((Join-Path "$env:GITHUB_WORKSPACE\build" $n)).Contains("`r")) { throw "$n содержит CR" }
+          }
+
+      - name: Build LuaJIT (static, as in the official build.yml)
+        shell: pwsh
+        run: |
+          $sh = (& C:\cygwin\bin\cygpath.exe -u "$env:GITHUB_WORKSPACE\build\luajit.sh").Trim()
+          & C:\cygwin\bin\bash.exe $sh
+          if ($LASTEXITCODE -ne 0) { throw "LuaJIT: код $LASTEXITCODE" }
+
+      - name: Build winws2.exe (make cygwin64)
+        shell: pwsh
+        run: |
+          $sh = (& C:\cygwin\bin\cygpath.exe -u "$env:GITHUB_WORKSPACE\build\winws.sh").Trim()
+          & C:\cygwin\bin\bash.exe $sh
+          if ($LASTEXITCODE -ne 0) { throw "winws2: код $LASTEXITCODE" }
+
+      - name: Collect Cygwin runtime and package versions
+        shell: pwsh
+        run: |
+          $sh = (& C:\cygwin\bin\cygpath.exe -u "$env:GITHUB_WORKSPACE\build\collect.sh").Trim()
+          & C:\cygwin\bin\bash.exe $sh
+          if ($LASTEXITCODE -ne 0) { throw "Сбор файлов: код $LASTEXITCODE" }
 
       - name: Get WinDivert 2.2.2 (official release), verify, collect
         shell: pwsh
