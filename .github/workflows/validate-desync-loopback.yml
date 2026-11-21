@@ -67,8 +67,7 @@ jobs:
       # a deliberately injected fake HTTP request is not expected to be tolerated
       # by a synthetic local server. Keep disruptive tests manual-only.
       - name: Experimental fake-only probe (manual diagnostic only)
-        if: github.event_name == 'workflow_dispatch' && inputs.experimental_mode == 'full'
-        continue-on-error: true && inputs.experimental_mode == 'fake'
+        if: github.event_name == 'workflow_dispatch' && inputs.experimental_mode == 'fake'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -78,7 +77,8 @@ jobs:
       # Full candidate also drops the original payload after altered segments.
       # This is NOT an application readiness test; do not auto-enable the profile.
       - name: Experimental full fake/multisplit test (manual diagnostic only)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.experimental_mode == 'full'
+        continue-on-error: true
         shell: pwsh
         run: |
           python tools/desync-core/loopback_candidate.py verified-winws2 full
