@@ -12,6 +12,16 @@ on:
       - tools/desync-core/loopback_smoke.py
       - tools/desync-core/loopback_candidate.py
   workflow_dispatch:
+    inputs:
+      experimental_mode:
+        description: "Optional localhost experiment (NOT an external DPI test)"
+        type: choice
+        required: true
+        default: "none"
+        options:
+          - none
+          - fake
+          - full
 
 permissions:
   contents: read
@@ -53,11 +63,13 @@ jobs:
           python tools/desync-core/loopback_candidate.py verified-winws2 noop
           if ($LASTEXITCODE -ne 0) { throw 'Isolated Lua packet callback test failed' }
 
-      # On loopback, even upstream fake() alone makes the localhost request time out:
+      # Opt-in only: on loopback, even upstream fake() alone makes localhost time out:
       # a deliberately injected fake HTTP request is not expected to be tolerated
       # by a synthetic local server. Keep disruptive tests manual-only.
       - name: Experimental fake-only probe (manual diagnostic only)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.experimental_mode == 'full'
+        continue-on-error: true && inputs.experimental_mode == 'fake'
+        continue-on-error: true
         shell: pwsh
         run: |
           python tools/desync-core/loopback_candidate.py verified-winws2 fake
