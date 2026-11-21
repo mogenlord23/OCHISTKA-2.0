@@ -29,3 +29,7 @@
 ## Roboto Flex (SIL OFL 1.1)
 
 `apps/desktop/src/assets/fonts/RobotoFlex-OCHISTKA.woff2` — переменный шрифт Roboto Flex (Google Fonts, https://github.com/googlefonts/roboto-flex), урезанный Google Fonts до букв O, C, H, I, S, T, K, A (оси wght 100–1000 и opsz). Нужен для эффекта Variable Proximity на слове OCHISTKA. Лицензия SIL Open Font License 1.1: встраивание разрешено.
+
+## Uiverse.io — «smart-emu-83» (vinodjangid07)
+
+Принцип движения кнопок «Программы → Установленные» (`ExpandButton.svelte`) и контур корзины взяты из https://uiverse.io/vinodjangid07/smart-emu-83 (исходник: github.com/uiverse-io/galaxy, `Buttons/vinodjangid07_smart-emu-83.html`). Лицензия MIT (© vinodjangid07, Uiverse.io): разрешено использовать, изменять и распространять при сохранении этого уведомления; программа поставляется «как есть», без гарантий.

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ExpandButton from './ExpandButton.svelte';
   import FloatingField from './FloatingField.svelte';
   import { tick, untrack } from 'svelte';
   import AppIcon from './AppIcon.svelte';
@@ -311,6 +312,17 @@
     const path = commandExePath(entry.command);
     return path ? () => getIcon(path) : null;
   }
+
+  /** Контуры иконок четырёх кнопок (Material-стиль; корзина — из smart-emu-83, MIT). */
+  const ICONS = {
+    refresh:
+      'M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+    folder: 'M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z',
+    explorer:
+      'M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+    trash:
+      'M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z',
+  } as const;
 </script>
 
 {#snippet messages()}
@@ -354,40 +366,52 @@
     </div>
 
     <div class="buttons">
-      <button type="button" onclick={() => void loadInstalled()} disabled={loading}>Обновить</button
-      >
-      <button
-        type="button"
+      <ExpandButton
+        icon={ICONS.refresh}
+        label="Обновить"
+        name="Обновить"
+        width={96}
+        onclick={() => void loadInstalled()}
+        disabled={loading}
+      />
+      <ExpandButton
+        icon={ICONS.folder}
+        label="Размер папки"
+        name="Размер папки"
+        width={112}
         onclick={() => selected && void measure(selected)}
         disabled={!selected || measuring || selectedBlock !== null}
         title={!selected ? NONE_SELECTED : (selectedBlock ?? 'Посчитать размер папки')}
         aria-describedby={selectedBlock ? 'measure-reason' : undefined}
-      >
-        Размер папки
-      </button>
-      <button
-        type="button"
+      />
+      <ExpandButton
+        icon={ICONS.explorer}
+        label="Проводник"
+        name="Показать в Проводнике"
+        width={104}
         disabled={!selected || !selected.installLocation}
         title={!selected
           ? NONE_SELECTED
           : selected.installLocation
             ? 'Показать папку программы в Проводнике'
             : 'Папка установки в реестре не указана'}
-        onclick={() => selected && void showPath(selected)}>Показать в Проводнике</button
-      >
+        onclick={() => selected && void showPath(selected)}
+      />
       {#if measuring}
         <button type="button" onclick={() => void stop()}>Стоп</button>
       {/if}
-      <button
-        type="button"
-        class="danger"
+      <ExpandButton
+        icon={ICONS.trash}
+        viewBox="0 0 448 512"
+        label="Удалить"
+        name="Удалить"
+        width={88}
+        danger
         disabled={uninstallBlock(selected) !== null}
         title={uninstallBlock(selected) ?? 'Запустить штатное удаление программы'}
         aria-describedby="delete-reason"
         onclick={() => selected && askUninstall(selected)}
-      >
-        Удалить
-      </button>
+      />
     </div>
 
     <p class="status-line" aria-live="polite">
