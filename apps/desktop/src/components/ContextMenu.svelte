@@ -7,6 +7,8 @@
     disabled?: boolean;
     /** Почему пункт выключен: показывается подсказкой. */
     reason?: string | null;
+    /** Выбранный вариант (меню-список): отмечается мягкой подсветкой. */
+    checked?: boolean;
   }
 
   let {
@@ -14,6 +16,7 @@
     x,
     y,
     label,
+    minWidth,
     onselect,
     onclose,
   }: {
@@ -21,6 +24,8 @@
     x: number;
     y: number;
     label: string;
+    /** Минимальная ширина, px (например, по ширине кнопки-источника). */
+    minWidth?: number;
     onselect: (id: string) => void;
     onclose: () => void;
   } = $props();
@@ -54,7 +59,8 @@
       left = screenX - originX;
       top = screenY - originY;
       placed = true;
-      (buttons().find((button) => !button.disabled) ?? menu).focus();
+      // Фокус — только после показа: у скрытого (visibility: hidden) меню он не ставится.
+      void tick().then(() => (buttons().find((button) => !button.disabled) ?? menu)?.focus());
     });
     const onPointer = (event: PointerEvent) => {
       if (menu && !menu.contains(event.target as Node)) onclose();
@@ -109,13 +115,17 @@
   bind:this={menu}
   style:left="{left}px"
   style:top="{top}px"
+  style:min-width={minWidth ? `${minWidth}px` : undefined}
+  style:box-sizing={minWidth ? 'border-box' : undefined}
   onkeydown={onKey}
 >
   {#each items as item (item.id)}
     <button
       type="button"
-      role="menuitem"
+      role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+      aria-checked={item.checked === undefined ? undefined : item.checked}
       class="item"
+      class:checked={item.checked}
       disabled={item.disabled}
       title={item.disabled ? (item.reason ?? undefined) : undefined}
       onclick={() => onselect(item.id)}
@@ -169,6 +179,9 @@
   }
   .item:focus-visible {
     box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  .item.checked {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
   .item:disabled {
     color: var(--muted);

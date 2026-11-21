@@ -1,6 +1,7 @@
 <script lang="ts">
   import SecretField from './SecretField.svelte';
   import Subtabs from './Subtabs.svelte';
+  import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import { SECTIONS } from '../lib/sections';
   import { onMount } from 'svelte';
   import poster from '../assets/pop-art.png';
@@ -27,6 +28,7 @@
     toolStateText,
     type ToolModel,
     statusLine,
+    NO_SERVERS_REASON,
   } from '../lib/vpn';
   import {
     vpnConnect,
@@ -111,8 +113,39 @@
         ? 'Скачиваем нужные файлы: это нужно один раз'
         : importing
           ? IMPORTING_LABEL
-          : statusLine(snapshot?.connection ?? null, ui.reason)),
+          : statusLine(
+              snapshot?.connection ?? null,
+              ui.reason === NO_SERVERS_REASON ? null : ui.reason,
+            )),
   );
+
+  /** Режим подключения: работает только системный прокси; TUN выключен и объяснён. */
+  let modeMenu = $state<{ x: number; y: number; width: number } | null>(null);
+  let modeButton = $state<HTMLButtonElement | null>(null);
+  const MODE_ITEMS: MenuItem[] = [
+    { id: 'proxy', label: 'Системный прокси · совместимые приложения', checked: true },
+    {
+      id: 'tun',
+      label: 'TUN · весь компьютер (скоро)',
+      checked: false,
+      disabled: true,
+      reason: TUN_MODE_REASON,
+    },
+  ];
+
+  function openModeMenu() {
+    if (modeMenu) {
+      closeModeMenu();
+      return;
+    }
+    const rect = modeButton?.getBoundingClientRect();
+    if (rect) modeMenu = { x: rect.left, y: rect.bottom + 4, width: rect.width };
+  }
+
+  function closeModeMenu() {
+    modeMenu = null;
+    modeButton?.focus();
+  }
 
   async function refresh() {
     try {
@@ -363,13 +396,13 @@
                 aria-pressed={ui.pressed}
                 aria-busy={ui.busy}
                 aria-label={ui.label}
+                title={ui.reason ?? undefined}
                 aria-disabled={ui.disabled}
                 onclick={onConnect}
               >
                 <span class="power-knob" aria-hidden="true"></span>
               </button>
               <div class="power-text">
-                <span class="power-label">{ui.label}</span>
                 {#if preparing !== null}
                   <span
                     class="prepare-bar"
@@ -388,14 +421,32 @@
                 <span class="status-line" role="status">{status}</span>
               </div>
             </div>
-            <label class="select">
-              <span class="hidden">Режим</span>
-              <select aria-describedby="vpn-tun-reason" aria-label="Режим">
-                <option value="proxy">Системный прокси · совместимые приложения</option>
-                <option value="tun" disabled>TUN · весь компьютер (скоро)</option>
-              </select>
-              <span class="chev" aria-hidden="true"></span>
-            </label>
+            <div class="select">
+              <button
+                type="button"
+                class="mode"
+                bind:this={modeButton}
+                aria-haspopup="menu"
+                aria-expanded={modeMenu !== null}
+                aria-label="Режим"
+                aria-describedby="vpn-tun-reason"
+                onclick={openModeMenu}
+              >
+                <span>Системный прокси · совместимые приложения</span>
+                <span class="chev" class:open={modeMenu !== null} aria-hidden="true"></span>
+              </button>
+            </div>
+            {#if modeMenu}
+              <ContextMenu
+                items={MODE_ITEMS}
+                x={modeMenu.x}
+                y={modeMenu.y}
+                minWidth={modeMenu.width}
+                label="Режим подключения"
+                onselect={closeModeMenu}
+                onclose={closeModeMenu}
+              />
+            {/if}
             <p class="note" id="vpn-tun-reason">
               {TUN_MODE_REASON}. Прежние настройки прокси Windows возвращаются при отключении.
             </p>
@@ -864,13 +915,6 @@
     gap: 2px;
   }
 
-  .power-label {
-    font-size: var(--text-caption);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-
   .prepare-bar {
     display: block;
     width: 100%;
@@ -890,8 +934,10 @@
 
   .timer {
     font-variant-numeric: tabular-nums;
-    font-size: 1.6rem;
-    font-weight: 800;
+    font-size: 2.1rem;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: 0.01em;
     color: var(--ink);
   }
 
@@ -905,16 +951,22 @@
     display: block;
   }
 
-  select {
+  .mode {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: var(--radius-sm);
-    background: #141414;
+    background: var(--black);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     color: var(--ink);
     font: inherit;
     font-size: var(--text-caption);
-    appearance: none;
+    text-align: left;
+    cursor: pointer;
   }
 
   .chev {
@@ -926,6 +978,12 @@
     border-right: 2px solid var(--accent);
     border-bottom: 2px solid var(--accent);
     transform: rotate(45deg);
+    transition: transform 0.2s;
+  }
+
+  .chev.open {
+    top: 17px;
+    transform: rotate(-135deg);
   }
 
   .servers-card {

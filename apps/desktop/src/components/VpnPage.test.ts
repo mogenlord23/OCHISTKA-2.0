@@ -233,10 +233,11 @@ describe('VpnPage: подписка и импорт', () => {
 });
 
 describe('VpnPage: подключение и серверы', () => {
-  it('without servers the connect button is disabled and says why', async () => {
+  it('without servers the connect button is disabled; the reason is a tooltip, not clutter', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText(NO_SERVERS_REASON);
-    const toggle = screen.getByRole('button', { name: 'Подключить' });
+    const toggle = await screen.findByRole('button', { name: 'Подключить' });
+    expect(toggle.getAttribute('title')).toBe(NO_SERVERS_REASON);
+    expect(screen.queryByText(NO_SERVERS_REASON)).toBeNull();
     expect(toggle.getAttribute('aria-disabled')).toBe('true');
     await fireEvent.click(toggle);
     expect(calls('vpn_connect')).toHaveLength(0);
@@ -363,9 +364,16 @@ describe('VpnPage: подключение и серверы', () => {
 
   it('keeps TUN unavailable with its reason, system proxy is the working mode', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
-    const mode = screen.getByRole('combobox', { name: 'Режим' }) as HTMLSelectElement;
-    expect(mode.value).toBe('proxy');
-    expect((mode.querySelector('option[value="tun"]') as HTMLOptionElement).disabled).toBe(true);
+    const mode = screen.getByRole('button', { name: 'Режим' });
+    expect(mode.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(mode);
+    expect(mode.getAttribute('aria-expanded')).toBe('true');
+    const proxy = screen.getByRole('menuitemradio', { name: /Системный прокси/ });
+    expect(proxy.getAttribute('aria-checked')).toBe('true');
+    const tun = screen.getByRole('menuitemradio', { name: /TUN/ }) as HTMLButtonElement;
+    expect(tun.disabled).toBe(true);
+    await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.getByText(TUN_MODE_REASON, { exact: false })).toBeTruthy();
   });
 
