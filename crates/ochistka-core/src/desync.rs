@@ -265,9 +265,9 @@ pub enum DesyncError {
     Unavailable(String),
     #[error("Сначала отключите VPN: пока обход и VPN вместе не работают")]
     VpnRunning,
-    #[error("Профиль обхода пока не подтверждён, включение недоступно")]
+    #[error("Обход пока недоступен в этой версии")]
     NoProfile,
-    #[error("Компоненты обхода не подготовлены: {0}")]
+    #[error("Файлы для обхода не готовы. Повторите попытку позже")]
     NotPrepared(String),
     #[error("Для обхода нужны права администратора")]
     NeedsAdmin,
@@ -277,11 +277,12 @@ pub enum DesyncError {
     /// Сервисы и так доступны напрямую или через VPN: перехват не нужен.
     #[error("{0}")]
     NotNeeded(String),
-    #[error("Не удалось надёжно остановить обход: {0}")]
+    /// Текст для человека; подробности пишутся в журнал, а не показываются.
+    #[error("{0}")]
     Stop(String),
-    #[error("Не удалось подготовить компоненты: {0}")]
+    #[error("Не удалось подготовить файлы для обхода: {0}")]
     Prepare(String),
-    #[error("Не удалось запустить обход: {0}")]
+    #[error("Не удалось включить обход. Повторите попытку")]
     Start(String),
 }
 
@@ -307,6 +308,8 @@ pub enum DriverState {
 
 /// Короткая причина для интерфейса, если драйвер не остановился.
 pub const DRIVER_NOT_STOPPED: &str = "Драйвер не остановлен, перезагрузите компьютер";
+/// Не удалось остановить обход (процесс не завершился).
+pub const STOP_FAILED: &str = "Не удалось выключить обход, перезагрузите компьютер";
 
 /// Файл состояния обхода в папке данных: помнит, что службу драйвера запустила программа.
 const STATE_FILE: &str = "desync-state.json";
@@ -319,7 +322,7 @@ pub trait DesyncAdapter: Send + Sync {
     /// Готовность ТОЛЬКО для явного пробного запуска. Обычную `readiness()` не меняет и не
     /// разблокирует переключатель. По умолчанию пробный режим недоступен.
     fn trial_readiness(&self) -> Readiness {
-        Readiness::NotImplemented("Пробный режим недоступен на этой системе".into())
+        Readiness::NotImplemented("Обход блокировок пока недоступен на этой системе".into())
     }
     /// Путь к движку (`winws2` или `nfqws2`), если все компоненты на месте и их хэши совпали.
     fn locate(&self) -> Result<PathBuf, String>;
@@ -996,12 +999,12 @@ impl DesyncService {
     ) -> Result<(), DesyncError> {
         if !consent {
             return Err(DesyncError::NotAllowed(
-                "Для пробного запуска нужно ваше явное согласие".into(),
+                "Нужно подтверждение: нажмите на переключатель".into(),
             ));
         }
         if self.adapter.platform() != Platform::Windows {
             return Err(DesyncError::Unavailable(
-                "Пробный запуск доступен только в Windows".into(),
+                "Обход блокировок работает только в Windows".into(),
             ));
         }
         let Some(profile) = self.candidate.clone() else {
@@ -1035,9 +1038,7 @@ impl DesyncService {
             return Err(DesyncError::Busy);
         };
         if self.status().0 == DesyncState::Running {
-            return Err(DesyncError::NotAllowed(
-                "Пробный запуск уже идёт: второй экземпляр не создаётся".into(),
-            ));
+            return Err(DesyncError::NotAllowed("Обход уже включён".into()));
         }
         if lock(&self.inner).process.is_some() {
             // Прошлый процесс не остановлен: нового запуска нет, пока это не устранено.
@@ -1142,9 +1143,9 @@ impl DesyncService {
             return false;
         }
         let why = if expired {
-            "Пробный запуск остановлен: истекло время"
+            "Обход выключился: прошло 120 секунд"
         } else {
-            "Пробный запуск остановлен: процесс завершился сам"
+            "Обход остановился сам"
         };
         match self.stop_trial() {
             Ok(()) => {
@@ -1189,7 +1190,8 @@ impl DesyncService {
                         .into();
                 drop(inner);
                 self.coord.mark_unclean(coordinator::Owner::Desync);
-                return Err(DesyncError::Stop("процесс не завершился".into()));
+                self.log_text("остановка: процесс не завершился");
+                return Err(DesyncError::Stop(STOP_FAILED.into()));
             }
         }
         let _ = std::fs::remove_file(self.pid_file());
@@ -1255,9 +1257,9 @@ impl DesyncService {
                     .into(),
             )
         } else if self.adapter.platform() != Platform::Windows {
-            Some("Пробный запуск доступен только в Windows".into())
+            Some("Обход блокировок работает только в Windows".into())
         } else if self.candidate.is_none() {
-            Some("Профиль NetZapret недоступен в этой сборке".into())
+            Some("Обход недоступен в этой версии".into())
         } else {
             match self.adapter.trial_readiness() {
                 Readiness::Ready if !self.adapter.has_privileges() => {
@@ -1333,7 +1335,10 @@ impl DesyncService {
         if !self.driver_marked() {
             return Ok(());
         }
-        let fail = |why: String| DesyncError::Stop(format!("{DRIVER_NOT_STOPPED} ({why})"));
+        let fail = |why: String| {
+            self.log_text(&format!("драйвер не остановлен: {why}"));
+            DesyncError::Stop(DRIVER_NOT_STOPPED.into())
+        };
         match self.adapter.driver_state() {
             DriverState::NotApplicable | DriverState::Absent | DriverState::Stopped => {
                 self.set_driver_mark(false);
@@ -1827,8 +1832,11 @@ mod tests {
         flags.present.store(true, Ordering::SeqCst);
         flags.exited.store(true, Ordering::SeqCst);
         let s = make(&flags, good, true, false);
-        let err = s.start(&mut |_| {}).unwrap_err().to_string();
-        assert!(err.contains("сразу после запуска"), "{err}");
+        let err = s.start(&mut |_| {}).unwrap_err();
+        assert!(
+            matches!(&err, DesyncError::Start(d) if d.contains("сразу после запуска")),
+            "{err:?}"
+        );
         assert!(!s.pid_file().exists());
     }
 
@@ -2204,7 +2212,7 @@ mod tests {
         let late = std::time::Instant::now() + Duration::from_secs(121);
         assert!(s.tick(late));
         assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
-        assert!(s.trial_status(late).message.contains("истекло время"));
+        assert!(s.trial_status(late).message.contains("прошло 120 секунд"));
         s.coord.begin(coordinator::Owner::Vpn).unwrap();
     }
 
@@ -3439,6 +3447,95 @@ mod tests {
         s.recover_on_start();
         assert_eq!(s.status().0, DesyncState::Off);
         assert_eq!(flags.driver_stops.load(Ordering::SeqCst), 0);
+    }
+
+    // ----- тексты пользователю без технических слов -----
+
+    fn assert_plain(text: &str) {
+        let t = text.to_lowercase();
+        for bad in ["замер", "базов", "служб", "порт", "sha", "пресет", "движок"]
+        {
+            assert!(!t.contains(bad), "{text:?}: {bad}");
+        }
+        if t.contains("драйвер") {
+            assert!(
+                text == DRIVER_NOT_STOPPED,
+                "слово «драйвер» допустимо только в фразе {DRIVER_NOT_STOPPED:?}: {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_text_the_user_can_see_is_free_of_technical_words() {
+        // Ошибки (то, что команды возвращают интерфейсу).
+        for e in [
+            DesyncError::Busy,
+            DesyncError::VpnRunning,
+            DesyncError::NoProfile,
+            DesyncError::NotPrepared("x".into()),
+            DesyncError::NeedsAdmin,
+            DesyncError::Stop(STOP_FAILED.into()),
+            DesyncError::Stop(DRIVER_NOT_STOPPED.into()),
+            DesyncError::Start("x".into()),
+            DesyncError::NotAllowed("Нужно подтверждение: нажмите на переключатель".into()),
+        ] {
+            assert_plain(&e.to_string());
+        }
+        for t in [
+            speed::NOT_SLOWER_MESSAGE,
+            speed::NO_COMPARE_MESSAGE,
+            speed::NO_INTERNET_MESSAGE,
+            user_sites::SiteError::Invalid.to_string().as_str(),
+            user_sites::SiteError::TooMany.to_string().as_str(),
+            user_sites::SiteError::Save.to_string().as_str(),
+        ] {
+            assert_plain(t);
+        }
+        // Причины «недоступно» и сообщения жизненного цикла, как их видит интерфейс.
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        assert_plain(
+            &s.trial_status(std::time::Instant::now())
+                .unavailable
+                .unwrap_or_default(),
+        );
+        assert_plain(&s.start_trial(false, &mut |_| {}).unwrap_err().to_string());
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_plain(&s.start_trial(true, &mut |_| {}).unwrap_err().to_string());
+        assert_plain(&s.trial_status(std::time::Instant::now()).message);
+        let late = std::time::Instant::now() + Duration::from_secs(121);
+        assert!(s.tick(late));
+        assert_plain(&s.trial_status(late).message);
+        // Не Windows и неготовый адаптер.
+        let unavailable = DesyncService::new(
+            temp_dir(),
+            Box::new(UnavailableAdapter::new(Platform::Linux)),
+            Box::new(routing::VpnSignal::default),
+        );
+        let unavailable = Arc::new(unavailable);
+        assert_plain(
+            &unavailable
+                .start_trial(true, &mut |_| {})
+                .unwrap_err()
+                .to_string(),
+        );
+        assert_plain(
+            &unavailable
+                .trial_status(std::time::Instant::now())
+                .unavailable
+                .unwrap_or_default(),
+        );
+        // Откат по скорости: причина с названиями сайтов и цифрами.
+        let base = Timing::done(ms(300), ms(900));
+        let slow = Timing::done(ms(300), ms(3200));
+        let s = speed_service(&flags, speed_fake3(base, slow, slow));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert_plain(
+            &s.trial_status(std::time::Instant::now())
+                .speed_note
+                .unwrap(),
+        );
     }
 
     #[test]

@@ -353,7 +353,7 @@ impl DesyncAdapter for WindowsDesyncAdapter {
 
     fn readiness(&self) -> Readiness {
         if !cfg!(windows) {
-            return Readiness::NotImplemented("Эта сборка не для Windows".into());
+            return Readiness::NotImplemented("Обход блокировок работает только в Windows".into());
         }
         match self.spec {
             None => Readiness::NotImplemented(
@@ -374,16 +374,16 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     /// `readiness()` это не меняет.
     fn trial_readiness(&self) -> Readiness {
         if !cfg!(windows) {
-            return Readiness::NotImplemented("Эта сборка не для Windows".into());
+            return Readiness::NotImplemented("Обход блокировок работает только в Windows".into());
         }
         if self.spec.is_none() {
             return Readiness::NotImplemented(
-                "Файлы движка не закреплены: пробный запуск недоступен".into(),
+                "Обход временно недоступен: не хватает файлов".into(),
             );
         }
         if !embedded_resources_intact() {
             return Readiness::NotImplemented(
-                "Встроенные файлы пресета не прошли проверку SHA-256".into(),
+                "Обход временно недоступен: файлы повреждены, переустановите программу".into(),
             );
         }
         Readiness::Ready
@@ -625,6 +625,18 @@ mod tests {
         assert!(!preset_assets_valid(&dir));
         install_preset_assets(&dir).unwrap();
         assert!(preset_assets_valid(&dir));
+    }
+
+    #[test]
+    fn readiness_reasons_shown_to_the_user_are_plain_words() {
+        let adapter = WindowsDesyncAdapter::with_spec(temp("plain"), None);
+        let Readiness::NotImplemented(reason) = adapter.trial_readiness() else {
+            panic!("без закреплённого движка обход недоступен");
+        };
+        let t = reason.to_lowercase();
+        for bad in ["sha", "пресет", "движок", "замер", "служб", "порт"] {
+            assert!(!t.contains(bad), "{reason}: {bad}");
+        }
     }
 
     #[test]
