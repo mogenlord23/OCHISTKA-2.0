@@ -1,0 +1,50 @@
+# Безопасная проверка Windows-адаптера и запуска winws2 --version.
+# НЕТ перехвата трафика, включения WinDivert, правок настроек ОС или пересборки Zapret.
+name: validate-desync-windows
+
+on:
+  push:
+    branches:
+      - claude/epic-knuth-0zhg19
+    paths:
+      - crates/ochistka-core/src/desync.rs
+      - crates/platform/src/desync.rs
+      - assets/desync/**
+      - .github/workflows/validate-desync-windows.yml
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify release ZIP, extract and run winws2 --version only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/mogenlord23/OCHISTKA-2.0/releases/download/zapret2-winws2-2026-11-21/zapret2-winws2-windows-x64.zip'
+          Invoke-WebRequest -Uri $url -OutFile zapret2-verified.zip -UseBasicParsing
+          $actual = (Get-FileHash zapret2-verified.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = '15bb46aca6904c674cb018250855398c60d7676079fd534832f1e4d87f07e04a'
+          if ($actual -ne $expected) { throw "Release ZIP SHA-256 mismatch" }
+          Expand-Archive zapret2-verified.zip -DestinationPath verified-winws2
+          foreach ($file in @('winws2.exe', 'cygwin1.dll', 'cygz.dll', 'WinDivert.dll', 'WinDivert64.sys')) {
+            if (-not (Test-Path "verified-winws2/$file")) { throw "Missing: $file" }
+          }
+          Push-Location verified-winws2
+          try {
+            & .\winws2.exe --version
+            if ($LASTEXITCODE -ne 0) { throw "winws2.exe --version exited with code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Rust Windows-only desync tests (no packet interception)
+        shell: pwsh
+        run: |
+          cargo test -p ochistka-core -p ochistka-platform desync --lib
+          if ($LASTEXITCODE -ne 0) { throw "Windows desync tests failed" }
