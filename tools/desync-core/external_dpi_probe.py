@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import hashlib
-import os
 import http.client
 import ipaddress
 import pathlib
@@ -52,10 +51,22 @@ def windows_executable(name: str) -> str:
     }
     if name not in paths:
         raise ValueError("Unexpected Windows helper")
-    root = pathlib.PureWindowsPath(os.environ.get("SystemRoot", r"C:\Windows"))
+    if sys.platform == "win32":
+        # SystemRoot is environment-controlled. Query the actual OS directory
+        # so an elevated diagnostic never executes binaries from a spoofed path.
+        import ctypes
+
+        directory = ctypes.create_unicode_buffer(1024)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(directory, len(directory))
+        if length <= 0 or length >= len(directory):
+            raise RuntimeError("Cannot locate the trusted Windows system directory")
+        root = pathlib.PureWindowsPath(directory.value)
+    else:
+        # Offline unit tests also run on Linux, never invoking these executables.
+        root = pathlib.PureWindowsPath(r"C:\Windows\System32")
     if not root.is_absolute():
         raise RuntimeError("Cannot resolve the trusted Windows system directory")
-    return str(root.joinpath("System32", *paths[name]))
+    return str(root.joinpath(*paths[name]))
 
 
 def checked_windows_output(name: str, *args: str) -> str:

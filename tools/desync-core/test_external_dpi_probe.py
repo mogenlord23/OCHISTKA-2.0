@@ -246,5 +246,15 @@ class SafetyTests(unittest.TestCase):
         client.close.assert_called_once()
 
 
+    def test_system_helper_cannot_be_redirected_via_systemroot(self) -> None:
+        import os
+        with mock.patch.dict(os.environ, {"SystemRoot": r"C:\Fake\System32"}):
+            trusted = module.windows_executable("tasklist.exe").lower()
+        self.assertTrue(trusted.endswith(r"\system32\tasklist.exe"))
+        self.assertNotIn("fake", trusted)
+        with self.assertRaises(ValueError):
+            module.windows_executable("cmd.exe")
+
+
 if __name__ == "__main__":
     unittest.main()
