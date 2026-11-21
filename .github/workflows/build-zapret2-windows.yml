@@ -58,6 +58,7 @@ jobs:
         uses: cygwin/cygwin-install-action@006ad0b0946ca6d0a3ea2d4437677fa767392401 # v4
         with:
           platform: x86_64
+          site: https://mirrors.kernel.org/sourceware/cygwin/
           packages: >-
             gcc-core
             make
@@ -70,7 +71,7 @@ jobs:
           LDMINSIZE: -Wl,--gc-sections -flto=auto
         run: |
           export MAKEFLAGS=-j$(nproc)
-          cd "$(cygpath "$GITHUB_WORKSPACE")"
+          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')"
           make -C luajit2 BUILDMODE=static XCFLAGS="-DLUAJIT_USE_SYSMALLOC -DLUAJIT_DISABLE_FFI -ffat-lto-objects" TARGET_CFLAGS="$MINSIZE $CFLAGS" TARGET_LDFLAGS="$LDMINSIZE $LDFLAGS"
           make -C luajit2 install
 
@@ -79,14 +80,14 @@ jobs:
         run: |
           export MAKEFLAGS=-j$(nproc)
           export CFLAGS="-DZAPRET_GH_VER=ochistka-build -DZAPRET_GH_HASH=$ZAPRET2_COMMIT"
-          cd "$(cygpath "$GITHUB_WORKSPACE")/zapret2"
+          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')/zapret2"
           make -C nfq2 cygwin64
           test -f nfq2/winws2.exe
 
       - name: Collect Cygwin runtime and package versions
         shell: C:\cygwin\bin\bash.exe -eo pipefail '{0}'
         run: |
-          cd "$(cygpath "$GITHUB_WORKSPACE")"
+          cd "$(cygpath -u "$GITHUB_WORKSPACE" | tr -d '\r')"
           mkdir -p output
           cp -a zapret2/nfq2/winws2.exe output/
           cp -a /usr/bin/cygwin1.dll output/
