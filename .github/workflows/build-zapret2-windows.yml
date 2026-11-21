@@ -63,6 +63,7 @@ jobs:
             gcc-core
             make
             zlib-devel
+            libintl-devel
 
       - name: Write build scripts (LF line endings, UTF-8 without BOM)
         shell: pwsh
@@ -89,6 +90,7 @@ jobs:
           $winws = $common + "`n" + @'
           export CFLAGS="-DZAPRET_GH_VER=ochistka-build -DZAPRET_GH_HASH=$ZAPRET2_COMMIT"
           cd "$WS/zapret2"
+          test -f /usr/lib/libintl.a || { echo "Нет /usr/lib/libintl.a (пакет libintl-devel)"; exit 1; }
           make -C nfq2 cygwin64
           test -f nfq2/winws2.exe
           '@
@@ -97,7 +99,7 @@ jobs:
           mkdir -p output
           cp -a zapret2/nfq2/winws2.exe output/
           cp -a /usr/bin/cygwin1.dll output/
-          cygcheck -c cygwin gcc-core make zlib-devel > output/cygwin-packages.txt
+          cygcheck -c cygwin gcc-core make zlib-devel libintl-devel > output/cygwin-packages.txt
           uname -r > output/cygwin-version.txt
           '@
           $utf8 = New-Object System.Text.UTF8Encoding($false)
