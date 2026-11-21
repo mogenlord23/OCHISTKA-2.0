@@ -23,6 +23,7 @@ use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use crate::vpn::spawn_logged;
 
 mod preset_assets;
+pub mod probe;
 
 use preset_assets::PINNED_RESOURCES;
 

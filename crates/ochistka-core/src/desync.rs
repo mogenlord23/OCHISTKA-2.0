@@ -13,6 +13,7 @@
 
 pub mod coordinator;
 pub mod preset;
+pub mod probe;
 pub mod routing;
 
 use std::path::{Path, PathBuf};
@@ -83,6 +84,7 @@ impl Engine {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Coverage {
     Sites,
+    Youtube,
     Discord,
     Telegram,
     Games,

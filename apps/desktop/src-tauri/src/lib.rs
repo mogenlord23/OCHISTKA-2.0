@@ -8,6 +8,7 @@ pub mod hardware;
 pub mod network;
 pub mod processes;
 pub mod programs;
+pub mod service_check;
 pub mod services;
 pub mod speedtest;
 pub mod tweaks;
@@ -74,6 +75,7 @@ pub fn run() {
             let desync_state = vpn::build_desync(&vpn_state, coord);
             app.manage(vpn_state);
             app.manage(desync_state);
+            app.manage(service_check::ProbeState::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -106,6 +108,7 @@ pub fn run() {
             network::geo_lookup,
             speedtest::speedtest_start,
             speedtest::speedtest_cancel,
+            service_check::service_check,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
