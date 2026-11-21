@@ -302,9 +302,14 @@ pub struct DesyncService {
     trial_limit: Duration,
     /// Сколько раз и как часто проверять, что процесс действительно завершился после остановки.
     stop_wait: (u32, Duration),
+    /// Сколько раз подряд повторять `kill()` за одну остановку.
+    kill_attempts: u32,
     inner: Mutex<Inner>,
     op: Mutex<()>,
 }
+
+/// Сколько неудачных остановок подряд таймер повторяет, прежде чем перестать (без бесконечных потоков).
+const MAX_FAILED_STOPS: u32 = 5;
 
 /// Максимальная длительность пробного запуска полного профиля.
 pub const TRIAL_LIMIT: Duration = Duration::from_secs(120);
@@ -320,6 +325,8 @@ pub enum TrialVerdict {
 struct TrialInner {
     deadline: Option<std::time::Instant>,
     generation: u64,
+    /// Сколько раз подряд таймер не смог остановить процесс (ограничивает повторы).
+    failed_stops: u32,
     notes: Vec<(Coverage, TrialVerdict)>,
 }
 
@@ -362,7 +369,8 @@ impl DesyncService {
             coord: Arc::new(coordinator::NetCoordinator::new()),
             trial: Mutex::new(TrialInner::default()),
             trial_limit: TRIAL_LIMIT,
-            stop_wait: (50, Duration::from_millis(40)),
+            stop_wait: (25, Duration::from_millis(40)),
+            kill_attempts: 3,
             candidate,
             confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
             settle: (5, Duration::from_millis(200)),
@@ -435,6 +443,13 @@ impl DesyncService {
         };
         if self.status().0 == DesyncState::Running {
             return Ok(());
+        }
+        if lock(&self.inner).process.is_some() {
+            // Прошлый процесс не остановлен: нового запуска нет, пока это не устранено.
+            return Err(DesyncError::NotAllowed(
+                "Прошлый запуск не остановлен. Повторите остановку или перезапустите OCHISTKA"
+                    .into(),
+            ));
         }
         let plan = self.plan_access(wanted, observed);
         let profile = match plan.overall {
@@ -578,12 +593,6 @@ impl DesyncService {
         Ok(())
     }
 
-    fn end_trial(&self) {
-        let mut t = lock(&self.trial);
-        t.deadline = None;
-        t.generation += 1;
-    }
-
     /// Пробный запуск ПОЛНОГО профиля NetZapret Universal V13 Lite. Только по явному согласию
     /// (проверяется здесь, а не только в интерфейсе), только Windows, одним экземпляром, под
     /// общим координатором (при VPN или его неочищенных настройках — отказ). Останавливается
@@ -613,6 +622,13 @@ impl DesyncService {
         if self.status().0 == DesyncState::Running {
             return Err(DesyncError::NotAllowed(
                 "Пробный запуск уже идёт: второй экземпляр не создаётся".into(),
+            ));
+        }
+        if lock(&self.inner).process.is_some() {
+            // Прошлый процесс не остановлен: нового запуска нет, пока это не устранено.
+            return Err(DesyncError::NotAllowed(
+                "Прошлый запуск не остановлен. Повторите остановку или перезапустите OCHISTKA"
+                    .into(),
             ));
         }
         match self.adapter.trial_readiness() {
@@ -665,18 +681,24 @@ impl DesyncService {
         });
     }
 
-    /// Один шаг контроля: срок истёк или процесс завершился сам — останавливаем и очищаем.
-    /// Возвращает `true`, если пробный запуск закончен (успешно или с ошибкой остановки).
+    /// Один шаг контроля. Останавливает при истёкшем сроке, при самостоятельном завершении
+    /// процесса и при предыдущей неудачной остановке (процесс не остаётся без наблюдения).
+    /// Возвращает `true`, когда контроль больше не нужен: остановка подтверждена либо исчерпан
+    /// лимит повторов (тогда процесс остаётся учтённым, состояние — ошибка, запуск заблокирован).
     pub(crate) fn tick(&self, now: std::time::Instant) -> bool {
         let Some(deadline) = lock(&self.trial).deadline else {
             return true;
         };
-        let died = lock(&self.inner)
-            .process
-            .as_mut()
-            .is_some_and(|p| p.has_exited());
+        let (failed_before, died) = {
+            let mut inner = lock(&self.inner);
+            let died = inner.process.as_mut().is_some_and(|p| p.has_exited());
+            (
+                inner.state == DesyncState::Error && inner.process.is_some(),
+                died,
+            )
+        };
         let expired = now >= deadline;
-        if !expired && !died {
+        if !expired && !died && !failed_before {
             return false;
         }
         let why = if expired {
@@ -684,28 +706,40 @@ impl DesyncService {
         } else {
             "Пробный запуск остановлен: процесс завершился сам"
         };
-        if self.stop_trial().is_ok() {
-            lock(&self.inner).message = why.into();
+        match self.stop_trial() {
+            Ok(()) => {
+                lock(&self.inner).message = why.into();
+                true
+            }
+            Err(_) => {
+                let mut t = lock(&self.trial);
+                t.failed_stops += 1;
+                t.failed_stops >= MAX_FAILED_STOPS
+            }
         }
-        true
     }
 
-    /// Ручная или автоматическая остановка. Освобождает право только если процесс действительно
-    /// завершился; иначе остаётся ошибка, право не освобождается, остановку можно повторить.
-    pub fn stop_trial(&self) -> Result<(), DesyncError> {
-        let _op = lock(&self.op);
-        self.end_trial();
+    /// Единый надёжный путь остановки (ручной, по таймеру, при выходе). Вызывается под `op`.
+    /// Право освобождается и состояние «Выключено» ставится ТОЛЬКО после подтверждения, что
+    /// процесс завершился. Иначе: процесс остаётся учтённым, состояние — ошибка, право `Unclean`.
+    fn stop_process(&self) -> Result<(), DesyncError> {
         self.coord.begin_stop(coordinator::Owner::Desync);
         let mut inner = lock(&self.inner);
         if let Some(mut p) = inner.process.take() {
-            p.kill();
             let mut gone = p.has_exited();
-            for _ in 0..self.stop_wait.0 {
+            for _ in 0..self.kill_attempts {
                 if gone {
                     break;
                 }
-                std::thread::sleep(self.stop_wait.1);
-                gone = p.has_exited();
+                p.kill();
+                for _ in 0..self.stop_wait.0 {
+                    gone = p.has_exited();
+                    if gone {
+                        break;
+                    }
+                    std::thread::sleep(self.stop_wait.1);
+                }
+                gone = gone || p.has_exited();
             }
             if !gone {
                 inner.process = Some(p);
@@ -723,6 +757,18 @@ impl DesyncService {
         inner.message = "Выключено".into();
         drop(inner);
         self.coord.release(coordinator::Owner::Desync);
+        Ok(())
+    }
+
+    /// Ручная или автоматическая остановка пробного запуска. Срок и контроль таймера снимаются
+    /// только после подтверждённой остановки.
+    pub fn stop_trial(&self) -> Result<(), DesyncError> {
+        let _op = lock(&self.op);
+        self.stop_process()?;
+        let mut t = lock(&self.trial);
+        t.deadline = None;
+        t.generation += 1;
+        t.failed_stops = 0;
         Ok(())
     }
 
@@ -744,7 +790,8 @@ impl DesyncService {
 
     pub fn trial_status(&self, now: std::time::Instant) -> TrialStatus {
         let t = lock(&self.trial);
-        let active = t.deadline.is_some() && self.is_running();
+        // Пока остановка не подтверждена, срок сохраняется: испытание считается идущим.
+        let active = t.deadline.is_some();
         let remaining_secs = t
             .deadline
             .map_or(0, |d| d.saturating_duration_since(now).as_secs());
@@ -752,6 +799,11 @@ impl DesyncService {
         drop(t);
         let unavailable = if active {
             None
+        } else if lock(&self.inner).process.is_some() {
+            Some(
+                "Прошлый запуск не остановлен. Повторите остановку или перезапустите OCHISTKA"
+                    .into(),
+            )
         } else if self.adapter.platform() != Platform::Windows {
             Some("Пробный запуск доступен только в Windows".into())
         } else if self.candidate.is_none() {
@@ -777,18 +829,12 @@ impl DesyncService {
     /// Останавливает движок и освобождает файл номера процесса. Без запущенного обхода безвредно.
     pub fn stop(&self) {
         let _op = lock(&self.op);
-        self.end_trial();
-        self.coord.begin_stop(coordinator::Owner::Desync);
-        let mut inner = lock(&self.inner);
-        if let Some(mut p) = inner.process.take() {
-            p.kill();
+        let _ = self.stop_process();
+        let mut t = lock(&self.trial);
+        if lock(&self.inner).process.is_none() {
+            t.deadline = None;
+            t.generation += 1;
         }
-        let _ = std::fs::remove_file(self.pid_file());
-        inner.state = DesyncState::Off;
-        inner.message = "Выключено".into();
-        drop(inner);
-        // Процесс остановлен и файл номера убран: право свободно.
-        self.coord.release(coordinator::Owner::Desync);
     }
 
     /// Убирает остаток прошлого запуска (аварийное завершение приложения).
@@ -809,8 +855,16 @@ impl DesyncService {
     }
 
     /// Вызывается при выходе из приложения.
-    pub fn shutdown(&self) {
-        self.stop();
+    /// Возвращает ошибку, если процесс не удалось остановить (ложного успеха нет).
+    pub fn shutdown(&self) -> Result<(), DesyncError> {
+        let _op = lock(&self.op);
+        let result = self.stop_process();
+        if result.is_ok() {
+            let mut t = lock(&self.trial);
+            t.deadline = None;
+            t.generation += 1;
+        }
+        result
     }
 }
 
@@ -906,23 +960,24 @@ mod tests {
         present: AtomicBool,
         exited: Arc<AtomicBool>,
         killed: Arc<AtomicBool>,
-        /// Если `true`, убитый процесс действительно завершается (как настоящий).
-        exit_on_kill: Arc<AtomicBool>,
+        /// Если `true`, процесс игнорирует `kill()` и продолжает работать.
+        ignore_kill: Arc<AtomicBool>,
         stale: Mutex<Vec<u32>>,
     }
 
-    struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>);
+    struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>, bool);
     impl CoreProcess for FakeProcess {
         fn pid(&self) -> u32 {
             777
         }
         fn has_exited(&mut self) -> bool {
-            self.0.load(Ordering::SeqCst)
+            self.3 || self.0.load(Ordering::SeqCst)
         }
         fn kill(&mut self) {
             self.1.store(true, Ordering::SeqCst);
-            if self.2.load(Ordering::SeqCst) {
-                self.0.store(true, Ordering::SeqCst);
+            // Как настоящий процесс: после `kill()` завершается, если не игнорирует его.
+            if !self.2.load(Ordering::SeqCst) {
+                self.3 = true;
             }
         }
     }
@@ -976,7 +1031,8 @@ mod tests {
             Ok(Box::new(FakeProcess(
                 self.flags.exited.clone(),
                 self.flags.killed.clone(),
-                self.flags.exit_on_kill.clone(),
+                self.flags.ignore_kill.clone(),
+                false,
             )))
         }
         fn kill_stale(&self, pid: u32) {
@@ -1345,7 +1401,7 @@ mod tests {
         )
         .unwrap();
         assert!(guard().is_some());
-        s.shutdown();
+        s.shutdown().unwrap();
         assert!(guard().is_none());
         // Нет циклов владения: после удаления сервиса защита отказывает.
         drop(s);
@@ -1379,8 +1435,8 @@ mod tests {
         s.start_planned(&want, &blocked(&want), &mut |_| {})
             .unwrap();
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
-        s.shutdown();
-        s.shutdown();
+        s.shutdown().unwrap();
+        s.shutdown().unwrap();
         assert_eq!(coord.mode(), Some(Mode::Idle));
         coord.begin(Owner::Vpn).unwrap();
     }
@@ -1433,14 +1489,13 @@ mod tests {
         let (d, v) = (desync.join().unwrap(), vpn.join().unwrap());
         assert!(d ^ v, "desync={d} vpn={v}");
         assert!(flags.spawned.load(Ordering::SeqCst) <= 1);
-        s.shutdown();
+        s.shutdown().unwrap();
     }
 
     // ----- пробный запуск полного профиля -----
 
     fn trial_service(flags: &Arc<Flags>, vpn: bool) -> Arc<DesyncService> {
         flags.present.store(true, Ordering::SeqCst);
-        flags.exit_on_kill.store(true, Ordering::SeqCst);
         // Обычная готовность адаптера закрыта, пробная — открыта.
         let mut s = make(
             flags,
@@ -1584,7 +1639,6 @@ mod tests {
     fn real_rust_timer_stops_a_short_trial_without_the_ui() {
         let flags = Arc::new(Flags::default());
         flags.present.store(true, Ordering::SeqCst);
-        flags.exit_on_kill.store(true, Ordering::SeqCst);
         let mut s = make(&flags, good, true, false);
         s.candidate = profile();
         s.trial_limit = Duration::from_millis(20);
@@ -1604,13 +1658,12 @@ mod tests {
         let flags = Arc::new(Flags::default());
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
-        flags.exit_on_kill.store(false, Ordering::SeqCst); // процесс не умирает
+        flags.ignore_kill.store(true, Ordering::SeqCst); // процесс не умирает
         let err = s.stop_trial().unwrap_err();
         assert!(matches!(err, DesyncError::Stop(_)), "{err:?}");
         assert_eq!(s.status().0, DesyncState::Error);
         assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
         // Повтор после того, как процесс всё-таки завершился.
-        flags.exit_on_kill.store(true, Ordering::SeqCst);
         flags.exited.store(true, Ordering::SeqCst);
         s.stop_trial().unwrap();
         s.coord.begin(coordinator::Owner::Vpn).unwrap();
@@ -1641,9 +1694,129 @@ mod tests {
         let flags = Arc::new(Flags::default());
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
-        s.shutdown();
+        s.shutdown().unwrap();
         assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
         assert!(!s.trial_status(std::time::Instant::now()).active);
+    }
+
+    #[test]
+    fn process_that_ignores_kill_keeps_the_right_and_blocks_any_new_start() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.ignore_kill.store(true, Ordering::SeqCst);
+        assert!(matches!(s.stop_trial().unwrap_err(), DesyncError::Stop(_)));
+        // Не «Выключено», право не освобождено, испытание всё ещё считается идущим.
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert_eq!(
+            s.coord.mode(),
+            Some(coordinator::Mode::Unclean(coordinator::Owner::Desync))
+        );
+        let st = s.trial_status(std::time::Instant::now());
+        assert!(st.active && !st.message.contains("Выключено"));
+        // Ни пробный, ни обычный запуск, ни VPN не получают разрешения; второго процесса нет.
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        let want = [Coverage::Sites];
+        assert!(s
+            .start_planned(&want, &blocked(&want), &mut |_| {})
+            .is_err());
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        // Обычная готовность и реестр по-прежнему закрыты.
+        assert!(matches!(
+            s.adapter.readiness(),
+            Readiness::NotImplemented(_)
+        ));
+        assert!(routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
+        // Процесс наконец завершился: подтверждённая остановка освобождает право.
+        flags.ignore_kill.store(false, Ordering::SeqCst);
+        s.stop_trial().unwrap();
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert!(!s.trial_status(std::time::Instant::now()).active);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn timer_keeps_watching_after_a_failed_stop_with_bounded_retries() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.ignore_kill.store(true, Ordering::SeqCst);
+        let late = std::time::Instant::now() + Duration::from_secs(121);
+        // Неудачи не прекращают контроль, пока не исчерпан лимит повторов.
+        for attempt in 1..MAX_FAILED_STOPS {
+            assert!(!s.tick(late), "попытка {attempt}");
+            assert!(
+                s.trial_status(late).active,
+                "процесс не должен остаться без наблюдения"
+            );
+        }
+        // Лимит исчерпан: поток прекращает повторы, но процесс учтён, запуск заблокирован.
+        assert!(s.tick(late));
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert!(s.trial_status(late).active);
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        // Ручная остановка после исправления причины работает.
+        flags.ignore_kill.store(false, Ordering::SeqCst);
+        s.stop_trial().unwrap();
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn timer_retry_succeeds_when_the_process_finally_exits() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.ignore_kill.store(true, Ordering::SeqCst);
+        let late = std::time::Instant::now() + Duration::from_secs(121);
+        assert!(!s.tick(late));
+        flags.exited.store(true, Ordering::SeqCst);
+        assert!(s.tick(late));
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert!(!s.trial_status(late).active);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn shutdown_and_general_stop_do_not_claim_success_for_a_live_process() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.ignore_kill.store(true, Ordering::SeqCst);
+        assert!(matches!(s.shutdown().unwrap_err(), DesyncError::Stop(_)));
+        assert_eq!(s.status().0, DesyncState::Error);
+        s.stop(); // общий путь тоже ничего не освобождает
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        assert!(
+            s.pid_file().exists(),
+            "файл номера процесса не удалён, пока он жив"
+        );
+        flags.ignore_kill.store(false, Ordering::SeqCst);
+        s.shutdown().unwrap();
+        assert_eq!(s.status().0, DesyncState::Off);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn restart_after_confirmed_stop_never_runs_two_processes_and_foreign_right_stays() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        s.stop_trial().unwrap();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 2);
+        s.stop_trial().unwrap();
+        // Чужое право (VPN) остановкой обхода не освобождается.
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+        s.stop_trial().unwrap();
+        s.stop();
+        assert_eq!(
+            s.coord.mode(),
+            Some(coordinator::Mode::Starting(coordinator::Owner::Vpn))
+        );
     }
 
     #[test]

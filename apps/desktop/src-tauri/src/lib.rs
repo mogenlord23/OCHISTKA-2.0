@@ -132,7 +132,11 @@ pub fn run() {
                 use tauri::Manager;
                 // Сначала останавливаем перехват, затем VPN.
                 if let Some(state) = handle.try_state::<vpn::DesyncState>() {
-                    state.0.shutdown();
+                    // Если процесс не остановился, ложного успеха нет: ошибка остаётся в состоянии,
+                    // а при следующем запуске приложения `recover_on_start` убирает остаток.
+                    if let Err(err) = state.0.shutdown() {
+                        eprintln!("не удалось остановить обход при выходе: {err}");
+                    }
                 }
                 if let Some(state) = handle.try_state::<vpn::VpnState>() {
                     state.0.shutdown();
