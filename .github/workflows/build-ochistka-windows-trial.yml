@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - claude/epic-knuth-0zhg19
+      - claude/optimistic-hypatia-hgstjj
     paths:
       - .github/workflows/build-ochistka-windows-trial.yml
       - apps/desktop/**
