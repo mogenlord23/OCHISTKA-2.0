@@ -67,8 +67,11 @@ jobs:
           # Подмена любого файла движка должна блокировать запуск.
           Copy-Item dist/OCHISTKA-DPI-Check tamper-test -Recurse
           Add-Content -Path tamper-test/bundle/cygz.dll -Value 'x'
-          & tamper-test/OCHISTKA-DPI-Check.exe --self-check
-          if ($LASTEXITCODE -eq 0) { throw 'Подмена файла не была обнаружена' }
+          # PowerShell in CI treats a nonzero native exit code as a terminating error.
+          # This is an EXPECTED refusal; inspect it through Start-Process instead.
+          $tamperedExe = (Resolve-Path 'tamper-test/OCHISTKA-DPI-Check.exe').Path
+          $tamperedProcess = Start-Process -FilePath $tamperedExe -ArgumentList '--self-check' -PassThru -Wait -NoNewWindow
+          if ($tamperedProcess.ExitCode -eq 0) { throw 'Подмена файла не была обнаружена' }
           Remove-Item tamper-test -Recurse -Force
 
       - name: Zip, hash, report
