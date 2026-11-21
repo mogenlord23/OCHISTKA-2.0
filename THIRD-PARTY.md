@@ -33,3 +33,7 @@
 ## Uiverse.io — «smart-emu-83» (vinodjangid07)
 
 Принцип движения кнопок «Программы → Установленные» (`ExpandButton.svelte`) и контур корзины взяты из https://uiverse.io/vinodjangid07/smart-emu-83 (исходник: github.com/uiverse-io/galaxy, `Buttons/vinodjangid07_smart-emu-83.html`). Лицензия MIT (© vinodjangid07, Uiverse.io): разрешено использовать, изменять и распространять при сохранении этого уведомления; программа поставляется «как есть», без гарантий.
+
+## Флаги стран — flag-icons (lipis)
+
+Папка `apps/desktop/src/assets/flags`: SVG-флаги 4×3 из проекта flag-icons (https://github.com/lipis/flag-icons), лицензия MIT, © 2013 Panayiotis Lipiridis. Файлы rs, mx, es, hr, md заменены упрощёнными трёхполосными версиями (без гербов) ради размера.

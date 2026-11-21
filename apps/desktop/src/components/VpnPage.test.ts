@@ -159,8 +159,8 @@ describe('VpnPage: подписка и импорт', () => {
     ).toBeTruthy();
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'https://sub.example.com/x?t=1' });
     expect(await screen.findByText('Серверы / 2')).toBeTruthy();
-    expect(screen.getByText('LV')).toBeTruthy();
     expect(screen.getByText('Латвия')).toBeTruthy();
+    expect(document.querySelector('img.flag')).not.toBeNull();
   });
 
   it('turns space-separated pasted links into lines', async () => {

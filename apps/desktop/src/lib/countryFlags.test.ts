@@ -1,0 +1,38 @@
+import { describe, expect, it } from 'vitest';
+import { countryName, flagUrl, serverLabel } from './countryFlags';
+
+describe('flags and country names', () => {
+  it('has a local flag for the supported codes and none for unknown ones', () => {
+    for (const code of ['LV', 'DE', 'NL', 'FI', 'RU', 'US', 'uk', 'gb']) {
+      expect(flagUrl(code), code).toBeTruthy();
+    }
+    expect(flagUrl('ZZ')).toBeNull();
+    expect(flagUrl(null)).toBeNull();
+    expect(flagUrl('UK')).toBe(flagUrl('GB'));
+  });
+
+  it('names countries in the interface language', () => {
+    expect(countryName('LV', 'ru')).toBe('Латвия');
+    expect(countryName('DE', 'ru')).toBe('Германия');
+    expect(countryName('NL', 'ru')).toBe('Нидерланды');
+    expect(countryName('FI', 'ru')).toBe('Финляндия');
+    expect(countryName('LV', 'en')).toBe('Latvia');
+    expect(countryName('ZZ', 'ru')).toBeNull();
+  });
+
+  it('does not repeat the flag or the country and keeps what tells servers apart', () => {
+    expect(serverLabel('🇱🇻 Латвия', 'LV', 'ru')).toBe('Латвия');
+    expect(serverLabel('Latvia 01', 'LV', 'ru')).toBe('Латвия · 01');
+    expect(serverLabel('🇩🇪 Germany - Frankfurt #2', 'DE', 'ru')).toBe('Германия · Frankfurt #2');
+    expect(serverLabel('[NL] Amsterdam', 'NL', 'ru')).toBe('Нидерланды · Amsterdam');
+    expect(serverLabel('FI-03', 'FI', 'en')).toBe('Finland · 03');
+    expect(serverLabel('Finland', 'FI', 'en')).toBe('Finland');
+    expect(serverLabel('USA Dallas', 'US', 'ru')).toBe('США · Dallas');
+    expect(serverLabel('UK London', 'UK', 'ru')).toBe('Великобритания · London');
+  });
+
+  it('keeps the original name when the country is unknown', () => {
+    expect(serverLabel('Mystery 7', null, 'ru')).toBe('Mystery 7');
+    expect(serverLabel('Mystery 7', 'ZZ', 'ru')).toBe('Mystery 7');
+  });
+});

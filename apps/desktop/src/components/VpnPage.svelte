@@ -1,5 +1,8 @@
 <script lang="ts">
   import SecretField from './SecretField.svelte';
+  import ServerFlag from './ServerFlag.svelte';
+  import { serverLabel } from '../lib/countryFlags';
+  import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import { SECTIONS } from '../lib/sections';
@@ -17,7 +20,6 @@
     PREPARE_FAILED_PREFIX,
     TUN_MODE_REASON,
     connectUi,
-    displayName,
     elapsedSince,
     formatElapsed,
     formatLatency,
@@ -210,6 +212,12 @@
       return;
     }
     await runImport(await file.text());
+  }
+
+  /** Имя для скринридера: подпись со страной и исходное имя сервера. */
+  function serverAria(name: string, country: string | null, lang: string): string {
+    const label = serverLabel(name, country, lang);
+    return label === name ? name : `${label}, ${name}`;
   }
 
   async function onSelect(id: string) {
@@ -468,21 +476,19 @@
                       class="server"
                       class:selected={snapshot?.selected === server.id}
                       aria-pressed={snapshot?.selected === server.id}
+                      aria-label={serverAria(server.name, server.country, i18n.lang)}
                       onclick={() => onSelect(server.id)}
                     >
-                      <span class="srv-name">
-                        {#if server.country}<b class="cc">{server.country}</b>{/if}{displayName(
-                          server.name,
-                        )}
-                      </span>
-                      <span class="meta">
-                        <span class="scheme">{server.protocol.toUpperCase()}</span>
-                        {#if server.measured}
-                          <span class="latency" class:dead={server.latencyMs === null}
-                            >{formatLatency(server)}</span
-                          >
-                        {/if}
-                      </span>
+                      <ServerFlag code={server.country} />
+                      <span class="srv-name"
+                        >{serverLabel(server.name, server.country, i18n.lang)}</span
+                      >
+                      <span class="scheme">{server.protocol.toUpperCase()}</span>
+                      <span
+                        class="latency"
+                        class:dead={server.measured && server.latencyMs === null}
+                        >{server.measured ? formatLatency(server) : ''}</span
+                      >
                     </button>
                   </li>
                 {/each}
@@ -794,14 +800,6 @@
     cursor: default;
   }
 
-  .meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-  }
-
   .latency {
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
@@ -1012,17 +1010,22 @@
 
   .server {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: center;
+    gap: 10px;
     width: 100%;
-    min-height: 54px;
-    padding: 8px 12px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
     background: transparent;
     box-shadow: none;
-    color: var(--muted);
-    font-weight: 400;
+    color: var(--ink);
+    font-weight: 600;
     text-align: left;
+    transition: background-color 120ms ease;
+  }
+
+  .server:hover {
+    background: #1a1a1a;
   }
 
   .server.selected {
@@ -1030,10 +1033,26 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
 
-  .cc {
-    margin-right: 5px;
+  .srv-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scheme {
+    flex: none;
     font-size: 0.7rem;
     font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+  .server .latency {
+    flex: none;
+    min-width: 58px;
+    text-align: right;
   }
 
   .note {
