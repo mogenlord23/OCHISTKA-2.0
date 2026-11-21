@@ -1,0 +1,5 @@
+interface:
+  display_name: "ochistka visual guard"
+  short_description: "Ручной навык проекта OCHISTKA 2.0"
+policy:
+  allow_implicit_invocation: false

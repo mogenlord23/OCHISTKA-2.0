@@ -1,0 +1,5 @@
+interface:
+  display_name: "ochistka ui"
+  short_description: "Ручной навык проекта OCHISTKA 2.0"
+policy:
+  allow_implicit_invocation: false
