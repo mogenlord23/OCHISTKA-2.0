@@ -10,6 +10,7 @@ on:
       - claude/epic-knuth-0zhg19
     paths:
       - crates/ochistka-core/src/desync.rs
+      - crates/ochistka-core/src/desync/**
       - crates/platform/src/desync.rs
       - crates/platform/src/desync/**
       - assets/desync/**
