@@ -1,3 +1,4 @@
 # Upstream Zapret 2 Lua sources are verified byte-for-byte with pinned SHA-256.
 # Prevent Git for Windows from converting LF into CRLF during checkout.
 assets/desync/*.lua text eol=lf
+assets/desync/presets/*.txt text eol=lf

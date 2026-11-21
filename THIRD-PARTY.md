@@ -41,3 +41,8 @@
 ## Обход блокировок (подготовка, этап 6Б.1)
 
 Планируются Zapret 2 / winws2 (bol-van/zapret2, MIT) и WinDivert (basil00/WinDivert, LGPL v3 / GPL v2; только отдельными файлами DLL и драйвера, без статической линковки). Бинарные файлы пока НЕ поставляются и не скачиваются: SHA-256 и подлинность подтверждаются на Windows скриптом `tools/desync-core/verify-sources.ps1`, затем значения закрепляются в `crates/ochistka-core/src/desync.rs`.
+
+## Исходный пресет NetZapret (6Б.5Г.2)
+
+- `assets/desync/presets/Universal V13 Lite.txt`: неизменённый исходный файл `RixyPow/netzapret@883ba05b9531a283e0d6c83fdc3536016fbd51d3`, SHA-256 `e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7`.
+- NetZapret MIT © 2026 RixyPow; исходные секции Zapret GUI MIT © 2025–2026 censorliber/loop-uh. Лицензии `assets/desync/presets/LICENSE-NetZapret.txt` и `LICENSE-ZapretGUI.txt`. Внешние Lua, списки, пакеты и фильтры **ещё не включены в поставку**.
