@@ -48,7 +48,10 @@
     height: 40px;
     padding: 0;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Без border: overflow обрезает по внутреннему краю, и рамка давала светлую полосу под иконкой.
+       Тонкая обводка в покое — inset-тенью, она не отнимает место у иконки. */
+    border: 0;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-sm);
     background: var(--black);
     color: var(--ink);
@@ -56,7 +59,7 @@
     transition:
       width 0.3s,
       background-color 0.3s,
-      border-color 0.3s;
+      box-shadow 0.3s;
   }
 
   /* В покое 20 px (как значки окна). При наведении иконка вырастает в 2,4 раза и уходит вниз:
@@ -100,7 +103,7 @@
   .expand:focus-visible:not(:disabled) {
     width: var(--w);
     background: var(--ink);
-    border-color: transparent;
+    box-shadow: none;
     color: var(--black);
   }
 
