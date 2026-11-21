@@ -90,7 +90,12 @@ jobs:
           }
           if ($missing.Count -gt 0) { throw "Missing in application binary: $($missing -join ', ')" }
           $js = (Get-ChildItem apps/desktop/dist -Recurse -Filter *.js | ForEach-Object { Get-Content $_.FullName -Raw -Encoding UTF8 }) -join "`n"
-          if (-not $js.Contains('Пробная проверка NetZapret')) { throw 'Trial panel text missing in frontend bundle' }
+          # Во фронтенде: один переключатель «Обход блокировок» и его вызовы Tauri-команд пробного режима.
+          $uiMissing = @()
+          foreach ($needle in @('Обход блокировок','desync_trial_status','desync_trial_start','desync_trial_stop')) {
+            if (-not $js.Contains($needle)) { $uiMissing += $needle }
+          }
+          if ($uiMissing.Count -gt 0) { throw "Missing in frontend bundle: $($uiMissing -join ', ')" }
 
           @(
             "OCHISTKA: установщик Windows 10/11 x64 для ручного испытания",
@@ -98,7 +103,9 @@ jobs:
             "Файл: $name",
             "SHA-256: $hash",
             "Цифровая подпись: НЕТ (установщик не подписан; Windows SmartScreen может предупредить).",
-            "В CI проверено: сборка, svelte-check, vitest, cargo check; в приложении есть команды пробного режима и панель NetZapret.",
+            "В приложении: один переключатель «Обход блокировок» (как DNS), по нажатию; пробный режим 120 с, автозапуска нет. Панели испытаний нет.",
+            "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
+            "В CI проверено: сборка, svelte-check, vitest, cargo check; в приложении есть команды пробного режима и переключатель.",
             "В CI НЕ проверено: запуск GUI, права администратора, WinDivert, перехват и сеть. Это делает пользователь вручную.",
             "Движок winws2/WinDivert в установщик не входит: приложение загружает закреплённый выпуск само при пробном запуске."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
