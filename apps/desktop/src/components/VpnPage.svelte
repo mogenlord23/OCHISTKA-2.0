@@ -2,6 +2,7 @@
   import SecretField from './SecretField.svelte';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
+  import BypassSitesPanel from './BypassSitesPanel.svelte';
   import { serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
@@ -102,6 +103,8 @@
   /** Желаемое положение, пока Rust работает в фоне (интерфейс реагирует сразу). */
   let bypassWant = $state<Want>(null);
   let bypassError = $state<string | null>(null);
+  /** Панель «Мои сайты» открыта (кнопка сбоку у «Обхода блокировок»). */
+  let sitesOpen = $state(false);
   const bypass = $derived(bypassView(trial, bypassWant, bypassError));
 
   /** Состояние возможностей. Пока обе не реализованы: переключатель выключен и недоступен, без имитации. */
@@ -658,6 +661,18 @@
                 {:else if tool.reason}<span class="sr-only">{tool.reason}</span>{/if}
                 {#if item.scope}<span class="note scope">{item.scope}</span>{/if}
               </div>
+              {#if item.id === 'bypass'}
+                <span class="tool-action">
+                  <ExpandButton
+                    icon="M12 5v14M5 12h14"
+                    label="Сайты"
+                    width={96}
+                    name="Добавить сайты для обхода"
+                    aria-expanded={sitesOpen}
+                    onclick={() => (sitesOpen = !sitesOpen)}
+                  />
+                </span>
+              {/if}
               {#if item.id === 'dns'}
                 <span class="tool-action" bind:this={dnsButton}>
                   <ExpandButton
@@ -672,6 +687,13 @@
                 </span>
               {/if}
             </section>
+            {#if item.id === 'bypass'}
+              <BypassSitesPanel
+                open={sitesOpen}
+                active={bypass.checked}
+                onclose={() => (sitesOpen = false)}
+              />
+            {/if}
           {/each}
           {#if dnsMenu}
             <ContextMenu

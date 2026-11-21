@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import VpnPage from './VpnPage.svelte';
 import * as sound from '../lib/sound';
 import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON, TUN_MODE_REASON } from '../lib/vpn';
@@ -745,6 +745,30 @@ describe('VpnPage: «Обход блокировок» — один перекл
     await waitFor(() => expect(row()).toContain('YouTube: 3,2 с вместо 0,8 с'), { timeout: 3000 });
     expect(sw.getAttribute('aria-checked')).toBe('false');
     expect(row()).toContain('Выключено');
+  });
+
+  it('has a side button that opens and closes the sites panel, same button again closes', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => IDLE,
+      bypass_sites_list: () => ['example.com'],
+    });
+    const { container } = render(VpnPage, { props: { subsection: 'advanced' } });
+    const side = screen.getByRole('button', { name: 'Добавить сайты для обхода' });
+    const panel = () => container.querySelector('.sites') as HTMLElement;
+    expect(panel().getAttribute('aria-hidden')).toBe('true');
+    expect(side.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(side);
+    expect(panel().getAttribute('aria-hidden')).toBe('false');
+    expect(side.getAttribute('aria-expanded')).toBe('true');
+    expect(await within(panel()).findByText('example.com')).toBeTruthy();
+    await fireEvent.click(side);
+    expect(panel().getAttribute('aria-hidden')).toBe('true');
+    await fireEvent.click(side);
+    await fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(panel().getAttribute('aria-hidden')).toBe('true');
+    // Кнопка сбоку не добавляет второй переключатель обхода: он по-прежнему один.
+    expect(screen.getAllByRole('switch', { name: 'Обход блокировок' })).toHaveLength(1);
   });
 
   it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {

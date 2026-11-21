@@ -16,6 +16,7 @@ pub mod preset;
 pub mod probe;
 pub mod routing;
 pub mod speed;
+pub mod user_sites;
 
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard, Weak};
@@ -372,6 +373,8 @@ pub struct DesyncService {
     coord: Arc<coordinator::NetCoordinator>,
     /// Отключает работающий VPN перед включением обхода (включение обхода выключает VPN).
     vpn_stopper: Mutex<Option<VpnStopper>>,
+    /// Сайты пользователя: попадают в обход при следующем включении.
+    user_sites: user_sites::UserSites,
     /// Замер скорости до и после включения (если задан транспорт).
     speed: Mutex<Option<Arc<dyn speed::TimedFetch>>>,
     /// Проверка скорости после запуска идёт в фоновом потоке (в тестах — вызывается вручную).
@@ -482,6 +485,7 @@ impl DesyncService {
             None
         };
         Self {
+            user_sites: user_sites::UserSites::new(&dir),
             dir,
             adapter,
             #[cfg(test)]
@@ -700,6 +704,35 @@ impl DesyncService {
                 t.spawn_settle.as_millis()
             );
         }
+    }
+
+    /// Сайты пользователя (добавление, удаление, список).
+    pub fn user_sites(&self) -> &user_sites::UserSites {
+        &self.user_sites
+    }
+
+    /// Аргументы запуска: профиль + секция с сайтами пользователя (если они есть). Список сайтов
+    /// записывается в `lists/nz-user-sites.txt` в папке движка; ссылки и чужие каталоги не трогаем.
+    fn launch_args(&self, profile: &Profile) -> Result<Vec<String>, DesyncError> {
+        let sites = self.user_sites.load();
+        let mut args = profile.args.clone();
+        let list = self.dir.join("lists").join("nz-user-sites.txt");
+        if sites.is_empty() {
+            let _ = std::fs::remove_file(&list);
+            return Ok(args);
+        }
+        let lists_dir = self.dir.join("lists");
+        let bad =
+            |why: &str| DesyncError::Start(format!("не удалось подготовить список сайтов: {why}"));
+        std::fs::create_dir_all(&lists_dir).map_err(|e| bad(&e.to_string()))?;
+        if std::fs::symlink_metadata(&lists_dir).is_ok_and(|m| m.file_type().is_symlink())
+            || std::fs::symlink_metadata(&list).is_ok_and(|m| m.file_type().is_symlink())
+        {
+            return Err(bad("папка списков заменена ссылкой"));
+        }
+        std::fs::write(&list, sites.join("\n") + "\n").map_err(|e| bad(&e.to_string()))?;
+        args.extend(user_sites::section_arguments());
+        Ok(args)
     }
 
     /// Подготовка в фоне при старте программы (проверка установленных файлов).
@@ -925,9 +958,10 @@ impl DesyncService {
             timings.baseline_wait = waited.elapsed();
         }
         let spawn_started = std::time::Instant::now();
+        let args = self.launch_args(profile)?;
         let mut process = self
             .adapter
-            .spawn(&exe, &profile.args, &self.log_file())
+            .spawn(&exe, &args, &self.log_file())
             .map_err(|why| DesyncError::Start(mask_secrets(&why)))?;
         let _ = std::fs::write(self.pid_file(), process.pid().to_string());
         for _ in 0..self.settle.0 {
@@ -3276,6 +3310,53 @@ mod tests {
         // Второй запуск: замера без обхода нет (взят прошлый), новых запросов пока не было.
         assert_eq!(fake.calls.lock().unwrap().len(), after_first);
         s.stop_trial().unwrap();
+    }
+
+    // ----- сайты пользователя -----
+
+    #[test]
+    fn user_sites_join_the_engine_arguments_at_the_next_start_through_a_list_file() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        // Пока сайтов нет: ни секции, ни файла.
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let plain = flags.spawn_args.lock().unwrap().clone();
+        assert!(!plain.iter().any(|a| a.contains("nz-user-sites")));
+        assert!(!s.dir.join("lists").join("nz-user-sites.txt").exists());
+        s.stop_trial().unwrap();
+        // Добавили — вступает в силу при следующем включении.
+        s.user_sites()
+            .add("example.com\nhttps://other.org/page")
+            .unwrap();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let args = flags.spawn_args.lock().unwrap().clone();
+        assert!(args.contains(&"--hostlist=lists/nz-user-sites.txt".to_string()));
+        assert_eq!(args[args.len() - 5], "--new", "секция идёт последней");
+        let file = std::fs::read_to_string(s.dir.join("lists").join("nz-user-sites.txt")).unwrap();
+        assert_eq!(file, "example.com\nother.org\n");
+        s.stop_trial().unwrap();
+        // Удалили все — секция и файл исчезают.
+        s.user_sites().remove("example.com").unwrap();
+        s.user_sites().remove("other.org").unwrap();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(!flags
+            .spawn_args
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|a| a.contains("nz-user-sites")));
+        assert!(!s.dir.join("lists").join("nz-user-sites.txt").exists());
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn the_real_profile_with_user_sites_still_fits_the_windows_command_line() {
+        let merged = windows_merged_candidate_profile().unwrap();
+        let mut args = merged.args.clone();
+        args.extend(user_sites::section_arguments());
+        let exe = r"C:\Users\Someone\AppData\Local\OCHISTKA\desync\winws2.exe";
+        let len = windows_command_line_len(exe, &args);
+        assert!(len <= 30_000, "{len}");
     }
 
     #[test]

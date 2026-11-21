@@ -1,6 +1,7 @@
 //! Оболочка Tauri: команды и управляющее состояние.
 
 pub mod appearance;
+pub mod bypass_sites;
 pub mod commands;
 pub mod desync_trial;
 pub mod disks;
@@ -109,6 +110,9 @@ pub fn run() {
             network::geo_lookup,
             speedtest::speedtest_start,
             speedtest::speedtest_cancel,
+            bypass_sites::bypass_sites_list,
+            bypass_sites::bypass_sites_add,
+            bypass_sites::bypass_sites_remove,
             desync_trial::desync_trial_status,
             desync_trial::desync_trial_start,
             desync_trial::desync_trial_stop,
