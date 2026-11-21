@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import hashlib
+import os
 import http.client
 import ipaddress
 import pathlib
@@ -39,6 +40,33 @@ TIMEOUT_SECONDS = 7.0
 STARTUP_SECONDS = 12.0
 PROBE_DEADLINE_SECONDS = 24.0
 HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.ASCII)
+
+
+
+def windows_executable(name: str) -> str:
+    """Use only trusted Windows System32 executables; never resolve through PATH."""
+    paths = {
+        "tasklist.exe": ("tasklist.exe",),
+        "reg.exe": ("reg.exe",),
+        "powershell.exe": ("WindowsPowerShell", "v1.0", "powershell.exe"),
+    }
+    if name not in paths:
+        raise ValueError("Unexpected Windows helper")
+    root = pathlib.PureWindowsPath(os.environ.get("SystemRoot", r"C:\Windows"))
+    if not root.is_absolute():
+        raise RuntimeError("Cannot resolve the trusted Windows system directory")
+    return str(root.joinpath("System32", *paths[name]))
+
+
+def checked_windows_output(name: str, *args: str) -> str:
+    """If a preflight check fails, refuse to start the packet driver."""
+    result = subprocess.run(
+        [windows_executable(name), *args],
+        capture_output=True, text=True, timeout=15, check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Windows preflight check failed: {name}")
+    return result.stdout
 
 
 @dataclass(frozen=True)
@@ -159,7 +187,7 @@ def check_driver_signature(driver: pathlib.Path) -> None:
         "if ($s.Status -ne 'Valid') { exit 6 }"
     )
     check = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+        [windows_executable("powershell.exe"), "-NoProfile", "-NonInteractive", "-Command", command],
         capture_output=True,
         timeout=15,
         check=False,
@@ -229,7 +257,16 @@ def bounded_probe_https(host: str, ip: str, sock: socket.socket | None = None) -
     worker.start()
     worker.join(timeout=PROBE_DEADLINE_SECONDS)
     if worker.is_alive():
-        client.close()  # Interrupt blocking connect/recv; daemon cannot hold the process alive.
+        # Closing a socket may not interrupt an already wrapped SSLSocket.
+        # Never continue to the engine or the following control while a probe is alive.
+        try:
+            client.shutdown(socket.SHUT_RDWR)
+        except (OSError, AttributeError):
+            pass
+        client.close()
+        worker.join(timeout=0.5)
+        if worker.is_alive():
+            raise RuntimeError("HTTPS probe deadline exceeded and worker has not stopped")
         return ProbeResult("probe_deadline", None, round((time.monotonic() - started) * 1000))
     if error:
         raise RuntimeError("Unexpected error in bounded HTTPS probe") from error[0]
@@ -266,6 +303,31 @@ def stop_engine(proc: subprocess.Popen[bytes] | None) -> bool:
     return proc.poll() is not None
 
 
+def engine_log_has_live_callback(log: pathlib.Path) -> bool:
+    """Require live packet interception AND a real upstream Lua callback."""
+    try:
+        with log.open("rb") as stream:
+            stream.seek(0, 2)
+            stream.seek(max(0, stream.tell() - 262144))
+            data = stream.read().decode("utf-8", errors="replace")
+    except OSError:
+        return False
+    return "packet: id=" in data and (
+        "LUA: fake:" in data or "LUA: multisplit:" in data
+    )
+
+
+def wait_engine_evidence(log: pathlib.Path, proc: subprocess.Popen[bytes]) -> bool:
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return False
+        if engine_log_has_live_callback(log):
+            return True
+        time.sleep(0.1)
+    return False
+
+
 def active_probe(exe: pathlib.Path, host: str, ip: str, log: pathlib.Path) -> ProbeResult:
     # Reserve an ephemeral source port BEFORE launching WinDivert. This lets
     # the filter capture only our own outbound test connection (not the browser).
@@ -293,6 +355,10 @@ def active_probe(exe: pathlib.Path, host: str, ip: str, log: pathlib.Path) -> Pr
             result = bounded_probe_https(host, ip, client)
             if proc.poll() is not None:
                 raise RuntimeError("Pinned engine stopped unexpectedly during active probe")
+            if result.reachable and not wait_engine_evidence(log, proc):
+                raise RuntimeError(
+                    "HTTPS connected, but real packet interception and Lua callback were not confirmed"
+                )
             return result
     finally:
         # Stop FIRST; Windows then releases the temporary packet filter.
@@ -314,22 +380,23 @@ def interpret(before: ProbeResult, active: ProbeResult, after: ProbeResult) -> s
 
 
 def other_engine_running() -> bool:
-    """Detection only (never kills anything): another winws2 would share the packet driver."""
-    out = subprocess.run(
-        ["tasklist.exe", "/FI", "IMAGENAME eq winws2.exe", "/FO", "CSV", "/NH"],
-        capture_output=True, text=True, timeout=15, check=False,
-    ).stdout
-    return "winws2.exe" in out.lower()
+    """Detection only: fail closed if the process inventory cannot be read."""
+    out = checked_windows_output(
+        "tasklist.exe", "/FI", "IMAGENAME eq winws2.exe", "/FO", "CSV", "/NH",
+    )
+    return bool(re.search(r'(?im)^"winws2\.exe",', out))
 
 
 def system_proxy_enabled() -> bool:
-    """Read-only check of the Windows user proxy switch (a VPN in proxy mode sets it)."""
-    out = subprocess.run(
-        ["reg.exe", "query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
-         "/v", "ProxyEnable"],
-        capture_output=True, text=True, timeout=15, check=False,
-    ).stdout
-    return bool(re.search(r"ProxyEnable\s+REG_DWORD\s+0x[1-9a-f]", out, re.IGNORECASE))
+    """Read-only check. Deny explicit proxy and PAC, fail closed on an unreadable registry."""
+    out = checked_windows_output(
+        "reg.exe", "query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+    )
+    switch = re.search(r"(?im)^\s*ProxyEnable\s+REG_DWORD\s+0x([0-9a-f]+)\s*$", out)
+    if switch is None:
+        raise RuntimeError("Cannot verify system proxy state; test is blocked")
+    pac = re.search(r"(?im)^\s*AutoConfigURL\s+REG_\w+\s+\S+", out)
+    return int(switch.group(1), 16) != 0 or pac is not None
 
 
 def is_admin_windows() -> bool:

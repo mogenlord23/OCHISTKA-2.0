@@ -173,16 +173,77 @@ class SafetyTests(unittest.TestCase):
 
     def test_preflight_helpers_detect_proxy_and_other_engine_without_killing(self) -> None:
         def run(stdout: str):
-            return mock.Mock(stdout=stdout)
+            return mock.Mock(stdout=stdout, returncode=0)
         with mock.patch.object(module.subprocess, "run", return_value=run("    ProxyEnable    REG_DWORD    0x1\n")):
             self.assertTrue(module.system_proxy_enabled())
         with mock.patch.object(module.subprocess, "run", return_value=run("    ProxyEnable    REG_DWORD    0x0\n")):
             self.assertFalse(module.system_proxy_enabled())
         with mock.patch.object(module.subprocess, "run", return_value=run('"winws2.exe","123"\n')) as call:
             self.assertTrue(module.other_engine_running())
-            self.assertEqual(call.call_args.args[0][0], "tasklist.exe")
+            self.assertTrue(call.call_args.args[0][0].lower().endswith(r"\system32\tasklist.exe"))
         with mock.patch.object(module.subprocess, "run", return_value=run("INFO: No tasks\n")):
             self.assertFalse(module.other_engine_running())
+
+
+    def test_failed_windows_preflight_aborts_instead_of_assuming_safe(self) -> None:
+        with mock.patch.object(
+            module.subprocess, "run",
+            return_value=mock.Mock(stdout="", stderr="denied", returncode=1),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "preflight"):
+                module.other_engine_running()
+            with self.assertRaisesRegex(RuntimeError, "preflight"):
+                module.system_proxy_enabled()
+
+    def test_unreadable_proxy_state_aborts_and_pac_is_detected(self) -> None:
+        with mock.patch.object(
+            module.subprocess, "run",
+            return_value=mock.Mock(stdout="some unknown output", returncode=0),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Cannot verify"):
+                module.system_proxy_enabled()
+        pac = "ProxyEnable    REG_DWORD    0x0\nAutoConfigURL    REG_SZ    http://example.org/proxy.pac\n"
+        with mock.patch.object(
+            module.subprocess, "run",
+            return_value=mock.Mock(stdout=pac, returncode=0),
+        ):
+            self.assertTrue(module.system_proxy_enabled())
+
+    def test_live_evidence_needs_both_packet_and_real_lua(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            log = pathlib.Path(folder) / "engine.log"
+            log.write_text("packet: id=123 reinject unmodified", encoding="utf-8")
+            self.assertFalse(module.engine_log_has_live_callback(log))
+            log.write_text("LUA: fake: packet without capture", encoding="utf-8")
+            self.assertFalse(module.engine_log_has_live_callback(log))
+            log.write_text("packet: id=123\nLUA: fake: packet", encoding="utf-8")
+            self.assertTrue(module.engine_log_has_live_callback(log))
+
+    def test_successful_active_request_rejects_missing_capture_evidence(self) -> None:
+        proc = mock.Mock()
+        proc.poll.return_value = None
+        with tempfile.TemporaryDirectory() as folder:
+            exe = pathlib.Path(folder) / "winws2.exe"
+            log = pathlib.Path(folder) / "engine.log"
+            with mock.patch.object(module.subprocess, "run", return_value=mock.Mock(returncode=0)), \
+                 mock.patch.object(module.subprocess, "Popen", return_value=proc), \
+                 mock.patch.object(module.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, create=True), \
+                 mock.patch.object(module, "wait_capture"), \
+                 mock.patch.object(module, "wait_engine_evidence", return_value=False), \
+                 mock.patch.object(module, "bounded_probe_https", return_value=module.ProbeResult("http_success", 200, 100)), \
+                 mock.patch.object(module, "stop_engine", return_value=True) as stop:
+                with self.assertRaisesRegex(RuntimeError, "not confirmed"):
+                    module.active_probe(exe, "example.org", "1.1.1.1", log)
+                stop.assert_called_once_with(proc)
+
+    def test_deadline_aborts_if_probe_worker_remains_alive(self) -> None:
+        client = mock.Mock()
+        import time
+        with mock.patch.object(module, "PROBE_DEADLINE_SECONDS", 0.001), \
+             mock.patch.object(module, "probe_https", side_effect=lambda *args: time.sleep(1)):
+            with self.assertRaisesRegex(RuntimeError, "worker has not stopped"):
+                module.bounded_probe_https("example.org", "1.1.1.1", client)
+        client.close.assert_called_once()
 
 
 if __name__ == "__main__":
