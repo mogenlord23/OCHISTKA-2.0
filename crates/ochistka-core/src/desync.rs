@@ -3359,6 +3359,88 @@ mod tests {
         assert!(len <= 30_000, "{len}");
     }
 
+    // ----- полные циклы -----
+
+    #[test]
+    fn full_cycle_enable_then_disable_leaves_nothing_behind() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(s.is_running() && s.driver_marked());
+        s.stop_trial().unwrap();
+        assert!(!s.is_running() && !s.driver_marked());
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert!(!s.pid_file().exists());
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_ok());
+    }
+
+    #[test]
+    fn full_cycle_enable_then_rollback_stops_the_process_and_the_driver() {
+        let flags = driver_flags(DriverState::Stopped);
+        let base = Timing::done(ms(300), ms(900));
+        let s = speed_service(
+            &flags,
+            speed_fake3(base, Timing::timeout(ms(5000)), Timing::timeout(ms(5000))),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(driver_now(&flags), DriverState::Running);
+        finish_speed_check(&s);
+        assert!(!s.is_running());
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert!(!s.driver_marked());
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_ok());
+    }
+
+    #[test]
+    fn full_cycle_enable_then_exit_stops_everything() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        s.shutdown().unwrap();
+        assert!(!s.is_running() && !s.driver_marked());
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_ok());
+    }
+
+    #[test]
+    fn full_cycle_forced_exit_then_the_next_program_start_cleans_up() {
+        let flags = driver_flags(DriverState::Stopped);
+        let first = trial_service(&flags, false);
+        first.start_trial(true, &mut |_| {}).unwrap();
+        // Принудительное закрытие: ни stop, ни shutdown не вызваны, процесс и служба остались.
+        let dir = first.dir.clone();
+        assert!(first.driver_marked());
+        assert_eq!(driver_now(&flags), DriverState::Running);
+        // Новый запуск программы: тот же каталог данных, новый сервис.
+        let second = DesyncService::new(
+            dir,
+            Box::new(good(flags.clone())),
+            Box::new(routing::VpnSignal::default),
+        );
+        second.recover_on_start();
+        assert_eq!(
+            driver_now(&flags),
+            DriverState::Stopped,
+            "служба остановлена при старте"
+        );
+        assert!(!second.driver_marked(), "отметка снята");
+        assert!(flags.stale.lock().unwrap().len() <= 1);
+        assert_eq!(second.status().0, DesyncState::Off);
+    }
+
+    #[test]
+    fn an_absent_driver_service_is_not_an_error_anywhere() {
+        let flags = driver_flags(DriverState::Absent);
+        flags.spawn_starts_driver.store(false, Ordering::SeqCst);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(!s.driver_marked());
+        s.stop_trial().unwrap();
+        s.recover_on_start();
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert_eq!(flags.driver_stops.load(Ordering::SeqCst), 0);
+    }
+
     #[test]
     fn live_service_plan_stays_off_for_unverified_profile() {
         let flags = Arc::new(Flags::default());
