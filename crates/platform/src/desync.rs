@@ -47,6 +47,7 @@ impl WindowsDesyncAdapter {
 }
 
 /// Какие сообщения системы значат «файл заблокирован защитой Windows».
+#[cfg_attr(not(windows), allow(dead_code))]
 fn blocked_by_protection(detail: &str) -> bool {
     let d = detail.to_lowercase();
     d.contains("virus")
@@ -56,6 +57,7 @@ fn blocked_by_protection(detail: &str) -> bool {
         || d.contains("os error 225")
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn protection_error(detail: String) -> PrepareError {
     PrepareError {
         reason: "защита Windows заблокировала файл обхода. Защиту OCHISTKA не отключает и исключения не добавляет".into(),
