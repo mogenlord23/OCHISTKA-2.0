@@ -241,7 +241,7 @@ describe('stubs', () => {
   });
 });
 
-describe('tool switches (Zapret, Xbox DNS)', () => {
+describe('tool switches (Обход блокировок, DNS)', () => {
   it('an unimplemented tool stays off and disabled with a reason, never on', () => {
     expect(TOOL_UNAVAILABLE.reason).toMatch(/Пока недоступно/);
     expect(toolSwitchProps(TOOL_UNAVAILABLE)).toEqual({

@@ -534,12 +534,12 @@ describe('VpnPage: «Дополнительно», блоки «Маршруты
 });
 
 describe('VpnPage: маршруты и «Дополнительно»', () => {
-  it('shows Zapret and Xbox DNS switches, both off with status text', async () => {
+  it('shows «Обход блокировок» and «DNS» as one switch each, both off with status text', async () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
-    // Порядок: Zapret, Xbox DNS, Маршруты и исключения; имя в кнопке не дублируется.
+    // Порядок: Обход блокировок, DNS, Маршруты и исключения; имя в кнопке не дублируется.
     await screen.findByText('Маршруты');
-    const order = ['Zapret', 'Xbox DNS', 'Маршруты'].map(
+    const order = ['Обход блокировок', 'DNS', 'Маршруты'].map(
       (text) => screen.getAllByText(text, { exact: true })[0],
     );
     for (let i = 0; i < order.length - 1; i++) {
@@ -547,9 +547,12 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
         order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.getAllByText('Zapret', { exact: true })).toHaveLength(1);
-    expect(screen.getAllByText('Xbox DNS', { exact: true })).toHaveLength(1);
-    for (const name of ['Zapret', 'Xbox DNS']) {
+    expect(screen.getAllByText('Обход блокировок', { exact: true })).toHaveLength(1);
+    expect(screen.getAllByText('DNS', { exact: true })).toHaveLength(1);
+    // Telegram не отдельная возможность: только упоминание внутри одной карточки.
+    expect(screen.queryByRole('switch', { name: /Telegram/ })).toBeNull();
+    expect(screen.queryByText(/Zapret|Xbox/)).toBeNull();
+    for (const name of ['Обход блокировок', 'DNS']) {
       const sw = screen.getByRole('switch', { name });
       expect(sw.getAttribute('aria-checked')).toBe('false');
       expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
@@ -563,11 +566,32 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
 
   it('has no confirmation dialog and the tools are disabled with a reason', () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
-    for (const name of ['Zapret', 'Xbox DNS']) {
+    for (const name of ['Обход блокировок', 'DNS']) {
       expect((screen.getByRole('switch', { name }) as HTMLButtonElement).disabled).toBe(true);
     }
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(2);
+  });
+});
+
+describe('VpnPage: DNS — выбор провайдера', () => {
+  it('opens the brand menu with Automatic checked and providers shown as not yet available', async () => {
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Выбрать DNS-провайдера' }));
+    const auto = screen.getByRole('menuitemradio', { name: 'Автоматически' });
+    expect(auto.getAttribute('aria-checked')).toBe('true');
+    for (const name of ['Cloudflare', 'Google', 'OpenDNS', 'Quad9']) {
+      const item = screen.getByRole('menuitemradio', { name }) as HTMLButtonElement;
+      expect(item.disabled).toBe(true);
+      expect(item.getAttribute('aria-checked')).toBe('false');
+    }
+    await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(
+      (screen.getByRole('switch', { name: 'DNS' }) as HTMLButtonElement).getAttribute(
+        'aria-checked',
+      ),
+    ).toBe('false');
   });
 });
 
@@ -584,7 +608,7 @@ describe('VpnPage: вкладки', () => {
   it('clicking a tab switches the content and the title', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await fireEvent.click(screen.getByRole('tab', { name: 'Дополнительно' }));
-    expect(screen.getByRole('switch', { name: 'Xbox DNS' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'DNS' })).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.queryByText('Ссылка подписки / импорта')).toBeNull();
   });
