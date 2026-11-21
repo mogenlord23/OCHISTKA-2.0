@@ -155,6 +155,624 @@
    "size_bytes": 889
   },
   {
+   "destination": "lists/nz-amazon.txt",
+   "source_path": "config/lists/amazon.txt",
+   "sha256": "703ee47cab6a37a8cdbf87e79cf05298f4b6972c701f17a1c0bb129e20fbb1c0",
+   "size_bytes": 68
+  },
+  {
+   "destination": "lists/nz-apple.txt",
+   "source_path": "config/lists/apple.txt",
+   "sha256": "8da27ab164dfdf3a0bdc120f9a0face98da47adcee236f2eef089fb3615de45f",
+   "size_bytes": 83
+  },
+  {
+   "destination": "lists/nz-arc-raiders-network.txt",
+   "source_path": "config/lists/arc-raiders-network.txt",
+   "sha256": "c764d7cb54f349349decd33004629140d582e49ce9fe2b84b4440f9501dcd967",
+   "size_bytes": 1548
+  },
+  {
+   "destination": "lists/nz-arc-raiders-voice.txt",
+   "source_path": "config/lists/arc-raiders-voice.txt",
+   "sha256": "cd8c2d5f2cf857764bd4706d73299a970fc2dae639ade10d4a3c699764bd14aa",
+   "size_bytes": 1453
+  },
+  {
+   "destination": "lists/nz-arc-raiders.txt",
+   "source_path": "config/lists/arc-raiders.txt",
+   "sha256": "675ed1498c25146fac5c9c42a79bfd5a425baa605f00da5e657f5f29a87e704d",
+   "size_bytes": 865
+  },
+  {
+   "destination": "lists/nz-atlassian.txt",
+   "source_path": "config/lists/atlassian.txt",
+   "sha256": "4741a6272ac6bff5c1311a51f1603af77f246003ea37fd1bcb9db213d2c6ed9a",
+   "size_bytes": 286
+  },
+  {
+   "destination": "lists/nz-battlenet.txt",
+   "source_path": "config/lists/battlenet.txt",
+   "sha256": "8541d75b2bd263eeb8d218b32cd8a8a8d56b2f967b323966c4600b83ad130f3c",
+   "size_bytes": 296
+  },
+  {
+   "destination": "lists/nz-bluesky-cdn.txt",
+   "source_path": "config/lists/bluesky-cdn.txt",
+   "sha256": "b02ecf96e22884598e017b9c0c9f1f53f5c378c31bce786693efd8ee4275b728",
+   "size_bytes": 1068
+  },
+  {
+   "destination": "lists/nz-captcha-arkose.txt",
+   "source_path": "config/lists/captcha-arkose.txt",
+   "sha256": "8c01ceb174a3780dadde9c724d84bc8877bd468c0cc98867d4eb1cd2979338e8",
+   "size_bytes": 440
+  },
+  {
+   "destination": "lists/nz-captcha-geetest.txt",
+   "source_path": "config/lists/captcha-geetest.txt",
+   "sha256": "ca316feb12e189149fd33fd72717b490874c27b6e3d09c1d9943007d7e1053ab",
+   "size_bytes": 373
+  },
+  {
+   "destination": "lists/nz-captcha-hcaptcha.txt",
+   "source_path": "config/lists/captcha-hcaptcha.txt",
+   "sha256": "117e455a1abe089f9d034c807ad230e29f3b34ce62ff02683358d09ca9cd22cf",
+   "size_bytes": 551
+  },
+  {
+   "destination": "lists/nz-captcha-recaptcha.txt",
+   "source_path": "config/lists/captcha-recaptcha.txt",
+   "sha256": "61870b4f4c7309e4ac46257285f0027654a242cb428fd85129848eef93dfad54",
+   "size_bytes": 1065
+  },
+  {
+   "destination": "lists/nz-captcha-turnstile.txt",
+   "source_path": "config/lists/captcha-turnstile.txt",
+   "sha256": "b9770364d1862d5f64bd0b3e3892cf9e9e2a425fa32b8337a6aada0bd0b3de81",
+   "size_bytes": 452
+  },
+  {
+   "destination": "lists/nz-chatgpt.txt",
+   "source_path": "config/lists/chatgpt.txt",
+   "sha256": "37d433715a7623f7d92562f23a8843caac60e5ed2e49fe9b36eaf2a3b57c19e2",
+   "size_bytes": 1261
+  },
+  {
+   "destination": "lists/nz-claude-content.txt",
+   "source_path": "config/lists/claude-content.txt",
+   "sha256": "6e47db041aa3b5da011e9d55f953e98019ced6d9be94eadc12acfbe30dbe235d",
+   "size_bytes": 732
+  },
+  {
+   "destination": "lists/nz-claude.txt",
+   "source_path": "config/lists/claude.txt",
+   "sha256": "273d93237f55d0870112df923b5c5acbb1e956e7eaf7b0ba730fe7b1d554cfdf",
+   "size_bytes": 458
+  },
+  {
+   "destination": "lists/nz-cloudflare.txt",
+   "source_path": "config/lists/cloudflare.txt",
+   "sha256": "28f63249d7021ec3fbe7bce57cd3309c0c01d19e085983056fe2921bf80c4b1b",
+   "size_bytes": 429
+  },
+  {
+   "destination": "lists/nz-cloudfront.txt",
+   "source_path": "config/lists/cloudfront.txt",
+   "sha256": "533c1aff700cfc44b13656436fd2745709a2e7448ec936b521d3ce3675df5a49",
+   "size_bytes": 284
+  },
+  {
+   "destination": "lists/nz-crunchyroll.txt",
+   "source_path": "config/lists/crunchyroll.txt",
+   "sha256": "3b57bf4855dee26af39c08a5cb7fd7afb4a64aaa51f03a0e49f375aaff078920",
+   "size_bytes": 153
+  },
+  {
+   "destination": "lists/nz-deepseek.txt",
+   "source_path": "config/lists/deepseek.txt",
+   "sha256": "ed9617b3e7766c7711e966add7f2b0165967b00d1e67d86f2f210df3edc10a02",
+   "size_bytes": 231
+  },
+  {
+   "destination": "lists/nz-discord-api.txt",
+   "source_path": "config/lists/discord-api.txt",
+   "sha256": "64cb634a967bf05209436f2cbdc8264e05e681b21c931e5f616f238261332f16",
+   "size_bytes": 1085
+  },
+  {
+   "destination": "lists/nz-discord-images.txt",
+   "source_path": "config/lists/discord-images.txt",
+   "sha256": "2df27f06d41f191dd3ed6ffbaf21198eb1f92537b2fe6af4e1f2986a0fb60f04",
+   "size_bytes": 563
+  },
+  {
+   "destination": "lists/nz-discord-media.txt",
+   "source_path": "config/lists/discord-media.txt",
+   "sha256": "0fe4b2cb3128ef6589dacb3c78d05e5d43df73afb24671b017653b093bef8f52",
+   "size_bytes": 251
+  },
+  {
+   "destination": "lists/nz-discord-updates.txt",
+   "source_path": "config/lists/discord-updates.txt",
+   "sha256": "90ad4e977d98068c3a78014a20ace2ece0f1ae54239a13d4072bba49ed3bb300",
+   "size_bytes": 268
+  },
+  {
+   "destination": "lists/nz-discord-voice-net.txt",
+   "source_path": "config/lists/discord-voice-net.txt",
+   "sha256": "a610a79fff5667a28a025162ce6c474b61673b9c8e8fd1e2d8f5326698ffc1aa",
+   "size_bytes": 2266
+  },
+  {
+   "destination": "lists/nz-discord.txt",
+   "source_path": "config/lists/discord.txt",
+   "sha256": "5fbcd44394b5f153ad95303afd25419fb2d7d8e17834198eabc3d5aa221b5f5f",
+   "size_bytes": 1962
+  },
+  {
+   "destination": "lists/nz-docker.txt",
+   "source_path": "config/lists/docker.txt",
+   "sha256": "2814ed710fecabc659f7ce079038f3208ee5e6228948b5f0b665d0ac43c9ec63",
+   "size_bytes": 667
+  },
+  {
+   "destination": "lists/nz-donationalerts.txt",
+   "source_path": "config/lists/donationalerts.txt",
+   "sha256": "ebed7775903217b4caef295ef3b17565b2ed6e41a62c955ec9ad3fbd01f87324",
+   "size_bytes": 945
+  },
+  {
+   "destination": "lists/nz-dropbox.txt",
+   "source_path": "config/lists/dropbox.txt",
+   "sha256": "30f43046456afd9aca3b7f13e3039190a93d230be47174f6c7daff85734fa0d8",
+   "size_bytes": 255
+  },
+  {
+   "destination": "lists/nz-ea.txt",
+   "source_path": "config/lists/ea.txt",
+   "sha256": "23c37e4935bc453d78b31dbdf54e5b80e14726d2afa63fb8124243dbf69f66ce",
+   "size_bytes": 700
+  },
+  {
+   "destination": "lists/nz-epicgames-fortnite.txt",
+   "source_path": "config/lists/epicgames-fortnite.txt",
+   "sha256": "6d8e1d9b40e9d60bc0af5f3cd5033e5f74ec38bf692958061372c2cf600d3fe0",
+   "size_bytes": 271
+  },
+  {
+   "destination": "lists/nz-fandom.txt",
+   "source_path": "config/lists/fandom.txt",
+   "sha256": "8f5064f8a28c518bdda30cec2b115c6ac4db281ab5d1f31c6b3d8b75f030493c",
+   "size_bytes": 282
+  },
+  {
+   "destination": "lists/nz-figma.txt",
+   "source_path": "config/lists/figma.txt",
+   "sha256": "64e5b30361fb7ebdb3d22859672bcf5863fb9afd2c518abb26a47b0f2c5e99ba",
+   "size_bytes": 348
+  },
+  {
+   "destination": "lists/nz-game-net.txt",
+   "source_path": "config/lists/game-net.txt",
+   "sha256": "a8e574f7a5456129dca470c6322cd0a8ce32843e9a65cd6173dc5d1b95e9b4a9",
+   "size_bytes": 1029
+  },
+  {
+   "destination": "lists/nz-gemini.txt",
+   "source_path": "config/lists/gemini.txt",
+   "sha256": "629930f2ea412eea1dbe9c0d66cd4dbbc8bd3f9fd3d97b7a7227cbbfa1c4605c",
+   "size_bytes": 1293
+  },
+  {
+   "destination": "lists/nz-gog.txt",
+   "source_path": "config/lists/gog.txt",
+   "sha256": "460cb9cc70a1d0f734c81a601d0b8f7e56b21e3ef4e64cae1ffc3d0886cf8095",
+   "size_bytes": 15
+  },
+  {
+   "destination": "lists/nz-google.txt",
+   "source_path": "config/lists/google.txt",
+   "sha256": "ba3dac537ab38107fdc131da63657c8453f884e08468d5abcac844af424515a3",
+   "size_bytes": 586
+  },
+  {
+   "destination": "lists/nz-googlevideo.txt",
+   "source_path": "config/lists/googlevideo.txt",
+   "sha256": "9417be1eee68b371379c7d874ad9753d9952ff4bda6935ffd9f107f86bcca972",
+   "size_bytes": 263
+  },
+  {
+   "destination": "lists/nz-grok.txt",
+   "source_path": "config/lists/grok.txt",
+   "sha256": "84faf6b384a3bb3ba8b08320eb60d17c32613d8e5d0d25ba24d5a91a3fc0bf3b",
+   "size_bytes": 179
+  },
+  {
+   "destination": "lists/nz-hoyoverse.txt",
+   "source_path": "config/lists/hoyoverse.txt",
+   "sha256": "e749ad71d5989083b09a228a95314d541e0af19751ac779c96c49ae47ad6c669",
+   "size_bytes": 378
+  },
+  {
+   "destination": "lists/nz-huggingface.txt",
+   "source_path": "config/lists/huggingface.txt",
+   "sha256": "4e605c8ac2d1912f036e8f0935e716bad745d2d24699501b218238c4693430bd",
+   "size_bytes": 162
+  },
+  {
+   "destination": "lists/nz-i-ytimg.txt",
+   "source_path": "config/lists/i-ytimg.txt",
+   "sha256": "0e9bf7ae7cbc26a3bdf2f7b642dad485d3c068eb1ab05e26bf4f87a244318d38",
+   "size_bytes": 52
+  },
+  {
+   "destination": "lists/nz-instagram.txt",
+   "source_path": "config/lists/instagram.txt",
+   "sha256": "14236cd4e4673587af6d9837e9726239aafed6a3be3abd5a214bf96789c9a9a8",
+   "size_bytes": 329
+  },
+  {
+   "destination": "lists/nz-ipset-discord.txt",
+   "source_path": "config/lists/ipset-discord.txt",
+   "sha256": "8433cf1abd8e22467621fb6389cdbdee64b6281da16c28ab18a79070b95a4661",
+   "size_bytes": 1614
+  },
+  {
+   "destination": "lists/nz-ipset-ru.txt",
+   "source_path": "config/lists/ipset-ru.txt",
+   "sha256": "1b2743a5d60fe2c8bf93cf550dc9521bb950654bc1e281a9f4a1bba267e5fde4",
+   "size_bytes": 11112
+  },
+  {
+   "destination": "lists/nz-ipset-telegram.txt",
+   "source_path": "config/lists/ipset-telegram.txt",
+   "sha256": "437d614a2e9fab7fbd0ae78fddb4d76da53da49e9e845ad6cafcf9d0cfbcf97c",
+   "size_bytes": 740
+  },
+  {
+   "destination": "lists/nz-ipset-twitter.txt",
+   "source_path": "config/lists/ipset-twitter.txt",
+   "sha256": "f8db25688a6f80fed323641253f4904da7de231dff1a6e2ddd08762cdaf313ae",
+   "size_bytes": 257
+  },
+  {
+   "destination": "lists/nz-ipset-youtube.txt",
+   "source_path": "config/lists/ipset-youtube.txt",
+   "sha256": "1d9c2c37ee591ba755c6fdc70265757237e338159f0ef09cce1948507928d86a",
+   "size_bytes": 481
+  },
+  {
+   "destination": "lists/nz-itch.txt",
+   "source_path": "config/lists/itch.txt",
+   "sha256": "b34260f23a3d1096e3c825985fae865bd9d08ba025075bb8b1d1f5d014550a44",
+   "size_bytes": 914
+  },
+  {
+   "destination": "lists/nz-jetbrains.txt",
+   "source_path": "config/lists/jetbrains.txt",
+   "sha256": "c87e9d668783e903db6188f475ee78222e7b69fdb4c98d1758e5146eb9a1431a",
+   "size_bytes": 303
+  },
+  {
+   "destination": "lists/nz-kick-video.txt",
+   "source_path": "config/lists/kick-video.txt",
+   "sha256": "3737539a325dc773e9ff2ad6912f78374ed0b92fef5a3cbc4ba498f11108d1fb",
+   "size_bytes": 824
+  },
+  {
+   "destination": "lists/nz-kick.txt",
+   "source_path": "config/lists/kick.txt",
+   "sha256": "2ac8030ff2dea2f62bdb4b4805ddb720b295b7a85e99e4cf295e1c12f600aec9",
+   "size_bytes": 306
+  },
+  {
+   "destination": "lists/nz-linkedin.txt",
+   "source_path": "config/lists/linkedin.txt",
+   "sha256": "06c2f9d88220f9baff3f03c40392f790c480733398c73f55cc94a6a10132d184",
+   "size_bytes": 35
+  },
+  {
+   "destination": "lists/nz-microsoft-store.txt",
+   "source_path": "config/lists/microsoft-store.txt",
+   "sha256": "a1ab479dc3a2ca330fe018d788834e1f2e519f94a0053444d37b7bf0c6584408",
+   "size_bytes": 388
+  },
+  {
+   "destination": "lists/nz-minecraft.txt",
+   "source_path": "config/lists/minecraft.txt",
+   "sha256": "8bc08e12d25202d017599f8064df2156bcc1a1928ce3c62ad9106f0e5c41f6a6",
+   "size_bytes": 644
+  },
+  {
+   "destination": "lists/nz-miro.txt",
+   "source_path": "config/lists/miro.txt",
+   "sha256": "c0bc65f1cb66eb8e119476e51062b5eeb7e1febdd9a0f22c02649c71c62d6754",
+   "size_bytes": 113
+  },
+  {
+   "destination": "lists/nz-mistral.txt",
+   "source_path": "config/lists/mistral.txt",
+   "sha256": "88a14eaf1116724e48d7b94fbe6f717d26eda98ff31eca9728154a0bafe7e4b4",
+   "size_bytes": 22
+  },
+  {
+   "destination": "lists/nz-netflix.txt",
+   "source_path": "config/lists/netflix.txt",
+   "sha256": "b4574cc2d04005394686a9012d48230354a1cfc76c6ab9f07af9c531cc3edffa",
+   "size_bytes": 303
+  },
+  {
+   "destination": "lists/nz-nintendo.txt",
+   "source_path": "config/lists/nintendo.txt",
+   "sha256": "6c2d38229ff7d67e5af52683f05554b41d34e5c4d1078890bbf8464bb532046e",
+   "size_bytes": 38
+  },
+  {
+   "destination": "lists/nz-notion.txt",
+   "source_path": "config/lists/notion.txt",
+   "sha256": "4f9150f7e5b659af2074b02c3dccefcdbcb0288ae7315ed290d5fa8388cf12d7",
+   "size_bytes": 1007
+  },
+  {
+   "destination": "lists/nz-npm.txt",
+   "source_path": "config/lists/npm.txt",
+   "sha256": "ec2214df8be44cd91ca666e31580c88fa365300ce2cd805b98ed2921a5d20f44",
+   "size_bytes": 219
+  },
+  {
+   "destination": "lists/nz-obsidian.txt",
+   "source_path": "config/lists/obsidian.txt",
+   "sha256": "025d6bb63ea8194f7cb85218752d75cd099a40c825bafa75b2ca2f73fc32e0ae",
+   "size_bytes": 24
+  },
+  {
+   "destination": "lists/nz-perplexity.txt",
+   "source_path": "config/lists/perplexity.txt",
+   "sha256": "ea1a5a39aedea785fc054684e57a63d9af0d2fc78cccc1aa4e59b0df8191a33d",
+   "size_bytes": 398
+  },
+  {
+   "destination": "lists/nz-photon-network.txt",
+   "source_path": "config/lists/photon-network.txt",
+   "sha256": "c1cca90b23f2ce06ebcd05b98f7a80b93ba3149df241401fe01ea523b323d01f",
+   "size_bytes": 1527
+  },
+  {
+   "destination": "lists/nz-photon.txt",
+   "source_path": "config/lists/photon.txt",
+   "sha256": "7b645cbf11bc5d6391386d1ec4f3de2052e3f1c06a56a9ba12d16edfe222dc60",
+   "size_bytes": 808
+  },
+  {
+   "destination": "lists/nz-pinterest.txt",
+   "source_path": "config/lists/pinterest.txt",
+   "sha256": "eef2a99c42545b52a8a654518ef5ca4ce31f0619790fe711550e535fc497b548",
+   "size_bytes": 697
+  },
+  {
+   "destination": "lists/nz-playstation.txt",
+   "source_path": "config/lists/playstation.txt",
+   "sha256": "513ce958e8bcc339678542a6e97f3667d4f3540fe354e1410620388b659022d8",
+   "size_bytes": 256
+  },
+  {
+   "destination": "lists/nz-pypi.txt",
+   "source_path": "config/lists/pypi.txt",
+   "sha256": "6b75f7cd0677f6a6c1d6c1c7d53c04110a8f5374bad7f80564f041ce12fd6068",
+   "size_bytes": 253
+  },
+  {
+   "destination": "lists/nz-reddit.txt",
+   "source_path": "config/lists/reddit.txt",
+   "sha256": "dd85bd6438982940a577b922d17222c98694ba3d2f76f5e2e3aabcd1fbb7603b",
+   "size_bytes": 292
+  },
+  {
+   "destination": "lists/nz-riot-network.txt",
+   "source_path": "config/lists/riot-network.txt",
+   "sha256": "007a0c4c1bb7fb3bdda8b6afb9688de1c672a0293683a69b29a0aba715cace02",
+   "size_bytes": 1243
+  },
+  {
+   "destination": "lists/nz-riot-valorant.txt",
+   "source_path": "config/lists/riot-valorant.txt",
+   "sha256": "b96caf450093705223f3407e6579f2858e37a5aacb7ea3b5523fbb22022af2f3",
+   "size_bytes": 501
+  },
+  {
+   "destination": "lists/nz-roblox-cdn.txt",
+   "source_path": "config/lists/roblox-cdn.txt",
+   "sha256": "4ada015e9b39af20a4b8d840bd4347c5d449a1cb199d78de3171f093d41c56d9",
+   "size_bytes": 828
+  },
+  {
+   "destination": "lists/nz-roblox-network.txt",
+   "source_path": "config/lists/roblox-network.txt",
+   "sha256": "da9bbd4e234bfc13b9b050184869a52d5af4f2a20640a14e166665cb9af04416",
+   "size_bytes": 1162
+  },
+  {
+   "destination": "lists/nz-roblox.txt",
+   "source_path": "config/lists/roblox.txt",
+   "sha256": "1ad88bc98d656c8fba92da543003c6fccbafe46d8a2abe4426d691490777bc13",
+   "size_bytes": 1410
+  },
+  {
+   "destination": "lists/nz-rockstar.txt",
+   "source_path": "config/lists/rockstar.txt",
+   "sha256": "90b7be2471e223317528b31554bcbadf48933334d0f834d2befc587ae6b509a0",
+   "size_bytes": 51
+  },
+  {
+   "destination": "lists/nz-ru-sites.txt",
+   "source_path": "config/lists/ru-sites.txt",
+   "sha256": "a7b5f44f4271e3dd4e1e481489d79ca6252c31390cbda2f1401eeda550991e93",
+   "size_bytes": 695
+  },
+  {
+   "destination": "lists/nz-russia-blacklist.txt",
+   "source_path": "config/lists/russia-blacklist.txt",
+   "sha256": "5d7b24eb328de359ab3ad152f3e9f46c8d790e29fb971394bc1fda90b98aa357",
+   "size_bytes": 1774675
+  },
+  {
+   "destination": "lists/nz-rutor.txt",
+   "source_path": "config/lists/rutor.txt",
+   "sha256": "d88e734d7180ed8d976487d6541e043ede938ced832ce7b1ad9fec71244b366e",
+   "size_bytes": 281
+  },
+  {
+   "destination": "lists/nz-rutracker.txt",
+   "source_path": "config/lists/rutracker.txt",
+   "sha256": "431b22f54c0f579ae269ad33343bfe8ef155021604853f804c373990d3d32187",
+   "size_bytes": 519
+  },
+  {
+   "destination": "lists/nz-seriesgraph.txt",
+   "source_path": "config/lists/seriesgraph.txt",
+   "sha256": "32cdb23c932c198222d55ad54f04c2a900bdf34a3568af84df9dcb5d44218de6",
+   "size_bytes": 744
+  },
+  {
+   "destination": "lists/nz-slack.txt",
+   "source_path": "config/lists/slack.txt",
+   "sha256": "7ba29780084cdbfe998e6641785bc35fe0a5e6128305038d8f49217904b55d7d",
+   "size_bytes": 268
+  },
+  {
+   "destination": "lists/nz-spotify-cdn.txt",
+   "source_path": "config/lists/spotify-cdn.txt",
+   "sha256": "7a85b6bda1127aeed8033860f15d69a4adc28cd2ee7d1f9920db8f68458151ed",
+   "size_bytes": 1433
+  },
+  {
+   "destination": "lists/nz-spotify.txt",
+   "source_path": "config/lists/spotify.txt",
+   "sha256": "945407f05260fa0e26bf4ca5aaad7db376ff89173f8bb3fbf6b580550c0378ff",
+   "size_bytes": 670
+  },
+  {
+   "destination": "lists/nz-stackoverflow.txt",
+   "source_path": "config/lists/stackoverflow.txt",
+   "sha256": "36c6e2be87a2a78deab3aeecb3c254cf091509fe955b87cf02a550fb9ccc89bd",
+   "size_bytes": 173
+  },
+  {
+   "destination": "lists/nz-steam-web.txt",
+   "source_path": "config/lists/steam-web.txt",
+   "sha256": "22667c03d519ed771a771ee1f44c3a8ae64bf8dc2149c62630c8cbd4114da87c",
+   "size_bytes": 842
+  },
+  {
+   "destination": "lists/nz-steam.txt",
+   "source_path": "config/lists/steam.txt",
+   "sha256": "ae04dbe124a419011843dc1a8f287cf07ac21fc4697ad92a5f8d8cd2749de2cc",
+   "size_bytes": 815
+  },
+  {
+   "destination": "lists/nz-telegram.txt",
+   "source_path": "config/lists/telegram.txt",
+   "sha256": "1735124c851f2a9d7914c7d387ce2c45fffd24afdafcf9a9e4e35c73a5385c79",
+   "size_bytes": 910
+  },
+  {
+   "destination": "lists/nz-tiktok.txt",
+   "source_path": "config/lists/tiktok.txt",
+   "sha256": "afbbd89658f86b03c644317fe6d59c763051a5ab325547dab50d60573735a938",
+   "size_bytes": 589
+  },
+  {
+   "destination": "lists/nz-tmdb.txt",
+   "source_path": "config/lists/tmdb.txt",
+   "sha256": "44b6b5df816a3ed29e01fdad696cc73861d6379643062a5391ad699350add187",
+   "size_bytes": 1370
+  },
+  {
+   "destination": "lists/nz-twitch-video.txt",
+   "source_path": "config/lists/twitch-video.txt",
+   "sha256": "8446d0f0fee71353d4659d60cfae26c5c1c9cebf01229eaae400f1e3cba42b56",
+   "size_bytes": 1786
+  },
+  {
+   "destination": "lists/nz-twitch.txt",
+   "source_path": "config/lists/twitch.txt",
+   "sha256": "e15789889236fc06ee51972f8bbce34c2d659a746f17efae3c9635459de762c1",
+   "size_bytes": 2574
+  },
+  {
+   "destination": "lists/nz-ubisoft.txt",
+   "source_path": "config/lists/ubisoft.txt",
+   "sha256": "a0667ce35dd1006734ae3c6996df48a4744b79a0a62dd31744772a251237d2c9",
+   "size_bytes": 312
+  },
+  {
+   "destination": "lists/nz-vencord.txt",
+   "source_path": "config/lists/vencord.txt",
+   "sha256": "4dd383600e275c3d0fd1f302402abcb0ffdd283e06b958f9aafba9f94f130ecd",
+   "size_bytes": 163
+  },
+  {
+   "destination": "lists/nz-vimeo.txt",
+   "source_path": "config/lists/vimeo.txt",
+   "sha256": "05a9be19bba30c7226184a0baaf1964d9acad5dde02892dfba0b08966f1109e0",
+   "size_bytes": 32
+  },
+  {
+   "destination": "lists/nz-virustotal-docs.txt",
+   "source_path": "config/lists/virustotal-docs.txt",
+   "sha256": "993e762d63a5430c5bb08eac6e358ee569e1f13548df0fa1bb0f0a3a1aaa6aff",
+   "size_bytes": 683
+  },
+  {
+   "destination": "lists/nz-virustotal-google-api.txt",
+   "source_path": "config/lists/virustotal-google-api.txt",
+   "sha256": "8eb4ae5c8b9dca7bdb3e0630c98201a3ac5b60df3635cd6a78cfeb0ac2bf405b",
+   "size_bytes": 1092
+  },
+  {
+   "destination": "lists/nz-virustotal-login.txt",
+   "source_path": "config/lists/virustotal-login.txt",
+   "sha256": "a2f416840ee32e7fb20b12c56b633b3fb2cd2e187f58dba5ddef40b85f525556",
+   "size_bytes": 608
+  },
+  {
+   "destination": "lists/nz-wardogs.txt",
+   "source_path": "config/lists/wardogs.txt",
+   "sha256": "28a2e9b84f96ceb075ae7acba4082bec194d527b15bead1b4fbeab620563fcc5",
+   "size_bytes": 715
+  },
+  {
+   "destination": "lists/nz-whatsapp.txt",
+   "source_path": "config/lists/whatsapp.txt",
+   "sha256": "4ca20591ced1ee1bde34f03f9b3af1e46ea0e56749ed3231a52481de1e76203a",
+   "size_bytes": 759
+  },
+  {
+   "destination": "lists/nz-wikipedia.txt",
+   "source_path": "config/lists/wikipedia.txt",
+   "sha256": "9cabc1728b874234a611d1e02dcf03994fe06de7f2975358c440ff749ac4a628",
+   "size_bytes": 276
+  },
+  {
+   "destination": "lists/nz-xbox.txt",
+   "source_path": "config/lists/xbox.txt",
+   "sha256": "8ee5ab3375ccbc7b273e8cb81730ecaf9e4f7120a7af250eed7fd5134ca8d350",
+   "size_bytes": 248
+  },
+  {
+   "destination": "lists/nz-youtube.txt",
+   "source_path": "config/lists/youtube.txt",
+   "sha256": "f774e66a783937e19f0436eb4193f1c23856bb009fb0f9620ad25503737a0b82",
+   "size_bytes": 990
+  },
+  {
+   "destination": "lists/nz-zoom.txt",
+   "source_path": "config/lists/zoom.txt",
+   "sha256": "ca1fb1100e777a9484a6c7aac74ce3b3f7dcd0209cb3d7640f30b2a99da5e475",
+   "size_bytes": 25
+  },
+  {
    "destination": "lists/roblox.txt",
    "source_path": "vendor/zapret-gui/lists/roblox.txt",
    "sha256": "278ede5763d33be4bfcb3016790cccc4bea71d53a62d0f0a63941145a36b5185",

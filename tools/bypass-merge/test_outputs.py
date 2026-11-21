@@ -74,6 +74,26 @@ class OutputTests(unittest.TestCase):
                 line = line.strip()
                 self.assertTrue(not line or line.startswith("#") or LINE.match(line), f"{rel}:{n}")
 
+    def test_routes_file_has_no_duplicates_and_points_to_existing_data(self):
+        data = json.loads(read(os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")))
+        keys = [(r["kind"], r.get("file") or r.get("value")) for r in data["routes"]]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(sum(data["applied_counts"].values()), len(data["routes"]))
+        for r in data["routes"]:
+            self.assertIn(r["applied"], ("preset", "shield", "direct", "vpn-only", "catalog"))
+            self.assertIn(r["category"], ("game", "app", "domain", "network"))
+            if "file" in r:
+                self.assertTrue(
+                    os.path.isfile(os.path.join(RUNTIME, r["file"])) or os.path.isfile(os.path.join(EXTRA, r["file"])),
+                    r["file"],
+                )
+        # proxy-маршруты не применяются этим переключателем (VPN отдельно)
+        self.assertTrue(all(r["applied"] == "vpn-only" for r in data["routes"] if r["mode"] == "proxy"))
+        # щиты pass есть в пресете как секции
+        m = zpreset.parse(read(PRESET))
+        shields = [s for s in m.sections if s.name.startswith("Маршрут (pass)")]
+        self.assertEqual(len(shields), sum(1 for r in data["routes"] if r["applied"] == "shield"))
+
     def test_no_executable_or_lua_code_is_added(self):
         for root, _, files in os.walk(EXTRA):
             for f in files:

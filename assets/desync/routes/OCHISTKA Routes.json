@@ -1,0 +1,1189 @@
+{
+ "schema_version": 1,
+ "source": "RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa",
+ "license": "MIT (NetZapret © 2026 RixyPow)",
+ "applied_counts": {
+  "shield": 3,
+  "direct": 12,
+  "vpn-only": 14,
+  "preset": 46,
+  "catalog": 55
+ },
+ "routes": [
+  {
+   "kind": "domain",
+   "value": "akamaihd.net",
+   "mode": "desync",
+   "category": "domain",
+   "applied": "shield",
+   "note": "рецепт pass, как у RixyPow; действует на трафик, не пойманный более ранними секциями"
+  },
+  {
+   "kind": "domain",
+   "value": "akamaized.net",
+   "mode": "direct",
+   "category": "domain",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "domain",
+   "value": "avito.ru",
+   "mode": "direct",
+   "category": "domain",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "domain",
+   "value": "avito.st",
+   "mode": "direct",
+   "category": "domain",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "domain",
+   "value": "bandcamp.com",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "canva-user-content.com",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "canva.com",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "canvausercontent.com",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "lencr.org",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "linkedin.com",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "rutracker.org",
+   "mode": "proxy",
+   "category": "domain",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "domain",
+   "value": "wardogs.bulkhead.pragmaengine.com",
+   "mode": "desync",
+   "category": "domain",
+   "applied": "shield",
+   "note": "рецепт pass, как у RixyPow; действует на трафик, не пойманный более ранними секциями"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-amazon.txt",
+   "source_list": "amazon.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-apple.txt",
+   "source_list": "apple.txt",
+   "lines": 6,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-arc-raiders-voice.txt",
+   "source_list": "arc-raiders-voice.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-arc-raiders.txt",
+   "source_list": "arc-raiders.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-archive.txt",
+   "source_list": "archive.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-atlassian.txt",
+   "source_list": "atlassian.txt",
+   "lines": 3,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-battlenet.txt",
+   "source_list": "battlenet.txt",
+   "lines": 2,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-bluesky-cdn.txt",
+   "source_list": "bluesky-cdn.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-bluesky.txt",
+   "source_list": "bluesky.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-bsky-app.txt",
+   "source_list": "bsky-app.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-captcha-arkose.txt",
+   "source_list": "captcha-arkose.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-captcha-geetest.txt",
+   "source_list": "captcha-geetest.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-captcha-hcaptcha.txt",
+   "source_list": "captcha-hcaptcha.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-captcha-recaptcha.txt",
+   "source_list": "captcha-recaptcha.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-captcha-turnstile.txt",
+   "source_list": "captcha-turnstile.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-chatgpt.txt",
+   "source_list": "chatgpt.txt",
+   "lines": 9,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-claude-content.txt",
+   "source_list": "claude-content.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-claude.txt",
+   "source_list": "claude.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-cloudflare.txt",
+   "source_list": "cloudflare.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-cloudfront.txt",
+   "source_list": "cloudfront.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-crunchyroll.txt",
+   "source_list": "crunchyroll.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-deepseek.txt",
+   "source_list": "deepseek.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-discord-api.txt",
+   "source_list": "discord-api.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-discord-images.txt",
+   "source_list": "discord-images.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-discord-media.txt",
+   "source_list": "discord-media.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-discord-updates.txt",
+   "source_list": "discord-updates.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-discord.txt",
+   "source_list": "discord.txt",
+   "lines": 17,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-docker.txt",
+   "source_list": "docker.txt",
+   "lines": 4,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-donationalerts.txt",
+   "source_list": "donationalerts.txt",
+   "lines": 3,
+   "category": "domain",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-dropbox.txt",
+   "source_list": "dropbox.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-ea.txt",
+   "source_list": "ea.txt",
+   "lines": 4,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-epicgames-fortnite.txt",
+   "source_list": "epicgames-fortnite.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-facebook.txt",
+   "source_list": "facebook.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-fandom.txt",
+   "source_list": "fandom.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-figma.txt",
+   "source_list": "figma.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-gemini.txt",
+   "source_list": "gemini.txt",
+   "lines": 20,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-github.txt",
+   "source_list": "github.txt",
+   "lines": 8,
+   "category": "app",
+   "mode": "desync",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-gog.txt",
+   "source_list": "gog.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-google.txt",
+   "source_list": "google.txt",
+   "lines": 8,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-googlevideo.txt",
+   "source_list": "googlevideo.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-grok.txt",
+   "source_list": "grok.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-hoyoverse.txt",
+   "source_list": "hoyoverse.txt",
+   "lines": 2,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-huggingface.txt",
+   "source_list": "huggingface.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-i-ytimg.txt",
+   "source_list": "i-ytimg.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-instagram.txt",
+   "source_list": "instagram.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-itch.txt",
+   "source_list": "itch.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-jetbrains.txt",
+   "source_list": "jetbrains.txt",
+   "lines": 4,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-kick-video.txt",
+   "source_list": "kick-video.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-kick.txt",
+   "source_list": "kick.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-linkedin.txt",
+   "source_list": "linkedin.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-medium.txt",
+   "source_list": "medium.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-microsoft-store.txt",
+   "source_list": "microsoft-store.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-minecraft.txt",
+   "source_list": "minecraft.txt",
+   "lines": 4,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-miro.txt",
+   "source_list": "miro.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-mistral.txt",
+   "source_list": "mistral.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-netflix.txt",
+   "source_list": "netflix.txt",
+   "lines": 5,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-nintendo.txt",
+   "source_list": "nintendo.txt",
+   "lines": 2,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-notion.txt",
+   "source_list": "notion.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-npm.txt",
+   "source_list": "npm.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-obsidian.txt",
+   "source_list": "obsidian.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-perplexity.txt",
+   "source_list": "perplexity.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-photon.txt",
+   "source_list": "photon.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-pinterest.txt",
+   "source_list": "pinterest.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-playstation.txt",
+   "source_list": "playstation.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-proton.txt",
+   "source_list": "proton.txt",
+   "lines": 4,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-pypi.txt",
+   "source_list": "pypi.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-reddit.txt",
+   "source_list": "reddit.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-riot-valorant.txt",
+   "source_list": "riot-valorant.txt",
+   "lines": 11,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-roblox-cdn.txt",
+   "source_list": "roblox-cdn.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-roblox.txt",
+   "source_list": "roblox.txt",
+   "lines": 10,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-rockstar.txt",
+   "source_list": "rockstar.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-ru-sites.txt",
+   "source_list": "ru-sites.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-russia-blacklist.txt",
+   "source_list": "russia-blacklist.txt",
+   "lines": 117137,
+   "category": "domain",
+   "mode": "desync",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-rutor.txt",
+   "source_list": "rutor.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-rutracker.txt",
+   "source_list": "rutracker.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-seriesgraph.txt",
+   "source_list": "seriesgraph.txt",
+   "lines": 1,
+   "category": "domain",
+   "mode": "desync",
+   "applied": "shield",
+   "note": "рецепт pass, как у RixyPow; действует на трафик, не пойманный более ранними секциями"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-signal.txt",
+   "source_list": "signal.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-slack.txt",
+   "source_list": "slack.txt",
+   "lines": 5,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-soundcloud.txt",
+   "source_list": "soundcloud.txt",
+   "lines": 6,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-speedtest.txt",
+   "source_list": "speedtest.txt",
+   "lines": 3,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-spotify-cdn.txt",
+   "source_list": "spotify-cdn.txt",
+   "lines": 7,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-spotify.txt",
+   "source_list": "spotify.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-stackoverflow.txt",
+   "source_list": "stackoverflow.txt",
+   "lines": 3,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-steam-web.txt",
+   "source_list": "steam-web.txt",
+   "lines": 2,
+   "category": "game",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-steam.txt",
+   "source_list": "steam.txt",
+   "lines": 15,
+   "category": "game",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-telegram.txt",
+   "source_list": "telegram.txt",
+   "lines": 12,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-tiktok.txt",
+   "source_list": "tiktok.txt",
+   "lines": 19,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-tmdb.txt",
+   "source_list": "tmdb.txt",
+   "lines": 4,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-twitch-video.txt",
+   "source_list": "twitch-video.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-twitch.txt",
+   "source_list": "twitch.txt",
+   "lines": 8,
+   "category": "app",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-twitter.txt",
+   "source_list": "twitter.txt",
+   "lines": 3,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-ubisoft.txt",
+   "source_list": "ubisoft.txt",
+   "lines": 5,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-valheim.txt",
+   "source_list": "valheim.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-vencord.txt",
+   "source_list": "vencord.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-viber.txt",
+   "source_list": "viber.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-vimeo.txt",
+   "source_list": "vimeo.txt",
+   "lines": 2,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-virustotal-docs.txt",
+   "source_list": "virustotal-docs.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-virustotal-google-api.txt",
+   "source_list": "virustotal-google-api.txt",
+   "lines": 4,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-virustotal-login.txt",
+   "source_list": "virustotal-login.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-virustotal.txt",
+   "source_list": "virustotal.txt",
+   "lines": 1,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-wardogs.txt",
+   "source_list": "wardogs.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-whatsapp.txt",
+   "source_list": "whatsapp.txt",
+   "lines": 5,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-wikipedia.txt",
+   "source_list": "wikipedia.txt",
+   "lines": 3,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-xbox.txt",
+   "source_list": "xbox.txt",
+   "lines": 3,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-youtube.txt",
+   "source_list": "youtube.txt",
+   "lines": 18,
+   "category": "domain",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-zoom.txt",
+   "source_list": "zoom.txt",
+   "lines": 2,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-arc-raiders-network.txt",
+   "source_list": "arc-raiders-network.txt",
+   "lines": 1,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-discord-voice-net.txt",
+   "source_list": "discord-voice-net.txt",
+   "lines": 5,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-game-net.txt",
+   "source_list": "game-net.txt",
+   "lines": 2,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-cloudflare-8.txt",
+   "source_list": "ipset-cloudflare-8.txt",
+   "lines": 1,
+   "category": "network",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-discord.txt",
+   "source_list": "ipset-discord.txt",
+   "lines": 58,
+   "category": "app",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-ru.txt",
+   "source_list": "ipset-ru.txt",
+   "lines": 658,
+   "category": "network",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-telegram.txt",
+   "source_list": "ipset-telegram.txt",
+   "lines": 14,
+   "category": "app",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-twitter.txt",
+   "source_list": "ipset-twitter.txt",
+   "lines": 15,
+   "category": "network",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-ipset-youtube.txt",
+   "source_list": "ipset-youtube.txt",
+   "lines": 12,
+   "category": "network",
+   "mode": "catalog",
+   "applied": "preset"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-photon-network.txt",
+   "source_list": "photon-network.txt",
+   "lines": 38,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-riot-network.txt",
+   "source_list": "riot-network.txt",
+   "lines": 22,
+   "category": "game",
+   "mode": "direct",
+   "applied": "direct",
+   "note": "не вмешиваться"
+  },
+  {
+   "kind": "ipset",
+   "file": "lists/nz-roblox-network.txt",
+   "source_list": "roblox-network.txt",
+   "lines": 6,
+   "category": "game",
+   "mode": "catalog",
+   "applied": "catalog"
+  }
+ ]
+}

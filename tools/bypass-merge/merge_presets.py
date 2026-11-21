@@ -23,6 +23,7 @@ import shutil  # noqa: E402
 
 import inventory  # noqa: E402
 import merge  # noqa: E402
+import routes  # noqa: E402
 import zpreset  # noqa: E402
 
 BASE = "Universal V13 Lite.txt"
@@ -39,6 +40,7 @@ BROAD_LIST_LINES = 5000
 RUNTIME = os.path.join(REPO, "assets/desync/runtime")
 EXTRA = os.path.join(REPO, "assets/desync/runtime-extra")
 MERGED_PRESET = os.path.join(REPO, "assets/desync/presets/OCHISTKA Merged.txt")
+ROUTES_FILE = os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")
 
 
 def our_resources() -> set[str]:
@@ -112,14 +114,55 @@ def cmd_merge(args: argparse.Namespace) -> None:
         "Создан tools/bypass-merge/merge_presets.py; конфликты и исключения: docs/status/bypass-merge-conflicts.md.",
         "НЕ ПРОВЕРЕН на Windows у провайдера: обход не объявляется рабочим.",
     ]
-    text = zpreset.render("OCHISTKA Merged", description, result.globals, result.sections)
+    # Маршруты: правила и списки RixyPow, один файл.
+    cfg_dir = os.path.join(args.source, "config/lists")
+    config_lists, kinds = {}, {}
+    for name in sorted(os.listdir(cfg_dir)):
+        if not name.endswith(".txt"):
+            continue
+        raw = open(os.path.join(cfg_dir, name), "rb").read()
+        lines = [x.strip() for x in raw.decode("utf-8", "ignore").splitlines() if x.strip() and not x.strip().startswith("#")]
+        config_lists[name] = (hashlib.sha256(raw).hexdigest(), len(lines))
+        kinds[name] = "ipset" if lines and re.match(r"^[0-9a-fA-F:.]+(/\d+)?$", lines[0]) else "hostlist"
+    existing_by_sha = {}
+    for rel in sorted(ours):
+        if rel.startswith("lists/"):
+            existing_by_sha.setdefault(hashlib.sha256(open(os.path.join(RUNTIME, rel), "rb").read()).hexdigest(), rel)
+    used_lists = set()
+    for sec in result.sections:
+        for a in sec.args:
+            if zpreset.key_of(a) in ("hostlist", "ipset", "hostlist-exclude", "ipset-exclude"):
+                used_lists.add(zpreset.value_of(a))
+    rules = routes.parse_rules(open(os.path.join(args.source, "config/rules.yaml"), encoding="utf-8").read())
+    rt = routes.build(rules, config_lists, existing_by_sha, used_lists, kinds)
+    final_sections = result.sections + rt.sections
+    text = zpreset.render("OCHISTKA Merged", description, result.globals, final_sections)
     with open(MERGED_PRESET, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
+    md = merge.conflicts_markdown(result, src)
+    md += f"\n## Маршруты ({len(rt.conflicts)} конфликтов с пресетом)\n\n"
+    md += ("Маршруты RixyPow (`config/rules.yaml`, 31 правило + все списки `config/lists`) собраны в "
+           "`assets/desync/routes/OCHISTKA Routes.json`. Режим `proxy` требует VPN и этим переключателем не применяется "
+           "(ADR 0014, п. 1); `direct` — не вмешиваться; `desync` — в пресете или секцией pass (щит, как у RixyPow). "
+           "Списки без правила остаются в файле как справочные (`catalog`), пока на Windows не подтвердится нужное действие.\n\n")
+    if rt.conflicts:
+        md += "| № | Маршрут | Что выбрано и почему |\n|---|---|---|\n"
+        for i, c in enumerate(rt.conflicts, 1):
+            md += f"| R{i:03d} | `{c['value']}` | {c['detail']} |\n"
     with open(os.path.join(REPO, "docs/status/bypass-merge-conflicts.md"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(merge.conflicts_markdown(result, src))
+        fh.write(md)
+    os.makedirs(os.path.dirname(ROUTES_FILE), exist_ok=True)
+    counts_applied = {}
+    for e in rt.entries:
+        counts_applied[e["applied"]] = counts_applied.get(e["applied"], 0) + 1
+    with open(ROUTES_FILE, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"schema_version": 1, "source": src, "license": "MIT (NetZapret © 2026 RixyPow)",
+                   "applied_counts": counts_applied, "routes": rt.entries}, fh, ensure_ascii=False, indent=1)
+        fh.write("\n")
     cov = result.coverage()
     cov["source"] = src
-    problems = merge.check_coverage(cov, result.sections, result.globals)
+    cov["route_sections"] = len(rt.sections)
+    problems = merge.check_coverage(cov, final_sections, result.globals)
     if problems:
         sys.exit("Манифест не сходится: " + "; ".join(problems[:5]))
     with open(os.path.join(REPO, "docs/status/bypass-merge-coverage.json"), "w", encoding="utf-8", newline="\n") as fh:
@@ -128,7 +171,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
     # Дополнительные данные (списки и образцы), которых нет среди 135 закреплённых файлов.
     shutil.rmtree(EXTRA, ignore_errors=True)
     files = []
-    needed = set(zpreset.referenced_resources(result.globals + [a for s in result.sections for a in s.args]))
+    needed = set(zpreset.referenced_resources(result.globals + [a for s in final_sections for a in s.args])) | set(rt.ship)
     for rel in sorted(needed - ours):
         sf = source_file(args.source, rel)
         assert sf, rel
@@ -147,7 +190,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
     counts = {}
     for r in result.section_records:
         counts[r.status] = counts.get(r.status, 0) + 1
-    print("sections:", counts, "merged:", len(result.sections), "extra files:", len(files))
+    print("sections:", counts, "merged:", len(final_sections), "route sections:", len(rt.sections), "routes:", counts_applied, "extra files:", len(files))
 
 
 def main() -> None:

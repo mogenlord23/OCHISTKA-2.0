@@ -1233,3 +1233,24 @@
 --hostlist=lists/discord-updates.txt
 --out-range=-d8
 --lua-desync=multidisorder:pos=4:repeats=10:tcp_md5
+
+--new
+--name=Маршрут (pass): nz-seriesgraph.txt
+--filter-tcp=80,443-65535
+--hostlist=lists/nz-seriesgraph.txt
+--out-range=-d8
+--lua-desync=pass
+
+--new
+--name=Маршрут (pass): wardogs.bulkhead.pragmaengine.com
+--filter-tcp=80,443-65535
+--hostlist-domains=wardogs.bulkhead.pragmaengine.com
+--out-range=-d8
+--lua-desync=pass
+
+--new
+--name=Маршрут (pass): akamaihd.net
+--filter-tcp=80,443-65535
+--hostlist-domains=akamaihd.net
+--out-range=-d8
+--lua-desync=pass
