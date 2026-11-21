@@ -84,7 +84,8 @@ describe('ProgramsPage installed programs', () => {
     await fireEvent.click(await screen.findByRole('button', { name: /Old Tool/ }));
     const remove = screen.getByRole('button', { name: 'Удалить' }) as HTMLButtonElement;
     expect(remove.disabled).toBe(true);
-    expect(remove.title).toBe('В реестре нет команды удаления');
+    expect(remove.title).toBe('');
+    expect(remove.getAttribute('aria-describedby')).toBe('delete-reason');
     expect(screen.getByText(/Удалить недоступно: В реестре нет команды удаления/)).toBeTruthy();
   });
 
@@ -312,7 +313,8 @@ describe('ProgramsPage startup', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Helper' }));
     expect(toggle.disabled).toBe(false);
-    expect(toggle.textContent?.trim()).toBe('Отключить автозагрузку');
+    expect(toggle.getAttribute('aria-label')).toBe('Отключить автозагрузку');
+    expect(toggle.textContent?.trim()).toBe('Отключить');
     await fireEvent.click(toggle);
 
     const dialog = screen.getByRole('dialog');
@@ -361,7 +363,11 @@ describe('ProgramsPage show in Explorer', () => {
       name: 'Показать в Проводнике',
     }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
-    expect(button.title).toBe('Папка установки в реестре не указана');
+    expect(button.title).toBe('');
+    expect(button.getAttribute('aria-describedby')).toBe('path-note');
+    expect(document.getElementById('path-note')?.textContent).toContain(
+      'Папка установки не указана',
+    );
 
     vi.mocked(revealInExplorer).mockRejectedValue({
       kind: 'reveal',

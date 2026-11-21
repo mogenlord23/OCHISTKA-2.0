@@ -322,6 +322,8 @@
       'M3 17.5v-11A1.5 1.5 0 0 1 4.5 5h4.2a1.5 1.5 0 0 1 1.1.5l1 1.1a1.5 1.5 0 0 0 1.1.4h6.6A1.5 1.5 0 0 1 20 8.5V10M3 17.5l2.3-6.3A1.5 1.5 0 0 1 6.7 10.2h13.9a1 1 0 0 1 .95 1.3l-2 5.7a1.5 1.5 0 0 1-1.4 1H4.5A1.5 1.5 0 0 1 3 17.5z',
     trash:
       'M3.5 6.5h17M8.5 6.5V4.2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v2.3M5.5 6.5l.9 12.7a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.8l.9-12.7M10 10.5v6M14 10.5v6',
+    disable: 'M12 3.5v8M7.3 6.6a8 8 0 1 0 9.4 0',
+    enable: 'M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM8 12.5l2.8 2.8 5.2-5.6',
   } as const;
 </script>
 
@@ -381,7 +383,6 @@
         name="Размер папки"
         onclick={() => selected && void measure(selected)}
         disabled={!selected || measuring || selectedBlock !== null}
-        title={!selected ? NONE_SELECTED : (selectedBlock ?? 'Посчитать размер папки')}
         aria-describedby={selectedBlock ? 'measure-reason' : undefined}
       />
       <ExpandButton
@@ -390,11 +391,7 @@
         width={104}
         name="Показать в Проводнике"
         disabled={!selected || !selected.installLocation}
-        title={!selected
-          ? NONE_SELECTED
-          : selected.installLocation
-            ? 'Показать папку программы в Проводнике'
-            : 'Папка установки в реестре не указана'}
+        aria-describedby={selected && !selected.installLocation ? 'path-note' : undefined}
         onclick={() => selected && void showPath(selected)}
       />
       {#if measuring}
@@ -407,7 +404,6 @@
         name="Удалить"
         danger
         disabled={uninstallBlock(selected) !== null}
-        title={uninstallBlock(selected) ?? 'Запустить штатное удаление программы'}
         aria-describedby="delete-reason"
         onclick={() => selected && askUninstall(selected)}
       />
@@ -492,7 +488,7 @@
             onclick={() => selected && void showPath(selected)}>{selected.installLocation}</button
           >
         {:else}
-          <p class="path">Папка установки не указана</p>
+          <p id="path-note" class="path">Папка установки не указана</p>
         {/if}
         {#if selectedBlock}
           <p id="measure-reason" class="reason">{selectedBlock}</p>
@@ -564,17 +560,23 @@
 {#if subsection === 'startup'}
   <section class="page" aria-label="Автозагрузка">
     <div class="buttons">
-      <button type="button" onclick={() => void loadStartup()} disabled={loading}>Обновить</button>
-      <button
-        type="button"
+      <ExpandButton
+        icon={ICONS.refresh}
+        label="Обновить"
+        width={96}
+        name="Обновить"
+        onclick={() => void loadStartup()}
+        disabled={loading}
+      />
+      <ExpandButton
+        icon={selectedStartup?.enabled === false ? ICONS.enable : ICONS.disable}
+        label={selectedStartup?.enabled === false ? 'Включить' : 'Отключить'}
+        width={selectedStartup?.enabled === false ? 96 : 104}
+        name={startupActionLabel(selectedStartup?.enabled ?? true)}
         disabled={!selectedStartup}
-        title={selectedStartup
-          ? startupActionLabel(selectedStartup.enabled)
-          : 'Сначала выбери запись'}
+        title={selectedStartup ? undefined : 'Сначала выбери запись'}
         onclick={() => selectedStartup && askStartup(selectedStartup)}
-      >
-        {startupActionLabel(selectedStartup?.enabled ?? true)}
-      </button>
+      />
     </div>
 
     {@render messages()}

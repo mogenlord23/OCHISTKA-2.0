@@ -109,8 +109,9 @@
 
   .expand.danger:hover:not(:disabled),
   .expand.danger:focus-visible:not(:disabled) {
-    background: #ff4545;
-    color: #fff;
+    /* Фирменный розовый, как у кнопки закрытия окна (TitleBar.svelte). */
+    background: #ff009d;
+    color: var(--black);
   }
 
   .expand:hover:not(:disabled) .icon,
