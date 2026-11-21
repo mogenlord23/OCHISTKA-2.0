@@ -124,6 +124,11 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "703ee47cab6a37a8cdbf87e79cf05298f4b6972c701f17a1c0bb129e20fbb1c0",
     ),
     (
+        "lists/nz-antigravity.txt",
+        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-antigravity.txt"),
+        "579b527f2405bd9e978b00117b8129a5d1ee7e78813aecb1758767a4184828f5",
+    ),
+    (
         "lists/nz-apple.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-apple.txt"),
         "8da27ab164dfdf3a0bdc120f9a0face98da47adcee236f2eef089fb3615de45f",
@@ -291,7 +296,7 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
     (
         "lists/nz-gemini.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-gemini.txt"),
-        "629930f2ea412eea1dbe9c0d66cd4dbbc8bd3f9fd3d97b7a7227cbbfa1c4605c",
+        "5766babf0f0a669872991d2ce1a507a847846f0fe81cf57e06fdf64cda648a46",
     ),
     (
         "lists/nz-gog.txt",
@@ -565,9 +570,7 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
     ),
     (
         "lists/nz-virustotal-google-api.txt",
-        include_bytes!(
-            "../../../../assets/desync/runtime-extra/lists/nz-virustotal-google-api.txt"
-        ),
+        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-virustotal-google-api.txt"),
         "8eb4ae5c8b9dca7bdb3e0630c98201a3ac5b60df3635cd6a78cfeb0ac2bf405b",
     ),
     (
@@ -624,5 +627,10 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "lists/tiktok.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/tiktok.txt"),
         "7169d3a00ee86df654e795d25eef0bf849adfb7a19fb75793d874b807875a090",
+    ),
+    (
+        "lua/nz-video.lua",
+        include_bytes!("../../../../assets/desync/runtime-extra/lua/nz-video.lua"),
+        "4509cdb698c11241a82a7bb66a5aaea6411b5cbb63937fee6264f516364023b2",
     ),
 ];

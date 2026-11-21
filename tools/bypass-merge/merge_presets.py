@@ -27,7 +27,7 @@ import routes  # noqa: E402
 import slim  # noqa: E402
 import zpreset  # noqa: E402
 
-BASE = "Universal V13 Lite.txt"
+BASE = "Universal V13 YT FIX.txt"
 # Приоритет при конфликтах: от более проверенных к более старым и особым.
 PRIORITY = [
     "Universal V13 Lite", "Universal V13", "Universal V13 YT FIX", "Universal V12 Lite", "Universal V12",
@@ -38,6 +38,8 @@ PRIORITY = [
 ]
 # Список адресов длиннее этого порога почти не ограничивает трафик (например ipset-all: ~33 тыс. сетей).
 BROAD_LIST_LINES = 5000
+# История: итоговый пресет при основе «Universal V13 Lite» (до ADR 0017).
+PREVIOUS = {"base": "Universal V13 Lite", "sections": 133, "globals": 83}
 RUNTIME = os.path.join(REPO, "assets/desync/runtime")
 EXTRA = os.path.join(REPO, "assets/desync/runtime-extra")
 MERGED_PRESET = os.path.join(REPO, "assets/desync/presets/OCHISTKA Merged.txt")
@@ -68,6 +70,9 @@ def source_file(source: str, rel: str) -> str | None:
     elif kind == "bin":
         base = name.removeprefix("nz-")
         cands = [f"config/blobs/{base}"] if name.startswith("nz-") else [f"vendor/zapret-gui/bin/{name}"]
+    elif rel == "lua/nz-video.lua":
+        # Единственный Lua-модуль сверх закреплённых: нужен основе «Universal V13 YT FIX» (шаг nz_first2).
+        cands = ["config/lua/video.lua"]
     else:
         return None
     for c in cands:
@@ -76,11 +81,14 @@ def source_file(source: str, rel: str) -> str | None:
     return None
 
 
-def defined_functions() -> set[str]:
+def defined_functions(source: str | None = None) -> set[str]:
     funcs: set[str] = set()
     lua = os.path.join(RUNTIME, "lua")
-    for f in os.listdir(lua):
-        with open(os.path.join(lua, f), encoding="utf-8", errors="ignore") as fh:
+    paths = [os.path.join(lua, f) for f in os.listdir(lua)]
+    if source and os.path.isfile(os.path.join(source, "config/lua/video.lua")):
+        paths.append(os.path.join(source, "config/lua/video.lua"))
+    for path in paths:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
             funcs |= set(re.findall(r"function\s+(\w+)", fh.read()))
     return funcs
 
@@ -211,6 +219,26 @@ def routes_status_markdown(rt: routes.Result, sections: list, src: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def summary_markdown(final_sections: list, glob: list, rt: "routes.Result") -> str:
+    text = "\n".join(glob + [a for sec in final_sections for a in sec.args] + [sec.name for sec in final_sections]).lower()
+    routes_text = " ".join(str(e) for e in rt.entries).lower()
+    words = ("telegram", "steam", "riot", "valorant")
+    yt = [sec.name for sec in final_sections if any(x in " ".join(sec.args) for x in ("lists/youtube.txt", "lists/googlevideo.txt"))]
+    claude = [e for e in rt.entries if "claude" in (e.get("file") or e.get("value", ""))]
+    lines = [
+        "",
+        "## Проверка после смены основы (ADR 0017)",
+        "",
+        f"- Основа: «{BASE[:-4]}» (было «{PREVIOUS['base']}»).",
+        f"- Секций: было {PREVIOUS['sections']}, стало {len(final_sections)}. Общих аргументов: было {PREVIOUS['globals']}, стало {len(glob)}.",
+        "- Исключения Telegram, Steam, Riot / Valorant: в пресете " + ("ЕСТЬ (ошибка)" if any(w in text for w in words) else "нет") + ", в маршрутах " + ("ЕСТЬ (ошибка)" if any(w in routes_text for w in words) else "нет") + ".",
+        "- Claude: " + ", ".join(f"`{e.get('file') or e.get('value')}` — {e['applied']}" for e in claude) + " (только через VPN, отдельного обхода нет).",
+        f"- Секции со списками youtube и googlevideo в итоговом пресете: {len(yt)} ({'есть' if yt else 'НЕТ'}).",
+        "- Lua-модуль основы `lua/nz-video.lua` (MIT, RixyPow) добавлен как закреплённый ресурс с SHA-256 (`bypass-merge-resources.json`); без него основа не запускается (`--lua-init=@lua/nz-video.lua`, шаг `nz_first2`).",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def cmd_merge(args: argparse.Namespace) -> None:
     src = source_id(args.source)
     loaded = dict(inventory.load_presets(args.source))
@@ -230,7 +258,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
         path = os.path.join(RUNTIME, rel) if rel in ours else (os.path.join(args.source, sf) if sf else None)
         if path and os.path.isfile(path) and sum(1 for _ in open(path, encoding="utf-8", errors="ignore")) > BROAD_LIST_LINES:
             broad.add(rel)
-    result = merge.merge(inputs, base=BASE, available=available, defined_funcs=defined_functions(), broad_lists=broad,
+    result = merge.merge(inputs, base=BASE, available=available, defined_funcs=defined_functions(args.source), broad_lists=broad,
                          owner_excluded=OWNER_EXCLUDED)
     description = [
         f"Объединённый пресет OCHISTKA: основа {BASE[:-4]} без изменений + секции из других пресетов {src}.",
@@ -290,7 +318,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
         for i, c in enumerate(rt.conflicts, 1):
             md += f"| R{i:03d} | `{c['value']}` | {c['detail']} |\n"
     with open(os.path.join(REPO, "docs/status/bypass-merge-conflicts.md"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(md)
+        fh.write(md + summary_markdown(final_sections, result.globals, rt))
     os.makedirs(os.path.dirname(ROUTES_FILE), exist_ok=True)
     counts_applied = {}
     for e in rt.entries:
@@ -330,7 +358,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
         report.append(f"| {d.index + 1} | {before_slim[d.index].name.replace('|', '/')} | {'пустой охват' if d.reason == 'empty' else 'перекрыта более ранней'} | "
                       f"{('№%d ' % (d.covered_by + 1) if d.covered_by is not None else '')}{by.replace('|', '/')} |")
     with open(os.path.join(REPO, "docs/status/bypass-slim-report.md"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("\n".join(report) + "\n")
+        fh.write("\n".join(report) + "\n" + summary_markdown(final_sections, result.globals, rt))
     problems = merge.check_coverage(cov, final_sections, result.globals)
     if problems:
         sys.exit("Манифест не сходится: " + "; ".join(problems[:5]))

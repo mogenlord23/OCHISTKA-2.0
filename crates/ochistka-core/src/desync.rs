@@ -2469,47 +2469,30 @@ mod tests {
             "../../../assets/desync/presets/Universal V13 Lite.txt"
         ))
         .unwrap();
-        // Основа первой и без изменений, кроме секций удалённых по решению владельца
-        // (Telegram, Steam, Riot / Valorant); общие аргументы основы на месте.
+        // Основа — «Universal V13 YT FIX» (ADR 0017): её Lua-модуль подключён, а Telegram, Steam и
+        // Riot / Valorant (решение владельца) в пресете отсутствуют.
         let removed = |text: &str| {
             let t = text.to_lowercase();
             ["telegram", "steam", "riot", "valorant"]
                 .iter()
                 .any(|w| t.contains(w))
         };
-        let kept: Vec<_> = base
-            .sections
-            .iter()
-            .filter(|sec| !removed(&sec.arguments.join(" ")))
-            .cloned()
-            .collect();
-        assert_eq!(
-            base.sections.len() - kept.len(),
-            3,
-            "удалены ровно секции Telegram, Steam, Riot"
-        );
-        // Ещё недостижимые секции основы (перекрыты более ранними) убраны при разгрузке; остальные
-        // идут первыми и в прежнем порядке.
-        let unreachable = ["githubusercontent.com", "Facebook", "virustotal.com"];
-        let expected: Vec<_> = kept
-            .iter()
-            .filter(|sec| {
-                !sec.arguments
-                    .iter()
-                    .any(|a| unreachable.iter().any(|n| *a == format!("--name={n}")))
-            })
-            .cloned()
-            .collect();
-        assert_eq!(
-            kept.len() - expected.len(),
-            3,
-            "разгрузка убрала ровно 3 секции основы"
-        );
-        assert_eq!(m.sections[..expected.len()], expected[..]);
+        assert!(m
+            .global_arguments
+            .contains(&"--lua-init=@lua/nz-video.lua".to_string()));
         for g in &base.global_arguments {
             assert!(removed(g) || m.global_arguments.contains(g), "{g}");
         }
-        assert!(m.sections.len() > expected.len());
+        assert!(m.sections.len() > 100);
+        // YouTube: секции со списками youtube и googlevideo на месте.
+        for needle in ["lists/youtube.txt", "lists/googlevideo.txt"] {
+            assert!(
+                m.sections
+                    .iter()
+                    .any(|sec| sec.arguments.iter().any(|a| a.contains(needle))),
+                "{needle}"
+            );
+        }
         let everything = format!(
             "{}\n{}",
             m.global_arguments.join("\n"),

@@ -1,5 +1,5 @@
 # Preset: OCHISTKA Merged
-# Объединённый пресет OCHISTKA: основа Universal V13 Lite без изменений + секции из других пресетов RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa.
+# Объединённый пресет OCHISTKA: основа Universal V13 YT FIX без изменений + секции из других пресетов RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de.
 # Создан tools/bypass-merge/merge_presets.py; конфликты и исключения: docs/status/bypass-merge-conflicts.md.
 # НЕ ПРОВЕРЕН на Windows у провайдера: обход не объявляется рабочим.
 
@@ -11,10 +11,13 @@
 --lua-init=@lua/zapret-multishake.lua
 --lua-init=@lua/fakemultisplit.lua
 --lua-init=@lua/fakemultidisorder.lua
+--lua-init=@lua/nz-video.lua
 --ctrack-disable=0
 --ipcache-lifetime=8400
 --ipcache-hostname=0
 --wf-tcp-out=80,443-65535
+--wf-tcp-empty=1
+--wf-raw-filter=(!tcp or tcp.Syn or tcp.Rst or tcp.Fin or tcp.PayloadLength>0 or (outbound and tcp.DstPort==443 and ((ip.DstAddr>=74.125.0.0 and ip.DstAddr<=74.125.255.255) or (ip.DstAddr>=173.194.0.0 and ip.DstAddr<=173.194.255.255))))
 --wf-udp-out=443,6568,19294-19344,50000-51000
 --wf-raw-part=@windivert.filter/windivert_part.discord_media.txt
 --wf-raw-part=@windivert.filter/windivert_part.stun.txt
@@ -193,6 +196,7 @@
 --filter-tcp=80,443
 --hostlist=lists/googlevideo.txt
 --out-range=-d8
+--lua-desync=nz_first2:reset:far=35
 --lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2:seqovl=1
 
 --new
@@ -200,6 +204,7 @@
 --filter-tcp=80,443
 --hostlist=lists/youtube.txt
 --out-range=-d8
+--lua-desync=nz_first2:reset:far=35
 --lua-desync=multidisorder:pos=1,host+2,sld+2,sld+5,sniext+1,sniext+2,endhost-2:seqovl=1
 
 --new
@@ -582,6 +587,20 @@
 --out-range=-d8
 --payload=tls_client_hello,http_req
 --lua-desync=multisplit:pos=1:seqovl=568:seqovl_pattern=tls_4pda
+
+--new
+--name=Узлы видео Google: малое окно по надобности
+--filter-tcp=443
+--ipset-ip=74.125.0.0/16,173.194.0.0/16
+--out-range=a
+--payload=all
+--lua-desync=nz_first2:syn:far=35:scale=1
+
+--new
+--name=Узлы видео Google: малое окно по надобности, запасные сети
+--filter-tcp=443
+--ipset-ip=209.85.128.0/17,172.217.0.0/16
+--lua-desync=nz_first2:syn:far=35
 
 --new
 --name=discord.com (IP fallback)

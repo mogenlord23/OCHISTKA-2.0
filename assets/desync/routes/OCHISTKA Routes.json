@@ -1,11 +1,11 @@
 {
  "schema_version": 1,
- "source": "RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa",
+ "source": "RixyPow/netzapret@11f073c2fd05505a46e29622a52b6715cfdeb2de",
  "license": "MIT (NetZapret © 2026 RixyPow)",
  "applied_counts": {
   "shield": 3,
   "direct": 9,
-  "vpn-only": 13,
+  "vpn-only": 14,
   "preset": 44,
   "catalog": 55
  },
@@ -114,6 +114,16 @@
    "category": "domain",
    "mode": "catalog",
    "applied": "preset"
+  },
+  {
+   "kind": "hostlist",
+   "file": "lists/nz-antigravity.txt",
+   "source_list": "antigravity.txt",
+   "lines": 7,
+   "category": "domain",
+   "mode": "proxy",
+   "applied": "vpn-only",
+   "note": "нужен VPN; «Обход блокировок» VPN не использует"
   },
   {
    "kind": "hostlist",
@@ -429,7 +439,7 @@
    "kind": "hostlist",
    "file": "lists/nz-gemini.txt",
    "source_list": "gemini.txt",
-   "lines": 20,
+   "lines": 18,
    "category": "app",
    "mode": "proxy",
    "applied": "vpn-only",

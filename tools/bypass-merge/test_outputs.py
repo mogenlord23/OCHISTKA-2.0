@@ -77,23 +77,18 @@ class OutputTests(unittest.TestCase):
 
     def test_merged_preset_has_no_duplicates_and_keeps_base_first(self):
         m = zpreset.parse(read(PRESET))
-        base = zpreset.parse(read(BASE))
         ids = [s.identity() for s in m.sections]
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(len(m.globals), len(set(m.globals)))
-        words = ("telegram", "steam", "riot", "valorant")
-        kept = [s for s in base.sections if not any(w in " ".join(s.args).lower() for w in words)]
-        # Основа идёт первой и в прежнем порядке; пропавшие секции основы — только недостижимые
-        # (перекрыты более ранними), они записаны в манифесте как dead.
+        # Основа («Universal V13 YT FIX») идёт первой и в прежнем порядке: её оставшиеся секции —
+        # начало итогового пресета (убранные по решению владельца и недостижимые помечены в манифесте).
         cov = json.loads(read(os.path.join(REPO, "docs/status/bypass-merge-coverage.json")))
-        dead_ids = {r["identity"] for r in cov["sections"] if r["status"] == "dead"}
-        expected = [s for s in kept if s.identity() not in dead_ids]
-        self.assertEqual([s.args for s in m.sections[: len(expected)]], [s.args for s in expected])
-        for s_ in kept:
-            self.assertTrue(s_.identity() in dead_ids or s_.args in [x.args for x in m.sections])
-        for g in base.globals:
-            if not any(w in g.lower() for w in words):
-                self.assertIn(g, m.globals)
+        self.assertEqual(cov["base"], "Universal V13 YT FIX.txt")
+        kept = [r for r in sorted(cov["sections"], key=lambda r: r["index"]) if r["preset"] == cov["base"] and r["status"] == "base"]
+        self.assertEqual([r["target"] for r in kept], list(range(len(kept))))
+        self.assertEqual([ids[r["target"]] for r in kept], [r["identity"] for r in kept])
+        self.assertIn("--lua-init=@lua/nz-video.lua", m.globals)
+        # «Universal V13 Lite.txt» в репозитории не менялся (проверка хэша — в test_protected_files_are_untouched).
 
     def test_coverage_manifest_matches_preset(self):
         cov = json.loads(read(os.path.join(REPO, "docs/status/bypass-merge-coverage.json")))
@@ -124,7 +119,10 @@ class OutputTests(unittest.TestCase):
             rel = f["destination"]
             self.assertNotIn(rel, pinned_names, "135 закреплённых файлов не пересекаются с новыми")
             parts = rel.split("/")
-            self.assertEqual(parts[0], "lists")
+            # Данные — списки; единственное исключение — Lua-модуль основы «Universal V13 YT FIX».
+            self.assertIn(parts[0], ("lists", "lua"))
+            if parts[0] == "lua":
+                self.assertEqual(rel, "lua/nz-video.lua")
             self.assertEqual(len(parts), 2)
             self.assertTrue(SAFE.fullmatch(parts[1]) and ".." not in rel)
             path = os.path.join(EXTRA, rel)
@@ -132,9 +130,10 @@ class OutputTests(unittest.TestCase):
             data = open(path, "rb").read()
             self.assertEqual(hashlib.sha256(data).hexdigest(), f["sha256"])
             self.assertEqual(len(data), f["size_bytes"])
-            for n, line in enumerate(data.decode("utf-8").splitlines(), 1):
-                line = line.strip()
-                self.assertTrue(not line or line.startswith("#") or LINE.match(line), f"{rel}:{n}")
+            if parts[0] == "lists":
+                for n, line in enumerate(data.decode("utf-8").splitlines(), 1):
+                    line = line.strip()
+                    self.assertTrue(not line or line.startswith("#") or LINE.match(line), f"{rel}:{n}")
 
     def test_routes_file_has_no_duplicates_and_points_to_existing_data(self):
         data = json.loads(read(os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")))
@@ -167,7 +166,8 @@ class OutputTests(unittest.TestCase):
     def test_no_executable_or_lua_code_is_added(self):
         for root, _, files in os.walk(EXTRA):
             for f in files:
-                self.assertTrue(f.endswith(".txt"), f)
+                rel = os.path.relpath(os.path.join(root, f), EXTRA).replace("\\", "/")
+                self.assertTrue(f.endswith(".txt") or rel == "lua/nz-video.lua", rel)
 
 
 if __name__ == "__main__":

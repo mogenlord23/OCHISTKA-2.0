@@ -554,7 +554,10 @@ mod tests {
         }
         for (name, bytes, digest) in MERGED_EXTRA_RESOURCES {
             assert_eq!(engine::sha256_hex(bytes), *digest, "{name}");
-            assert!(name.starts_with("lists/") && !name.contains(".."), "{name}");
+            assert!(
+                (name.starts_with("lists/") || *name == "lua/nz-video.lua") && !name.contains(".."),
+                "{name}"
+            );
         }
         assert_eq!(
             PINNED_RESOURCES.len(),
