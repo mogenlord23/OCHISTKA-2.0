@@ -131,6 +131,11 @@ pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportRepor
                 let text = String::from_utf8_lossy(&r.body);
                 match parse_subscription(&text) {
                     Ok(report) => return Ok(report),
+                    // Пустой ответ ссылки — не «пустой ввод» пользователя.
+                    Err(VpnError::EmptyInput) => last = VpnError::Parse(
+                        "Сервис вернул пустой ответ. Проверьте ссылку в личном кабинете сервиса"
+                            .into(),
+                    ),
                     Err(err) => last = err,
                 }
             }
@@ -344,5 +349,53 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("веб-страницу"));
+    }
+
+    #[test]
+    fn http_errors_have_short_human_messages_without_codes_or_links() {
+        for (status, needle) in [
+            (410, "больше не действует"),
+            (403, "не выдал список"),
+            (404, "не найдена"),
+            (429, "подождать"),
+            (503, "недоступен"),
+        ] {
+            let fake = Fake::new(vec![
+                Ok(FetchResponse {
+                    status,
+                    body: vec![],
+                }),
+                Ok(FetchResponse {
+                    status,
+                    body: vec![],
+                }),
+            ]);
+            let err = import_from_url(&fake, "https://sub.example.com/s/TOKEN123")
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains(needle), "{status}: {err}");
+            assert!(
+                !err.contains("TOKEN123") && !err.contains(&status.to_string()),
+                "{err}"
+            );
+        }
+    }
+
+    #[test]
+    fn empty_answer_is_not_reported_as_empty_input() {
+        let fake = Fake::new(vec![ok(""), ok("  \n")]);
+        let err = import_from_url(&fake, "https://sub.example.com/s/T")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("пустой ответ"), "{err}");
+    }
+
+    #[test]
+    fn second_client_name_rescues_a_format_the_first_one_could_not_use() {
+        let clash = "proxies:\n  - name: a\n    type: vless\n";
+        let fake = Fake::new(vec![ok(clash), ok(LINK)]);
+        let report = import_from_url(&fake, "https://sub.example.com/s/T").unwrap();
+        assert_eq!(report.servers.len(), 1);
+        assert_eq!(fake.agents.lock().unwrap().len(), 2);
     }
 }

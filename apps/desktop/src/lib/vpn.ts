@@ -206,10 +206,10 @@ export function requestNetworkChange(): StubResult {
   return { ok: false, reason: NETWORK_CHANGE_REASON };
 }
 
-/** Текст импорта по итогам: сколько серверов и сколько записей пропущено. */
+/** Текст импорта по итогам: сколько серверов найдено и, если часть записей пропущена, почему. */
 export function importMessage(count: number, skipped: number, issues: readonly string[]): string {
-  const base = `Серверов: ${count}.`;
+  const base = `Импорт завершён: серверов ${count}.`;
   return skipped > 0
-    ? `${base} Пропущено записей: ${skipped} (${issues.slice(0, 2).join('; ')}).`
+    ? `${base} Часть записей пропущена (${skipped}): ${issues.slice(0, 2).join('; ')}.`
     : base;
 }

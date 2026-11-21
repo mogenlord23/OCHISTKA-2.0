@@ -11,6 +11,7 @@ pub mod parse;
 pub mod routes;
 pub mod service;
 pub mod sysproxy;
+pub mod xray;
 
 use thiserror::Error;
 

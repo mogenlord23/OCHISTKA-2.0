@@ -153,7 +153,9 @@ describe('VpnPage: подписка и импорт', () => {
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
     expect(
-      await screen.findByText('Серверов: 2. Пропущено записей: 1 (wireguard: не поддерживается).'),
+      await screen.findByText(
+        'Импорт завершён: серверов 2. Часть записей пропущена (1): wireguard: не поддерживается.',
+      ),
     ).toBeTruthy();
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'https://sub.example.com/x?t=1' });
     expect(await screen.findByText('Серверы / 2')).toBeTruthy();
@@ -171,7 +173,7 @@ describe('VpnPage: подписка и импорт', () => {
       target: { value: 'vless://a@h:1#A trojan://b@h:2#B' },
     });
     await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
-    await screen.findByText('Серверов: 2.');
+    await screen.findByText('Импорт завершён: серверов 2.');
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'vless://a@h:1#A\ntrojan://b@h:2#B' });
   });
 
@@ -206,7 +208,7 @@ describe('VpnPage: подписка и импорт', () => {
     const busy = (await screen.findByRole('button', { name: 'Загрузка…' })) as HTMLButtonElement;
     expect(busy.disabled).toBe(true);
     finish({ count: 1, skipped: 0, issues: [] });
-    await screen.findByText('Серверов: 1.');
+    await screen.findByText('Импорт завершён: серверов 1.');
   });
 
   it('imports a chosen file as text', async () => {
@@ -217,7 +219,7 @@ describe('VpnPage: подписка и импорт', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const file = new File(['trojan://p@h:443#Файл'], 'sub.txt', { type: 'text/plain' });
     await fireEvent.change(screen.getByLabelText('Файл подписки'), { target: { files: [file] } });
-    await screen.findByText('Серверов: 1.');
+    await screen.findByText('Импорт завершён: серверов 1.');
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'trojan://p@h:443#Файл' });
   });
 

@@ -56,25 +56,41 @@ pub fn parse_subscription(text: &str) -> Result<ImportReport, VpnError> {
     let mut report = parse_body(body, true)?;
     dedupe(&mut report.servers);
     if report.servers.is_empty() {
-        let tail = if report.issues.is_empty() {
-            String::new()
-        } else {
-            format!(
-                " Причины: {}",
-                report
-                    .issues
-                    .iter()
-                    .take(3)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            )
-        };
-        return Err(VpnError::Parse(format!(
-            "В подписке нет поддерживаемых серверов (vless, vmess, trojan, ss, hysteria2, tuic).{tail}"
-        )));
+        return Err(VpnError::Parse(explain_empty(&report.issues)));
     }
     Ok(report)
+}
+
+/// Понятное объяснение, почему серверов нет: формат Clash, все записи пропущены или формат неизвестен.
+/// Причины группируются (`причина ×N`) и не содержат значений ссылок: только короткие пояснения.
+fn explain_empty(issues: &[String]) -> String {
+    if issues.iter().any(|i| i.starts_with("Clash")) {
+        return "Сервис отдал подписку в формате Clash. Этот формат пока не поддерживается: нужен список ссылок или JSON (sing-box, Xray)".into();
+    }
+    if issues.is_empty() {
+        return "В подписке нет поддерживаемых серверов: ответ получен, но формат не распознан (ждём ссылки vless, vmess, trojan, ss, hysteria2, tuic или JSON sing-box, Xray)".into();
+    }
+    let mut groups: Vec<(String, usize)> = Vec::new();
+    for issue in issues {
+        let clean = super::mask::mask_secrets(issue);
+        match groups.iter_mut().find(|(t, _)| *t == clean) {
+            Some((_, n)) => *n += 1,
+            None => groups.push((clean, 1)),
+        }
+    }
+    let list = groups
+        .iter()
+        .take(3)
+        .map(|(t, n)| {
+            if *n > 1 {
+                format!("{t} ×{n}")
+            } else {
+                t.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    format!("Серверы найдены, но ни один не подошёл. Причины: {list}")
 }
 
 fn parse_body(body: &str, allow_base64: bool) -> Result<ImportReport, VpnError> {
@@ -352,7 +368,7 @@ fn parse_userinfo_link(link: &str, kind: &str) -> Result<(String, Value), String
     Ok((l.fragment, Value::Object(out)))
 }
 
-fn is_uuid(text: &str) -> bool {
+pub(super) fn is_uuid(text: &str) -> bool {
     let groups: Vec<&str> = text.split('-').collect();
     groups.len() == 5
         && [8, 4, 4, 4, 12]
@@ -438,7 +454,7 @@ fn apply_transport(out: &mut Map<String, Value>, l: &Link, key: &str) -> Result<
     Ok(())
 }
 
-fn transport_value(
+pub(super) fn transport_value(
     kind: &str,
     path: Option<&str>,
     host: Option<&str>,
@@ -607,9 +623,36 @@ fn parse_json(body: &str) -> ImportReport {
         };
         for item in list {
             if item.get("protocol").is_some() && item.get("type").is_none() {
-                report.issues.push(
-                    "Xray JSON не поддерживается: нужен sing-box JSON или список ссылок".into(),
-                );
+                // Xray JSON: служебные исходящие (direct, block, dns) пропускаем молча.
+                let protocol = item["protocol"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                if !matches!(
+                    protocol.as_str(),
+                    "vless" | "vmess" | "trojan" | "shadowsocks"
+                ) {
+                    if !matches!(
+                        protocol.as_str(),
+                        "freedom" | "blackhole" | "dns" | "loopback"
+                    ) {
+                        report
+                            .issues
+                            .push(format!("xray: протокол {protocol} не поддерживается"));
+                    }
+                    continue;
+                }
+                let name = config["remarks"]
+                    .as_str()
+                    .or_else(|| item["tag"].as_str())
+                    .unwrap_or_default();
+                let converted =
+                    super::xray::convert(item, name).and_then(|(n, o)| finish_server(n, o));
+                match converted {
+                    Ok(s) => report.servers.push(s),
+                    Err(why) => report.issues.push(format!("xray {protocol}: {why}")),
+                }
+                // В одном конфиге Xray обычно один рабочий сервер: остальные исходящие служебные.
                 continue;
             }
             let kind = item["type"].as_str().unwrap_or_default();
@@ -947,13 +990,75 @@ mod tests {
         assert!(parse_subscription(xray)
             .unwrap_err()
             .to_string()
-            .contains("Xray"));
+            .contains("ни один не подошёл"));
         let clash = "proxies:\n  - name: a\n    type: vless\n";
         assert!(parse_subscription(clash)
             .unwrap_err()
             .to_string()
             .contains("Clash"));
         assert!(parse_subscription("{ broken").is_err());
+    }
+
+    #[test]
+    fn xray_json_array_with_several_servers_and_a_broken_one() {
+        let body = r#"[
+          {"remarks":"🇳🇱 NL","outbounds":[
+            {"protocol":"vless","tag":"proxy","settings":{"vnext":[{"address":"n.example.com","port":443,
+              "users":[{"id":"b831381d-6324-4d53-ad4f-8cda48b30811","flow":"xtls-rprx-vision","encryption":"none"}]}]},
+             "streamSettings":{"network":"tcp","security":"reality","realitySettings":{"serverName":"c.example.com","publicKey":"PK","shortId":"01"}}},
+            {"protocol":"freedom","tag":"direct"},{"protocol":"blackhole","tag":"block"}]},
+          {"remarks":"DE","outbounds":[
+            {"protocol":"trojan","tag":"proxy","settings":{"servers":[{"address":"d.example.com","port":443,"password":"SECRETPW"}]}}]},
+          {"remarks":"XH","outbounds":[
+            {"protocol":"vless","tag":"proxy","settings":{"vnext":[{"address":"x.example.com","port":443,
+              "users":[{"id":"b831381d-6324-4d53-ad4f-8cda48b30811"}]}]},"streamSettings":{"network":"xhttp","security":"tls"}}]}
+        ]"#;
+        let r = parse_subscription(body).unwrap();
+        assert_eq!(r.servers.len(), 2);
+        assert_eq!(r.servers[0].name, "🇳🇱 NL");
+        assert_eq!(r.servers[0].protocol, "vless");
+        assert_eq!(r.servers[1].protocol, "trojan");
+        assert_eq!(r.issues.len(), 1);
+        assert!(r.issues[0].contains("xhttp"));
+        assert!(!r.issues.join(" ").contains("b831381d"));
+    }
+
+    #[test]
+    fn all_entries_skipped_gives_grouped_reasons_without_secrets() {
+        let list = "vless://b831381d-6324-4d53-ad4f-8cda48b30811@a.example.com:443?type=xhttp&security=tls#A\n\
+                    vless://b831381d-6324-4d53-ad4f-8cda48b30811@b.example.com:443?type=xhttp&security=tls#B\n";
+        let msg = parse_subscription(list).unwrap_err().to_string();
+        assert!(msg.contains("ни один не подошёл"), "{msg}");
+        assert!(msg.contains("×2"), "{msg}");
+        assert!(msg.contains("xhttp"), "{msg}");
+        assert!(
+            !msg.contains("b831381d") && !msg.contains("a.example.com"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn unknown_text_and_clash_get_distinct_messages() {
+        let unknown = parse_subscription("hello world, this is not a subscription")
+            .unwrap_err()
+            .to_string();
+        assert!(unknown.contains("формат не распознан"), "{unknown}");
+        let clash = parse_subscription("proxies:\n  - name: a\n    type: vless\n")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            clash.contains("Clash") && clash.contains("не поддерживается"),
+            "{clash}"
+        );
+    }
+
+    #[test]
+    fn every_supported_form_yields_the_same_server_list() {
+        let links = "vless://b831381d-6324-4d53-ad4f-8cda48b30811@a.example.com:443?security=tls&type=ws&path=%2Fp#A\ntrojan://pw@b.example.com:443#B\n";
+        let plain = parse_subscription(links).unwrap();
+        let b64 = parse_subscription(&b64(links)).unwrap();
+        assert_eq!(plain.servers.len(), 2);
+        assert_eq!(plain.servers, b64.servers);
     }
 
     #[test]
