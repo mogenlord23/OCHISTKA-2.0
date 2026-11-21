@@ -162,6 +162,9 @@ impl Conn {
     }
 }
 
+/// Проверка «нельзя ли сейчас подключаться»: `Some(причина)` — отказ.
+pub type ConflictGuard = Box<dyn Fn() -> Option<String> + Send + Sync>;
+
 pub struct VpnService {
     dir: PathBuf,
     host: Box<dyn VpnHost>,
@@ -172,6 +175,8 @@ pub struct VpnService {
     conn: Mutex<Conn>,
     /// Один подключающийся или отключающийся поток за раз.
     op: Mutex<()>,
+    /// Возвращает причину отказа, если уже работает перехват трафика обхода блокировок.
+    conflict_guard: Mutex<Option<ConflictGuard>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -207,7 +212,13 @@ impl VpnService {
             data: Mutex::new(data),
             conn: Mutex::new(Conn::idle()),
             op: Mutex::new(()),
+            conflict_guard: Mutex::new(None),
         }
+    }
+
+    /// Задаёт проверку «не работает ли перехват трафика»: два механизма одновременно не запускаются.
+    pub fn set_conflict_guard(&self, guard: ConflictGuard) {
+        *lock(&self.conflict_guard) = Some(guard);
     }
 
     fn session_dir(&self) -> PathBuf {
@@ -472,6 +483,11 @@ impl VpnService {
     /// До запуска ядра: убирает устаревшие следы нашего прошлого запуска и не даёт молча
     /// перезаписать чужой прокси (другой VPN, сценарий автонастройки).
     fn prepare_system_proxy(&self) -> Result<(), VpnError> {
+        if let Some(guard) = lock(&self.conflict_guard).as_ref() {
+            if let Some(why) = guard() {
+                return Err(VpnError::ProxyConflict(why));
+            }
+        }
         let leftovers = self.proxy.is_active() || self.pid_file().exists();
         if leftovers {
             self.recover().map_err(|err| {
@@ -998,6 +1014,18 @@ mod tests {
             Box::new(NoNet),
             Box::new(OkDialer),
         )
+    }
+
+    #[test]
+    fn vpn_does_not_start_while_traffic_capture_is_running() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.set_conflict_guard(Box::new(|| Some("Работает обход блокировок".into())));
+        let err = s.connect().unwrap_err();
+        assert!(matches!(err, VpnError::ProxyConflict(_)), "{err:?}");
+        assert_eq!(s.status().state, ConnState::Error);
+        assert!(!dir.join("session").join("config.json").exists());
     }
 
     #[test]

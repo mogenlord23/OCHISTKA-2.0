@@ -224,6 +224,12 @@ pub enum DesyncError {
     NotPrepared(String),
     #[error("Для обхода нужны права администратора")]
     NeedsAdmin,
+    /// План доступа не разрешает перехват (причина показана человеку).
+    #[error("{0}")]
+    NotAllowed(String),
+    /// Сервисы и так доступны напрямую или через VPN: перехват не нужен.
+    #[error("{0}")]
+    NotNeeded(String),
     #[error("Не удалось подготовить компоненты: {0}")]
     Prepare(String),
     #[error("Не удалось запустить обход: {0}")]
@@ -267,11 +273,16 @@ struct Inner {
 pub struct DesyncService {
     dir: PathBuf,
     adapter: Box<dyn DesyncAdapter>,
+    #[cfg(test)]
     profile: Option<Profile>,
     /// Есть ли закреплённый выпуск (можно ли скачивать недостающее).
     installable: bool,
-    /// Работает ли VPN (подключается или подключён): одновременно нельзя.
-    vpn_active: Box<dyn Fn() -> bool + Send + Sync>,
+    /// Реальное состояние VPN (из `VpnService::status`): одновременно перехват и VPN нельзя.
+    vpn: Box<dyn Fn() -> routing::VpnSignal + Send + Sync>,
+    /// Целый проверяемый пресет для плана (только Windows); не выбирается без подтверждения.
+    candidate: Option<Profile>,
+    /// Подтверждённое реальными опытами покрытие (пока пусто).
+    confirmed: &'static [routing::ConfirmedCoverage],
     /// Сколько раз и как часто проверять, что процесс не завершился сразу после запуска.
     settle: (u32, Duration),
     inner: Mutex<Inner>,
@@ -286,15 +297,24 @@ impl DesyncService {
     pub fn new(
         dir: PathBuf,
         adapter: Box<dyn DesyncAdapter>,
-        vpn_active: Box<dyn Fn() -> bool + Send + Sync>,
+        vpn: Box<dyn Fn() -> routing::VpnSignal + Send + Sync>,
     ) -> Self {
+        #[cfg(test)]
         let profile = site_discord_profile(adapter.platform());
+        let candidate = if adapter.platform() == Platform::Windows {
+            windows_netzapret_v13_lite_candidate_profile().ok()
+        } else {
+            None
+        };
         Self {
             dir,
             adapter,
+            #[cfg(test)]
             profile,
             installable: pinned().is_some(),
-            vpn_active,
+            vpn,
+            candidate,
+            confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
             settle: (5, Duration::from_millis(200)),
             inner: Mutex::new(Inner {
                 state: DesyncState::Off,
@@ -305,29 +325,28 @@ impl DesyncService {
         }
     }
 
-    /// Пассивный план единой кнопки. Возвращает direct/VPN/Zapret без запуска
-    /// или скачивания чего-либо. Неподтверждённый Universal V13 Lite не выбирается.
-    /// Общее состояние VPN берётся из уже существующего сервисного порта.
+    /// Пассивный план единой кнопки: для КАЖДОГО сервиса отдельно (по его собственному наблюдению)
+    /// и один общий итог. Ничего не запускает и не скачивает. Состояние VPN берётся из реального
+    /// сервиса, а не из предположений; неподтверждённый пресет не выбирается.
     pub fn plan_access(
         &self,
         wanted: &[Coverage],
-        direct_reachable: Option<bool>,
-        vpn_verified: bool,
-    ) -> routing::RoutePlan {
-        let candidate = if self.adapter.platform() == Platform::Windows {
-            windows_netzapret_v13_lite_candidate_profile().ok()
-        } else {
-            None
-        };
-        routing::choose_access_path(
+        observed: &routing::ServiceObservations,
+    ) -> routing::AccessPlan {
+        routing::plan_with_approved(
             wanted,
-            direct_reachable,
-            (self.vpn_active)(),
-            vpn_verified,
+            observed,
+            (self.vpn)(),
             &self.adapter.readiness(),
             self.adapter.platform(),
-            candidate.as_ref(),
+            self.candidate.as_ref(),
+            self.confirmed,
         )
+    }
+
+    /// Работает ли обход сейчас (для охраны VPN от одновременного запуска).
+    pub fn is_running(&self) -> bool {
+        self.status().0 == DesyncState::Running
     }
 
     fn pid_file(&self) -> PathBuf {
@@ -352,34 +371,98 @@ impl DesyncService {
         (inner.state, inner.message.clone())
     }
 
-    /// Запуск по явному действию пользователя. Повторный вызов второй экземпляр не создаёт.
-    pub fn start(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), DesyncError> {
+    /// Единственный путь запуска для приложения: движок стартует только если общий план доступа
+    /// разрешает ЦЕЛЫЙ подтверждённый профиль для всех выбранных сервисов. Прямой доступ, VPN и
+    /// блокировки плана запуск не выполняют. Повторный вызов второй экземпляр не создаёт.
+    pub fn start_planned(
+        &self,
+        wanted: &[Coverage],
+        observed: &routing::ServiceObservations,
+        progress: &mut dyn FnMut(PrepareProgress),
+    ) -> Result<(), DesyncError> {
         let Ok(_op) = self.op.try_lock() else {
             return Err(DesyncError::Busy);
         };
         if self.status().0 == DesyncState::Running {
             return Ok(());
         }
-        let result = self.start_locked(progress);
-        let mut inner = lock(&self.inner);
-        if let Err(err) = &result {
-            inner.state = DesyncState::Error;
-            inner.message = err.to_string();
-        }
+        let plan = self.plan_access(wanted, observed);
+        let profile = match plan.overall {
+            routing::RoutePlan::Block(reason) => {
+                return self.fail(DesyncError::NotAllowed(reason.message().into()));
+            }
+            routing::RoutePlan::Use(routing::AccessPath::Direct) => {
+                return self.fail(DesyncError::NotNeeded(
+                    "Выбранные сервисы доступны напрямую: обход не нужен".into(),
+                ));
+            }
+            routing::RoutePlan::Use(routing::AccessPath::Vpn) => {
+                return self.fail(DesyncError::NotNeeded(
+                    "Для выбранных сервисов используется VPN: обход не включается".into(),
+                ));
+            }
+            routing::RoutePlan::Use(routing::AccessPath::Desync(id)) => {
+                match self.candidate.as_ref().filter(|p| p.id == id) {
+                    Some(profile) => profile.clone(),
+                    None => return self.fail(DesyncError::NoProfile),
+                }
+            }
+        };
+        let result = self.start_locked(progress, &profile);
+        self.record(&result);
         result
     }
 
-    fn start_locked(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), DesyncError> {
+    /// Запись ошибки в состояние сервиса и возврат её же.
+    fn fail(&self, err: DesyncError) -> Result<(), DesyncError> {
+        let result = Err(err);
+        self.record(&result);
+        result
+    }
+
+    fn record(&self, result: &Result<(), DesyncError>) {
+        let mut inner = lock(&self.inner);
+        if let Err(err) = result {
+            inner.state = DesyncState::Error;
+            inner.message = err.to_string();
+        }
+    }
+
+    /// Запуск профиля `self.profile` БЕЗ плана доступа: только для внутренних проверок движка.
+    /// Приложение пользуется `start_planned`.
+    #[cfg(test)]
+    pub(crate) fn start(
+        &self,
+        progress: &mut dyn FnMut(PrepareProgress),
+    ) -> Result<(), DesyncError> {
+        let Ok(_op) = self.op.try_lock() else {
+            return Err(DesyncError::Busy);
+        };
+        if self.status().0 == DesyncState::Running {
+            return Ok(());
+        }
+        let Some(profile) = self.profile.clone() else {
+            return self.fail(DesyncError::NoProfile);
+        };
+        let result = self.start_locked(progress, &profile);
+        self.record(&result);
+        result
+    }
+
+    fn start_locked(
+        &self,
+        progress: &mut dyn FnMut(PrepareProgress),
+        profile: &Profile,
+    ) -> Result<(), DesyncError> {
         match self.adapter.readiness() {
             Readiness::Ready => {}
             Readiness::NotImplemented(why) | Readiness::Unsupported(why) => {
                 return Err(DesyncError::Unavailable(why));
             }
         }
-        if (self.vpn_active)() {
+        if (self.vpn)().active {
             return Err(DesyncError::VpnRunning);
         }
-        let profile = self.profile.as_ref().ok_or(DesyncError::NoProfile)?;
         let exe = match self.adapter.locate() {
             Ok(path) => path,
             Err(_) if self.installable => {
@@ -623,7 +706,10 @@ mod tests {
         let mut s = DesyncService::new(
             temp_dir(),
             Box::new(host(flags.clone())),
-            Box::new(move || vpn),
+            Box::new(move || routing::VpnSignal {
+                active: vpn,
+                verified: vpn,
+            }),
         );
         s.profile = profile();
         s.installable = installable;
@@ -719,7 +805,7 @@ mod tests {
         let mut s = DesyncService::new(
             temp_dir(),
             Box::new(good(flags.clone())),
-            Box::new(|| false),
+            Box::new(routing::VpnSignal::default),
         );
         s.settle = (1, Duration::from_millis(1));
         assert_eq!(s.start(&mut |_| {}).unwrap_err(), DesyncError::NoProfile);
@@ -904,22 +990,209 @@ mod tests {
         ]
     }
 
+    use routing::{
+        AccessPath, ConfirmedCoverage, Reachability, RouteBlock, RoutePlan, ServiceObservations,
+    };
+
+    static TEST_CONFIRMED: [ConfirmedCoverage; 1] = [ConfirmedCoverage {
+        profile_id: "sites-discord",
+        engine: Engine::Winws2,
+        covers: &[Coverage::Sites, Coverage::Discord],
+    }];
+
+    /// Сервис с подтверждённым (ТОЛЬКО в тесте) покрытием: проверка пути запуска по плану.
+    fn make_confirmed(flags: &Arc<Flags>, vpn: bool) -> DesyncService {
+        flags.present.store(true, Ordering::SeqCst);
+        let mut s = make(flags, good, true, vpn);
+        s.candidate = profile();
+        s.confirmed = &TEST_CONFIRMED;
+        s
+    }
+
+    fn blocked(wanted: &[Coverage]) -> ServiceObservations {
+        let mut o = ServiceObservations::new();
+        for w in wanted {
+            o.set(*w, Reachability::Unreachable);
+        }
+        o
+    }
+
     #[test]
     fn live_service_plan_stays_off_for_unverified_profile() {
         let flags = Arc::new(Flags::default());
         let service = make(&flags, good, true, false);
-        // Tests use an adapter claiming Ready to ensure the proof gate still
-        // prevents a dry-run-only profile from appearing as verified.
+        // Адаптер в тесте заявляет Ready, но реальный пресет NetZapret не подтверждён опытом.
+        let plan = service.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
         assert_eq!(
-            service.plan_access(&[Coverage::Sites], Some(false), false),
-            routing::RoutePlan::Block(routing::RouteBlock::UnverifiedCoverage)
+            plan.overall,
+            RoutePlan::Block(RouteBlock::UnverifiedCoverage)
         );
+        let reachable = ServiceObservations::new().with(Coverage::Sites, Reachability::Reachable);
         assert_eq!(
-            service.plan_access(&[Coverage::Sites], Some(true), false),
-            routing::RoutePlan::Use(routing::AccessPath::Direct)
+            service.plan_access(&[Coverage::Sites], &reachable).overall,
+            RoutePlan::Use(AccessPath::Direct)
         );
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
         assert!(!flags.installed.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn start_planned_never_starts_for_blocked_direct_or_vpn_plans() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        // 1. Неподтверждённый пресет: перехват запрещён.
+        let s = make(&flags, good, true, false);
+        let err = s
+            .start_planned(
+                &[Coverage::Sites],
+                &blocked(&[Coverage::Sites]),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        assert_eq!(s.status().0, DesyncState::Error);
+        // 2. Неизвестное состояние сервиса — не успех.
+        let s = make_confirmed(&flags, false);
+        let err = s
+            .start_planned(&[Coverage::Sites], &ServiceObservations::new(), &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        // 3. Всё доступно напрямую: запускать нечего.
+        let reachable = ServiceObservations::new().with(Coverage::Sites, Reachability::Reachable);
+        let err = s
+            .start_planned(&[Coverage::Sites], &reachable, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotNeeded(_)), "{err:?}");
+        // 4. Работает подтверждённый VPN: перехват не накладывается.
+        let s = make_confirmed(&flags, true);
+        let err = s
+            .start_planned(
+                &[Coverage::Sites],
+                &blocked(&[Coverage::Sites]),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotNeeded(_)), "{err:?}");
+        let err = s
+            .start_planned(
+                &[Coverage::Discord],
+                &blocked(&[Coverage::Discord]),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn start_planned_runs_one_confirmed_profile_once_and_stops_cleanly() {
+        let flags = Arc::new(Flags::default());
+        let s = make_confirmed(&flags, false);
+        let wanted = [Coverage::Sites, Coverage::Discord];
+        let mixed = ServiceObservations::new()
+            .with(Coverage::Sites, Reachability::Reachable)
+            .with(Coverage::Discord, Reachability::Unreachable);
+        s.start_planned(&wanted, &mixed, &mut |_| {}).unwrap();
+        assert!(s.is_running());
+        // Второй запуск (в том числе «из другого места») второй экземпляр не создаёт.
+        s.start_planned(&wanted, &mixed, &mut |_| {}).unwrap();
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        s.stop();
+        assert!(!s.is_running());
+        assert!(flags.killed.load(Ordering::SeqCst));
+        assert!(!s.pid_file().exists());
+    }
+
+    #[test]
+    fn start_planned_does_not_cover_a_service_the_profile_was_not_confirmed_for() {
+        let flags = Arc::new(Flags::default());
+        let s = make_confirmed(&flags, false);
+        let wanted = [Coverage::Sites, Coverage::Telegram];
+        let err = s
+            .start_planned(&wanted, &blocked(&wanted), &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn start_planned_reports_spawn_and_privilege_errors_without_claiming_success() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let mut s = make(
+            &flags,
+            |f| Host {
+                spawn_fails: true,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        s.candidate = profile();
+        s.confirmed = &TEST_CONFIRMED;
+        let err = s
+            .start_planned(
+                &[Coverage::Sites],
+                &blocked(&[Coverage::Sites]),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert!(matches!(err, DesyncError::Start(_)), "{err:?}");
+        assert!(!s.is_running());
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let mut s = make(
+            &flags,
+            |f| Host {
+                elevated: false,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        s.candidate = profile();
+        s.confirmed = &TEST_CONFIRMED;
+        let err = s
+            .start_planned(
+                &[Coverage::Sites],
+                &blocked(&[Coverage::Sites]),
+                &mut |_| {},
+            )
+            .unwrap_err();
+        assert_eq!(err, DesyncError::NeedsAdmin);
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn vpn_starting_after_desync_is_seen_and_unverified_vpn_blocks_everything() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let signal = Arc::new(Mutex::new(routing::VpnSignal::default()));
+        let shared = signal.clone();
+        let mut s = DesyncService::new(
+            temp_dir(),
+            Box::new(good(flags.clone())),
+            Box::new(move || *shared.lock().unwrap()),
+        );
+        s.candidate = profile();
+        s.confirmed = &TEST_CONFIRMED;
+        s.settle = (1, Duration::from_millis(1));
+        s.start_planned(
+            &[Coverage::Sites],
+            &blocked(&[Coverage::Sites]),
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(s.is_running());
+        // VPN подключается: план больше не разрешает перехват, даже если «напрямую недоступно».
+        *signal.lock().unwrap() = routing::VpnSignal {
+            active: true,
+            verified: false,
+        };
+        let plan = s.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
+        assert_eq!(plan.overall, RoutePlan::Block(RouteBlock::VpnNotVerified));
+        s.stop();
+        assert!(!s.is_running());
     }
 
     #[test]
@@ -998,7 +1271,11 @@ mod tests {
             }
             assert!(adapter.locate().is_err());
             assert!(!adapter.has_privileges());
-            let s = DesyncService::new(temp_dir(), Box::new(adapter), Box::new(|| false));
+            let s = DesyncService::new(
+                temp_dir(),
+                Box::new(adapter),
+                Box::new(routing::VpnSignal::default),
+            );
             assert!(s.start(&mut |_| {}).is_err());
             assert_eq!(s.status().0, DesyncState::Error);
         }
