@@ -1,10 +1,15 @@
 # Ручная сборка самостоятельного диагностического пакета для Windows x64 (без установки Python у пользователя).
 # Только офлайн-проверка пакета: перехват пакетов, драйвер и внешние соединения для проверки не используются.
-# Запускается только вручную, без автоматического перехвата или внешнего DPI-теста.
+# ВРЕМЕННО: один офлайн CI-build для phase-aware диагностического пакета; затем ручной режим.
 name: build-desync-diagnostic-package
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/epic-knuth-0zhg19
+    paths:
+      - .github/workflows/build-desync-diagnostic-package.yml
 
 permissions:
   contents: read
