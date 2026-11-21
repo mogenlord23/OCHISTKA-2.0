@@ -55,7 +55,7 @@ def main() -> int:
     if mode == "noop":
         # Upstream luaexec() demonstrates live Lua packet callbacks while
         # leaving packets unchanged (no fake packets or altered segments).
-        args.append("--lua-desync=luaexec:code=DLOG('OCHISTKA_DESYNC_CALLBACK')")
+        args.append("--lua-desync=luaexec:code=DLOG([[OCHISTKA_DESYNC_CALLBACK]])")
     else:
         args.append("--lua-desync=fake:blob=fake_default_http:tcp_md5")
     if mode == "full":
