@@ -93,6 +93,12 @@ def main() -> int:
                     "Candidate HTTP request passed but Lua actions were not both confirmed.\n"
                     + inspect_log(log, limit=14000)
                 )
+        except Exception:
+            # The engine log is essential to diagnose an isolated HTTP timeout.
+            # No real user traffic or secrets: the test only visits localhost.
+            print("ENGINE LOG (last 16000 chars):", flush=True)
+            print(inspect_log(log, limit=16000), flush=True)
+            raise
         finally:
             if proc is not None and proc.poll() is None:
                 try:
