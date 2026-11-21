@@ -22,6 +22,10 @@ use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 use crate::vpn::spawn_logged;
 
+mod preset_assets;
+
+use preset_assets::PINNED_RESOURCES;
+
 pub const ENGINE_EXE: &str = "winws2.exe";
 
 /// Не модифицированные Lua-исходники из bol-van/zapret2@1eb4fd887b6091ccaf59feea7486162ac64c9319.
@@ -76,6 +80,108 @@ fn install_lua_assets(dir: &Path) -> Result<(), PrepareError> {
             reason: "Lua-скрипты не прошли проверку целостности".into(),
             detail: "Lua-скрипты отсутствуют или изменены".into(),
         });
+    }
+    Ok(())
+}
+
+/// Check all embedded preset dependencies without altering the network.
+fn preset_assets_valid(dir: &Path) -> bool {
+    if std::fs::symlink_metadata(dir)
+        .is_ok_and(|metadata| metadata.file_type().is_symlink())
+    {
+        return false;
+    }
+    let Ok(root) = dir.canonicalize() else {
+        return false;
+    };
+    PINNED_RESOURCES.iter().all(|(relative, _, digest)| {
+        let path = dir.join(relative);
+        std::fs::symlink_metadata(&path)
+            .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
+            && path
+                .canonicalize()
+                .is_ok_and(|resolved| resolved.starts_with(&root))
+            && std::fs::read(&path)
+                .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
+    })
+}
+
+fn preset_asset_error(detail: impl Into<String>) -> PrepareError {
+    PrepareError {
+        reason: "не удалось подготовить проверенные файлы обхода".into(),
+        detail: detail.into(),
+    }
+}
+
+/// Explicit preparation only. Verify bundled hashes before writing anything.
+/// A partial write can never create a ready adapter; locate/spawn recheck all 135.
+fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
+    for (relative, bytes, digest) in PINNED_RESOURCES {
+        if engine::sha256_hex(bytes) != *digest {
+            return Err(preset_asset_error(format!(
+                "нарушен SHA-256 встроенного ресурса: {relative}"
+            )));
+        }
+    }
+    std::fs::create_dir_all(dir).map_err(|e| preset_asset_error(e.to_string()))?;
+    if std::fs::symlink_metadata(dir)
+        .is_ok_and(|metadata| metadata.file_type().is_symlink())
+    {
+        return Err(preset_asset_error("каталог компонентов является ссылкой"));
+    }
+    let root = dir
+        .canonicalize()
+        .map_err(|e| preset_asset_error(e.to_string()))?;
+    for (relative, embedded, digest) in PINNED_RESOURCES {
+        let path = dir.join(relative);
+        let parent = path
+            .parent()
+            .ok_or_else(|| preset_asset_error("нет каталога ресурса"))?;
+        std::fs::create_dir_all(parent).map_err(|e| preset_asset_error(e.to_string()))?;
+        if !parent
+            .canonicalize()
+            .is_ok_and(|resolved| resolved.starts_with(&root))
+        {
+            return Err(preset_asset_error(format!(
+                "ресурс за пределами каталога компонентов: {relative}"
+            )));
+        }
+        if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err(preset_asset_error(format!(
+                    "ресурс является ссылкой или каталогом: {relative}"
+                )));
+            }
+        }
+        if std::fs::read(&path)
+            .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
+        {
+            continue;
+        }
+        let part = path.with_extension("ochistka-part");
+        if let Ok(metadata) = std::fs::symlink_metadata(&part) {
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err(preset_asset_error(format!(
+                    "временный путь ресурса небезопасен: {relative}"
+                )));
+            }
+            std::fs::remove_file(&part).map_err(|e| preset_asset_error(e.to_string()))?;
+        }
+        std::fs::write(&part, embedded).map_err(|e| preset_asset_error(e.to_string()))?;
+        if !std::fs::read(&part)
+            .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
+        {
+            return Err(preset_asset_error(format!(
+                "ресурс после записи не прошёл SHA-256: {relative}"
+            )));
+        }
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| preset_asset_error(e.to_string()))?;
+        }
+        std::fs::rename(&part, &path).map_err(|e| preset_asset_error(e.to_string()))?;
+    }
+    if !preset_assets_valid(dir) {
+        return Err(preset_asset_error("не все ресурсы прошли проверку целостности"));
     }
     Ok(())
 }
@@ -164,10 +270,13 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let spec = self
             .spec
             .ok_or("файлы движка не закреплены: нет подтверждённых версий и хэшей")?;
-        if engine::is_installed(spec, &self.dir) && lua_assets_valid(&self.dir) {
+        if engine::is_installed(spec, &self.dir)
+            && lua_assets_valid(&self.dir)
+            && preset_assets_valid(&self.dir)
+        {
             Ok(self.exe_path())
         } else {
-            Err("компоненты обхода или Lua-скрипты отсутствуют либо изменены".into())
+            Err("компоненты обхода, Lua или файлы профиля отсутствуют либо изменены".into())
         }
     }
 
@@ -191,8 +300,12 @@ impl DesyncAdapter for WindowsDesyncAdapter {
                 }
             })?;
             install_lua_assets(&self.dir)?;
+            install_preset_assets(&self.dir)?;
             // Защита могла убрать файл сразу после записи.
-            if engine::is_installed(spec, &self.dir) && lua_assets_valid(&self.dir) {
+            if engine::is_installed(spec, &self.dir)
+            && lua_assets_valid(&self.dir)
+            && preset_assets_valid(&self.dir)
+        {
                 Ok(())
             } else {
                 Err(protection_error(
@@ -224,8 +337,11 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let Some(spec) = self.spec else {
             return Err("движок не закреплён".into());
         };
-        if !engine::is_installed(spec, &self.dir) || !lua_assets_valid(&self.dir) {
-            return Err("запуск отклонён: целостность движка или Lua-скриптов нарушена".into());
+        if !engine::is_installed(spec, &self.dir)
+            || !lua_assets_valid(&self.dir)
+            || !preset_assets_valid(&self.dir)
+        {
+            return Err("запуск отклонён: целостность движка, Lua или файлов профиля нарушена".into());
         }
         let workdir = exe.parent().unwrap_or(Path::new("."));
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -326,6 +442,7 @@ mod tests {
             std::fs::write(dir.join(name), data).unwrap();
         }
         install_lua_assets(&dir).unwrap();
+        install_preset_assets(&dir).unwrap();
         assert!(adapter.locate().is_ok());
         for (name, data) in files {
             std::fs::write(dir.join(name), b"tampered").unwrap();
@@ -358,6 +475,7 @@ mod tests {
         std::fs::write(dir.join(ENGINE_EXE), b"engine").unwrap();
         std::fs::write(dir.join("WinDivert.dll"), b"dll").unwrap();
         install_lua_assets(&dir).unwrap();
+        install_preset_assets(&dir).unwrap();
         assert_eq!(adapter.locate().unwrap(), dir.join(ENGINE_EXE));
         std::fs::write(dir.join("WinDivert.dll"), b"tampered").unwrap();
         assert!(adapter.locate().unwrap_err().contains("изменены"));
@@ -377,6 +495,38 @@ mod tests {
             assert!(lua_assets_valid(&dir));
             assert_eq!(std::fs::read(dir.join(name)).unwrap(), original);
         }
+    }
+
+    #[test]
+    fn pinned_preset_dependencies_install_and_detect_tampering() {
+        let dir = temp("preset-assets");
+        assert_eq!(PINNED_RESOURCES.len(), 135);
+        assert!(!preset_assets_valid(&dir));
+        install_preset_assets(&dir).unwrap();
+        assert!(preset_assets_valid(&dir));
+        for (name, original, digest) in PINNED_RESOURCES {
+            assert_eq!(engine::sha256_hex(original), *digest);
+            assert_eq!(engine::sha256_hex(&std::fs::read(dir.join(name)).unwrap()), *digest);
+        }
+        let first = PINNED_RESOURCES[0].0;
+        std::fs::write(dir.join(first), b"corrupted").unwrap();
+        assert!(!preset_assets_valid(&dir));
+        install_preset_assets(&dir).unwrap();
+        assert!(preset_assets_valid(&dir));
+        std::fs::remove_file(dir.join(first)).unwrap();
+        assert!(!preset_assets_valid(&dir));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preset_runtime_symlink_is_rejected_without_following_it() {
+        use std::os::unix::fs::symlink;
+        let dir = temp("preset-symlink");
+        let path = dir.join(PINNED_RESOURCES[0].0);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        symlink("/etc/passwd", &path).unwrap();
+        assert!(install_preset_assets(&dir).is_err());
+        assert!(!preset_assets_valid(&dir));
     }
 
     #[test]
