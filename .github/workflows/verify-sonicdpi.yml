@@ -1,0 +1,44 @@
+name: verify-sonicdpi
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-2022
+    steps:
+      - name: Download, hash, list (no unpack, no run)
+        shell: pwsh
+        env:
+          URL: https://github.com/by-sonic/sonicdpi/releases/download/v0.2.2/SonicDPI-windows-x64.zip
+          EXPECTED: ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'SonicDPI-windows-x64.zip'
+          Invoke-WebRequest -Uri $env:URL -OutFile $zip
+          $actual = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLower()
+          $size = (Get-Item $zip).Length
+          $match = ($actual -eq $env:EXPECTED.ToLower())
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+          $names = $archive.Entries | ForEach-Object { "{0}`t{1}" -f $_.FullName, $_.Length }
+          $archive.Dispose()
+          $report = @(
+            "url: $env:URL",
+            "size: $size",
+            "expected: $($env:EXPECTED.ToLower())",
+            "actual:   $actual",
+            "match: $match",
+            "files:"
+          ) + $names
+          $report | Set-Content -Encoding utf8 (Join-Path $env:GITHUB_WORKSPACE 'sonicdpi-verify-report.txt')
+          $report | ForEach-Object { Write-Host $_ }
+          if (-not $match) { throw "SHA-256 mismatch" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sonicdpi-verify-report
+          path: sonicdpi-verify-report.txt
