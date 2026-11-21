@@ -309,7 +309,7 @@ pub enum DriverState {
 /// Короткая причина для интерфейса, если драйвер не остановился.
 pub const DRIVER_NOT_STOPPED: &str = "Драйвер не остановлен, перезагрузите компьютер";
 /// Не удалось остановить обход (процесс не завершился).
-pub const STOP_FAILED: &str = "Не удалось выключить обход, перезагрузите компьютер";
+pub const STOP_FAILED: &str = "Обход не выключился, перезагрузите компьютер";
 
 /// Файл состояния обхода в папке данных: помнит, что службу драйвера запустила программа.
 const STATE_FILE: &str = "desync-state.json";
@@ -349,6 +349,10 @@ pub trait DesyncAdapter: Send + Sync {
     }
     /// Останавливает процесс от прошлого запуска, если это действительно наш движок.
     fn kill_stale(&self, pid: u32);
+    /// Жив ли ещё наш движок с этим PID (имя проверяется: чужой процесс с тем же PID — не наш).
+    fn stale_alive(&self, _pid: u32) -> bool {
+        false
+    }
 }
 
 struct Inner {
@@ -947,7 +951,9 @@ impl DesyncService {
             return Err(DesyncError::NeedsAdmin);
         }
         // Остаток собственного процесса после аварии: останавливаем до запуска нового.
-        self.recover();
+        if !self.recover() {
+            return Err(DesyncError::Stop(STOP_FAILED.into()));
+        }
         // Служба драйвера от прошлого запуска должна быть остановлена до нового.
         self.release_driver()?;
         std::fs::create_dir_all(&self.dir)
@@ -1194,7 +1200,15 @@ impl DesyncService {
                 return Err(DesyncError::Stop(STOP_FAILED.into()));
             }
         }
-        let _ = std::fs::remove_file(self.pid_file());
+        // Независимая проверка по PID и имени: движок действительно завершён (а не только
+        // «дескриптор говорит, что завершён»). Иначе — ошибка, обход не считается выключенным.
+        if !self.recover() {
+            inner.state = DesyncState::Error;
+            inner.message = STOP_FAILED.into();
+            drop(inner);
+            self.coord.mark_unclean(coordinator::Owner::Desync);
+            return Err(DesyncError::Stop(STOP_FAILED.into()));
+        }
         // Процесс завершён: если службу драйвера запустила программа, останавливаем и её.
         // Пока служба работает, обход НЕ считается выключенным.
         if let Err(err) = self.release_driver() {
@@ -1359,21 +1373,36 @@ impl DesyncService {
         }
     }
 
-    /// Убирает остаток прошлого запуска (аварийное завершение приложения).
-    fn recover(&self) {
+    /// Убирает остаток прошлого запуска (аварийное завершение приложения): завершает движок по
+    /// сохранённому PID и проверяет, что его больше нет. `false` — завершить не удалось (файл с PID
+    /// остаётся, чтобы попытку можно было повторить).
+    fn recover(&self) -> bool {
         if let Some(pid) = std::fs::read_to_string(self.pid_file())
             .ok()
             .and_then(|t| t.trim().parse().ok())
         {
             self.adapter.kill_stale(pid);
+            if self.adapter.stale_alive(pid) {
+                self.log_text(&format!("остановка: движок с PID {pid} всё ещё жив"));
+                return false;
+            }
         }
         let _ = std::fs::remove_file(self.pid_file());
+        true
     }
 
     /// Вызывается при запуске приложения.
     pub fn recover_on_start(&self) {
         let _op = lock(&self.op);
-        self.recover();
+        // Прежде всего: движок от прошлого запуска (принудительное закрытие) завершается первым.
+        if !self.recover() {
+            let mut inner = lock(&self.inner);
+            inner.state = DesyncState::Error;
+            inner.message = STOP_FAILED.into();
+            drop(inner);
+            self.coord.mark_unclean(coordinator::Owner::Desync);
+            return;
+        }
         // Прошлый запуск мог закончиться принудительно: служба драйвера осталась работать.
         if let Err(err) = self.release_driver() {
             let mut inner = lock(&self.inner);
@@ -1504,6 +1533,12 @@ mod tests {
         /// Состояние службы драйвера в фейке и число её остановок.
         driver: Mutex<Option<DriverState>>,
         driver_stops: AtomicU32,
+        /// Движки «в системе» (PID); запуск добавляет 777, `kill_stale` убирает.
+        engines: Mutex<Vec<u32>>,
+        /// Ведётся ли учёт движков в фейке.
+        track_engine: AtomicBool,
+        /// Движок не завершается ни дескриптором, ни по PID.
+        engine_survives: AtomicBool,
         /// Запуск движка запускает службу драйвера (как настоящий winws2).
         spawn_starts_driver: AtomicBool,
         /// Остановка службы не удаётся.
@@ -1582,6 +1617,9 @@ mod tests {
                 return Err("не удалось запустить".into());
             }
             self.flags.spawned.fetch_add(1, Ordering::SeqCst);
+            if self.flags.track_engine.load(Ordering::SeqCst) {
+                self.flags.engines.lock().unwrap().push(777);
+            }
             if self.flags.spawn_starts_driver.load(Ordering::SeqCst) {
                 *self.flags.driver.lock().unwrap() = Some(DriverState::Running);
             }
@@ -1594,6 +1632,13 @@ mod tests {
         }
         fn kill_stale(&self, pid: u32) {
             self.flags.stale.lock().unwrap().push(pid);
+            if !self.flags.engine_survives.load(Ordering::SeqCst) {
+                self.flags.engines.lock().unwrap().retain(|p| *p != pid);
+            }
+        }
+        fn stale_alive(&self, pid: u32) -> bool {
+            self.flags.track_engine.load(Ordering::SeqCst)
+                && self.flags.engines.lock().unwrap().contains(&pid)
         }
         fn driver_state(&self) -> DriverState {
             self.flags
@@ -3536,6 +3581,107 @@ mod tests {
                 .speed_note
                 .unwrap(),
         );
+    }
+
+    // ----- гарантированное завершение движка -----
+
+    fn engine_flags() -> Arc<Flags> {
+        let flags = Arc::new(Flags::default());
+        flags.track_engine.store(true, Ordering::SeqCst);
+        flags
+    }
+
+    #[test]
+    fn exit_with_the_bypass_on_ends_the_engine_and_verifies_it_by_pid() {
+        let flags = engine_flags();
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(*flags.engines.lock().unwrap(), vec![777]);
+        assert!(s.pid_file().exists(), "PID сохранён сразу после запуска");
+        s.shutdown().unwrap();
+        assert!(
+            flags.engines.lock().unwrap().is_empty(),
+            "движка в системе нет"
+        );
+        assert!(!s.pid_file().exists());
+        assert_eq!(s.status().0, DesyncState::Off);
+    }
+
+    #[test]
+    fn a_forced_exit_leaves_the_engine_and_the_next_start_ends_it_first() {
+        let flags = engine_flags();
+        let first = trial_service(&flags, false);
+        first.start_trial(true, &mut |_| {}).unwrap();
+        // Принудительное закрытие: ни stop, ни shutdown; PID остался в файле.
+        let dir = first.dir.clone();
+        assert!(flags.engines.lock().unwrap().contains(&777));
+        let second = DesyncService::new(
+            dir,
+            Box::new(good(flags.clone())),
+            Box::new(routing::VpnSignal::default),
+        );
+        second.recover_on_start();
+        assert!(
+            flags.stale.lock().unwrap().contains(&777),
+            "завершён по сохранённому PID"
+        );
+        assert!(flags.engines.lock().unwrap().is_empty());
+        assert_eq!(second.status().0, DesyncState::Off);
+        assert!(!second.pid_file().exists());
+    }
+
+    #[test]
+    fn a_failed_kill_is_an_error_with_a_plain_reason_and_the_switch_never_says_off() {
+        let flags = engine_flags();
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.engine_survives.store(true, Ordering::SeqCst);
+        let err = s.stop_trial().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Обход не выключился, перезагрузите компьютер"
+        );
+        assert_eq!(s.status().0, DesyncState::Error);
+        let st = s.trial_status(std::time::Instant::now());
+        assert_eq!(st.error.as_deref(), Some(STOP_FAILED));
+        assert!(st.active && !st.message.contains("Выключено"));
+        assert!(s.pid_file().exists(), "PID остаётся для повторной попытки");
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        // Повторная остановка после устранения причины доводит дело до конца.
+        flags.engine_survives.store(false, Ordering::SeqCst);
+        s.stop_trial().unwrap();
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert!(flags.engines.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_stale_engine_that_survives_at_startup_blocks_everything_until_it_is_ended() {
+        let flags = engine_flags();
+        let first = trial_service(&flags, false);
+        first.start_trial(true, &mut |_| {}).unwrap();
+        let dir = first.dir.clone();
+        flags.engine_survives.store(true, Ordering::SeqCst);
+        let second = Arc::new(DesyncService::new(
+            dir,
+            Box::new(good(flags.clone())),
+            Box::new(routing::VpnSignal::default),
+        ));
+        second.recover_on_start();
+        assert_eq!(second.status().0, DesyncState::Error);
+        assert_eq!(
+            second
+                .trial_status(std::time::Instant::now())
+                .error
+                .as_deref(),
+            Some(STOP_FAILED)
+        );
+        assert!(second.pid_file().exists());
+        // Кнопка (остановка) повторяет попытку; когда процесс уходит — состояние чистое.
+        flags.engine_survives.store(false, Ordering::SeqCst);
+        second.stop_trial().unwrap();
+        assert_eq!(second.status().0, DesyncState::Off);
+        assert!(flags.engines.lock().unwrap().is_empty());
     }
 
     #[test]

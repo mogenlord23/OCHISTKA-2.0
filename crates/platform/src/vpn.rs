@@ -46,6 +46,25 @@ impl CoreProcess for StdCoreProcess {
     }
 }
 
+impl StdCoreProcess {
+    /// Для защищённого процесса (и тестов): оборачивает уже запущенный дочерний процесс.
+    pub fn from_child(child: Child) -> Self {
+        Self { child }
+    }
+
+    /// Завершает процесс, не дожидаясь результата (ошибка не скрывает проверку в вызывающем коде).
+    pub fn terminate_nowait(&mut self) {
+        let _ = self.child.kill();
+    }
+
+    /// Дескриптор процесса для привязки к заданию Windows.
+    #[cfg(windows)]
+    pub fn raw_handle(&self) -> Option<*mut std::ffi::c_void> {
+        use std::os::windows::io::AsRawHandle;
+        Some(self.child.as_raw_handle())
+    }
+}
+
 impl Drop for StdCoreProcess {
     fn drop(&mut self) {
         if matches!(self.child.try_wait(), Ok(None)) {

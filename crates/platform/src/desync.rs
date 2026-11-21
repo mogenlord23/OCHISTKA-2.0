@@ -18,7 +18,6 @@ use std::path::{Path, PathBuf};
 use ochistka_core::desync::{self, DesyncAdapter, Platform, Readiness};
 use ochistka_core::vpn::engine::{self, PinnedEngine, PrepareError, PrepareProgress};
 use ochistka_core::vpn::service::CoreProcess;
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 use crate::vpn::spawn_logged;
 
@@ -467,7 +466,12 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let workdir = exe.parent().unwrap_or(Path::new("."));
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let process = spawn_logged(exe, &arg_refs, workdir, log)?;
-        Ok(Box::new(process))
+        // Принудительное закрытие программы или её падение завершает движок само (задание Windows).
+        // Ошибка привязки не мешает запуску: остаются остановка по PID и очистка при старте.
+        let _ = crate::windows::process_guard::attach_kill_on_close(&process);
+        Ok(Box::new(
+            crate::windows::process_guard::GuardedProcess::new(process, ENGINE_EXE),
+        ))
     }
 
     /// Останавливает процесс из прошлого запуска, только если номер принадлежит именно нашему
@@ -497,29 +501,16 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         crate::windows::driver_service::stop()
     }
 
+    /// Завершает движок от прошлого запуска по сохранённому PID: только процесс с именем
+    /// `winws2.exe` (и из нашей папки, если путь известен); чужой процесс с тем же PID не трогается.
     fn kill_stale(&self, pid: u32) {
-        let target = [Pid::from_u32(pid)];
-        let Ok(mut system) = System::new() else {
-            return;
-        };
-        system.refresh_processes_specifics(
-            ProcessesToUpdate::Some(&target),
-            true,
-            ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
-        );
-        let ours = self.exe_path();
-        if let Some(process) = system.process(target[0]) {
-            if process.exe().is_some_and(|path| same_file(path, &ours)) {
-                process.kill();
-            }
-        }
+        let _ =
+            crate::windows::process_guard::terminate_named(pid, ENGINE_EXE, Some(&self.exe_path()));
     }
-}
 
-fn same_file(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
-        (Ok(x), Ok(y)) => x == y,
-        _ => a == b,
+    /// Жив ли ещё наш движок с этим PID (после `kill_stale`).
+    fn stale_alive(&self, pid: u32) -> bool {
+        crate::windows::process_guard::is_alive_named(pid, ENGINE_EXE)
     }
 }
 

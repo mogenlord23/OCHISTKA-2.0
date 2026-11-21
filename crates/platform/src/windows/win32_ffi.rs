@@ -132,3 +132,41 @@ pub fn notify_proxy_settings_changed() {
         InternetSetOptionW(null_mut(), INTERNET_OPTION_REFRESH, null_mut(), 0);
     }
 }
+
+/// Задание Windows «завершить все процессы при закрытии дескриптора задания». Создаётся один раз и
+/// не закрывается до конца работы программы: при принудительном закрытии или падении программы
+/// система закрывает дескриптор сама и завершает движок обхода.
+pub fn assign_to_kill_on_close_job(process: *mut core::ffi::c_void) -> Result<(), String> {
+    use ::windows::Win32::Foundation::HANDLE;
+    use ::windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    use std::sync::OnceLock;
+
+    static JOB: OnceLock<Result<usize, String>> = OnceLock::new();
+    let job = JOB.get_or_init(|| {
+        // SAFETY: создаётся безымянное задание без атрибутов безопасности; результат проверяется.
+        let handle =
+            unsafe { CreateJobObjectW(None, PCWSTR::null()) }.map_err(|e| e.to_string())?;
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        // SAFETY: `info` — корректная структура нужного типа на стеке, размер передан верно.
+        unsafe {
+            SetInformationJobObject(
+                handle,
+                JobObjectExtendedLimitInformation,
+                &info as *const _ as *const core::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            )
+        }
+        .map_err(|e| e.to_string())?;
+        Ok(handle.0 as usize)
+    });
+    let job = job.clone()?;
+    // SAFETY: дескрипторы действительны: задание живёт до конца программы, процесс передан
+    // вызывающим кодом, пока объект `Child` жив.
+    unsafe { AssignProcessToJobObject(HANDLE(job as *mut core::ffi::c_void), HANDLE(process)) }
+        .map_err(|e| e.to_string())
+}
