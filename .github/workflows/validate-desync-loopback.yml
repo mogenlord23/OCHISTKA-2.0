@@ -1,0 +1,45 @@
+# A single opt-in isolated WinDivert packet interception test on a disposable runner.
+# No browsing, no DNS, no external hosts, no interception of normal user traffic.
+# Never builds winws2: downloads and verifies our existing pinned Release.
+name: validate-desync-loopback
+
+on:
+  push:
+    branches:
+      - claude/epic-knuth-0zhg19
+    paths:
+      - .github/workflows/validate-desync-loopback.yml
+      - tools/desync-core/loopback_smoke.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-win-divert:
+    if: github.repository == 'mogenlord23/OCHISTKA-2.0'
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download pinned Release and verify SHA-256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/mogenlord23/OCHISTKA-2.0/releases/download/zapret2-winws2-2026-11-21/zapret2-winws2-windows-x64.zip'
+          Invoke-WebRequest -Uri $url -OutFile zapret2-verified.zip -UseBasicParsing
+          $hash = (Get-FileHash zapret2-verified.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '15bb46aca6904c674cb018250855398c60d7676079fd534832f1e4d87f07e04a') {
+            throw 'Pinned Zapret 2 ZIP SHA-256 mismatch'
+          }
+          Expand-Archive zapret2-verified.zip -DestinationPath verified-winws2
+          foreach ($name in @('winws2.exe', 'cygwin1.dll', 'cygz.dll', 'WinDivert.dll', 'WinDivert64.sys')) {
+            if (-not (Test-Path "verified-winws2/$name")) { throw "Missing $name" }
+          }
+
+      - name: Real WinDivert interception only on isolated localhost port
+        shell: pwsh
+        run: |
+          python tools/desync-core/loopback_smoke.py verified-winws2
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated WinDivert packet smoke failed' }
