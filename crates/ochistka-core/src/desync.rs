@@ -571,9 +571,16 @@ mod tests {
     #[test]
     fn verified_windows_engine_is_pinned_but_profile_remains_disabled() {
         let spec = &PINNED_WINDOWS;
-        assert!(crate::vpn::engine::url_allowed_under(spec.url, spec.url_prefix));
+        assert!(crate::vpn::engine::url_allowed_under(
+            spec.url,
+            spec.url_prefix
+        ));
         assert_eq!(spec.archive_sha256.len(), 64);
-        assert_eq!(spec.files.len(), 9, "пять бинарных файлов, лицензии и manifest.json");
+        assert_eq!(
+            spec.files.len(),
+            9,
+            "пять бинарных файлов, лицензии и manifest.json"
+        );
         for required_name in [
             "winws2.exe",
             "cygwin1.dll",

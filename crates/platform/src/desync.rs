@@ -263,13 +263,22 @@ mod tests {
         assert!(adapter.locate().is_ok());
         for (name, data) in files {
             std::fs::write(dir.join(name), b"tampered").unwrap();
-            assert!(adapter.locate().is_err(), "подмена {name} должна блокировать запуск");
+            assert!(
+                adapter.locate().is_err(),
+                "подмена {name} должна блокировать запуск"
+            );
             std::fs::write(dir.join(name), data).unwrap();
-            assert!(adapter.locate().is_ok(), "после восстановления {name} хэш совпадает");
+            assert!(
+                adapter.locate().is_ok(),
+                "после восстановления {name} хэш совпадает"
+            );
         }
         for (name, data) in files {
             std::fs::remove_file(dir.join(name)).unwrap();
-            assert!(adapter.locate().is_err(), "отсутствие {name} должно блокировать запуск");
+            assert!(
+                adapter.locate().is_err(),
+                "отсутствие {name} должно блокировать запуск"
+            );
             std::fs::write(dir.join(name), data).unwrap();
         }
     }
