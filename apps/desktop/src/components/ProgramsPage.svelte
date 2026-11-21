@@ -565,10 +565,6 @@
 
 {#if subsection === 'startup'}
   <section class="page" aria-label="Автозагрузка">
-    <p class="status-line">
-      Реестр «Run» (HKCU и HKLM) и папки «Автозагрузка». Отключение меняет флаг, который читает
-      «Диспетчер задач»: прежнее состояние запоминается, запись можно включить обратно.
-    </p>
     <div class="buttons">
       <button type="button" onclick={() => void loadStartup()} disabled={loading}>Обновить</button>
       <button
