@@ -570,7 +570,9 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
     ),
     (
         "lists/nz-virustotal-google-api.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-virustotal-google-api.txt"),
+        include_bytes!(
+            "../../../../assets/desync/runtime-extra/lists/nz-virustotal-google-api.txt"
+        ),
         "8eb4ae5c8b9dca7bdb3e0630c98201a3ac5b60df3635cd6a78cfeb0ac2bf405b",
     ),
     (
