@@ -90,15 +90,26 @@ jobs:
           $winws = $common + "`n" + @'
           export CFLAGS="-DZAPRET_GH_VER=ochistka-build -DZAPRET_GH_HASH=$ZAPRET2_COMMIT"
           cd "$WS/zapret2"
-          test -f /usr/lib/libintl.a || { echo "Нет /usr/lib/libintl.a (пакет libintl-devel)"; exit 1; }
-          make -C nfq2 cygwin64
+          # Что реально лежит в пакете libintl-devel (для журнала): актуальный Cygwin может давать
+          # только импортную libintl.dll.a без статической libintl.a.
+          ls -l /usr/lib/libintl* || true
+          cygcheck -l libintl-devel | grep -i '/lib/' || true
+          # Официальный Makefile добавляет -static (CFLAGS_CYGWIN); со статической компоновкой на
+          # актуальном Cygwin не находится -lintl. Переопределяем переменную в командной строке
+          # (без -static), исходники Zapret 2 не меняются. Остальные флаги те же, что в Makefile.
+          make -C nfq2 cygwin64 CFLAGS_CYGWIN="-Wno-address-of-packed-member -Wl,--nxcompat"
           test -f nfq2/winws2.exe
           '@
           $collect = $common + "`n" + @'
           cd "$WS"
           mkdir -p output
           cp -a zapret2/nfq2/winws2.exe output/
-          cp -a /usr/bin/cygwin1.dll output/
+          # Зависимости определяем у самого исполняемого файла, а не угадываем.
+          cygcheck zapret2/nfq2/winws2.exe | tr -d '\r' > output/winws2-dependencies.txt
+          cat output/winws2-dependencies.txt
+          grep -i 'could not find' output/winws2-dependencies.txt | grep -vi 'windivert' && { echo "Не найдена зависимость winws2.exe"; exit 1; } || true
+          grep -i '\\cygwin\\bin\\.*\.dll' output/winws2-dependencies.txt | sed 's/^ *//' | while IFS= read -r dll; do cp -a "$(cygpath -u "$dll")" output/; done
+          test -f output/cygwin1.dll
           cygcheck -c cygwin gcc-core make zlib-devel libintl-devel > output/cygwin-packages.txt
           uname -r > output/cygwin-version.txt
           '@
@@ -166,7 +177,7 @@ jobs:
         env:
           WD_EXPECTED: ${{ inputs.windivert_zip_sha256 }}
         run: |
-          $required = 'winws2.exe', 'cygwin1.dll', 'WinDivert.dll', 'WinDivert64.sys'
+          $required = @('winws2.exe', 'cygwin1.dll', 'WinDivert.dll', 'WinDivert64.sys') + @(Get-ChildItem output -File | Where-Object { $_.Extension -in '.dll' } | ForEach-Object { $_.Name }) | Select-Object -Unique
           foreach ($f in $required) { if (-not (Test-Path "output/$f")) { throw "Нет файла $f" } }
           $files = foreach ($f in $required) {
             $item = Get-Item "output/$f"
