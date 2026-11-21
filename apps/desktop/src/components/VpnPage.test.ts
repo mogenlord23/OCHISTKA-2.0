@@ -223,14 +223,37 @@ describe('VpnPage: подписка и импорт', () => {
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'trojan://p@h:443#Файл' });
   });
 
-  it('refills the saved subscription link after a restart', async () => {
-    backend({ vpn_snapshot: () => makeSnapshot({ subscriptionUrl: 'https://saved.example/sub' }) });
+  it('never prefills the subscription field: empty profile and locally saved link both open empty', async () => {
+    // Чистая установка: ни подписки, ни серверов.
     render(VpnPage, { props: { subsection: 'vpn' } });
-    await waitFor(() =>
-      expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe(
-        'https://saved.example/sub',
-      ),
-    );
+    await waitFor(() => expect(calls('vpn_snapshot').length).toBeGreaterThan(0));
+    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
+    cleanup();
+    // Ссылка сохранена локально у пользователя: в поле она не появляется, серверы остаются.
+    backend({
+      vpn_snapshot: () =>
+        makeSnapshot({
+          subscriptionUrl: 'https://saved.example/sub',
+          servers: SERVERS,
+          selected: 's1',
+        }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText(`Серверы / ${SERVERS.length}`);
+    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
+  });
+
+  it('a manually pasted link is imported as typed', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot({ subscriptionUrl: 'https://saved.example/sub' }),
+      vpn_import: () => ({ count: 1, skipped: 0, issues: [] }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const field = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await fireEvent.input(field, { target: { value: 'https://new.example/sub' } });
+    await fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() => expect(calls('vpn_import').length).toBe(1));
+    expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'https://new.example/sub' });
   });
 });
 
@@ -551,10 +574,11 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.getAllByText('DNS', { exact: true })).toHaveLength(1);
     // Telegram не отдельная возможность: только упоминание внутри одной карточки.
     expect(screen.queryByRole('switch', { name: /Telegram/ })).toBeNull();
-    // Единственное место с этим словом — отдельный блок пробной проверки (по требованию владельца).
-    expect(screen.queryAllByText(/Zapret|Xbox/).filter((el) => !el.closest('.trial'))).toHaveLength(
-      0,
-    );
+    expect(screen.queryByText(/Zapret|Xbox/)).toBeNull();
+    // Отдельной панели пробной проверки, галочки согласия и оценок больше нет.
+    expect(screen.queryByText(/Пробная проверка/)).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Работает' })).toBeNull();
     for (const name of ['Обход блокировок', 'DNS']) {
       const sw = screen.getByRole('switch', { name });
       expect(sw.getAttribute('aria-checked')).toBe('false');
@@ -573,7 +597,79 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
       expect((screen.getByRole('switch', { name }) as HTMLButtonElement).disabled).toBe(true);
     }
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(2);
+    // Только DNS: у обхода своя причина по состоянию из Rust.
+    expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(1);
+  });
+});
+
+const IDLE = { active: false, remainingSecs: 0, message: 'Выключено', unavailable: null };
+const RUNNING = { active: true, remainingSecs: 65, message: 'Пробный запуск', unavailable: null };
+
+describe('VpnPage: «Обход блокировок» — один переключатель', () => {
+  it('does not start anything when the tab opens; start needs a real press with consent=true', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => IDLE,
+      desync_trial_start: () => RUNNING,
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    expect(calls('desync_trial_start')).toHaveLength(0);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByText(/Временный тестовый режим/)).toBeTruthy();
+    await fireEvent.click(sw);
+    await waitFor(() => expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true }));
+    await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
+    expect(sw.closest('.switch-row')?.textContent).toContain('Включено · осталось 1:05');
+  });
+
+  it('a second press stops it through desync_trial_stop', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => RUNNING,
+      desync_trial_stop: () => IDLE,
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
+    await fireEvent.click(sw);
+    await waitFor(() => expect(calls('desync_trial_stop')).toHaveLength(1));
+    expect(calls('desync_trial_start')).toHaveLength(0);
+  });
+
+  it('shows «Подготовка…» while starting and never looks on after an error', async () => {
+    let release: (v: unknown) => void = () => {};
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => IDLE,
+      desync_trial_start: () =>
+        new Promise((resolve, reject) => {
+          release = () => reject({ kind: 'desync', message: 'Нужны права администратора' });
+          void resolve;
+        }),
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    await fireEvent.click(sw);
+    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Подготовка…'));
+    release(null);
+    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Ошибка'));
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sw.closest('.switch-row')?.textContent).toContain('Нужны права администратора');
+  });
+
+  it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => ({ ...IDLE, unavailable: 'Нужны права администратора' }),
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    await screen.findByText('Нужны права администратора');
+    expect(sw.disabled).toBe(true);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
   });
 });
 

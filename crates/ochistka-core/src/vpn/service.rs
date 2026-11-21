@@ -849,6 +849,21 @@ mod tests {
     }
 
     #[test]
+    fn clean_profile_has_no_servers_or_subscription_and_saved_data_is_kept() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        // Чистая установка: ничего заранее заданного (ни серверов, ни подписки).
+        let (clean, _) = make(FakeHost::good(&flags), Box::new(NoNet), &dir);
+        let snap = clean.snapshot();
+        assert!(snap.servers.is_empty() && snap.selected.is_none());
+        assert!(snap.subscription_url.is_empty());
+        // Локально сохранённые пользовательские данные не удаляются при следующем запуске.
+        clean.import(LIST).unwrap();
+        let (again, _) = make(FakeHost::good(&flags), Box::new(NoNet), &dir);
+        assert_eq!(again.snapshot().servers.len(), 2);
+    }
+
+    #[test]
     fn import_selects_first_and_persists() {
         let dir = temp_dir();
         let flags = Flags::default();

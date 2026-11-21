@@ -279,6 +279,7 @@ impl Dialer for TcpDialer {
 #[cfg(windows)]
 pub(crate) mod http {
     use super::*;
+    use ochistka_core::vpn::engine::DownloadFailure;
     use reqwest::blocking::Client;
     use reqwest::redirect::Policy;
 
@@ -334,6 +335,30 @@ pub(crate) mod http {
         }
     }
 
+    /// Вид неудачи загрузки по ошибке reqwest. Адрес из текста ошибки убирается.
+    fn download_error(err: reqwest::Error) -> PrepareError {
+        use ochistka_core::desync::probe::Reply;
+        use std::error::Error;
+        let err = err.without_url();
+        let mut chain = err.to_string();
+        let mut source = err.source();
+        while let Some(s) = source {
+            chain.push(' ');
+            chain.push_str(&s.to_string());
+            source = s.source();
+        }
+        let kind = match crate::desync::probe::classify(err.is_timeout(), err.is_connect(), &chain)
+        {
+            Reply::Timeout => DownloadFailure::Timeout,
+            Reply::Tls => DownloadFailure::Tls,
+            Reply::Dns => DownloadFailure::Dns,
+            Reply::Refused => DownloadFailure::Connect,
+            _ if err.is_redirect() => DownloadFailure::Rejected,
+            _ => DownloadFailure::Other,
+        };
+        PrepareError::download(kind, chain)
+    }
+
     fn describe(err: &reqwest::Error) -> String {
         if err.is_timeout() {
             "время ожидания истекло".into()
@@ -353,11 +378,16 @@ pub(crate) mod http {
         fn download(
             &self,
             url: &str,
+            url_prefix: &str,
             max_bytes: usize,
             on_progress: &mut dyn FnMut(u64, Option<u64>),
         ) -> Result<Vec<u8>, PrepareError> {
-            if !engine::download_url_allowed(url) {
-                return Err(PrepareError::network("адрес загрузки не разрешён"));
+            // Адрес проверяется по префиксу выпуска, который загружается (sing-box или обход).
+            if !engine::url_allowed_under(url, url_prefix) {
+                return Err(PrepareError::download(
+                    DownloadFailure::Rejected,
+                    "начальный адрес не относится к закреплённому выпуску",
+                ));
             }
             let policy = Policy::custom(|attempt| {
                 if attempt.previous().len() >= 5 {
@@ -375,33 +405,41 @@ pub(crate) mod http {
                 .timeout(Duration::from_secs(600))
                 .https_only(true)
                 .build()
-                .map_err(|e| PrepareError::network(e.to_string()))?;
-            let mut response = client
-                .get(url)
-                .send()
-                .map_err(|e| PrepareError::network(describe(&e)))?;
+                .map_err(|e| {
+                    PrepareError::download(DownloadFailure::Other, e.without_url().to_string())
+                })?;
+            let mut response = client.get(url).send().map_err(download_error)?;
             if !response.status().is_success() {
-                return Err(PrepareError::network(format!(
-                    "ответ сервера {}",
-                    response.status()
-                )));
+                return Err(PrepareError::download(
+                    DownloadFailure::Http(response.status().as_u16()),
+                    format!("ответ сервера {}", response.status().as_u16()),
+                ));
             }
             let total = response.content_length();
             if total.is_some_and(|n| n as usize > max_bytes) {
-                return Err(PrepareError::network("файл слишком большой"));
+                return Err(PrepareError::download(
+                    DownloadFailure::TooLarge,
+                    "размер больше лимита",
+                ));
             }
             let mut body = Vec::with_capacity(total.unwrap_or(0).min(max_bytes as u64) as usize);
             let mut chunk = [0u8; 64 * 1024];
             loop {
-                let n = response
-                    .read(&mut chunk)
-                    .map_err(|e| PrepareError::network(format!("обрыв при чтении: {e}")))?;
+                let n = response.read(&mut chunk).map_err(|e| {
+                    PrepareError::download(
+                        DownloadFailure::Connect,
+                        format!("обрыв при чтении: {e}"),
+                    )
+                })?;
                 if n == 0 {
                     break;
                 }
                 body.extend_from_slice(&chunk[..n]);
                 if body.len() > max_bytes {
-                    return Err(PrepareError::network("файл слишком большой"));
+                    return Err(PrepareError::download(
+                        DownloadFailure::TooLarge,
+                        "размер больше лимита",
+                    ));
                 }
                 on_progress(body.len() as u64, total);
             }

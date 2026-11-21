@@ -91,7 +91,43 @@ pub struct PrepareError {
     pub detail: String,
 }
 
+/// Вид неудачи загрузки: от него зависит понятная причина (адрес отклонён — не «нет интернета»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DownloadFailure {
+    /// Адрес не прошёл проверку безопасности (не наш закреплённый выпуск).
+    Rejected,
+    Http(u16),
+    Timeout,
+    Tls,
+    Dns,
+    Connect,
+    TooLarge,
+    Other,
+}
+
 impl PrepareError {
+    /// Ошибка загрузки с причиной по виду неудачи. `detail` — для журнала, без адресов и ключей.
+    pub fn download(kind: DownloadFailure, detail: impl Into<String>) -> Self {
+        let reason = match kind {
+            DownloadFailure::Rejected => {
+                "адрес загрузки отклонён проверкой безопасности: это не закреплённый выпуск".into()
+            }
+            DownloadFailure::Http(code) => format!("сервер загрузки ответил кодом {code}"),
+            DownloadFailure::Timeout => "время ожидания загрузки истекло".into(),
+            DownloadFailure::Tls => "ошибка защищённого соединения (TLS) при загрузке".into(),
+            DownloadFailure::Dns => "не удалось найти адрес сервера загрузки (DNS)".into(),
+            DownloadFailure::Connect => {
+                "нет соединения с сервером загрузки, проверьте интернет".into()
+            }
+            DownloadFailure::TooLarge => "загружаемый файл слишком большой".into(),
+            DownloadFailure::Other => "не удалось загрузить файл".into(),
+        };
+        Self {
+            reason,
+            detail: detail.into(),
+        }
+    }
+
     pub fn network(detail: impl Into<String>) -> Self {
         Self {
             reason: "проверьте интернет".into(),
@@ -124,10 +160,13 @@ impl PrepareError {
 
 /// Загрузка файла по https. Реализация в `crates/platform`.
 pub trait Downloader {
-    /// Скачивает `url` целиком (не больше `max_bytes`). `on_progress(получено, всего)`.
+    /// Скачивает `url` целиком (не больше `max_bytes`). Начальный адрес обязан лежать под
+    /// `url_prefix` выпуска, который действительно загружается (у каждого движка свой).
+    /// `on_progress(получено, всего)`.
     fn download(
         &self,
         url: &str,
+        url_prefix: &str,
         max_bytes: usize,
         on_progress: &mut dyn FnMut(u64, Option<u64>),
     ) -> Result<Vec<u8>, PrepareError>;
@@ -159,7 +198,10 @@ pub fn install(
         return Ok(());
     }
     if !url_allowed_under(spec.url, spec.url_prefix) {
-        return Err(PrepareError::integrity("адрес загрузки не разрешён"));
+        return Err(PrepareError::download(
+            DownloadFailure::Rejected,
+            "адрес закреплённого выпуска не прошёл проверку",
+        ));
     }
     let mut last = None;
     // Загрузка занимает 0-90 %, проверка и запись остальное.
@@ -174,7 +216,7 @@ pub fn install(
         }
     };
     report(0, None);
-    let archive = downloader.download(spec.url, MAX_ARCHIVE_BYTES, &mut report)?;
+    let archive = downloader.download(spec.url, spec.url_prefix, MAX_ARCHIVE_BYTES, &mut report)?;
     if sha256_hex(&archive) != spec.archive_sha256 {
         return Err(PrepareError::integrity("SHA-256 архива не совпал"));
     }
@@ -258,10 +300,11 @@ mod tests {
         fn download(
             &self,
             url: &str,
+            url_prefix: &str,
             _: usize,
             on_progress: &mut dyn FnMut(u64, Option<u64>),
         ) -> Result<Vec<u8>, PrepareError> {
-            assert!(download_url_allowed(url));
+            assert!(url_allowed_under(url, url_prefix));
             let body = self.body.clone()?;
             let total = body.len() as u64;
             on_progress(total / 2, Some(total));
@@ -324,6 +367,42 @@ mod tests {
         ] {
             assert!(!download_url_allowed(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn each_engine_is_allowed_only_under_its_own_release_prefix() {
+        let sing = PINNED.url_prefix;
+        let zapret = "/mogenlord23/OCHISTKA-2.0/releases/download/";
+        let sing_url = "https://github.com/SagerNet/sing-box/releases/download/v1/x.zip";
+        let zapret_url =
+            "https://github.com/mogenlord23/OCHISTKA-2.0/releases/download/zapret2-winws2-2026-11-21/a.zip";
+        assert!(url_allowed_under(sing_url, sing));
+        assert!(url_allowed_under(zapret_url, zapret));
+        // Чужой выпуск под своим префиксом не проходит, и наоборот.
+        assert!(!url_allowed_under(zapret_url, sing));
+        assert!(!url_allowed_under(sing_url, zapret));
+        for bad in [
+            "http://github.com/mogenlord23/OCHISTKA-2.0/releases/download/v/a.zip",
+            "https://github.com.evil.com/mogenlord23/OCHISTKA-2.0/releases/download/v/a.zip",
+            "https://githubusercontent.com/mogenlord23/OCHISTKA-2.0/releases/download/v/a.zip",
+            "https://github.com/evil/OCHISTKA-2.0/releases/download/v/a.zip",
+            "https://github.com/mogenlord23/other/releases/download/v/a.zip",
+            "https://u:p@github.com/mogenlord23/OCHISTKA-2.0/releases/download/v/a.zip",
+        ] {
+            assert!(!url_allowed_under(bad, zapret), "{bad}");
+        }
+    }
+
+    #[test]
+    fn download_failures_have_specific_reasons_and_rejected_is_not_no_internet() {
+        let reason = |k| PrepareError::download(k, "x").reason;
+        assert!(reason(DownloadFailure::Rejected).contains("отклонён"));
+        assert!(!reason(DownloadFailure::Rejected).contains("интернет"));
+        assert!(reason(DownloadFailure::Http(404)).contains("404"));
+        assert!(reason(DownloadFailure::Timeout).contains("ожидания"));
+        assert!(reason(DownloadFailure::Tls).contains("TLS"));
+        assert!(reason(DownloadFailure::Dns).contains("DNS"));
+        assert!(reason(DownloadFailure::Connect).contains("интернет"));
     }
 
     #[test]

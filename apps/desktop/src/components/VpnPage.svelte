@@ -13,9 +13,16 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
+  import {
+    bypassView,
+    desyncTrialStart,
+    desyncTrialStatus,
+    desyncTrialStop,
+    trialErrorText,
+    type TrialStatus,
+  } from '../lib/desyncTrial';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
-  import DesyncTrialPanel from './DesyncTrialPanel.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
     IMPORTING_LABEL,
@@ -89,11 +96,53 @@
     },
   ] as const;
 
+  /** «Обход блокировок»: тестовый режим 120 с через пробный запуск. Состояние читаем из Rust. */
+  let trial = $state<TrialStatus | null>(null);
+  let bypassBusy = $state(false);
+  let bypassError = $state<string | null>(null);
+  const bypass = $derived(bypassView(trial, bypassBusy, bypassError));
+
   /** Состояние возможностей. Пока обе не реализованы: переключатель выключен и недоступен, без имитации. */
-  const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
-    bypass: TOOL_UNAVAILABLE,
+  const TOOLS = $derived<Record<(typeof ADVANCED)[number]['id'], ToolModel>>({
+    bypass: {
+      status: bypass.status,
+      available: bypass.available,
+      reason: bypass.hint,
+    },
     dns: TOOL_UNAVAILABLE,
-  };
+  });
+
+  async function refreshTrial() {
+    try {
+      trial = (await desyncTrialStatus()) ?? null;
+    } catch (err) {
+      bypassError = trialErrorText(err);
+    }
+  }
+
+  /** Нажатие — явное действие пользователя: включает или выключает. Автозапуска нет. */
+  async function toggleBypass() {
+    if (bypassBusy) return;
+    const stopping = trial?.active === true;
+    bypassBusy = true;
+    bypassError = null;
+    try {
+      trial = (stopping ? await desyncTrialStop() : await desyncTrialStart(true)) ?? null;
+    } catch (err) {
+      bypassError = trialErrorText(err);
+      await refreshTrial();
+    } finally {
+      bypassBusy = false;
+    }
+  }
+
+  $effect(() => {
+    if (tab !== 'advanced') return;
+    void refreshTrial();
+    // Только чтение состояния из Rust; запусков и сети здесь нет.
+    const timer = setInterval(() => void refreshTrial(), 1000);
+    return () => clearInterval(timer);
+  });
 
   /** Провайдеры DNS: выбор появится вместе с работой переключателя; «Автоматически» — по умолчанию. */
   const DNS_ITEMS: MenuItem[] = [
@@ -191,7 +240,7 @@
     try {
       const next = await vpnSnapshot();
       snapshot = next;
-      if (urlInput === '' && next.subscriptionUrl) urlInput = next.subscriptionUrl;
+      // Поле подписки не заполняется сохранённой ссылкой: личная ссылка не показывается при открытии.
     } catch (err) {
       actionNote = `Не удалось получить состояние VPN: ${errorMessage(err)}`;
     }
@@ -582,15 +631,25 @@
                 aria-busy={tool.available && tool.status === 'pending'}
                 aria-label={item.label}
                 disabled={!tool.available || tool.status === 'pending'}
+                onclick={item.id === 'bypass' ? toggleBypass : undefined}
               >
                 <span class="power-knob" aria-hidden="true"></span>
               </button>
               <div class="tool-text">
                 <span class="switch-title">{item.label}</span>
-                <span class="tool-state">{toolStateText(tool)}</span>
-                <span class="note">{item.description}</span>{#if tool.reason}<span class="sr-only"
-                    >{tool.reason}</span
-                  >{/if}
+                <span class="tool-state"
+                  >{item.id === 'bypass' ? bypass.text : toolStateText(tool)}</span
+                >
+                <span class="note">{item.description}</span>{#if item.id === 'bypass'}
+                  <span class="note">
+                    Временный тестовый режим: выключится сам через 2 минуты, пока эффективность не
+                    подтверждена.
+                  </span>
+                  {#if bypass.hint}<span
+                      class="note"
+                      role={bypass.status === 'error' ? 'alert' : 'status'}>{bypass.hint}</span
+                    >{/if}
+                {:else if tool.reason}<span class="sr-only">{tool.reason}</span>{/if}
                 {#if item.scope}<span class="note scope">{item.scope}</span>{/if}
               </div>
               {#if item.id === 'dns'}
@@ -619,7 +678,6 @@
               onclose={closeDnsMenu}
             />
           {/if}
-          <DesyncTrialPanel />
           <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'network'}
           <VpnNetworkTab />
