@@ -51,5 +51,5 @@
 
 - `assets/desync/presets/OCHISTKA Merged.txt` и `assets/desync/runtime-extra/lists/*.txt` собраны инструментом `tools/bypass-merge/merge_presets.py` из **файлов настроек** (пресеты десинка и списки адресов) репозитория `RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa`. Код RixyPow не копировался.
 - Лицензии: NetZapret — MIT © 2026 RixyPow; пресеты и секции Zapret GUI — MIT © 2025–2026 censorliber/loop-uh (тексты в `assets/desync/presets/LICENSE-NetZapret.txt`, `LICENSE-ZapretGUI.txt`). Списки адресов Zapret GUI могут содержать материалы v2fly/domain-list-community (MIT).
-- Компоненты вне этого этапа, не копируются без отдельного решения о лицензии OCHISTKA: код движков (GPL v3), библиотеки LGPL, Wintun (проприетарный), Telegram-прокси.
+- Компоненты вне этого этапа, не копируются без отдельного решения о лицензии OCHISTKA: код движков (GPL v3), библиотеки LGPL, Wintun (проприетарный).
 - Состав и причины исключений: `docs/status/bypass-merge-inventory.md`, `bypass-merge-conflicts.md`, `bypass-merge-coverage.json`, `bypass-merge-resources.json` (SHA-256 каждого нового файла).

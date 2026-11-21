@@ -68,12 +68,29 @@ class Result:
     sections: list[Section] = field(default_factory=list)
     conflicts: list[dict] = field(default_factory=list)
     ship: dict[str, str] = field(default_factory=dict)  # куда положить -> имя файла в config/lists
+    removed: list[dict] = field(default_factory=list)  # убрано по решению владельца
 
 
 def build(rules: list[dict], config_lists: dict[str, tuple[str, int]], existing_by_sha: dict[str, str],
-          preset_lists: set[str], kinds: dict[str, str] | None = None) -> Result:
+          preset_lists: set[str], kinds: dict[str, str] | None = None,
+          exclude: dict[str, str] | None = None) -> Result:
     kinds = kinds or {}
+    exclude = exclude or {}
     res = Result()
+
+    def owner_word(text: str) -> str | None:
+        return next((w for w in exclude if w in text.lower()), None)
+
+    for n in sorted(config_lists):
+        w = owner_word(n)
+        if w:
+            res.removed.append({"source": n, "kind": "list", "reason": exclude[w]})
+    for rule in rules:
+        w = owner_word(rule["value"])
+        if w and rule["match"] == "domain":
+            res.removed.append({"source": rule["value"], "kind": "domain", "reason": exclude[w]})
+    config_lists = {n: v for n, v in config_lists.items() if not owner_word(n)}
+    rules = [x for x in rules if not owner_word(x["value"])]
     covered = {norm(x) for x in preset_lists}
     dest_by_sha: dict[str, str] = dict(existing_by_sha)
     dest_of: dict[str, str] = {}

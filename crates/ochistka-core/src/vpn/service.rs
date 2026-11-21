@@ -163,7 +163,7 @@ impl Conn {
     }
 }
 
-/// Проверка «нельзя ли сейчас подключаться»: `Some(причина)` — отказ.
+/// Освобождение сетевого режима перед подключением (останавливает обход): `Some(причина)` — отказ.
 pub type ConflictGuard = Box<dyn Fn() -> Option<String> + Send + Sync>;
 
 pub struct VpnService {
@@ -226,7 +226,7 @@ impl VpnService {
         self
     }
 
-    /// Задаёт проверку «не работает ли перехват трафика»: два механизма одновременно не запускаются.
+    /// Задаёт действие «выключить обход блокировок» перед подключением: два механизма одновременно не работают.
     pub fn set_conflict_guard(&self, guard: ConflictGuard) {
         *lock(&self.conflict_guard) = Some(guard);
     }
@@ -413,6 +413,21 @@ impl VpnService {
         &self,
         progress: &mut dyn FnMut(PrepareProgress),
     ) -> Result<ConnectionStatus, VpnError> {
+        // Включение VPN выключает «Обход блокировок»: делается ДО блокировки `op`, чтобы два
+        // сервиса не ждали друг друга. При неудаче VPN не включается.
+        if lock(&self.conn).state != ConnState::Connected {
+            let refusal = lock(&self.conflict_guard)
+                .as_ref()
+                .and_then(|guard| guard());
+            if let Some(why) = refusal {
+                let err = VpnError::ProxyConflict(why);
+                let mut conn = lock(&self.conn);
+                *conn = Conn::idle();
+                conn.state = ConnState::Error;
+                conn.message = err.to_string();
+                return Err(err);
+            }
+        }
         let Ok(_op) = self.op.try_lock() else {
             return Err(VpnError::Busy);
         };
@@ -515,11 +530,6 @@ impl VpnService {
     /// До запуска ядра: убирает устаревшие следы нашего прошлого запуска и не даёт молча
     /// перезаписать чужой прокси (другой VPN, сценарий автонастройки).
     fn prepare_system_proxy(&self) -> Result<(), VpnError> {
-        if let Some(guard) = lock(&self.conflict_guard).as_ref() {
-            if let Some(why) = guard() {
-                return Err(VpnError::ProxyConflict(why));
-            }
-        }
         let leftovers = self.proxy.is_active() || self.pid_file().exists();
         if leftovers {
             self.recover().map_err(|err| {
@@ -1135,6 +1145,29 @@ mod tests {
             Box::new(NoNet),
             Box::new(OkDialer),
         )
+    }
+
+    #[test]
+    fn enabling_vpn_frees_the_mode_from_a_running_bypass_first() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        // Обход владеет сетевым режимом; защита (остановка обхода) его освобождает.
+        s.coord.begin(Owner::Desync).unwrap();
+        s.coord.activate(Owner::Desync);
+        let coord = s.coord.clone();
+        let calls = Arc::new(AtomicU32::new(0));
+        let c = calls.clone();
+        s.set_conflict_guard(Box::new(move || {
+            c.fetch_add(1, Ordering::SeqCst);
+            coord.release(Owner::Desync);
+            None
+        }));
+        let st = s.connect().unwrap();
+        assert_eq!(st.state, ConnState::Connected);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        s.shutdown();
     }
 
     #[test]

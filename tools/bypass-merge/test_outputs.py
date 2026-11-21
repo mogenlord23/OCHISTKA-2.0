@@ -23,15 +23,57 @@ def read(p):
 
 
 class OutputTests(unittest.TestCase):
+    def test_owner_decisions_telegram_steam_riot_are_fully_removed(self):
+        words = ("telegram", "steam", "riot", "valorant")
+        m = zpreset.parse(read(PRESET))
+        text = "\n".join(m.globals + [a for s in m.sections for a in s.args] + [s.name for s in m.sections]).lower()
+        for w in words:
+            self.assertNotIn(w, text)
+        routes_text = read(os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")).lower()
+        for w in words:
+            self.assertNotIn(w, routes_text)
+        for root, _, files in os.walk(EXTRA):
+            for f in files:
+                for w in words:
+                    self.assertNotIn(w, f.lower())
+
+    def test_protected_files_are_untouched(self):
+        base = os.path.join(REPO, "assets/desync/presets/Universal V13 Lite.txt")
+        self.assertEqual(
+            hashlib.sha256(open(base, "rb").read()).hexdigest(),
+            "e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7",
+        )
+        pinned = json.loads(read(os.path.join(REPO, "docs/status/desync-preset-resources.json")))
+        self.assertEqual(pinned["total_resources"], 135)
+        for f in pinned["files"]:
+            data = open(os.path.join(REPO, f["asset_path"]), "rb").read()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), f["sha256"], f["destination"])
+        for name in ("ipset-telegram.txt", "russia-blacklist.txt"):
+            self.assertTrue(os.path.isfile(os.path.join(RUNTIME, "lists", name)), name)
+
+    def test_claude_stays_a_vpn_only_route_without_own_bypass(self):
+        data = json.loads(read(os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")))
+        claude = [r for r in data["routes"] if "claude" in (r.get("file") or r.get("value", ""))]
+        self.assertTrue(claude)
+        for r in claude:
+            if r["mode"] == "proxy":
+                self.assertEqual(r["applied"], "vpn-only")
+            self.assertNotEqual(r["applied"], "shield")
+        m = zpreset.parse(read(PRESET))
+        self.assertFalse(any(s.name.startswith("Маршрут (pass): ") and "claude" in s.name for s in m.sections))
+
     def test_merged_preset_has_no_duplicates_and_keeps_base_first(self):
         m = zpreset.parse(read(PRESET))
         base = zpreset.parse(read(BASE))
         ids = [s.identity() for s in m.sections]
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(len(m.globals), len(set(m.globals)))
-        self.assertEqual([s.args for s in m.sections[: len(base.sections)]], [s.args for s in base.sections])
+        words = ("telegram", "steam", "riot", "valorant")
+        kept = [s for s in base.sections if not any(w in " ".join(s.args).lower() for w in words)]
+        self.assertEqual([s.args for s in m.sections[: len(kept)]], [s.args for s in kept])
         for g in base.globals:
-            self.assertIn(g, m.globals)
+            if not any(w in g.lower() for w in words):
+                self.assertIn(g, m.globals)
 
     def test_coverage_manifest_matches_preset(self):
         cov = json.loads(read(os.path.join(REPO, "docs/status/bypass-merge-coverage.json")))

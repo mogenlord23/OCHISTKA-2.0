@@ -196,8 +196,22 @@ pub fn build_desync(
         )
         .with_coordinator(coord),
     );
+    // VPN → включает VPN: сначала останавливается обход (подтверждённо), иначе VPN не включается.
     vpn.0
         .set_conflict_guard(desync_conflict_guard(Arc::downgrade(&desync)));
+    // Обход → включает обход: сначала отключается работающий VPN (остановка ядра и возврат прокси).
+    let weak_vpn = Arc::downgrade(&vpn.0);
+    desync.set_vpn_stopper(Box::new(move || {
+        let Some(service) = weak_vpn.upgrade() else {
+            return Err("состояние VPN недоступно".into());
+        };
+        let status = service.disconnect();
+        if ochistka_core::desync::routing::VpnSignal::from_status(&status).active {
+            Err(status.message)
+        } else {
+            Ok(())
+        }
+    }));
     desync.recover_on_start();
     DesyncState(desync)
 }

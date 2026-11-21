@@ -119,6 +119,56 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(rec.status, "excluded")
         self.assertIn("весь трафик", rec.detail)
 
+    def test_owner_exclusion_removes_matching_sections_everywhere_and_records_them(self):
+        base = BASE + """
+--new
+--name=Steam
+--filter-tcp=443
+--hostlist=lists/steam.txt
+--lua-desync=fake:blob=tls1
+"""
+        other = OTHER + """
+--new
+--name=Steam again
+--filter-tcp=80,443
+--hostlist=lists/steam.txt
+--lua-desync=multisplit:pos=2
+"""
+        avail = AVAILABLE | {"lists/steam.txt"}
+        inputs = [("base.txt", zpreset.parse(base)), ("other.txt", zpreset.parse(other))]
+        r = merge.merge(inputs, base="base.txt", available=avail, defined_funcs=FUNCS,
+                        owner_excluded={"steam": "исключён по решению владельца"})
+        self.assertFalse(any("steam" in " ".join(s.args).lower() for s in r.sections))
+        removed = [x for x in r.section_records if x.status == "removed"]
+        self.assertEqual({(x.preset, x.name) for x in removed}, {("base.txt", "Steam"), ("other.txt", "Steam again")})
+        self.assertTrue(all(x.item_id and "владельца" in x.detail for x in removed))
+        # остальные секции основы на месте и в том же порядке
+        self.assertEqual([s.name for s in r.sections[:2]], ["Discord", "Games UDP"])
+
+    def test_a_section_shared_with_other_services_is_kept_and_reported(self):
+        base = BASE + """
+--new
+--name=Mixed
+--filter-tcp=443
+--hostlist-domains=steamcommunity.com,example.org
+--lua-desync=fake:blob=tls1
+"""
+        r = merge.merge([("base.txt", zpreset.parse(base))], base="base.txt", available=AVAILABLE,
+                        defined_funcs=FUNCS, owner_excluded={"steam": "решение владельца"})
+        self.assertIn("Mixed", [s.name for s in r.sections])
+        self.assertEqual([x.name for x in r.shared], ["Mixed"])
+
+    def test_unused_blob_declaration_of_an_excluded_service_is_removed_but_used_one_stays(self):
+        base = BASE.replace("--blob=tls1:@bin/t1.bin", "--blob=tls1:@bin/t1.bin\n--blob=tls_steam:@bin/steam.bin")
+        r = merge.merge([("base.txt", zpreset.parse(base))], base="base.txt",
+                        available=AVAILABLE | {"bin/steam.bin"}, defined_funcs=FUNCS,
+                        owner_excluded={"steam": "решение владельца"})
+        self.assertNotIn("--blob=tls_steam:@bin/steam.bin", r.globals)
+        self.assertIn("--blob=tls1:@bin/t1.bin", r.globals)
+        rec = next(x for x in r.global_records if "tls_steam" in x.arg)
+        self.assertEqual(rec.status, "removed")
+        self.assertEqual(merge.check_coverage(r.coverage(), r.sections, r.globals), [])
+
     def test_conflict_keeps_base_and_says_so(self):
         r = run()
         rec = next(x for x in r.section_records if (x.preset, x.index) == ("other.txt", 1))

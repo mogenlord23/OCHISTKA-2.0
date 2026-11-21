@@ -90,6 +90,18 @@ class RoutesTests(unittest.TestCase):
         self.assertTrue(any("--hostlist-domains=wardogs.example.com" in s.args for s in res.sections))
         self.assertTrue(any("--hostlist=lists/nz-seriesgraph.txt" in s.args for s in res.sections))
 
+    def test_owner_excluded_services_are_dropped_from_routes_and_files(self):
+        res = routes.build(
+            rules=routes.parse_rules(RULES), config_lists=LISTS,
+            existing_by_sha={"s6": "lists/ipset-telegram.txt"}, preset_lists=set(),
+            exclude={"steam": "решение владельца", "telegram": "нет прокси"},
+        )
+        text = str(res.entries) + str(res.ship) + str([s.args for s in res.sections])
+        self.assertNotIn("steam", text)
+        self.assertNotIn("telegram", text)
+        self.assertEqual({x["source"] for x in res.removed}, {"steam.txt", "ipset-telegram.txt"})
+        self.assertTrue(any(e.get("source_list") == "chatgpt.txt" and e["applied"] == "vpn-only" for e in res.entries))
+
     def test_every_config_list_is_in_the_routes(self):
         res = run(set())
         names = {e["source_list"] for e in res.entries if "source_list" in e}
