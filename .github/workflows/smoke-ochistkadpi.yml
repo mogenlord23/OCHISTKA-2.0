@@ -1,0 +1,59 @@
+# Проверка движка на сервере Windows: запуск с правами администратора на 25 секунд.
+# Ничего не устанавливается на компьютер владельца; результат — в артефакте smoke-out.
+name: smoke-ochistkadpi
+
+on:
+  push:
+    paths:
+      - .github/workflows/smoke-ochistkadpi.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify the engine archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'eng'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $zip = Join-Path $dir 'sonicdpi.zip'
+          Invoke-WebRequest -Uri 'https://github.com/by-sonic/sonicdpi/releases/download/v0.2.2/SonicDPI-windows-x64.zip' -OutFile $zip
+          $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($h -ne 'ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0') { throw "hash mismatch: $h" }
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $dir 'x') -Force
+          Get-ChildItem -Recurse -Path (Join-Path $dir 'x') | ForEach-Object { $_.FullName }
+
+      - name: Run the engine for 25 seconds
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $dir = Join-Path $env:RUNNER_TEMP 'eng\x'
+          $exe = Get-ChildItem -Recurse -Path $dir -Filter sonicdpi.exe | Select-Object -First 1
+          $out = Join-Path $env:RUNNER_TEMP 'out.txt'
+          $err = Join-Path $env:RUNNER_TEMP 'err.txt'
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList 'run','--profile','youtube-discord','-vv' -WorkingDirectory $exe.DirectoryName -PassThru -RedirectStandardOutput $out -RedirectStandardError $err -WindowStyle Hidden
+          Start-Sleep -Seconds 25
+          if ($p.HasExited) { "ENGINE EXITED, code=$($p.ExitCode)" } else { "ENGINE STILL RUNNING, pid=$($p.Id)"; Stop-Process -Id $p.Id -Force }
+          "--- stdout (last 60)"; Get-Content $out -ErrorAction SilentlyContinue | Select-Object -Last 60
+          "--- stderr (last 60)"; Get-Content $err -ErrorAction SilentlyContinue | Select-Object -Last 60
+          $log = Join-Path $env:LOCALAPPDATA 'SonicDPI\sonicdpi.log'
+          "--- engine log exists: $(Test-Path $log)"
+          if (Test-Path $log) { Get-Content $log -Tail 60 }
+          "--- WinDivert service"; sc.exe query WinDivert
+          $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+          "--- running as administrator: $admin"
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-out
+          path: |
+            ${{ runner.temp }}/out.txt
+            ${{ runner.temp }}/err.txt
+          if-no-files-found: warn
