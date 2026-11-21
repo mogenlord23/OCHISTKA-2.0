@@ -126,6 +126,12 @@
     transform: translateY(0);
   }
 
+  /* Переключатель (role="switch"): включённое состояние видно и без наведения. */
+  .expand[aria-checked='true']:not(:disabled) {
+    background: var(--ink);
+    color: var(--black);
+  }
+
   .expand:focus-visible {
     outline: 2px solid var(--ink);
     outline-offset: 2px;

@@ -1,5 +1,7 @@
 <script lang="ts">
   import FloatingField from './FloatingField.svelte';
+  import ExpandButton from './ExpandButton.svelte';
+  import { ACTION_ICONS } from '../lib/actionIcons';
   import { tick } from 'svelte';
   import AppIcon from './AppIcon.svelte';
   import ServicesPage from './ServicesPage.svelte';
@@ -204,6 +206,14 @@
   function onDialogKey(event: KeyboardEvent) {
     if (event.key === 'Escape') cancelEnd();
   }
+  /** Почему «Завершить задачу» недоступна (для скринридера; видимой подсказки нет). */
+  const endReason = $derived(
+    !selected
+      ? 'Сначала выбери процесс в списке'
+      : isProtectedProcess(selected)
+        ? (protectedReason(selected) ?? '')
+        : '',
+  );
 </script>
 
 {#if subsection === 'services'}
@@ -223,23 +233,33 @@
     </div>
 
     <div class="buttons" aria-label="Действия с выбранным процессом">
-      <button type="button" onclick={() => void refresh()}>Обновить</button>
-      <button
-        type="button"
+      <ExpandButton
+        icon={ACTION_ICONS.refresh}
+        label="Обновить"
+        width={96}
+        name="Обновить"
+        onclick={() => void refresh()}
+      />
+      <ExpandButton
+        icon={ACTION_ICONS.endTask}
+        label="Завершить"
+        width={104}
+        name="Завершить задачу"
+        danger
         disabled={!selected || isProtectedProcess(selected)}
-        title={!selected
-          ? 'Сначала выбери процесс в списке'
-          : isProtectedProcess(selected)
-            ? (protectedReason(selected) ?? '')
-            : 'Завершить задачу'}
-        onclick={() => selected && askEnd(selected)}>Завершить задачу</button
-      >
-      <button
-        type="button"
+        aria-describedby={endReason ? 'proc-end-reason' : undefined}
+        onclick={() => selected && askEnd(selected)}
+      />
+      <ExpandButton
+        icon={ACTION_ICONS.explorer}
+        label="Расположение"
+        width={120}
+        name="Расположение файла"
         disabled={!selected || revealing}
-        title={selected ? 'Показать файл процесса в Проводнике' : 'Сначала выбери процесс в списке'}
-        onclick={() => selected && showPath(selected)}>Расположение файла</button
-      >
+        aria-describedby={selected ? undefined : 'proc-end-reason'}
+        onclick={() => selected && showPath(selected)}
+      />
+      <span id="proc-end-reason" class="sr-only">{endReason}</span>
     </div>
 
     {#if listError}

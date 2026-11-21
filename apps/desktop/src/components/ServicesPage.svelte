@@ -2,6 +2,8 @@
   import { untrack } from 'svelte';
   import FloatingField from './FloatingField.svelte';
   import Switch from './Switch.svelte';
+  import ExpandButton from './ExpandButton.svelte';
+  import { ACTION_ICONS } from '../lib/actionIcons';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import {
     blockReason,
@@ -169,11 +171,21 @@
   </div>
 
   <div class="buttons">
-    <button type="button" onclick={() => void refresh()}>Обновить</button>
-    <Switch
+    <ExpandButton
+      icon={ACTION_ICONS.refresh}
+      label="Обновить"
+      width={96}
+      name="Обновить"
+      onclick={() => void refresh()}
+    />
+    <ExpandButton
+      icon={ACTION_ICONS.running}
       label="Только работающие"
-      checked={onlyRunning}
-      onchange={(next) => (onlyRunning = next)}
+      width={160}
+      name="Только работающие"
+      role="switch"
+      aria-checked={onlyRunning}
+      onclick={() => (onlyRunning = !onlyRunning)}
     />
   </div>
 
@@ -296,7 +308,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
   }
   button {
     padding: 10px 14px;
