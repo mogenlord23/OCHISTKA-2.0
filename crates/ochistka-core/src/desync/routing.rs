@@ -165,15 +165,7 @@ mod tests {
             RoutePlan::Use(AccessPath::Direct),
         );
         assert_eq!(
-            choose_access_path(
-                inputs.0,
-                None,
-                inputs.1,
-                inputs.2,
-                inputs.3,
-                inputs.4,
-                inputs.5
-            ),
+            choose_access_path(inputs.0, None, inputs.1, inputs.2, inputs.3, inputs.4, inputs.5),
             RoutePlan::Block(RouteBlock::NeedDirectObservation),
         );
     }
@@ -231,15 +223,15 @@ mod tests {
         }];
         let chosen = |wanted: &[Coverage], platform, readiness: &Readiness| {
             choose_with_approved(
-                    wanted,
-                    Some(false),
-                    false,
-                    false,
-                    readiness,
-                    platform,
-                    Some(&profile),
-                    &approval
-                )
+                wanted,
+                Some(false),
+                false,
+                false,
+                readiness,
+                platform,
+                Some(&profile),
+                &approval,
+            )
         };
         assert_eq!(
             chosen(
