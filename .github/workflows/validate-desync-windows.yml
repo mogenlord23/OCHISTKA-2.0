@@ -1,5 +1,6 @@
-# Безопасная проверка Windows-адаптера и запуска winws2 --version.
-# НЕТ перехвата трафика, включения WinDivert, правок настроек ОС или пересборки Zapret.
+# Проверка настоящего Windows-движка и кандидата TCP-профиля в режимах
+# --dry-run и --intercept=0. НЕТ перехвата пакетов, включения WinDivert,
+# изменения настроек ОС или повторной сборки Zapret 2.
 name: validate-desync-windows
 
 on:
@@ -22,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Verify release ZIP, extract and run winws2 --version only
+      - name: Verify release and candidate profile without packet interception
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -35,10 +36,35 @@ jobs:
           foreach ($file in @('winws2.exe', 'cygwin1.dll', 'cygz.dll', 'WinDivert.dll', 'WinDivert64.sys')) {
             if (-not (Test-Path "verified-winws2/$file")) { throw "Missing: $file" }
           }
+          # Оригинальные Lua-файлы именно из нашей закреплённой upstream-ревизии.
+          Copy-Item assets/desync/zapret-lib.lua verified-winws2/
+          Copy-Item assets/desync/zapret-antidpi.lua verified-winws2/
           Push-Location verified-winws2
           try {
             & .\winws2.exe --version
             if ($LASTEXITCODE -ne 0) { throw "winws2.exe --version exited with code $LASTEXITCODE" }
+
+            # Точная копия первого экспериментального TCP-профиля из
+            # ochistka-core::desync::windows_tcp_candidate_profile().
+            # Установка --intercept=0 отключает WinDivert, но выполняет lua-init;
+            # --dry-run дополнительно проверяет параметры и наличие файлов.
+            $candidate = @(
+              '--wf-tcp-out=80,443'
+              '--lua-init=@zapret-lib.lua'
+              '--lua-init=@zapret-antidpi.lua'
+              '--filter-tcp=80,443'
+              '--filter-l7=tls,http'
+              '--payload=tls_client_hello'
+              '--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,rndsni,dupsid'
+              '--payload=http_req'
+              '--lua-desync=fake:blob=fake_default_http:tcp_md5'
+              '--payload=tls_client_hello,http_req'
+              '--lua-desync=multisplit:pos=1:seqovl=5:seqovl_pattern=0x1603030000'
+            )
+            & .\winws2.exe --dry-run @candidate
+            if ($LASTEXITCODE -ne 0) { throw "TCP candidate --dry-run failed: $LASTEXITCODE" }
+            & .\winws2.exe --intercept=0 @candidate
+            if ($LASTEXITCODE -ne 0) { throw "TCP candidate Lua init failed: $LASTEXITCODE" }
           } finally {
             Pop-Location
           }
