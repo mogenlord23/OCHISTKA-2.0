@@ -9,6 +9,10 @@ export interface TrialStatus {
   unavailable: string | null;
   /** Короткая причина, если обход не выключился до конца (драйвер не остановлен). */
   error?: string | null;
+  /** Идёт замер скорости: «Проверяем…». */
+  phase?: 'idle' | 'measuringBaseline' | 'measuringAfter';
+  /** Итог замера скорости: откат или «быстрее или так же; это не доказывает работу у провайдера». */
+  speedNote?: string | null;
 }
 
 export const desyncTrialStatus = () => invoke<TrialStatus>('desync_trial_status');
@@ -45,15 +49,24 @@ export function bypassView(
   busy: boolean,
   error: string | null,
 ): BypassView {
-  if (busy) return { status: 'pending', available: false, text: 'Подготовка…', hint: null };
+  if (busy) {
+    const checking = trial?.phase === 'measuringBaseline';
+    return {
+      status: 'pending',
+      available: false,
+      text: checking ? 'Проверяем…' : 'Подготовка…',
+      hint: null,
+    };
+  }
   // Пока драйвер не остановлен, «Выключено» не показываем: ошибка, повторное нажатие повторяет остановку.
   if (trial?.error) return { status: 'error', available: true, text: 'Ошибка', hint: trial.error };
   if (trial?.active) {
+    const checking = trial.phase === 'measuringAfter';
     return {
       status: 'on',
       available: true,
-      text: `Включено · осталось ${formatRemaining(trial.remainingSecs)}`,
-      hint: null,
+      text: `${checking ? 'Проверяем… · ' : ''}Включено · осталось ${formatRemaining(trial.remainingSecs)}`,
+      hint: trial.speedNote ?? null,
     };
   }
   if (error) return { status: 'error', available: trial !== null, text: 'Ошибка', hint: error };
@@ -62,6 +75,6 @@ export function bypassView(
     status: 'off',
     available: trial.unavailable === null,
     text: 'Выключено',
-    hint: trial.unavailable,
+    hint: trial.speedNote ?? trial.unavailable,
   };
 }

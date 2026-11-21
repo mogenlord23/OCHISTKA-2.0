@@ -15,6 +15,7 @@ pub mod coordinator;
 pub mod preset;
 pub mod probe;
 pub mod routing;
+pub mod speed;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
@@ -368,6 +369,10 @@ pub struct DesyncService {
     coord: Arc<coordinator::NetCoordinator>,
     /// Отключает работающий VPN перед включением обхода (включение обхода выключает VPN).
     vpn_stopper: Mutex<Option<VpnStopper>>,
+    /// Замер скорости до и после включения (если задан транспорт).
+    speed: Mutex<Option<Arc<dyn speed::TimedFetch>>>,
+    /// Проверка скорости после запуска идёт в фоновом потоке (в тестах — вызывается вручную).
+    speed_async: bool,
     /// Пробный режим: срок, номер запуска (старый таймер сам завершается) и пометки пользователя.
     trial: Mutex<TrialInner>,
     trial_limit: Duration,
@@ -395,12 +400,26 @@ pub enum TrialVerdict {
     Unchecked,
 }
 
+/// Что сейчас делает пробный запуск (для надписи «Проверяем…»).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TrialPhase {
+    #[default]
+    Idle,
+    MeasuringBaseline,
+    MeasuringAfter,
+}
+
 #[derive(Default)]
 struct TrialInner {
     deadline: Option<std::time::Instant>,
     generation: u64,
     /// Сколько раз подряд таймер не смог остановить процесс (ограничивает повторы).
     failed_stops: u32,
+    phase: TrialPhase,
+    /// Только для тестов: базовый замер, ожидающий ручного вызова проверки.
+    pending_baseline: Option<speed::Measurement>,
+    /// Итог замера скорости для интерфейса (откат или «не медленнее»).
+    speed_note: Option<String>,
     notes: Vec<(Coverage, TrialVerdict)>,
 }
 
@@ -416,6 +435,9 @@ pub struct TrialStatus {
     pub notes: Vec<(Coverage, TrialVerdict)>,
     /// Короткая причина, если обход не выключился до конца (например, драйвер не остановлен).
     pub error: Option<String>,
+    pub phase: TrialPhase,
+    /// Итог замера скорости: «медленнее — обход отключён» или «быстрее или так же».
+    pub speed_note: Option<String>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -444,6 +466,8 @@ impl DesyncService {
             vpn,
             coord: Arc::new(coordinator::NetCoordinator::new()),
             vpn_stopper: Mutex::new(None),
+            speed: Mutex::new(None),
+            speed_async: true,
             trial: Mutex::new(TrialInner::default()),
             trial_limit: TRIAL_LIMIT,
             stop_wait: (25, Duration::from_millis(40)),
@@ -566,6 +590,75 @@ impl DesyncService {
     /// Задаёт действие «отключить VPN» для автоотключения при включении обхода.
     pub fn set_vpn_stopper(&self, stopper: VpnStopper) {
         *lock(&self.vpn_stopper) = Some(stopper);
+    }
+
+    /// Задаёт транспорт замера скорости: включается замер до и после запуска обхода.
+    pub fn set_speed_probe(&self, probe: Arc<dyn speed::TimedFetch>) {
+        *lock(&self.speed) = Some(probe);
+    }
+
+    fn set_phase(&self, phase: TrialPhase) {
+        lock(&self.trial).phase = phase;
+    }
+
+    /// Базовый замер ДО включения обхода (VPN к этому моменту уже выключен). Без замера — `None`
+    /// (транспорт не задан). Если базового замера нет ни по одному адресу — отказ: обход не включается.
+    fn measure_baseline(&self) -> Result<Option<speed::Measurement>, DesyncError> {
+        let Some(probe) = lock(&self.speed).clone() else {
+            return Ok(None);
+        };
+        {
+            let mut t = lock(&self.trial);
+            if t.phase != TrialPhase::Idle {
+                return Err(DesyncError::Busy);
+            }
+            t.phase = TrialPhase::MeasuringBaseline;
+        }
+        let baseline = speed::measure(&*probe, &speed::URLS);
+        self.set_phase(TrialPhase::Idle);
+        if !speed::has_baseline(&baseline) {
+            return Err(DesyncError::NotAllowed(speed::NO_BASELINE_MESSAGE.into()));
+        }
+        Ok(Some(baseline))
+    }
+
+    /// Замер с обходом и сравнение с базовым. Медленнее — обход выключается (тем же надёжным
+    /// путём остановки, включая драйвер) с понятной причиной; иначе остаётся до конца 120 с.
+    /// Если пробный запуск уже остановлен (кнопка, таймер), результат не применяется.
+    pub(crate) fn run_speed_check(&self, generation: u64, baseline: &speed::Measurement) {
+        let Some(probe) = lock(&self.speed).clone() else {
+            return;
+        };
+        {
+            let mut t = lock(&self.trial);
+            if t.generation != generation || t.deadline.is_none() {
+                return;
+            }
+            t.phase = TrialPhase::MeasuringAfter;
+        }
+        let after = speed::measure(&*probe, &speed::URLS);
+        let slower = match speed::compare(baseline, &after) {
+            speed::Verdict::Slower(_) => true,
+            speed::Verdict::NotSlower | speed::Verdict::NoBaseline => false,
+        };
+        {
+            let mut t = lock(&self.trial);
+            t.phase = TrialPhase::Idle;
+            if t.generation != generation {
+                return;
+            }
+            t.speed_note = Some(
+                if slower {
+                    speed::SLOWER_MESSAGE
+                } else {
+                    speed::NOT_SLOWER_MESSAGE
+                }
+                .into(),
+            );
+        }
+        if slower {
+            let _ = self.stop_trial();
+        }
     }
 
     /// Если VPN работает — отключает его и убеждается, что он действительно не активен.
@@ -735,9 +828,13 @@ impl DesyncService {
         if !self.adapter.has_privileges() {
             return Err(DesyncError::NeedsAdmin);
         }
-        if self.status().0 != DesyncState::Running {
+        let baseline = if self.status().0 != DesyncState::Running {
             self.stop_vpn_if_active()?;
-        }
+            lock(&self.trial).speed_note = None;
+            self.measure_baseline()?
+        } else {
+            None
+        };
         let Ok(_op) = self.op.try_lock() else {
             return Err(DesyncError::Busy);
         };
@@ -779,11 +876,28 @@ impl DesyncService {
                     self.trial_limit.as_secs()
                 );
                 self.spawn_trial_timer(generation);
+                if let Some(baseline) = baseline {
+                    self.spawn_speed_check(generation, baseline);
+                }
             }
             Err(_) => self.coord.release(coordinator::Owner::Desync),
         }
         self.record(&result);
         result
+    }
+
+    /// Проверка скорости с обходом — в фоне, интерфейс не блокируется.
+    fn spawn_speed_check(self: &Arc<Self>, generation: u64, baseline: speed::Measurement) {
+        if !self.speed_async {
+            lock(&self.trial).pending_baseline = Some(baseline);
+            return;
+        }
+        let weak = Arc::downgrade(self);
+        std::thread::spawn(move || {
+            if let Some(service) = weak.upgrade() {
+                service.run_speed_check(generation, &baseline);
+            }
+        });
     }
 
     /// Таймер в Rust: следит за сроком и за самим процессом. Держит только `Weak`.
@@ -927,6 +1041,7 @@ impl DesyncService {
             .deadline
             .map_or(0, |d| d.saturating_duration_since(now).as_secs());
         let notes = t.notes.clone();
+        let (phase, speed_note) = (t.phase, t.speed_note.clone());
         drop(t);
         let unavailable = if active {
             None
@@ -961,6 +1076,8 @@ impl DesyncService {
                 let inner = lock(&self.inner);
                 (inner.state == DesyncState::Error).then(|| inner.message.clone())
             },
+            phase,
+            speed_note,
         }
     }
 
@@ -2517,6 +2634,205 @@ mod tests {
         assert!(text.contains("driver_started_by_app"));
         s.stop_trial().unwrap();
         assert!(!s.dir.join("desync-state.json").exists());
+    }
+
+    // ----- замер скорости и откат -----
+
+    use speed::testing::Fake as SpeedFake;
+    use speed::{Timing, URLS};
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    /// Ответы: на каждый адрес сначала базовый замер, потом замер с обходом.
+    fn speed_fake(base: Timing, after: Timing) -> Arc<SpeedFake> {
+        let items: Vec<(&str, Vec<Timing>)> =
+            URLS.iter().map(|u| (*u, vec![base, after])).collect();
+        Arc::new(SpeedFake::new(&items))
+    }
+
+    fn speed_service(flags: &Arc<Flags>, fake: Arc<SpeedFake>) -> Arc<DesyncService> {
+        flags.present.store(true, Ordering::SeqCst);
+        let mut s = make(
+            flags,
+            |f| Host {
+                readiness: Readiness::NotImplemented("профиль не проверен".into()),
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        s.candidate = profile();
+        s.stop_wait = (2, Duration::from_millis(1));
+        s.speed_async = false;
+        s.set_speed_probe(fake);
+        Arc::new(s)
+    }
+
+    fn finish_speed_check(s: &Arc<DesyncService>) {
+        let (generation, baseline) = {
+            let t = lock(&s.trial);
+            (
+                t.generation,
+                t.pending_baseline
+                    .clone()
+                    .expect("замер после запуска не запланирован"),
+            )
+        };
+        s.run_speed_check(generation, &baseline);
+    }
+
+    #[test]
+    fn slower_than_the_baseline_turns_the_bypass_off_with_the_reason() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = speed_service(
+            &flags,
+            speed_fake(
+                Timing::done(ms(300), ms(900)),
+                Timing::done(ms(300), ms(3000)),
+            ),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(s.is_running());
+        finish_speed_check(&s);
+        assert!(!s.is_running(), "обход выключен");
+        assert_eq!(
+            driver_now(&flags),
+            DriverState::Stopped,
+            "откат прошёл через общий путь остановки"
+        );
+        let st = s.trial_status(std::time::Instant::now());
+        assert_eq!(st.speed_note.as_deref(), Some(speed::SLOWER_MESSAGE));
+        assert!(!st.active && st.error.is_none());
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn same_speed_keeps_the_bypass_until_the_end_and_says_it_proves_nothing() {
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(
+                Timing::done(ms(300), ms(900)),
+                Timing::done(ms(280), ms(850)),
+            ),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(s.is_running());
+        let st = s.trial_status(std::time::Instant::now());
+        assert!(st.active);
+        assert_eq!(st.speed_note.as_deref(), Some(speed::NOT_SLOWER_MESSAGE));
+        assert!(st.speed_note.unwrap().contains("не доказывает"));
+        // «Функционально подтверждено» этим замером не становится.
+        assert!(routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn a_timeout_with_the_bypass_rolls_back() {
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(
+                Timing::done(ms(300), ms(900)),
+                Timing::timeout(speed::REQUEST_LIMIT),
+            ),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(!s.is_running());
+        assert_eq!(
+            s.trial_status(std::time::Instant::now())
+                .speed_note
+                .as_deref(),
+            Some(speed::SLOWER_MESSAGE)
+        );
+    }
+
+    #[test]
+    fn without_a_baseline_the_bypass_is_not_started() {
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(Timing::failed(ms(5)), Timing::failed(ms(5))),
+        );
+        let err = s.start_trial(true, &mut |_| {}).unwrap_err();
+        assert!(
+            matches!(err, DesyncError::NotAllowed(ref m) if m == speed::NO_BASELINE_MESSAGE),
+            "{err:?}"
+        );
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            s.trial_status(std::time::Instant::now()).phase,
+            TrialPhase::Idle
+        );
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn a_check_that_finishes_after_a_manual_stop_changes_nothing() {
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(
+                Timing::done(ms(300), ms(900)),
+                Timing::done(ms(300), ms(9000)),
+            ),
+        );
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let (generation, baseline) = {
+            let t = lock(&s.trial);
+            (t.generation, t.pending_baseline.clone().unwrap())
+        };
+        s.stop_trial().unwrap();
+        s.run_speed_check(generation, &baseline);
+        assert!(s
+            .trial_status(std::time::Instant::now())
+            .speed_note
+            .is_none());
+    }
+
+    #[test]
+    fn the_ui_sees_the_checking_phase_while_measuring_and_nothing_blocks() {
+        struct Spy {
+            svc: Mutex<Option<Weak<DesyncService>>>,
+            seen: Mutex<Vec<TrialPhase>>,
+        }
+        impl speed::TimedFetch for Spy {
+            fn fetch(&self, _: &str, _: Duration) -> Timing {
+                if let Some(s) = self.svc.lock().unwrap().as_ref().and_then(Weak::upgrade) {
+                    // Статус читается без ожидания: замер не держит блокировки интерфейса.
+                    self.seen
+                        .lock()
+                        .unwrap()
+                        .push(s.trial_status(std::time::Instant::now()).phase);
+                }
+                Timing::done(ms(100), ms(200))
+            }
+        }
+        let spy = Arc::new(Spy {
+            svc: Mutex::new(None),
+            seen: Mutex::new(Vec::new()),
+        });
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(Timing::done(ms(1), ms(1)), Timing::done(ms(1), ms(1))),
+        );
+        s.set_speed_probe(spy.clone());
+        *spy.svc.lock().unwrap() = Some(Arc::downgrade(&s));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        let seen = spy.seen.lock().unwrap().clone();
+        assert!(seen.contains(&TrialPhase::MeasuringBaseline));
+        assert!(seen.contains(&TrialPhase::MeasuringAfter));
+        assert_eq!(
+            s.trial_status(std::time::Instant::now()).phase,
+            TrialPhase::Idle
+        );
+        s.stop_trial().unwrap();
     }
 
     #[test]

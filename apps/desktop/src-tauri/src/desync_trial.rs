@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use ochistka_core::desync::{Coverage, DesyncError, TrialStatus, TrialVerdict};
+use ochistka_core::desync::{Coverage, DesyncError, TrialPhase, TrialStatus, TrialVerdict};
 use serde::Serialize;
 use tauri::State;
 
@@ -28,6 +28,10 @@ pub struct TrialDto {
     pub unavailable: Option<String>,
     /// Короткая причина, если обход не выключился до конца (например, драйвер не остановлен).
     pub error: Option<String>,
+    /// `idle` / `measuringBaseline` / `measuringAfter`: идёт замер скорости.
+    pub phase: &'static str,
+    /// Итог замера скорости (откат или «быстрее или так же»).
+    pub speed_note: Option<String>,
     /// Только наблюдения пользователя, не подтверждение работы сервиса.
     pub notes: Vec<TrialNoteDto>,
 }
@@ -57,6 +61,12 @@ fn to_dto(st: TrialStatus) -> TrialDto {
         message: st.message,
         unavailable: st.unavailable,
         error: st.error,
+        phase: match st.phase {
+            TrialPhase::Idle => "idle",
+            TrialPhase::MeasuringBaseline => "measuringBaseline",
+            TrialPhase::MeasuringAfter => "measuringAfter",
+        },
+        speed_note: st.speed_note,
         notes: st
             .notes
             .into_iter()

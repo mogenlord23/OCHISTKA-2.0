@@ -717,6 +717,31 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(calls('desync_trial_start')).toHaveLength(0);
   });
 
+  it('shows «Проверяем…» while measuring and the speed verdicts without claiming it works', async () => {
+    let state: Record<string, unknown> = { ...RUNNING, phase: 'measuringAfter' };
+    backend({ vpn_snapshot: () => makeSnapshot(), desync_trial_status: () => state });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    const row = () => sw.closest('.switch-row')?.textContent ?? '';
+    await waitFor(() => expect(row()).toContain('Проверяем…'));
+    state = {
+      ...RUNNING,
+      phase: 'idle',
+      speedNote: 'Сайты отвечают быстрее или так же; это не доказывает работу у провайдера',
+    };
+    await waitFor(() => expect(row()).toContain('это не доказывает работу у провайдера'), {
+      timeout: 3000,
+    });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    state = {
+      ...IDLE,
+      speedNote: 'С обходом сайты грузятся медленнее — обход отключён',
+    };
+    await waitFor(() => expect(row()).toContain('обход отключён'), { timeout: 3000 });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(row()).toContain('Выключено');
+  });
+
   it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
