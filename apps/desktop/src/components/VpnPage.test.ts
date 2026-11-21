@@ -638,7 +638,7 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(calls('desync_trial_start')).toHaveLength(0);
   });
 
-  it('shows «Подготовка…» while starting and never looks on after an error', async () => {
+  it('flips at once on press, shows «Включаем…» while Rust works, and goes back with the reason on failure', async () => {
     let release: (v: unknown) => void = () => {};
     backend({
       vpn_snapshot: () => makeSnapshot(),
@@ -653,7 +653,11 @@ describe('VpnPage: «Обход блокировок» — один перекл
     const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
     await waitFor(() => expect(sw.disabled).toBe(false));
     await fireEvent.click(sw);
-    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Подготовка…'));
+    // Тот же кадр: переключатель уже «включён», хотя ответа Rust ещё нет.
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    expect(sw.getAttribute('aria-busy')).toBe('true');
+    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Включаем…'));
+    expect(sw.closest('.switch-row')?.textContent).not.toContain('Проверяем');
     release(null);
     await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Ошибка'));
     expect(sw.getAttribute('aria-checked')).toBe('false');

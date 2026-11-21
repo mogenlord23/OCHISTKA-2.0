@@ -34,9 +34,13 @@ export function trialErrorText(err: unknown): string {
   return 'Не удалось выполнить действие';
 }
 
-/** Что показывает переключатель «Обход блокировок». «Включено» только при подтверждённом запуске. */
+/** Что показывает переключатель «Обход блокировок». «Включено» подтверждено только статусом из Rust. */
 export type BypassView = {
   status: 'off' | 'on' | 'pending' | 'error';
+  /** Положение переключателя: меняется в тот же кадр по нажатию (оптимистично). */
+  checked: boolean;
+  /** Идёт включение или выключение в фоне (анимация состояния). */
+  busy: boolean;
   /** Можно ли нажимать (статус получен и нет причины запрета). */
   available: boolean;
   text: string;
@@ -44,35 +48,80 @@ export type BypassView = {
   hint: string | null;
 };
 
+/** Желаемое положение, пока команда Rust ещё выполняется: интерфейс не ждёт ответа. */
+export type Want = 'on' | 'off' | null;
+
 export function bypassView(
   trial: TrialStatus | null,
-  busy: boolean,
+  want: Want,
   error: string | null,
 ): BypassView {
-  if (busy) {
-    const checking = trial?.phase === 'measuringBaseline';
+  if (want === 'on') {
     return {
-      status: 'pending',
-      available: false,
-      text: checking ? 'Проверяем…' : 'Подготовка…',
+      status: 'on',
+      checked: true,
+      busy: true,
+      available: true,
+      text: 'Включаем…',
+      hint: null,
+    };
+  }
+  if (want === 'off') {
+    return {
+      status: 'off',
+      checked: false,
+      busy: true,
+      available: true,
+      text: 'Выключаем…',
       hint: null,
     };
   }
   // Пока драйвер не остановлен, «Выключено» не показываем: ошибка, повторное нажатие повторяет остановку.
-  if (trial?.error) return { status: 'error', available: true, text: 'Ошибка', hint: trial.error };
+  if (trial?.error) {
+    return {
+      status: 'error',
+      checked: false,
+      busy: false,
+      available: true,
+      text: 'Ошибка',
+      hint: trial.error,
+    };
+  }
   if (trial?.active) {
     const checking = trial.phase === 'measuringAfter';
     return {
       status: 'on',
+      checked: true,
+      busy: false,
       available: true,
       text: `${checking ? 'Проверяем… · ' : ''}Включено · осталось ${formatRemaining(trial.remainingSecs)}`,
       hint: trial.speedNote ?? null,
     };
   }
-  if (error) return { status: 'error', available: trial !== null, text: 'Ошибка', hint: error };
-  if (!trial) return { status: 'off', available: false, text: 'Выключено', hint: null };
+  if (error) {
+    return {
+      status: 'error',
+      checked: false,
+      busy: false,
+      available: trial !== null,
+      text: 'Ошибка',
+      hint: error,
+    };
+  }
+  if (!trial) {
+    return {
+      status: 'off',
+      checked: false,
+      busy: false,
+      available: false,
+      text: 'Выключено',
+      hint: null,
+    };
+  }
   return {
     status: 'off',
+    checked: false,
+    busy: false,
     available: trial.unavailable === null,
     text: 'Выключено',
     hint: trial.speedNote ?? trial.unavailable,

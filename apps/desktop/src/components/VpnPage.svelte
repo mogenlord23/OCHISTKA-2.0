@@ -20,6 +20,7 @@
     desyncTrialStop,
     trialErrorText,
     type TrialStatus,
+    type Want,
   } from '../lib/desyncTrial';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
@@ -98,14 +99,15 @@
 
   /** «Обход блокировок»: тестовый режим 120 с через пробный запуск. Состояние читаем из Rust. */
   let trial = $state<TrialStatus | null>(null);
-  let bypassBusy = $state(false);
+  /** Желаемое положение, пока Rust работает в фоне (интерфейс реагирует сразу). */
+  let bypassWant = $state<Want>(null);
   let bypassError = $state<string | null>(null);
-  const bypass = $derived(bypassView(trial, bypassBusy, bypassError));
+  const bypass = $derived(bypassView(trial, bypassWant, bypassError));
 
   /** Состояние возможностей. Пока обе не реализованы: переключатель выключен и недоступен, без имитации. */
   const TOOLS = $derived<Record<(typeof ADVANCED)[number]['id'], ToolModel>>({
     bypass: {
-      status: bypass.status,
+      status: bypass.checked ? 'on' : bypass.status === 'error' ? 'error' : 'off',
       available: bypass.available,
       reason: bypass.hint,
     },
@@ -122,17 +124,19 @@
 
   /** Нажатие — явное действие пользователя: включает или выключает. Автозапуска нет. */
   async function toggleBypass() {
-    if (bypassBusy) return;
+    if (bypassWant !== null) return;
     const stopping = trial?.active === true || Boolean(trial?.error);
-    bypassBusy = true;
+    // Переключатель меняется в тот же кадр; запуск и остановка идут в фоне.
+    bypassWant = stopping ? 'off' : 'on';
     bypassError = null;
     try {
       trial = (stopping ? await desyncTrialStop() : await desyncTrialStart(true)) ?? null;
     } catch (err) {
+      // Не удалось: переключатель возвращается назад, причина показывается рядом.
       bypassError = trialErrorText(err);
       await refreshTrial();
     } finally {
-      bypassBusy = false;
+      bypassWant = null;
     }
   }
 
@@ -628,7 +632,9 @@
                 class="power tool-power"
                 class:on={tool.available && tool.status === 'on'}
                 aria-checked={tool.available && tool.status === 'on'}
-                aria-busy={tool.available && tool.status === 'pending'}
+                aria-busy={item.id === 'bypass'
+                  ? bypass.busy
+                  : tool.available && tool.status === 'pending'}
                 aria-label={item.label}
                 disabled={!tool.available || tool.status === 'pending'}
                 onclick={item.id === 'bypass' ? toggleBypass : undefined}
