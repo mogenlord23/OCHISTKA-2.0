@@ -94,17 +94,23 @@ pub(crate) static PINNED_RESOURCES: &[(&str, &[u8], &str)] = &[
     ),
     (
         "bin/nz-tls_clienthello_steam_chat_com.bin",
-        include_bytes!("../../../../assets/desync/runtime/bin/nz-tls_clienthello_steam_chat_com.bin"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/bin/nz-tls_clienthello_steam_chat_com.bin"
+        ),
         "388e9a09bb2758ebbce34a0e27d8efa41bbd59954c9c32d8fb74b4bce2d99c67",
     ),
     (
         "bin/nz-tls_clienthello_steamstatic_com.bin",
-        include_bytes!("../../../../assets/desync/runtime/bin/nz-tls_clienthello_steamstatic_com.bin"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/bin/nz-tls_clienthello_steamstatic_com.bin"
+        ),
         "3f8ba0b0de17a3feda593ef2cd82a1b44ca566f96acaa42f6fccd69f2484ecea",
     ),
     (
         "bin/nz-tls_clienthello_teamspeak_com.bin",
-        include_bytes!("../../../../assets/desync/runtime/bin/nz-tls_clienthello_teamspeak_com.bin"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/bin/nz-tls_clienthello_teamspeak_com.bin"
+        ),
         "1336b7529c050a9c5a4728368430686311c448d4b3ba61bfc8d1e10a15de438a",
     ),
     (
@@ -259,7 +265,9 @@ pub(crate) static PINNED_RESOURCES: &[(&str, &[u8], &str)] = &[
     ),
     (
         "bin/tls_clienthello_chat_deepseek_com.bin",
-        include_bytes!("../../../../assets/desync/runtime/bin/tls_clienthello_chat_deepseek_com.bin"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/bin/tls_clienthello_chat_deepseek_com.bin"
+        ),
         "713112c4ef1de109cb86b1d247f0b950e6a2d317cae033ec7ca5ef2e493a5722",
     ),
     (
@@ -664,17 +672,23 @@ pub(crate) static PINNED_RESOURCES: &[(&str, &[u8], &str)] = &[
     ),
     (
         "windivert.filter/windivert_part.discord_media.txt",
-        include_bytes!("../../../../assets/desync/runtime/windivert.filter/windivert_part.discord_media.txt"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/windivert.filter/windivert_part.discord_media.txt"
+        ),
         "2f2deaf49ed68eb684258497134181753188f2b475161deb244488a53872b7c5",
     ),
     (
         "windivert.filter/windivert_part.stun.txt",
-        include_bytes!("../../../../assets/desync/runtime/windivert.filter/windivert_part.stun.txt"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/windivert.filter/windivert_part.stun.txt"
+        ),
         "2a14f470b00cd9704003e0cade500086398f9222c858d9ae944bdeb89f520595",
     ),
     (
         "windivert.filter/windivert_part.wireguard.txt",
-        include_bytes!("../../../../assets/desync/runtime/windivert.filter/windivert_part.wireguard.txt"),
+        include_bytes!(
+            "../../../../assets/desync/runtime/windivert.filter/windivert_part.wireguard.txt"
+        ),
         "da68586267462b29e3e370203ce0369ae2baa25a07aa2deab5fb44d69fef27be",
     ),
 ];

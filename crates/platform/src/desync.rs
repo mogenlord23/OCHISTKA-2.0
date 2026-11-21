@@ -86,9 +86,7 @@ fn install_lua_assets(dir: &Path) -> Result<(), PrepareError> {
 
 /// Check all embedded preset dependencies without altering the network.
 fn preset_assets_valid(dir: &Path) -> bool {
-    if std::fs::symlink_metadata(dir)
-        .is_ok_and(|metadata| metadata.file_type().is_symlink())
-    {
+    if std::fs::symlink_metadata(dir).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
         return false;
     }
     let Ok(root) = dir.canonicalize() else {
@@ -101,8 +99,7 @@ fn preset_assets_valid(dir: &Path) -> bool {
             && path
                 .canonicalize()
                 .is_ok_and(|resolved| resolved.starts_with(&root))
-            && std::fs::read(&path)
-                .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
+            && std::fs::read(&path).is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
     })
 }
 
@@ -124,9 +121,7 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
         }
     }
     std::fs::create_dir_all(dir).map_err(|e| preset_asset_error(e.to_string()))?;
-    if std::fs::symlink_metadata(dir)
-        .is_ok_and(|metadata| metadata.file_type().is_symlink())
-    {
+    if std::fs::symlink_metadata(dir).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
         return Err(preset_asset_error("каталог компонентов является ссылкой"));
     }
     let root = dir
@@ -153,9 +148,7 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
                 )));
             }
         }
-        if std::fs::read(&path)
-            .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
-        {
+        if std::fs::read(&path).is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest) {
             continue;
         }
         let part = path.with_extension("ochistka-part");
@@ -168,9 +161,7 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
             std::fs::remove_file(&part).map_err(|e| preset_asset_error(e.to_string()))?;
         }
         std::fs::write(&part, embedded).map_err(|e| preset_asset_error(e.to_string()))?;
-        if !std::fs::read(&part)
-            .is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest)
-        {
+        if !std::fs::read(&part).is_ok_and(|bytes| engine::sha256_hex(&bytes) == *digest) {
             return Err(preset_asset_error(format!(
                 "ресурс после записи не прошёл SHA-256: {relative}"
             )));
@@ -181,7 +172,9 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
         std::fs::rename(&part, &path).map_err(|e| preset_asset_error(e.to_string()))?;
     }
     if !preset_assets_valid(dir) {
-        return Err(preset_asset_error("не все ресурсы прошли проверку целостности"));
+        return Err(preset_asset_error(
+            "не все ресурсы прошли проверку целостности",
+        ));
     }
     Ok(())
 }
@@ -303,9 +296,9 @@ impl DesyncAdapter for WindowsDesyncAdapter {
             install_preset_assets(&self.dir)?;
             // Защита могла убрать файл сразу после записи.
             if engine::is_installed(spec, &self.dir)
-            && lua_assets_valid(&self.dir)
-            && preset_assets_valid(&self.dir)
-        {
+                && lua_assets_valid(&self.dir)
+                && preset_assets_valid(&self.dir)
+            {
                 Ok(())
             } else {
                 Err(protection_error(
@@ -341,7 +334,9 @@ impl DesyncAdapter for WindowsDesyncAdapter {
             || !lua_assets_valid(&self.dir)
             || !preset_assets_valid(&self.dir)
         {
-            return Err("запуск отклонён: целостность движка, Lua или файлов профиля нарушена".into());
+            return Err(
+                "запуск отклонён: целостность движка, Lua или файлов профиля нарушена".into(),
+            );
         }
         let workdir = exe.parent().unwrap_or(Path::new("."));
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -506,7 +501,10 @@ mod tests {
         assert!(preset_assets_valid(&dir));
         for (name, original, digest) in PINNED_RESOURCES {
             assert_eq!(engine::sha256_hex(original), *digest);
-            assert_eq!(engine::sha256_hex(&std::fs::read(dir.join(name)).unwrap()), *digest);
+            assert_eq!(
+                engine::sha256_hex(&std::fs::read(dir.join(name)).unwrap()),
+                *digest
+            );
         }
         let first = PINNED_RESOURCES[0].0;
         std::fs::write(dir.join(first), b"corrupted").unwrap();
