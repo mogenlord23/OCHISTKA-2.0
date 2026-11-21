@@ -161,8 +161,11 @@ pub enum DesyncError {
     NoProfile,
     #[error("Файлы для обхода не найдены")]
     NotPrepared(String),
-    #[error("Для обхода нужны права администратора")]
+    #[error("Нужны права администратора, чтобы включить обход")]
     NeedsAdmin,
+    /// Движок не показал признаков работы (процесс завершился или журнал не появился).
+    #[error("Обход не запустился. Перезагрузите компьютер и попробуйте снова")]
+    StartFailed,
     /// План доступа не разрешает перехват (причина показана человеку).
     #[error("{0}")]
     NotAllowed(String),
@@ -203,6 +206,10 @@ pub const DRIVER_NOT_STOPPED: &str = "Драйвер не остановлен, 
 /// Не удалось остановить обход (процесс не завершился).
 pub const STOP_FAILED: &str = "Обход не выключился, перезагрузите компьютер";
 
+/// Ошибка запуска, которую адаптер возвращает, когда пользователь отказал в запросе прав
+/// администратора (ядро превращает её в `DesyncError::NeedsAdmin`).
+pub const ELEVATION_DENIED: &str = "elevation-denied";
+
 /// Файл состояния обхода в папке данных: помнит, что службу драйвера запустила программа.
 const STATE_FILE: &str = "desync-state.json";
 
@@ -218,8 +225,14 @@ pub trait DesyncAdapter: Send + Sync {
     }
     /// Путь к движку (`sonicdpi.exe`), если файл на месте.
     fn locate(&self) -> Result<PathBuf, String>;
-    /// Есть ли права для перехвата пакетов (администратор в Windows, root или CAP_NET_ADMIN в Linux).
+    /// Есть ли уже права для перехвата пакетов (администратор в Windows). Их отсутствие запуск не
+    /// блокирует: адаптер сам запрашивает повышение прав для запуска движка (только для него).
     fn has_privileges(&self) -> bool;
+    /// Движок после запуска показал признаки работы (например, появился журнал новее `since`).
+    /// По умолчанию без дополнительных признаков.
+    fn start_confirmed(&self, _since: std::time::SystemTime) -> bool {
+        true
+    }
     fn spawn(
         &self,
         exe: &Path,
@@ -354,8 +367,8 @@ impl DesyncService {
             kill_attempts: 3,
             candidate,
             confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
-            // Проверка, что процесс не завершился сразу: 8 × 50 мс = 400 мс (раньше 1 с ожидания).
-            settle: (8, Duration::from_millis(50)),
+            // Ждём признаков работы движка до 5 секунд: 50 × 100 мс.
+            settle: (50, Duration::from_millis(100)),
             inner: Mutex::new(Inner {
                 state: DesyncState::Off,
                 process: None,
@@ -616,9 +629,7 @@ impl DesyncService {
             Ok(path) => path,
             Err(why) => return Err(DesyncError::NotPrepared(mask_secrets(&why))),
         };
-        if !self.adapter.has_privileges() {
-            return Err(DesyncError::NeedsAdmin);
-        }
+        // Права администратора: запрашивает адаптер при запуске (UAC только для движка).
         // Остаток собственного процесса после аварии: останавливаем до запуска нового.
         if !self.recover() {
             return Err(DesyncError::Stop(STOP_FAILED.into()));
@@ -631,21 +642,38 @@ impl DesyncService {
         timings.prepare = prepare_started.elapsed();
         let spawn_started = std::time::Instant::now();
         let args = self.launch_args(profile)?;
+        let since = std::time::SystemTime::now();
         let mut process = self
             .adapter
             .spawn(&exe, &args, &self.log_file())
-            .map_err(|why| DesyncError::Start(mask_secrets(&why)))?;
+            .map_err(|why| {
+                if why == ELEVATION_DENIED {
+                    DesyncError::NeedsAdmin
+                } else {
+                    DesyncError::Start(mask_secrets(&why))
+                }
+            })?;
         let _ = std::fs::write(self.pid_file(), process.pid().to_string());
+        // «Включено» только после проверки: процесс жив и движок показал признаки работы.
+        let mut confirmed = false;
         for _ in 0..self.settle.0 {
             if process.has_exited() {
-                let _ = std::fs::remove_file(self.pid_file());
-                self.note_driver_started(&driver_before);
-                let _ = self.release_driver();
-                return Err(DesyncError::Start(
-                    "процесс завершился сразу после запуска".into(),
-                ));
+                break;
+            }
+            if self.adapter.start_confirmed(since) {
+                confirmed = true;
+                break;
             }
             std::thread::sleep(self.settle.1);
+        }
+        if !confirmed {
+            process.kill();
+            if process.has_exited() {
+                let _ = std::fs::remove_file(self.pid_file());
+            }
+            self.note_driver_started(&driver_before);
+            let _ = self.release_driver();
+            return Err(DesyncError::StartFailed);
         }
         self.note_driver_started(&driver_before);
         timings.spawn_settle = spawn_started.elapsed();
@@ -685,9 +713,6 @@ impl DesyncService {
             self.adapter.trial_readiness()
         {
             return self.fail(DesyncError::Unavailable(why));
-        }
-        if !self.adapter.has_privileges() {
-            return Err(DesyncError::NeedsAdmin);
         }
         let started = std::time::Instant::now();
         let mut timings = StartTimings::default();
@@ -843,9 +868,6 @@ impl DesyncService {
             Some("Обход недоступен в этой версии".into())
         } else {
             match self.adapter.trial_readiness() {
-                Readiness::Ready if !self.adapter.has_privileges() => {
-                    Some("Нужны права администратора".into())
-                }
                 Readiness::Ready => None,
                 Readiness::NotImplemented(why) | Readiness::Unsupported(why) => Some(why),
             }
@@ -1079,6 +1101,8 @@ mod tests {
     #[derive(Default)]
     struct Flags {
         spawned: AtomicU32,
+        /// Сколько раз адаптер «запросил права администратора» при запуске.
+        elevation_requests: AtomicU32,
         present: AtomicBool,
         exited: Arc<AtomicBool>,
         killed: Arc<AtomicBool>,
@@ -1125,6 +1149,10 @@ mod tests {
         readiness: Readiness,
         trial: Readiness,
         spawn_fails: bool,
+        /// Пользователь отказал в запросе прав администратора.
+        elevation_denied: bool,
+        /// Движок показывает признаки работы (журнал появился).
+        log_appears: bool,
         /// Задержка `locate` (проверка файлов), чтобы проверить параллельность с замером.
         locate_delay: Duration,
     }
@@ -1157,6 +1185,12 @@ mod tests {
             _: &Path,
         ) -> Result<Box<dyn CoreProcess>, String> {
             *self.flags.spawn_args.lock().unwrap() = args.to_vec();
+            if !self.elevated {
+                self.flags.elevation_requests.fetch_add(1, Ordering::SeqCst);
+                if self.elevation_denied {
+                    return Err(ELEVATION_DENIED.into());
+                }
+            }
             if self.spawn_fails {
                 return Err("не удалось запустить".into());
             }
@@ -1173,6 +1207,9 @@ mod tests {
                 self.flags.ignore_kill.clone(),
                 false,
             )))
+        }
+        fn start_confirmed(&self, _since: std::time::SystemTime) -> bool {
+            self.log_appears
         }
         fn kill_stale(&self, pid: u32) {
             self.flags.stale.lock().unwrap().push(pid);
@@ -1250,6 +1287,8 @@ mod tests {
             readiness: Readiness::Ready,
             trial: Readiness::Ready,
             spawn_fails: false,
+            elevation_denied: false,
+            log_appears: true,
             locate_delay: Duration::ZERO,
         }
     }
@@ -1319,11 +1358,91 @@ mod tests {
         flags.exited.store(true, Ordering::SeqCst);
         let s = make(&flags, good, true, false);
         let err = s.start(&mut |_| {}).unwrap_err();
-        assert!(
-            matches!(&err, DesyncError::Start(d) if d.contains("сразу после запуска")),
-            "{err:?}"
-        );
+        assert!(err == DesyncError::StartFailed, "{err:?}");
         assert!(!s.pid_file().exists());
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert_eq!(
+            s.status().1,
+            "Обход не запустился. Перезагрузите компьютер и попробуйте снова"
+        );
+    }
+
+    #[test]
+    fn without_a_log_the_bypass_is_an_error_and_the_process_is_stopped() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let s = make(
+            &flags,
+            |f| Host {
+                log_appears: false,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        assert_eq!(s.start(&mut |_| {}).unwrap_err(), DesyncError::StartFailed);
+        assert!(flags.killed.load(Ordering::SeqCst), "процесс остановлен");
+        assert!(!s.pid_file().exists());
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert!(!s.is_running());
+    }
+
+    #[test]
+    fn enabled_is_shown_only_after_the_process_is_alive_and_the_log_exists() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let s = make(&flags, good, true, false);
+        s.start(&mut |_| {}).unwrap();
+        assert_eq!(s.status().0, DesyncState::Running);
+        assert!(s.pid_file().exists());
+        s.stop();
+    }
+
+    #[test]
+    fn without_admin_rights_the_adapter_asks_once_and_a_refusal_is_an_error() {
+        // Прав нет, пользователь согласился: запрос один, обход включён.
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let s = make(
+            &flags,
+            |f| Host {
+                elevated: false,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        s.start(&mut |_| {}).unwrap();
+        assert_eq!(flags.elevation_requests.load(Ordering::SeqCst), 1);
+        assert_eq!(s.status().0, DesyncState::Running);
+        s.stop();
+        // Прав нет, пользователь отказал: «Ошибка» с понятным текстом, ничего не запущено.
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let s = make(
+            &flags,
+            |f| Host {
+                elevated: false,
+                elevation_denied: true,
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        assert_eq!(s.start(&mut |_| {}).unwrap_err(), DesyncError::NeedsAdmin);
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert_eq!(
+            s.status().1,
+            "Нужны права администратора, чтобы включить обход"
+        );
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        // Права уже есть: запроса нет.
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let s = make(&flags, good, true, false);
+        s.start(&mut |_| {}).unwrap();
+        assert_eq!(flags.elevation_requests.load(Ordering::SeqCst), 0);
+        s.stop();
     }
 
     #[test]
@@ -1334,6 +1453,7 @@ mod tests {
             &flags,
             |f| Host {
                 elevated: false,
+                elevation_denied: true,
                 ..good(f)
             },
             true,
@@ -1647,6 +1767,7 @@ mod tests {
             &flags3,
             |f| Host {
                 elevated: false,
+                elevation_denied: true,
                 ..good(f)
             },
             true,
@@ -1861,6 +1982,7 @@ mod tests {
             Box::new(Host {
                 readiness: Readiness::NotImplemented("профиль не проверен".into()),
                 elevated,
+                elevation_denied: !elevated,
                 ..good(flags.clone())
             }),
             Box::new(move || routing::VpnSignal {
@@ -1929,22 +2051,24 @@ mod tests {
     }
 
     #[test]
-    fn vpn_is_not_touched_when_the_bypass_cannot_start_anyway() {
+    fn a_refused_admin_request_leaves_the_vpn_off_and_reports_an_error() {
         let flags = Arc::new(Flags::default());
         let vpn = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let s = trial_with_switchable_vpn(&flags, &vpn, false); // нет прав администратора
         let calls = Arc::new(std::sync::atomic::AtomicU32::new(0));
         let c = calls.clone();
+        let v = vpn.clone();
         s.set_vpn_stopper(Box::new(move || {
             c.fetch_add(1, Ordering::SeqCst);
+            v.store(false, Ordering::SeqCst);
             Ok(())
         }));
         assert_eq!(
             s.start_trial(true, &mut |_| {}).unwrap_err(),
             DesyncError::NeedsAdmin
         );
-        assert_eq!(calls.load(Ordering::SeqCst), 0);
-        assert!(vpn.load(Ordering::SeqCst));
+        // Отказ известен только в момент запроса, поэтому VPN уже отключён (один раз).
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
     #[test]
@@ -2211,6 +2335,7 @@ mod tests {
             DesyncError::NoProfile,
             DesyncError::NotPrepared("x".into()),
             DesyncError::NeedsAdmin,
+            DesyncError::StartFailed,
             DesyncError::Stop(STOP_FAILED.into()),
             DesyncError::Stop(DRIVER_NOT_STOPPED.into()),
             DesyncError::Start("x".into()),
@@ -2488,6 +2613,7 @@ mod tests {
             &flags,
             |f| Host {
                 elevated: false,
+                elevation_denied: true,
                 ..good(f)
             },
             true,

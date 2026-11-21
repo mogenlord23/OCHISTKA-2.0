@@ -41,6 +41,20 @@ pub fn is_alive_named(pid: u32, name: &str) -> bool {
     find(&mut system, pid).is_some_and(|(actual, _)| name_matches(&actual, name))
 }
 
+/// Жив ли процесс с этим PID, именем и (если путь известен системе) путём нашего файла. Если путь
+/// не читается (процесс с повышенными правами), решает имя.
+pub fn is_alive_ours(pid: u32, name: &str, expected_exe: &Path) -> bool {
+    let Ok(mut system) = System::new() else {
+        return false;
+    };
+    match find(&mut system, pid) {
+        Some((actual, exe)) => {
+            name_matches(&actual, name) && exe.is_none_or(|have| same_file(&have, expected_exe))
+        }
+        None => false,
+    }
+}
+
 /// Завершает процесс с этим PID, только если имя совпадает (и путь, если он известен и задан).
 /// Возвращает `true`, когда процесса с таким PID и именем больше нет.
 pub fn terminate_named(pid: u32, name: &str, expected_exe: Option<&Path>) -> bool {
@@ -75,6 +89,23 @@ fn same_file(a: &Path, b: &Path) -> bool {
         (Ok(x), Ok(y)) => x == y,
         _ => a == b,
     }
+}
+
+/// Находит номер процесса по ИМЕНИ и ПУТИ файла (когда номер после повышения прав неизвестен).
+/// Процесс с тем же именем из другой папки или с недоступным путём не подходит.
+pub fn find_by_name_and_path(name: &str, expected_exe: &Path) -> Option<u32> {
+    let mut system = System::new().ok()?;
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
+    );
+    system
+        .processes()
+        .iter()
+        .filter(|(_, p)| name_matches(&p.name().to_string_lossy(), name))
+        .find(|(_, p)| p.exe().is_some_and(|exe| same_file(exe, expected_exe)))
+        .map(|(pid, _)| pid.as_u32())
 }
 
 /// Процесс движка под защитой: «завершился» только если не завершился ни дескриптор, ни процесс с

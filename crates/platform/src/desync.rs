@@ -14,13 +14,14 @@ use std::path::{Path, PathBuf};
 use ochistka_core::desync::{self, DesyncAdapter, Platform, Readiness};
 use ochistka_core::vpn::service::CoreProcess;
 
-use crate::sonicdpi::{SonicDpiEngine, SONICDPI_EXE};
+use crate::sonicdpi::{ElevationHost, SonicDpiEngine, SystemElevation, SONICDPI_EXE};
 
 pub mod probe;
 
 pub const ENGINE_EXE: &str = SONICDPI_EXE;
 
 pub struct WindowsDesyncAdapter {
+    host: std::sync::Arc<dyn ElevationHost>,
     /// Папки, где может лежать `ochistkadpi.exe` (ресурсы приложения; порядок = приоритет). Рабочая
     /// (текущая) папка не используется.
     dirs: Vec<PathBuf>,
@@ -29,7 +30,12 @@ pub struct WindowsDesyncAdapter {
 impl WindowsDesyncAdapter {
     /// `dirs` — папки ресурсов приложения с компонентами SonicDPI.
     pub fn new(dirs: Vec<PathBuf>) -> Self {
-        Self { dirs }
+        Self::with_host(dirs, std::sync::Arc::new(SystemElevation))
+    }
+
+    /// Для тестов: подменяет запрос прав и журнал движка.
+    pub fn with_host(dirs: Vec<PathBuf>, host: std::sync::Arc<dyn ElevationHost>) -> Self {
+        Self { host, dirs }
     }
 
     /// Первая папка, где `ochistkadpi.exe` есть и это обычный файл (не ссылка и не папка).
@@ -48,7 +54,7 @@ impl WindowsDesyncAdapter {
 }
 
 #[cfg(windows)]
-fn elevated() -> bool {
+pub(crate) fn elevated() -> bool {
     use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_WRITE};
     use winreg::RegKey;
     // Как у служб: открытие системного ключа на запись ничего не меняет, но без прав отклоняется.
@@ -58,7 +64,7 @@ fn elevated() -> bool {
 }
 
 #[cfg(not(windows))]
-fn elevated() -> bool {
+pub(crate) fn elevated() -> bool {
     false
 }
 
@@ -85,7 +91,17 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     }
 
     fn has_privileges(&self) -> bool {
-        elevated()
+        self.host.is_elevated()
+    }
+
+    /// Журнал, который пишет сам движок, появился или обновился после запуска (допуск 200 мс на
+    /// точность времени файловой системы).
+    fn start_confirmed(&self, since: std::time::SystemTime) -> bool {
+        self.host
+            .engine_log()
+            .and_then(|log| std::fs::metadata(log).ok())
+            .and_then(|meta| meta.modified().ok())
+            .is_some_and(|modified| modified >= since - std::time::Duration::from_millis(200))
     }
 
     fn spawn(
@@ -102,7 +118,7 @@ impl DesyncAdapter for WindowsDesyncAdapter {
             [run, flag, profile] if run == "run" && flag == "--profile" => profile,
             _ => return Err("запуск с чужими аргументами отклонён".into()),
         };
-        Ok(Box::new(engine.spawn(profile, log)?))
+        engine.spawn_auto(profile, log, &self.host)
     }
 
     fn driver_state(&self) -> desync::DriverState {
@@ -118,6 +134,13 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     fn kill_stale(&self, pid: u32) {
         for dir in &self.dirs {
             let _ = SonicDpiEngine::new(dir.clone()).stop_by_pid(pid);
+        }
+        // Процесс с повышенными правами обычным путём не завершить: отдельный запрос прав, но
+        // только для процесса с нашим именем.
+        if self.dirs.iter().any(|dir| {
+            crate::windows::process_guard::is_alive_ours(pid, ENGINE_EXE, &dir.join(ENGINE_EXE))
+        }) {
+            let _ = self.host.kill_elevated(pid);
         }
     }
 
@@ -252,5 +275,46 @@ mod tests {
         } else {
             assert!(matches!(adapter.readiness(), Readiness::NotImplemented(_)));
         }
+    }
+
+    #[test]
+    fn the_start_is_confirmed_only_by_a_log_newer_than_the_launch() {
+        use crate::sonicdpi::{ElevationError, ElevationHost};
+        struct LogHost(Option<PathBuf>);
+        impl ElevationHost for LogHost {
+            fn is_elevated(&self) -> bool {
+                true
+            }
+            fn run_elevated(
+                &self,
+                _: &Path,
+                _: &[String],
+                _: &Path,
+            ) -> Result<u32, ElevationError> {
+                Err(ElevationError::Failed("не нужен".into()))
+            }
+            fn kill_elevated(&self, _: u32) -> bool {
+                false
+            }
+            fn engine_log(&self) -> Option<PathBuf> {
+                self.0.clone()
+            }
+        }
+        let dir = temp("log");
+        let log = dir.join("sonicdpi.log");
+        let make = |p: Option<PathBuf>| {
+            WindowsDesyncAdapter::with_host(vec![dir.clone()], std::sync::Arc::new(LogHost(p)))
+        };
+        let before = std::time::SystemTime::now();
+        // Журнала нет.
+        assert!(!make(Some(log.clone())).start_confirmed(before));
+        // Путь к журналу неизвестен.
+        assert!(!make(None).start_confirmed(before));
+        // Журнал появился после запуска.
+        std::fs::write(&log, b"started").unwrap();
+        assert!(make(Some(log.clone())).start_confirmed(before));
+        // Старый журнал (от прошлого запуска) не считается.
+        let after = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
+        assert!(!make(Some(log)).start_confirmed(after));
     }
 }

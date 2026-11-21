@@ -170,3 +170,72 @@ pub fn assign_to_kill_on_close_job(process: *mut core::ffi::c_void) -> Result<()
     unsafe { AssignProcessToJobObject(HANDLE(job as *mut core::ffi::c_void), HANDLE(process)) }
         .map_err(|e| e.to_string())
 }
+
+/// Ошибка запроса повышения прав: код Windows и текст. Код 1223 — пользователь отказал в запросе.
+pub struct ShellError {
+    pub code: u32,
+    pub message: String,
+}
+
+/// Код Windows «операция отменена пользователем» (отказ в запросе UAC).
+pub const ERROR_CANCELLED: u32 = 1223;
+
+/// Запускает программу с повышением прав (`ShellExecuteExW`, глагол `runas`): Windows показывает
+/// запрос UAC только для этой программы. Окно скрыто. Возвращает номер процесса (0, если система
+/// его не вернула). `wait_ms` — подождать завершения процесса не дольше этого времени.
+pub fn shell_execute_runas(
+    file: &str,
+    parameters: &str,
+    directory: &str,
+    wait_ms: Option<u32>,
+) -> Result<u32, ShellError> {
+    use ::windows::Win32::Foundation::CloseHandle;
+    use ::windows::Win32::System::Threading::{GetProcessId, WaitForSingleObject};
+    use ::windows::Win32::UI::Shell::{
+        ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
+    };
+    use ::windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
+
+    let verb = wide("runas");
+    let file = wide(file);
+    let parameters = wide(parameters);
+    let directory = wide(directory);
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOCLOSEPROCESS,
+        lpVerb: PCWSTR(verb.as_ptr()),
+        lpFile: PCWSTR(file.as_ptr()),
+        lpParameters: PCWSTR(parameters.as_ptr()),
+        lpDirectory: PCWSTR(directory.as_ptr()),
+        nShow: SW_HIDE.0,
+        ..Default::default()
+    };
+    // SAFETY: `info` — корректная структура с верным `cbSize`; все строки заканчиваются нулём и
+    // живут до конца вызова; вызов синхронный и не хранит указатели после возврата.
+    if let Err(e) = unsafe { ShellExecuteExW(&mut info) } {
+        let hr = e.code().0 as u32;
+        // 0x800704C7 = HRESULT_FROM_WIN32(ERROR_CANCELLED).
+        let code = if hr == 0x8007_04C7 {
+            ERROR_CANCELLED
+        } else {
+            hr
+        };
+        return Err(ShellError {
+            code,
+            message: e.to_string(),
+        });
+    }
+    let process = info.hProcess;
+    if process.is_invalid() {
+        return Ok(0);
+    }
+    // SAFETY: дескриптор получен от системы (SEE_MASK_NOCLOSEPROCESS) и закрывается ровно один раз.
+    let pid = unsafe { GetProcessId(process) };
+    if let Some(ms) = wait_ms {
+        // SAFETY: тот же действительный дескриптор; ожидание ограничено по времени.
+        unsafe { WaitForSingleObject(process, ms) };
+    }
+    // SAFETY: закрываем дескриптор, полученный выше, и больше не используем.
+    let _ = unsafe { CloseHandle(process) };
+    Ok(pid)
+}
