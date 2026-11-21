@@ -223,7 +223,6 @@
       <span>GPU {gpuNow === null ? '—' : shortPercent(gpuNow)}</span>
       <span>RAM {ready ? shortPercent(ov.memory.usagePercent) : '—'}</span>
     </button>
-    <button type="button" class="refresh" onclick={() => reload()}>Обновить сведения</button>
   </div>
 
   <div class="reveal" class:open={view !== null} inert={view === null}>
@@ -364,9 +363,12 @@
     </div>
   </div>
 
-  <p class="updated">
-    Сведения обновлены {updatedAt ? clockTime(updatedAt) : '—'} · CPU/GPU/RAM обновляются каждую секунду
-  </p>
+  <div class="updated-row">
+    <p class="updated">
+      Сведения обновлены {updatedAt ? clockTime(updatedAt) : '—'} · CPU/GPU/RAM обновляются каждую секунду
+    </p>
+    <button type="button" class="refresh" onclick={() => reload()}>Обновить сведения</button>
+  </div>
   <p class="hint">Нажми на комплектующую, чтобы открыть сведения и график</p>
   <div class="tiles" role="group" aria-label="Комплектующие">
     {#each TILES as tile (tile.id)}
@@ -437,10 +439,6 @@
   }
 
   .summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     margin-bottom: 8px;
     padding: 8px 16px;
     border-radius: var(--radius-md);
@@ -448,14 +446,17 @@
     color: var(--ink, #fafafa);
   }
 
+  /* Те же три колонки и интервал, что у графиков ниже: CPU, GPU и RAM стоят ровно над своими
+     заголовками, а левая линия совпадает с левым краем карточки (отступ 16 px). */
   .summary-values {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: baseline;
     gap: 20px;
+    width: 100%;
     min-height: 44px;
-    padding: 4px 8px;
-    border: 1px solid transparent;
+    padding: 4px 0;
+    border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
     color: inherit;
@@ -463,8 +464,8 @@
     font-size: 26px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    text-align: left;
     cursor: pointer;
-    transition: border-color 160ms ease;
   }
 
   .summary-values span {
@@ -474,7 +475,8 @@
 
   .summary-values:hover,
   .summary-values[aria-pressed='true'] {
-    border-color: var(--ink, #fafafa);
+    outline: 1px solid var(--ink, #fafafa);
+    outline-offset: 3px;
   }
 
   .refresh,
@@ -496,8 +498,21 @@
     background: #222;
   }
 
+  .updated-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .updated-row .refresh {
+    min-height: 32px;
+    padding: 4px 12px;
+  }
+
   .updated {
-    margin: 0 0 4px;
+    margin: 0;
     font-size: var(--text-caption);
     color: var(--page-text);
   }

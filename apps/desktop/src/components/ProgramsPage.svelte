@@ -414,9 +414,8 @@
     </div>
 
     <p class="status-line" aria-live="polite">
-      {#if loadedInstalled}Приложений: {visible.length} из {programs.length}.{/if}
-      Размер — оценка установщика; «Нет данных» значит, что размер не указан. Правый клик по строке —
-      меню.
+      {#if loadedInstalled}{`Приложений: ${visible.length} из ${programs.length} · `}{/if}Правый
+      клик — меню действий
     </p>
 
     {@render messages()}
@@ -463,7 +462,13 @@
                   }}>{program.name}</button
                 >
               </span>
-              <span class="c-size" role="cell" class:is-empty={program.sizeBytes === null}
+              <span
+                class="c-size"
+                role="cell"
+                class:is-empty={program.sizeBytes === null}
+                title={program.sizeBytes === null
+                  ? 'Установщик не указал размер'
+                  : 'Размер — оценка установщика'}
                 >{program.sizeBytes === null ? 'Нет данных' : formatSize(program.sizeBytes)}</span
               >
               <span class="c-disk" role="cell" class:is-empty={!program.diskLetter}
