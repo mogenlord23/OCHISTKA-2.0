@@ -90,6 +90,7 @@ class ProbeResult:
     outcome: str
     response_status: int | None
     elapsed_ms: int
+    lua_callback_confirmed: bool | None = None
 
     @property
     def reachable(self) -> bool:
@@ -231,6 +232,9 @@ def check_driver_signature(driver: pathlib.Path) -> None:
 
 def probe_https(host: str, ip: str, sock: socket.socket | None = None) -> ProbeResult:
     started = time.monotonic()
+    # Keep the failing protocol phase, not the server response or packet contents.
+    # A TCP-connect timeout is not evidence that the TLS ClientHello strategy ran.
+    phase = "tcp_connect"
     try:
         own_socket = sock is None
         if own_socket:
@@ -239,16 +243,19 @@ def probe_https(host: str, ip: str, sock: socket.socket | None = None) -> ProbeR
         try:
             sock.settimeout(TIMEOUT_SECONDS)
             sock.connect((ip, PORT))
+            phase = "tls_handshake"
             context = ssl.create_default_context()
             # SNI and CA validation refer to the same host supplied by the user.
             with context.wrap_socket(sock, server_hostname=host) as tls:
                 tls.settimeout(TIMEOUT_SECONDS)
+                phase = "http_request"
                 request = (
                     f"GET / HTTP/1.1\r\nHost: {host}\r\n"
                     "User-Agent: OCHISTKA-external-probe/1.0\r\n"
                     "Accept: */*\r\nConnection: close\r\n\r\n"
                 )
                 tls.sendall(request.encode("ascii"))
+                phase = "http_response"
                 response = http.client.HTTPResponse(tls)
                 response.begin()
                 status = response.status
@@ -260,13 +267,13 @@ def probe_https(host: str, ip: str, sock: socket.socket | None = None) -> ProbeR
             # Closing an already TLS-wrapped socket is harmless; no sockets escape.
             sock.close()
     except socket.timeout:
-        outcome = "timeout"
+        outcome = f"timeout_{phase}"
     except ssl.SSLCertVerificationError:
         outcome = "certificate_validation_failed"
     except ssl.SSLError:
         outcome = "tls_failed"
     except (ConnectionError, OSError):
-        outcome = "connection_failed"
+        outcome = f"connection_failed_{phase}"
     except http.client.HTTPException:
         outcome = "http_invalid"
     return ProbeResult(outcome, None, round((time.monotonic() - started) * 1000))
@@ -388,11 +395,17 @@ def active_probe(exe: pathlib.Path, host: str, ip: str, log: pathlib.Path) -> Pr
             result = bounded_probe_https(host, ip, client)
             if proc.poll() is not None:
                 raise RuntimeError("Pinned engine stopped unexpectedly during active probe")
-            if result.reachable and not wait_engine_evidence(log, proc):
-                raise RuntimeError(
-                    "HTTPS connected, but real packet interception and Lua callback were not confirmed"
-                )
-            return result
+            callback = engine_log_has_live_callback(log)
+            if result.reachable and not callback:
+                callback = wait_engine_evidence(log, proc)
+                if not callback:
+                    raise RuntimeError(
+                        "HTTPS connected, but real packet interception and Lua callback were not confirmed"
+                    )
+            return ProbeResult(
+                result.outcome, result.response_status, result.elapsed_ms,
+                lua_callback_confirmed=callback,
+            )
     finally:
         # Stop FIRST; Windows then releases the temporary packet filter.
         stopped = stop_engine(proc)
@@ -479,9 +492,20 @@ def main(argv: list[str] | None = None) -> int:
         # No external network operations except the test host/IP connection.
         active = active_probe(exe, host, ip, runtime / "engine.log")
         print(f"With candidate: {active.outcome} (HTTP {active.response_status}, {active.elapsed_ms} ms)", flush=True)
+        print(
+            f"Lua callback confirmed during candidate: {'yes' if active.lua_callback_confirmed else 'no'}"
+            " (no does not establish absence of capture)",
+            flush=True,
+        )
         after = bounded_probe_https(host, ip)
         print(f"After shutdown: {after.outcome} (HTTP {after.response_status}, {after.elapsed_ms} ms)", flush=True)
         verdict = interpret(before, active, after)
+        if before.outcome == "timeout_tcp_connect" and active.outcome == "timeout_tcp_connect":
+            print(
+                "DIAGNOSIS: TCP connection did not complete; the TLS ClientHello"
+                " strategy could not act on a completed TLS handshake.",
+                flush=True,
+            )
         print(f"VERDICT: {verdict}", flush=True)
         print("These observations do not prove the cause was DPI or establish a shippable profile.")
         return 0 if verdict == "repeatable_connectivity_improvement_not_proof_of_dpi" else 2

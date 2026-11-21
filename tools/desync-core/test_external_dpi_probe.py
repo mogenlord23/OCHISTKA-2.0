@@ -89,6 +89,41 @@ class SafePlanTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+
+    def test_connect_timeout_is_distinguished_from_tls_timeout(self) -> None:
+        client = mock.Mock()
+        client.connect.side_effect = module.socket.timeout("tcp handshake timeout")
+        with mock.patch.object(module.ssl, "create_default_context") as tls:
+            result = module.probe_https("example.org", "1.1.1.1", client)
+        self.assertEqual(result.outcome, "timeout_tcp_connect")
+        tls.assert_not_called()
+        client.close.assert_called_once()
+
+    def test_tls_handshake_timeout_is_reported_without_request(self) -> None:
+        client = mock.Mock()
+        with mock.patch.object(module.ssl, "create_default_context") as context:
+            context.return_value.wrap_socket.side_effect = module.socket.timeout("tls handshake")
+            result = module.probe_https("example.org", "1.1.1.1", client)
+        self.assertEqual(result.outcome, "timeout_tls_handshake")
+        client.connect.assert_called_once_with(("1.1.1.1", 443))
+        client.close.assert_called_once()
+
+    def test_http_response_timeout_is_not_mislabeled_tcp(self) -> None:
+        client = mock.Mock()
+        with mock.patch.object(module.ssl, "create_default_context") as context, \
+             mock.patch.object(module.http.client, "HTTPResponse") as response:
+            response.return_value.begin.side_effect = module.socket.timeout("http")
+            result = module.probe_https("example.org", "1.1.1.1", client)
+        self.assertEqual(result.outcome, "timeout_http_response")
+        client.close.assert_called_once()
+
+    def test_connect_failure_preserves_phase_with_no_leaking_error_detail(self) -> None:
+        client = mock.Mock()
+        client.connect.side_effect = ConnectionRefusedError("private details")
+        result = module.probe_https("example.org", "1.1.1.1", client)
+        self.assertEqual(result.outcome, "connection_failed_tcp_connect")
+        self.assertNotIn("private details", result.outcome)
+
     @staticmethod
     def result(outcome: str, status: int | None = None) -> module.ProbeResult:
         return module.ProbeResult(outcome, status, 15)
