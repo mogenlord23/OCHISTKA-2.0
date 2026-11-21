@@ -413,11 +413,6 @@
       />
     </div>
 
-    <p class="status-line" aria-live="polite">
-      {#if loadedInstalled}{`Приложений: ${visible.length} из ${programs.length} · `}{/if}Правый
-      клик — меню действий
-    </p>
-
     {@render messages()}
 
     {#if loading && !loadedInstalled}
@@ -427,7 +422,10 @@
     {:else}
       <div class="grid" role="table" aria-label="Программы" aria-rowcount={visible.length + 1}>
         <div class="grid-head" role="row">
-          <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
+          <span class="c-icon" role="columnheader">
+            <span class="sr-only">Значок. Установлено программ:</span>
+            <span class="head-text count-head">{programs.length}</span>
+          </span>
           {#each COLUMNS as column (column.key)}
             {@render sortHead(column)}
           {/each}
@@ -798,6 +796,10 @@
     font-weight: 800;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+  }
+  /* Число над значками: без разрядки, чтобы стоять строго по центру колонки. */
+  .count-head {
+    letter-spacing: 0;
   }
   .sort {
     transition: background 120ms ease;

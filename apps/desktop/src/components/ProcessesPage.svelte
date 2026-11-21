@@ -242,8 +242,6 @@
       >
     </div>
 
-    <p class="status-line">Процессов: {processes.length} · Обновление каждые 3 секунды</p>
-
     {#if listError}
       <p class="alert" role="alert">{listError.message}</p>
     {/if}
@@ -259,7 +257,10 @@
     {:else}
       <div class="grid" role="table" aria-label="Процессы" aria-rowcount={visible.length + 1}>
         <div class="grid-head" role="row">
-          <span class="c-icon" role="columnheader"><span class="sr-only">Значок</span></span>
+          <span class="c-icon" role="columnheader">
+            <span class="sr-only">Значок. Процессов:</span>
+            <span class="count-head">{processes.length}</span>
+          </span>
           {#each COLUMNS as column (column.key)}
             <span class={column.cls} role="columnheader" aria-sort={ariaSort(sort, column.key)}>
               <button
@@ -510,6 +511,16 @@
   .c-icon {
     display: flex;
     justify-content: center;
+  }
+  /* Число над значками: тот же вид, что у заголовков, без разрядки: строго по центру колонки. */
+  .count-head {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 4px;
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
   }
   .sort {
     display: inline-flex;

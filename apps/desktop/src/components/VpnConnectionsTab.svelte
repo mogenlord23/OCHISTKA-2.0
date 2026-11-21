@@ -157,7 +157,6 @@
 {:else if connections === null}
   <p class="state" role="status">Читаем соединения…</p>
 {:else}
-  <p class="count">TCP-соединений: {connections.length}</p>
   <div class="table-wrap" use:measure onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}>
     <table>
       <thead>
@@ -249,13 +248,6 @@
 {/if}
 
 <style>
-  .count {
-    margin: 0;
-    font-size: var(--text-caption);
-    font-weight: 800;
-    color: #000;
-  }
-
   .table-wrap {
     /* Таблица тянется до нижней линии постера: колонка и постер заканчиваются на одной линии. */
     flex: 1;
