@@ -17,8 +17,6 @@
     name: string;
     /** Ширина раскрытой кнопки, px. */
     width?: number;
-    /** Заливка вместо контура (корзина Uiverse). */
-    filled?: boolean;
     danger?: boolean;
   };
 
@@ -28,21 +26,12 @@
     label,
     name,
     width = 124,
-    filled = false,
     danger = false,
     ...rest
   }: Props = $props();
 </script>
 
-<button
-  type="button"
-  class="expand"
-  class:danger
-  class:filled
-  style:--w="{width}px"
-  aria-label={name}
-  {...rest}
->
+<button type="button" class="expand" class:danger style:--w="{width}px" aria-label={name} {...rest}>
   <svg {viewBox} class="icon" aria-hidden="true" focusable="false"><path d={icon}></path></svg>
   <span class="label" aria-hidden="true">{label}</span>
 </button>
@@ -70,24 +59,21 @@
       border-color 0.3s;
   }
 
+  /* В покое 14 px; при наведении та же иконка вырастает scale до ~22 px и уходит вниз. */
   .icon {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     flex: none;
+    transform-origin: center;
     transition: transform 0.3s;
   }
 
   .icon path {
     fill: none;
     stroke: currentColor;
-    stroke-width: 2;
+    stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  .filled .icon path {
-    fill: currentColor;
-    stroke: none;
   }
 
   .label {
@@ -125,7 +111,7 @@
 
   .expand:hover:not(:disabled) .icon,
   .expand:focus-visible:not(:disabled) .icon {
-    transform: translateY(8px);
+    transform: translateY(9px) scale(1.55);
   }
 
   .expand:hover:not(:disabled) .label,
