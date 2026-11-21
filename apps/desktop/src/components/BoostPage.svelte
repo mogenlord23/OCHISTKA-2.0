@@ -75,7 +75,6 @@
 
 <section class="page">
   <h2 class="sr-only">Boost / Игры</h2>
-  <p class="note">Результат зависит от игры и оборудования: прироста FPS никто не обещает.</p>
 
   <div class="toolbar">
     <button
@@ -174,12 +173,6 @@
     margin: 12px 0 8px;
     font-size: var(--text-body);
     text-transform: uppercase;
-    color: var(--page-text);
-  }
-
-  .note {
-    margin: 0 0 8px;
-    font-size: var(--text-small);
     color: var(--page-text);
   }
 

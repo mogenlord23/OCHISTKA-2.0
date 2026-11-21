@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FloatingField from './FloatingField.svelte';
   import { tick } from 'svelte';
   import AppIcon from './AppIcon.svelte';
   import ServicesPage from './ServicesPage.svelte';
@@ -213,14 +214,15 @@
   <section class="page" aria-labelledby="processes-title">
     <h2 id="processes-title" class="sr-only">Процессы</h2>
 
-    <label class="field-label" for="proc-search">Поиск по названию или PID</label>
-    <input
-      id="proc-search"
-      type="search"
-      class="search"
-      aria-label="Поиск по имени или PID"
-      bind:value={query}
-    />
+    <div class="search-row">
+      <FloatingField
+        id="proc-search"
+        type="search"
+        label="Название или PID"
+        ariaLabel="Поиск по имени или PID"
+        bind:value={query}
+      />
+    </div>
 
     <div class="buttons" aria-label="Действия с выбранным процессом">
       <button type="button" onclick={() => void refresh()}>Обновить</button>
@@ -404,23 +406,8 @@
     font-size: var(--text-small);
     font-weight: 600;
   }
-  .field-label {
-    margin: 4px 0 0;
-    font-size: var(--text-small);
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-  .search {
-    height: 48px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--ink);
-    font: inherit;
-  }
-  .search:focus-visible {
-    outline: 2px solid var(--ink);
+  .search-row {
+    display: flex;
   }
   .buttons {
     display: flex;

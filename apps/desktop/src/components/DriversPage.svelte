@@ -139,10 +139,6 @@
 
 <section class="drivers">
   <h2 class="sr-only">Драйверы / твоё оборудование</h2>
-  <p class="lead">
-    Файл скачивается только с сайта производителя, подпись проверяется; права администратора
-    запросит сам установщик.
-  </p>
 
   <ul class="vendors" aria-label="Производители">
     {#each layout.ordered as id (id)}
@@ -209,12 +205,6 @@
     margin: 16px 0 8px;
     font-size: var(--text-title);
     text-transform: uppercase;
-  }
-
-  .lead {
-    margin: 0 0 8px;
-    font-size: var(--text-small);
-    color: var(--page-text);
   }
 
   .reason {

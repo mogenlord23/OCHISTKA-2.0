@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FloatingField from './FloatingField.svelte';
   import { tick, untrack } from 'svelte';
   import AppIcon from './AppIcon.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
@@ -343,14 +344,14 @@
 
 {#if subsection === 'installed'}
   <section class="page" aria-label="Установленные программы">
-    <label class="field-label" for="programs-search">Поиск программ</label>
-    <input
-      id="programs-search"
-      type="search"
-      class="search"
-      bind:value={query}
-      placeholder="Название или издатель, например Chrome"
-    />
+    <div class="search-row">
+      <FloatingField
+        id="programs-search"
+        type="search"
+        label="Поиск программы"
+        bind:value={query}
+      />
+    </div>
 
     <div class="buttons">
       <button type="button" onclick={() => void loadInstalled()} disabled={loading}>Обновить</button
@@ -668,31 +669,13 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  .field-label {
-    margin-top: 4px;
-    font-size: var(--text-small);
-    font-weight: 800;
-    text-transform: uppercase;
-  }
   .status-line {
     margin: 0;
     font-size: var(--text-small);
     font-weight: 600;
   }
-  .search {
-    height: 48px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--ink);
-    font: inherit;
-  }
-  .search::placeholder {
-    color: transparent;
-  }
-  .search:focus::placeholder {
-    color: var(--muted);
+  .search-row {
+    display: flex;
   }
   .buttons {
     display: flex;

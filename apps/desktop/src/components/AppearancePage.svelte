@@ -488,8 +488,11 @@
   }
 
   /* Переключатель занимает всю карточку: нажатие в любом месте карточки переключает. */
+  /* Название слева, переключатель справа (как переключатель звука в настройках приложения). */
   .opt :global(.switch) {
     flex: 1;
+    flex-direction: row-reverse;
+    justify-content: space-between;
     min-width: 0;
     box-sizing: border-box;
     min-height: 42px;
