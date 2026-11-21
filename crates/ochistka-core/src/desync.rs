@@ -311,6 +311,8 @@ pub struct DesyncService {
     settle: (u32, Duration),
     /// Общее право на сетевой режим (одно на VPN и обход); по умолчанию собственное.
     coord: Arc<coordinator::NetCoordinator>,
+    /// Отключает работающий VPN перед включением обхода (включение обхода выключает VPN).
+    vpn_stopper: Mutex<Option<VpnStopper>>,
     /// Пробный режим: срок, номер запуска (старый таймер сам завершается) и пометки пользователя.
     trial: Mutex<TrialInner>,
     trial_limit: Duration,
@@ -324,6 +326,9 @@ pub struct DesyncService {
 
 /// Сколько неудачных остановок подряд таймер повторяет, прежде чем перестать (без бесконечных потоков).
 const MAX_FAILED_STOPS: u32 = 5;
+
+/// Отключение VPN: `Err(причина)`, если отключить не удалось.
+pub type VpnStopper = Box<dyn Fn() -> Result<(), String> + Send + Sync>;
 
 /// Максимальная длительность пробного запуска полного профиля.
 pub const TRIAL_LIMIT: Duration = Duration::from_secs(120);
@@ -381,6 +386,7 @@ impl DesyncService {
             installable: pinned().is_some(),
             vpn,
             coord: Arc::new(coordinator::NetCoordinator::new()),
+            vpn_stopper: Mutex::new(None),
             trial: Mutex::new(TrialInner::default()),
             trial_limit: TRIAL_LIMIT,
             stop_wait: (25, Duration::from_millis(40)),
@@ -498,6 +504,32 @@ impl DesyncService {
         }
         self.record(&result);
         result
+    }
+
+    /// Задаёт действие «отключить VPN» для автоотключения при включении обхода.
+    pub fn set_vpn_stopper(&self, stopper: VpnStopper) {
+        *lock(&self.vpn_stopper) = Some(stopper);
+    }
+
+    /// Если VPN работает — отключает его и убеждается, что он действительно не активен.
+    /// Без заданного действия или при неудаче — отказ (запуск обхода не происходит).
+    fn stop_vpn_if_active(&self) -> Result<(), DesyncError> {
+        if !(self.vpn)().active {
+            return Ok(());
+        }
+        let result = match lock(&self.vpn_stopper).as_ref() {
+            Some(stop) => stop(),
+            None => return Err(DesyncError::VpnRunning),
+        };
+        result.map_err(|why| {
+            DesyncError::NotAllowed(format!(
+                "Не удалось отключить VPN перед включением обхода: {why}"
+            ))
+        })?;
+        if (self.vpn)().active {
+            return Err(DesyncError::VpnRunning);
+        }
+        Ok(())
     }
 
     /// Подключает общий координатор (один экземпляр на VPN и обход).
@@ -630,6 +662,19 @@ impl DesyncService {
         let Some(profile) = self.candidate.clone() else {
             return Err(DesyncError::NoProfile);
         };
+        // Включение обхода выключает VPN. Делается ДО блокировки `op`, чтобы два сервиса
+        // не ждали друг друга; и только если обход вообще может стартовать (готовность, права).
+        if let Readiness::NotImplemented(why) | Readiness::Unsupported(why) =
+            self.adapter.trial_readiness()
+        {
+            return self.fail(DesyncError::Unavailable(why));
+        }
+        if !self.adapter.has_privileges() {
+            return Err(DesyncError::NeedsAdmin);
+        }
+        if self.status().0 != DesyncState::Running {
+            self.stop_vpn_if_active()?;
+        }
         let Ok(_op) = self.op.try_lock() else {
             return Err(DesyncError::Busy);
         };
@@ -897,14 +942,20 @@ pub fn vpn_signal_source(
     })
 }
 
-/// Защита для `VpnService::set_conflict_guard`: VPN не подключается, пока работает перехват.
-/// Если сервис обхода недоступен или состояние неизвестно — отказ.
-/// Внимание: проверка и последующий запуск не атомарны; до включения функции нужен общий
-/// атомарный механизм (одна блокировка на оба сервиса).
+/// Для `VpnService::set_conflict_guard`: включение VPN выключает «Обход блокировок».
+/// Останавливает работающий обход (с подтверждением завершения процесса) и возвращает `None`.
+/// `Some(причина)` — обход остановить не удалось или сервис недоступен: VPN не включается.
 pub fn desync_conflict_guard(desync: Weak<DesyncService>) -> ConflictGuard {
     Box::new(move || match desync.upgrade() {
-        Some(d) if !d.is_running() => None,
-        Some(_) => Some("Работает обход блокировок. Сначала остановите его".into()),
+        Some(d) => {
+            if d.is_running() || lock(&d.inner).process.is_some() {
+                d.stop_trial().err().map(|e| {
+                    format!("Не удалось выключить обход блокировок перед включением VPN: {e}")
+                })
+            } else {
+                None
+            }
+        }
         None => Some("Состояние обхода блокировок недоступно".into()),
     })
 }
@@ -1422,7 +1473,11 @@ mod tests {
             &mut |_| {},
         )
         .unwrap();
-        assert!(guard().is_some());
+        // Включение VPN останавливает работающий обход и освобождает право запуска.
+        assert!(guard().is_none());
+        assert!(!s.is_running());
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_ok());
+        s.coord.release(coordinator::Owner::Vpn);
         s.shutdown().unwrap();
         assert!(guard().is_none());
         // Нет циклов владения: после удаления сервиса защита отказывает.
@@ -1944,6 +1999,128 @@ mod tests {
         let s = trial_service(&flags, false);
         let plan = s.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
         assert!(matches!(plan.overall, RoutePlan::Block(_)));
+    }
+
+    // ----- автоотключение VPN при включении обхода и обратно -----
+
+    fn trial_with_switchable_vpn(
+        flags: &Arc<Flags>,
+        vpn_active: &Arc<std::sync::atomic::AtomicBool>,
+        elevated: bool,
+    ) -> Arc<DesyncService> {
+        flags.present.store(true, Ordering::SeqCst);
+        let active = vpn_active.clone();
+        let mut s = DesyncService::new(
+            temp_dir(),
+            Box::new(Host {
+                readiness: Readiness::NotImplemented("профиль не проверен".into()),
+                elevated,
+                ..good(flags.clone())
+            }),
+            Box::new(move || routing::VpnSignal {
+                active: active.load(Ordering::SeqCst),
+                verified: false,
+            }),
+        );
+        s.candidate = profile();
+        s.installable = true;
+        s.settle = (2, Duration::from_millis(1));
+        s.stop_wait = (2, Duration::from_millis(1));
+        Arc::new(s)
+    }
+
+    #[test]
+    fn enabling_bypass_turns_a_running_vpn_off_first() {
+        let flags = Arc::new(Flags::default());
+        let vpn = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let s = trial_with_switchable_vpn(&flags, &vpn, true);
+        let calls = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let (v, c) = (vpn.clone(), calls.clone());
+        s.set_vpn_stopper(Box::new(move || {
+            c.fetch_add(1, Ordering::SeqCst);
+            v.store(false, Ordering::SeqCst);
+            Ok(())
+        }));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert!(!vpn.load(Ordering::SeqCst));
+        assert!(s.is_running());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn no_vpn_running_means_the_stopper_is_not_called() {
+        let flags = Arc::new(Flags::default());
+        let vpn = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let s = trial_with_switchable_vpn(&flags, &vpn, true);
+        let calls = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let c = calls.clone();
+        s.set_vpn_stopper(Box::new(move || {
+            c.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn failed_or_ineffective_vpn_stop_refuses_and_starts_nothing() {
+        let flags = Arc::new(Flags::default());
+        let vpn = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let s = trial_with_switchable_vpn(&flags, &vpn, true);
+        s.set_vpn_stopper(Box::new(|| Err("не удалось отключить VPN".into())));
+        let err = s.start_trial(true, &mut |_| {}).unwrap_err();
+        assert!(matches!(err, DesyncError::NotAllowed(_)), "{err:?}");
+        // «Успех» стоппера, но VPN всё ещё работает — тоже отказ.
+        s.set_vpn_stopper(Box::new(|| Ok(())));
+        assert_eq!(
+            s.start_trial(true, &mut |_| {}).unwrap_err(),
+            DesyncError::VpnRunning
+        );
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        assert!(vpn.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn vpn_is_not_touched_when_the_bypass_cannot_start_anyway() {
+        let flags = Arc::new(Flags::default());
+        let vpn = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let s = trial_with_switchable_vpn(&flags, &vpn, false); // нет прав администратора
+        let calls = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let c = calls.clone();
+        s.set_vpn_stopper(Box::new(move || {
+            c.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }));
+        assert_eq!(
+            s.start_trial(true, &mut |_| {}).unwrap_err(),
+            DesyncError::NeedsAdmin
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        assert!(vpn.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn enabling_vpn_stops_a_running_bypass_through_the_guard() {
+        let flags = Arc::new(Flags::default());
+        let vpn = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let s = trial_with_switchable_vpn(&flags, &vpn, true);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let guard = desync_conflict_guard(Arc::downgrade(&s));
+        assert!(guard().is_none());
+        assert!(!s.is_running());
+        assert!(flags.killed.load(Ordering::SeqCst));
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_ok());
+        // Если остановить не удалось, VPN получает отказ с причиной.
+        s.coord.release(coordinator::Owner::Vpn);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.ignore_kill.store(true, Ordering::SeqCst);
+        assert!(guard().is_some());
+        flags.ignore_kill.store(false, Ordering::SeqCst);
+        flags.exited.store(true, Ordering::SeqCst);
+        s.stop_trial().unwrap();
     }
 
     #[test]
