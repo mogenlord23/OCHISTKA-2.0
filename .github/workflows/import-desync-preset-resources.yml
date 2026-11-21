@@ -1,14 +1,9 @@
-# One-time, byte-for-byte import of the pinned real NetZapret preset resources.
+# Manual-only reproducibility check: initial one-time import finished successfully.
 # No DPI, no driver, no Windows network configuration and no executable launch.
 name: import-desync-preset-resources
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - claude/epic-knuth-0zhg19
-    paths:
-      - .github/workflows/import-desync-preset-resources.yml
 
 permissions:
   contents: write

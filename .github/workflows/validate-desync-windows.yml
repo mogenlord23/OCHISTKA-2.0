@@ -74,6 +74,34 @@ jobs:
             Pop-Location
           }
 
+      - name: Verify SHA-256 and dry-run the REAL NetZapret Universal V13 Lite (no WinDivert)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python tools/desync-core/preset_runtime_assets.py verify
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned resource verification failed' }
+          foreach ($folder in @('lua','lists','bin','windivert.filter')) {
+            Copy-Item -Path "assets/desync/runtime/$folder" -Destination "verified-winws2/" -Recurse -Force
+          }
+          # Preserve each complete argument, including names containing spaces.
+          $arguments = [System.Collections.Generic.List[string]]::new()
+          foreach ($raw in [System.IO.File]::ReadAllLines((Resolve-Path 'assets/desync/presets/Universal V13 Lite.txt').Path, [System.Text.Encoding]::UTF8)) {
+            $line = $raw.Trim()
+            if (-not $line.StartsWith('--')) { continue }
+            foreach ($arg in [regex]::Split($line, '\s+(?=--[A-Za-z])')) {
+              if ($arg.Trim().Length -gt 0) { $arguments.Add($arg.Trim()) }
+            }
+          }
+          if ($arguments.Count -ne 564) { throw "Expected 564 original arguments, got $($arguments.Count)" }
+          if (($arguments | Where-Object { $_ -eq '--new' }).Count -ne 73) { throw 'Original section order changed' }
+          Push-Location verified-winws2
+          try {
+            & .\winws2.exe --dry-run @arguments
+            if ($LASTEXITCODE -ne 0) { throw "Full real NetZapret preset is INCOMPATIBLE with pinned engine: $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+
       - name: Rust Windows-only desync tests (no packet interception)
         shell: pwsh
         run: |

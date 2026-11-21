@@ -13,6 +13,9 @@ on:
       - tools/desync-core/external_dpi_probe.py
       - tools/desync-core/test_external_dpi_probe.py
       - tools/desync-core/ochistka_dpi_check.py
+      - tools/desync-core/preset_runtime_assets.py
+      - tools/desync-core/test_preset_runtime_assets.py
+      - docs/status/desync-preset-resources.json
       - tools/desync-core/test_ochistka_dpi_check.py
       - tools/desync-core/package/**
       - .github/workflows/build-desync-diagnostic-package.yml
@@ -31,6 +34,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test core and platform
         run: cargo test -p ochistka-core -p ochistka-platform --lib
+      - name: Verify all pinned NetZapret resources offline
+        run: python3 tools/desync-core/preset_runtime_assets.py verify
       - name: Offline external probe safety tests (no network / no driver)
         run: python3 -m unittest discover -s tools/desync-core -p 'test_*.py' -q
 
@@ -40,6 +45,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Verify all pinned NetZapret resources on Windows (offline)
+        shell: pwsh
+        run: |
+          python tools/desync-core/preset_runtime_assets.py verify
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned preset asset check failed' }
       - name: Offline probe safety tests on Windows (no driver)
         shell: pwsh
         run: |
