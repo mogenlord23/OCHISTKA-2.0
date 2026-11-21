@@ -641,7 +641,11 @@ mod tests {
         assert_eq!(candidate.id, "windows-netzapret-v13-lite-unverified");
         assert_eq!(candidate.args.len(), 564);
         assert_eq!(
-            candidate.args.iter().filter(|x| x.as_str() == "--new").count(),
+            candidate
+                .args
+                .iter()
+                .filter(|x| x.as_str() == "--new")
+                .count(),
             73
         );
         assert_eq!(
