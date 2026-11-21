@@ -1,3 +1,0 @@
-matrix.org
-vector.im
-element.io

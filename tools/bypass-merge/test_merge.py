@@ -169,6 +169,16 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(rec.status, "removed")
         self.assertEqual(merge.check_coverage(r.coverage(), r.sections, r.globals), [])
 
+    def test_coverage_accepts_dead_sections_only_with_a_record_number(self):
+        r = run()
+        cov = r.coverage()
+        cov["sections"][2]["status"] = "dead"
+        cov["sections"][2]["item_id"] = ""
+        self.assertTrue(merge.check_coverage(cov, r.sections, r.globals))
+        cov["sections"][2]["item_id"] = "D001"
+        cov["sections"][2]["target"] = None
+        self.assertEqual(merge.check_coverage(cov, r.sections, r.globals), [])
+
     def test_conflict_keeps_base_and_says_so(self):
         r = run()
         rec = next(x for x in r.section_records if (x.preset, x.index) == ("other.txt", 1))

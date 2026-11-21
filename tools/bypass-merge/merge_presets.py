@@ -24,6 +24,7 @@ import shutil  # noqa: E402
 import inventory  # noqa: E402
 import merge  # noqa: E402
 import routes  # noqa: E402
+import slim  # noqa: E402
 import zpreset  # noqa: E402
 
 BASE = "Universal V13 Lite.txt"
@@ -258,6 +259,23 @@ def cmd_merge(args: argparse.Namespace) -> None:
     rules = routes.parse_rules(open(os.path.join(args.source, "config/rules.yaml"), encoding="utf-8").read())
     rt = routes.build(rules, config_lists, existing_by_sha, used_lists, kinds, exclude=OWNER_EXCLUDED)
     final_sections = result.sections + rt.sections
+
+    def load_list(rel: str):
+        path = os.path.join(RUNTIME, rel) if rel in ours else None
+        if path is None:
+            sf = source_file(args.source, rel)
+            path = os.path.join(args.source, sf) if sf else None
+        if not path or not os.path.isfile(path):
+            return None
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            return [x.strip() for x in fh if x.strip() and not x.strip().startswith("#")]
+
+    # Разгрузка: убираются только секции, которые движок никогда не выберет (перекрыты более ранней).
+    before_slim = final_sections
+    final_sections, dead = slim.slim(before_slim, load_list)
+    problems = slim.check_equivalence(before_slim, final_sections, dead, load_list)
+    if problems:
+        sys.exit("Разгрузка не доказана: " + "; ".join(problems[:5]))
     text = zpreset.render("OCHISTKA Merged", description, result.globals, final_sections)
     with open(MERGED_PRESET, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
@@ -288,6 +306,31 @@ def cmd_merge(args: argparse.Namespace) -> None:
     cov = result.coverage()
     cov["source"] = src
     cov["route_sections"] = len(rt.sections)
+    # Статусы после разгрузки: убранные секции и их дубли — «dead», индексы пересчитываются.
+    dead_ids = {before_slim[d.index].identity() for d in dead}
+    new_index = {sec.identity(): i for i, sec in enumerate(final_sections)}
+    for n, rec in enumerate(sorted((r for r in cov["sections"] if r["identity"] in dead_ids and r["status"] in ("base", "added", "duplicate")), key=lambda r: (r["preset"], r["index"])), 1):
+        rec["status"], rec["target"], rec["item_id"] = "dead", None, f"D{n:03d}"
+    for rec in cov["sections"]:
+        if rec["status"] in ("base", "added"):
+            rec["target"] = new_index[rec["identity"]]
+        elif rec["status"] in ("duplicate", "conflict") and rec["target"] is not None:
+            rec["target"] = new_index.get(rec["identity"], rec["target"]) if rec["status"] == "duplicate" else rec["target"]
+    cov["slimmed"] = len(dead)
+    report = ["# Разгрузка объединённого пресета", "",
+              f"Источник: {src}. Создано `tools/bypass-merge/merge_presets.py`. Движок сканирует секции строго по порядку и выбирает "
+              "первую совпавшую; секция, весь трафик которой совпадает с более ранней секцией (те же протоколы, `filter-l7`, `out-range`, "
+              "исключения; порты и адреса или имена ранней включают порты и адреса или имена поздней), не выбирается никогда. "
+              "Такие секции убраны, остальные оставлены. Действия секций не сравнивались: недостижимая секция ничего не делает.",
+              "",
+              f"Секций до разгрузки: {len(before_slim)}. После: {len(final_sections)}. Убрано: {len(dead)}.", "",
+              "| № до | Секция | Причина | Перекрыта секцией |", "|---:|---|---|---|"]
+    for d in dead:
+        by = before_slim[d.covered_by].name if d.covered_by is not None else "пустой охват"
+        report.append(f"| {d.index + 1} | {before_slim[d.index].name.replace('|', '/')} | {'пустой охват' if d.reason == 'empty' else 'перекрыта более ранней'} | "
+                      f"{('№%d ' % (d.covered_by + 1) if d.covered_by is not None else '')}{by.replace('|', '/')} |")
+    with open(os.path.join(REPO, "docs/status/bypass-slim-report.md"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(report) + "\n")
     problems = merge.check_coverage(cov, final_sections, result.globals)
     if problems:
         sys.exit("Манифест не сходится: " + "; ".join(problems[:5]))

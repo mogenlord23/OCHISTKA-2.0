@@ -2420,11 +2420,28 @@ mod tests {
             3,
             "удалены ровно секции Telegram, Steam, Riot"
         );
-        assert_eq!(m.sections[..kept.len()], kept[..]);
+        // Ещё недостижимые секции основы (перекрыты более ранними) убраны при разгрузке; остальные
+        // идут первыми и в прежнем порядке.
+        let unreachable = ["githubusercontent.com", "Facebook", "virustotal.com"];
+        let expected: Vec<_> = kept
+            .iter()
+            .filter(|sec| {
+                !sec.arguments
+                    .iter()
+                    .any(|a| unreachable.iter().any(|n| *a == format!("--name={n}")))
+            })
+            .cloned()
+            .collect();
+        assert_eq!(
+            kept.len() - expected.len(),
+            3,
+            "разгрузка убрала ровно 3 секции основы"
+        );
+        assert_eq!(m.sections[..expected.len()], expected[..]);
         for g in &base.global_arguments {
             assert!(removed(g) || m.global_arguments.contains(g), "{g}");
         }
-        assert!(m.sections.len() > kept.len());
+        assert!(m.sections.len() > expected.len());
         let everything = format!(
             "{}\n{}",
             m.global_arguments.join("\n"),

@@ -9520,11 +9520,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D020",
    "name": "githubusercontent.com",
    "preset": "Universal V13 Lite.txt",
-   "status": "base",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -9533,7 +9533,7 @@
    "name": "Apple",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -9542,7 +9542,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -9551,7 +9551,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -9560,7 +9560,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -9569,7 +9569,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -9578,7 +9578,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -9587,7 +9587,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -9596,7 +9596,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -9605,7 +9605,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -9614,7 +9614,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -9623,7 +9623,7 @@
    "name": "disboard.org",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -9632,7 +9632,7 @@
    "name": "discord.com",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -9641,7 +9641,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "42b88ab9ebb272abff837b07c6d8209ac6efd1f1d2965af3039889583deef9e1",
@@ -9650,7 +9650,7 @@
    "name": "Discord UDP (обычно не нужно)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 24
+   "target": 23
   },
   {
    "identity": "93cb320712c7f7857f605cd6ac5f91210325e0f261ad88ef6976bffcdba5c56c",
@@ -9664,11 +9664,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D021",
    "name": "Facebook",
    "preset": "Universal V13 Lite.txt",
-   "status": "base",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -9677,7 +9677,7 @@
    "name": "Instagram",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "5d460aa09f96c9dfcf2e7014143b2caf5c3008b8751a4297fd8dc2d13c549444",
@@ -9686,7 +9686,7 @@
    "name": "Twitter/X (по имени)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 27
+   "target": 25
   },
   {
    "identity": "a616031c3e7a3db1d6eba934b1227d5b83f913123b1498b5e53f799b6451530e",
@@ -9695,7 +9695,7 @@
    "name": "Twitter/X",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 28
+   "target": 26
   },
   {
    "identity": "f113e2e5d3a61fbed1b7d04664642788a24ee2f80faaaf7971a0f15be81e1b32",
@@ -9704,7 +9704,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -9713,7 +9713,7 @@
    "name": "chatgpt",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -9722,7 +9722,7 @@
    "name": "Gemini",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -9731,7 +9731,7 @@
    "name": "Notion",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -9740,7 +9740,7 @@
    "name": "Claude",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -9749,7 +9749,7 @@
    "name": "DeepSeek",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -9758,7 +9758,7 @@
    "name": "Twitch",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -9767,7 +9767,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -9776,7 +9776,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -9785,7 +9785,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "912b688d76f6c5749ada2afe8a6764dd1613ecfc562c6684d861d7472276f74f",
@@ -9794,7 +9794,7 @@
    "name": "Amazon UDP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 39
+   "target": 37
   },
   {
    "identity": "2adc0ebb0a3e16ca191af8bb8bc826766fcd2f09e444d900a0929a711964e677",
@@ -9803,7 +9803,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -9812,7 +9812,7 @@
    "name": "rutracker.org",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -9821,16 +9821,16 @@
    "name": "LinkedIn",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 45,
-   "item_id": "",
+   "item_id": "D022",
    "name": "virustotal.com",
    "preset": "Universal V13 Lite.txt",
-   "status": "base",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -9839,7 +9839,7 @@
    "name": "modrinth.com",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -9848,7 +9848,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -9857,7 +9857,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -9875,7 +9875,7 @@
    "name": "Ubisoft",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -9884,7 +9884,7 @@
    "name": "SoundCloud",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -9893,7 +9893,7 @@
    "name": "Speedtest",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -9902,7 +9902,7 @@
    "name": "itch.io",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -9911,7 +9911,7 @@
    "name": "Fandom",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -9920,7 +9920,7 @@
    "name": "ntc.party",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -9929,7 +9929,7 @@
    "name": "obsidian.md",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -9938,7 +9938,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -9947,7 +9947,7 @@
    "name": "WhatsApp",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -9956,7 +9956,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -9965,7 +9965,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -9974,7 +9974,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -9983,7 +9983,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -9992,7 +9992,7 @@
    "name": "Proton",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -10001,7 +10001,7 @@
    "name": "Signal",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -10010,7 +10010,7 @@
    "name": "Viber",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -10019,7 +10019,7 @@
    "name": "archive.org",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -10028,7 +10028,7 @@
    "name": "Bluesky",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -10037,7 +10037,7 @@
    "name": "Мои сайты",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -10046,7 +10046,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -10055,7 +10055,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "aab121b9903e923b860115c2a4b9eb522faf6bdbbc67bd32143ddb458eae587f",
@@ -10064,7 +10064,7 @@
    "name": "Hetzner TCP",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 68
+   "target": 65
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -10073,7 +10073,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V13 Lite.txt",
    "status": "base",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -10177,11 +10177,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D026",
    "name": "githubusercontent.com",
    "preset": "Universal V13.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -10190,7 +10190,7 @@
    "name": "Apple",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -10199,7 +10199,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -10208,7 +10208,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -10217,7 +10217,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -10226,7 +10226,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -10235,7 +10235,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -10244,7 +10244,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -10253,7 +10253,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -10262,7 +10262,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -10271,7 +10271,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -10280,7 +10280,7 @@
    "name": "disboard.org",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -10289,7 +10289,7 @@
    "name": "discord.com",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -10298,7 +10298,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -10321,11 +10321,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D027",
    "name": "Facebook",
    "preset": "Universal V13.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -10334,7 +10334,7 @@
    "name": "Instagram",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "5d460aa09f96c9dfcf2e7014143b2caf5c3008b8751a4297fd8dc2d13c549444",
@@ -10343,7 +10343,7 @@
    "name": "Twitter/X (по имени)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 27
+   "target": 25
   },
   {
    "identity": "a616031c3e7a3db1d6eba934b1227d5b83f913123b1498b5e53f799b6451530e",
@@ -10352,7 +10352,7 @@
    "name": "Twitter/X",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 28
+   "target": 26
   },
   {
    "identity": "f113e2e5d3a61fbed1b7d04664642788a24ee2f80faaaf7971a0f15be81e1b32",
@@ -10361,7 +10361,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -10370,7 +10370,7 @@
    "name": "chatgpt",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -10379,7 +10379,7 @@
    "name": "Gemini",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -10388,7 +10388,7 @@
    "name": "Notion",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -10397,7 +10397,7 @@
    "name": "Claude",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -10406,7 +10406,7 @@
    "name": "DeepSeek",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -10415,7 +10415,7 @@
    "name": "Twitch",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -10424,7 +10424,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -10433,7 +10433,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -10442,7 +10442,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -10460,7 +10460,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -10469,7 +10469,7 @@
    "name": "rutracker.org",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -10478,16 +10478,16 @@
    "name": "LinkedIn",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 45,
-   "item_id": "",
+   "item_id": "D028",
    "name": "virustotal.com",
    "preset": "Universal V13.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -10496,7 +10496,7 @@
    "name": "modrinth.com",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -10505,7 +10505,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -10514,7 +10514,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -10532,7 +10532,7 @@
    "name": "Ubisoft",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -10541,7 +10541,7 @@
    "name": "SoundCloud",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -10550,7 +10550,7 @@
    "name": "Speedtest",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -10559,7 +10559,7 @@
    "name": "itch.io",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -10568,7 +10568,7 @@
    "name": "Fandom",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -10577,7 +10577,7 @@
    "name": "ntc.party",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -10586,7 +10586,7 @@
    "name": "obsidian.md",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -10595,7 +10595,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -10604,7 +10604,7 @@
    "name": "WhatsApp",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -10613,7 +10613,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -10622,7 +10622,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -10631,7 +10631,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -10640,7 +10640,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -10649,7 +10649,7 @@
    "name": "Proton",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -10658,7 +10658,7 @@
    "name": "Signal",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -10667,7 +10667,7 @@
    "name": "Viber",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -10676,7 +10676,7 @@
    "name": "archive.org",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -10685,7 +10685,7 @@
    "name": "Bluesky",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -10694,7 +10694,7 @@
    "name": "Мои сайты",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -10703,7 +10703,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -10712,7 +10712,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "aab121b9903e923b860115c2a4b9eb522faf6bdbbc67bd32143ddb458eae587f",
@@ -10721,7 +10721,7 @@
    "name": "Hetzner TCP",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 68
+   "target": 65
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -10730,7 +10730,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V13.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -10834,11 +10834,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D023",
    "name": "githubusercontent.com",
    "preset": "Universal V13 YT FIX.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -10847,7 +10847,7 @@
    "name": "Apple",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -10856,7 +10856,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -10865,7 +10865,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -10874,7 +10874,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "f772f7b92b9b766a0a77c5d52c3bded8a8b6371a30271dcd7b6befc62179c8dc",
@@ -10901,7 +10901,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -10910,7 +10910,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -10919,7 +10919,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -10928,7 +10928,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -10937,7 +10937,7 @@
    "name": "disboard.org",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -10946,7 +10946,7 @@
    "name": "discord.com",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -10955,7 +10955,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "42b88ab9ebb272abff837b07c6d8209ac6efd1f1d2965af3039889583deef9e1",
@@ -10964,7 +10964,7 @@
    "name": "Discord UDP (обычно не нужно)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 24
+   "target": 23
   },
   {
    "identity": "93cb320712c7f7857f605cd6ac5f91210325e0f261ad88ef6976bffcdba5c56c",
@@ -10978,11 +10978,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D024",
    "name": "Facebook",
    "preset": "Universal V13 YT FIX.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -10991,7 +10991,7 @@
    "name": "Instagram",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "5d460aa09f96c9dfcf2e7014143b2caf5c3008b8751a4297fd8dc2d13c549444",
@@ -11000,7 +11000,7 @@
    "name": "Twitter/X (по имени)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 27
+   "target": 25
   },
   {
    "identity": "a616031c3e7a3db1d6eba934b1227d5b83f913123b1498b5e53f799b6451530e",
@@ -11009,7 +11009,7 @@
    "name": "Twitter/X",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 28
+   "target": 26
   },
   {
    "identity": "f113e2e5d3a61fbed1b7d04664642788a24ee2f80faaaf7971a0f15be81e1b32",
@@ -11018,7 +11018,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -11027,7 +11027,7 @@
    "name": "chatgpt",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -11036,7 +11036,7 @@
    "name": "Gemini",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -11045,7 +11045,7 @@
    "name": "Notion",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -11054,7 +11054,7 @@
    "name": "Claude",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -11063,7 +11063,7 @@
    "name": "DeepSeek",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -11072,7 +11072,7 @@
    "name": "Twitch",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -11081,7 +11081,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -11090,7 +11090,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -11099,7 +11099,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "912b688d76f6c5749ada2afe8a6764dd1613ecfc562c6684d861d7472276f74f",
@@ -11108,7 +11108,7 @@
    "name": "Amazon UDP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 39
+   "target": 37
   },
   {
    "identity": "2adc0ebb0a3e16ca191af8bb8bc826766fcd2f09e444d900a0929a711964e677",
@@ -11117,7 +11117,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -11126,7 +11126,7 @@
    "name": "rutracker.org",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -11135,16 +11135,16 @@
    "name": "LinkedIn",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 45,
-   "item_id": "",
+   "item_id": "D025",
    "name": "virustotal.com",
    "preset": "Universal V13 YT FIX.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -11153,7 +11153,7 @@
    "name": "modrinth.com",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -11162,7 +11162,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -11171,7 +11171,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -11189,7 +11189,7 @@
    "name": "Ubisoft",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -11198,7 +11198,7 @@
    "name": "SoundCloud",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -11207,7 +11207,7 @@
    "name": "Speedtest",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -11216,7 +11216,7 @@
    "name": "itch.io",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -11225,7 +11225,7 @@
    "name": "Fandom",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -11234,7 +11234,7 @@
    "name": "ntc.party",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -11243,7 +11243,7 @@
    "name": "obsidian.md",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -11252,7 +11252,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -11261,7 +11261,7 @@
    "name": "WhatsApp",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -11270,7 +11270,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -11279,7 +11279,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -11288,7 +11288,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -11297,7 +11297,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -11306,7 +11306,7 @@
    "name": "Proton",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -11315,7 +11315,7 @@
    "name": "Signal",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -11324,7 +11324,7 @@
    "name": "Viber",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -11333,7 +11333,7 @@
    "name": "archive.org",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -11342,7 +11342,7 @@
    "name": "Bluesky",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -11351,7 +11351,7 @@
    "name": "Мои сайты",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -11360,7 +11360,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -11369,7 +11369,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "aab121b9903e923b860115c2a4b9eb522faf6bdbbc67bd32143ddb458eae587f",
@@ -11378,7 +11378,7 @@
    "name": "Hetzner TCP",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 68
+   "target": 65
   },
   {
    "identity": "5b9ce6495fa9b305ca9f3081db8bde136009c741ab4d6de38c5044b6429425f5",
@@ -11405,7 +11405,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V13 YT FIX.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -11509,11 +11509,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D014",
    "name": "githubusercontent.com",
    "preset": "Universal V12 Lite.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -11522,7 +11522,7 @@
    "name": "Apple",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -11531,7 +11531,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -11540,7 +11540,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -11549,7 +11549,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -11558,7 +11558,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -11567,7 +11567,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -11576,7 +11576,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -11585,7 +11585,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -11594,7 +11594,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -11603,7 +11603,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -11612,7 +11612,7 @@
    "name": "disboard.org",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -11621,7 +11621,7 @@
    "name": "discord.com",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -11630,7 +11630,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "42b88ab9ebb272abff837b07c6d8209ac6efd1f1d2965af3039889583deef9e1",
@@ -11639,7 +11639,7 @@
    "name": "Discord UDP (обычно не нужно)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 24
+   "target": 23
   },
   {
    "identity": "93cb320712c7f7857f605cd6ac5f91210325e0f261ad88ef6976bffcdba5c56c",
@@ -11653,11 +11653,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D015",
    "name": "Facebook",
    "preset": "Universal V12 Lite.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -11666,7 +11666,7 @@
    "name": "Instagram",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -11684,7 +11684,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -11693,7 +11693,7 @@
    "name": "chatgpt",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -11702,7 +11702,7 @@
    "name": "Gemini",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -11711,7 +11711,7 @@
    "name": "Notion",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -11720,7 +11720,7 @@
    "name": "Claude",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -11729,7 +11729,7 @@
    "name": "DeepSeek",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -11738,7 +11738,7 @@
    "name": "Twitch",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -11747,7 +11747,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -11756,7 +11756,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -11765,7 +11765,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "912b688d76f6c5749ada2afe8a6764dd1613ecfc562c6684d861d7472276f74f",
@@ -11774,7 +11774,7 @@
    "name": "Amazon UDP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 39
+   "target": 37
   },
   {
    "identity": "2adc0ebb0a3e16ca191af8bb8bc826766fcd2f09e444d900a0929a711964e677",
@@ -11783,7 +11783,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -11792,7 +11792,7 @@
    "name": "rutracker.org",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -11801,16 +11801,16 @@
    "name": "LinkedIn",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 44,
-   "item_id": "",
+   "item_id": "D016",
    "name": "virustotal.com",
    "preset": "Universal V12 Lite.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -11819,7 +11819,7 @@
    "name": "modrinth.com",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -11828,7 +11828,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -11837,7 +11837,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -11855,7 +11855,7 @@
    "name": "Ubisoft",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -11864,7 +11864,7 @@
    "name": "SoundCloud",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -11873,7 +11873,7 @@
    "name": "Speedtest",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -11882,7 +11882,7 @@
    "name": "itch.io",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -11891,7 +11891,7 @@
    "name": "Fandom",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -11900,7 +11900,7 @@
    "name": "ntc.party",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -11909,7 +11909,7 @@
    "name": "obsidian.md",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -11918,7 +11918,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -11927,7 +11927,7 @@
    "name": "WhatsApp",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -11936,7 +11936,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -11945,7 +11945,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -11954,7 +11954,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -11963,7 +11963,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -11972,7 +11972,7 @@
    "name": "Proton",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -11981,7 +11981,7 @@
    "name": "Signal",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -11990,7 +11990,7 @@
    "name": "Viber",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -11999,7 +11999,7 @@
    "name": "archive.org",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -12008,7 +12008,7 @@
    "name": "Bluesky",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -12017,7 +12017,7 @@
    "name": "Мои сайты",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -12026,7 +12026,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -12035,7 +12035,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "aab121b9903e923b860115c2a4b9eb522faf6bdbbc67bd32143ddb458eae587f",
@@ -12044,7 +12044,7 @@
    "name": "Hetzner TCP",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 68
+   "target": 65
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -12053,7 +12053,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V12 Lite.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -12157,11 +12157,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D017",
    "name": "githubusercontent.com",
    "preset": "Universal V12.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -12170,7 +12170,7 @@
    "name": "Apple",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -12179,7 +12179,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -12188,7 +12188,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -12197,7 +12197,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -12206,7 +12206,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -12215,7 +12215,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -12224,7 +12224,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -12233,7 +12233,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -12242,7 +12242,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -12251,7 +12251,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -12260,7 +12260,7 @@
    "name": "disboard.org",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -12269,7 +12269,7 @@
    "name": "discord.com",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -12278,7 +12278,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -12301,11 +12301,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D018",
    "name": "Facebook",
    "preset": "Universal V12.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -12314,7 +12314,7 @@
    "name": "Instagram",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -12332,7 +12332,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -12341,7 +12341,7 @@
    "name": "chatgpt",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -12350,7 +12350,7 @@
    "name": "Gemini",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -12359,7 +12359,7 @@
    "name": "Notion",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -12368,7 +12368,7 @@
    "name": "Claude",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -12377,7 +12377,7 @@
    "name": "DeepSeek",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -12386,7 +12386,7 @@
    "name": "Twitch",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -12395,7 +12395,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -12404,7 +12404,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -12413,7 +12413,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -12431,7 +12431,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -12440,7 +12440,7 @@
    "name": "rutracker.org",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -12449,16 +12449,16 @@
    "name": "LinkedIn",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 44,
-   "item_id": "",
+   "item_id": "D019",
    "name": "virustotal.com",
    "preset": "Universal V12.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -12467,7 +12467,7 @@
    "name": "modrinth.com",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -12476,7 +12476,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -12485,7 +12485,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -12503,7 +12503,7 @@
    "name": "Ubisoft",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -12512,7 +12512,7 @@
    "name": "SoundCloud",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -12521,7 +12521,7 @@
    "name": "Speedtest",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -12530,7 +12530,7 @@
    "name": "itch.io",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -12539,7 +12539,7 @@
    "name": "Fandom",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -12548,7 +12548,7 @@
    "name": "ntc.party",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -12557,7 +12557,7 @@
    "name": "obsidian.md",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -12566,7 +12566,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -12575,7 +12575,7 @@
    "name": "WhatsApp",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -12584,7 +12584,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -12593,7 +12593,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -12602,7 +12602,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -12611,7 +12611,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -12620,7 +12620,7 @@
    "name": "Proton",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -12629,7 +12629,7 @@
    "name": "Signal",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -12638,7 +12638,7 @@
    "name": "Viber",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -12647,7 +12647,7 @@
    "name": "archive.org",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -12656,7 +12656,7 @@
    "name": "Bluesky",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -12665,7 +12665,7 @@
    "name": "Мои сайты",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -12674,7 +12674,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -12683,7 +12683,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "aab121b9903e923b860115c2a4b9eb522faf6bdbbc67bd32143ddb458eae587f",
@@ -12692,7 +12692,7 @@
    "name": "Hetzner TCP",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 68
+   "target": 65
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -12701,7 +12701,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V12.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -12805,11 +12805,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D008",
    "name": "githubusercontent.com",
    "preset": "Universal V11 Lite.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -12818,7 +12818,7 @@
    "name": "Apple",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -12827,7 +12827,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -12836,7 +12836,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -12845,7 +12845,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -12854,7 +12854,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -12863,7 +12863,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -12872,7 +12872,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -12881,7 +12881,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -12890,7 +12890,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -12899,7 +12899,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -12908,7 +12908,7 @@
    "name": "disboard.org",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -12917,7 +12917,7 @@
    "name": "discord.com",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -12926,7 +12926,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "42b88ab9ebb272abff837b07c6d8209ac6efd1f1d2965af3039889583deef9e1",
@@ -12935,7 +12935,7 @@
    "name": "Discord UDP (обычно не нужно)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 24
+   "target": 23
   },
   {
    "identity": "93cb320712c7f7857f605cd6ac5f91210325e0f261ad88ef6976bffcdba5c56c",
@@ -12949,11 +12949,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D009",
    "name": "Facebook",
    "preset": "Universal V11 Lite.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -12962,7 +12962,7 @@
    "name": "Instagram",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -12980,7 +12980,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -12989,7 +12989,7 @@
    "name": "chatgpt",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -12998,7 +12998,7 @@
    "name": "Gemini",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -13007,7 +13007,7 @@
    "name": "Notion",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -13016,7 +13016,7 @@
    "name": "Claude",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -13025,7 +13025,7 @@
    "name": "DeepSeek",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -13034,7 +13034,7 @@
    "name": "Twitch",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -13043,7 +13043,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -13052,7 +13052,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -13061,7 +13061,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "912b688d76f6c5749ada2afe8a6764dd1613ecfc562c6684d861d7472276f74f",
@@ -13070,7 +13070,7 @@
    "name": "Amazon UDP",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 39
+   "target": 37
   },
   {
    "identity": "2adc0ebb0a3e16ca191af8bb8bc826766fcd2f09e444d900a0929a711964e677",
@@ -13079,7 +13079,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -13088,7 +13088,7 @@
    "name": "rutracker.org",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -13097,16 +13097,16 @@
    "name": "LinkedIn",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 44,
-   "item_id": "",
+   "item_id": "D010",
    "name": "virustotal.com",
    "preset": "Universal V11 Lite.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -13115,7 +13115,7 @@
    "name": "modrinth.com",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -13124,7 +13124,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -13133,7 +13133,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -13151,7 +13151,7 @@
    "name": "Ubisoft",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -13160,7 +13160,7 @@
    "name": "SoundCloud",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -13169,7 +13169,7 @@
    "name": "Speedtest",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -13178,7 +13178,7 @@
    "name": "itch.io",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -13187,7 +13187,7 @@
    "name": "Fandom",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -13196,7 +13196,7 @@
    "name": "ntc.party",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -13205,7 +13205,7 @@
    "name": "obsidian.md",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -13214,7 +13214,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -13223,7 +13223,7 @@
    "name": "WhatsApp",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -13232,7 +13232,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -13241,7 +13241,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -13250,7 +13250,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -13259,7 +13259,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -13268,7 +13268,7 @@
    "name": "Proton",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -13277,7 +13277,7 @@
    "name": "Signal",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -13286,7 +13286,7 @@
    "name": "Viber",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -13295,7 +13295,7 @@
    "name": "archive.org",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -13304,7 +13304,7 @@
    "name": "Bluesky",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -13313,7 +13313,7 @@
    "name": "Мои сайты",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -13322,7 +13322,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -13331,7 +13331,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -13340,7 +13340,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V11 Lite.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -13444,11 +13444,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D011",
    "name": "githubusercontent.com",
    "preset": "Universal V11.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -13457,7 +13457,7 @@
    "name": "Apple",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -13466,7 +13466,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -13475,7 +13475,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -13484,7 +13484,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -13493,7 +13493,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -13502,7 +13502,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -13511,7 +13511,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "7e8147408443b5feae30f942144408f95b29138cb1643d7fe0c8c32cfffd6267",
@@ -13520,7 +13520,7 @@
    "name": "youtube.com (QUIC по имени)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 18
+   "target": 17
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -13529,7 +13529,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -13538,7 +13538,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -13547,7 +13547,7 @@
    "name": "disboard.org",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -13556,7 +13556,7 @@
    "name": "discord.com",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -13565,7 +13565,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -13588,11 +13588,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D012",
    "name": "Facebook",
    "preset": "Universal V11.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -13601,7 +13601,7 @@
    "name": "Instagram",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -13619,7 +13619,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -13628,7 +13628,7 @@
    "name": "chatgpt",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -13637,7 +13637,7 @@
    "name": "Gemini",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -13646,7 +13646,7 @@
    "name": "Notion",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -13655,7 +13655,7 @@
    "name": "Claude",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -13664,7 +13664,7 @@
    "name": "DeepSeek",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -13673,7 +13673,7 @@
    "name": "Twitch",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -13682,7 +13682,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -13691,7 +13691,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -13700,7 +13700,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -13718,7 +13718,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -13727,7 +13727,7 @@
    "name": "rutracker.org",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -13736,16 +13736,16 @@
    "name": "LinkedIn",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 44,
-   "item_id": "",
+   "item_id": "D013",
    "name": "virustotal.com",
    "preset": "Universal V11.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -13754,7 +13754,7 @@
    "name": "modrinth.com",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -13763,7 +13763,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -13772,7 +13772,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -13790,7 +13790,7 @@
    "name": "Ubisoft",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -13799,7 +13799,7 @@
    "name": "SoundCloud",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -13808,7 +13808,7 @@
    "name": "Speedtest",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -13817,7 +13817,7 @@
    "name": "itch.io",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -13826,7 +13826,7 @@
    "name": "Fandom",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -13835,7 +13835,7 @@
    "name": "ntc.party",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -13844,7 +13844,7 @@
    "name": "obsidian.md",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -13853,7 +13853,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -13862,7 +13862,7 @@
    "name": "WhatsApp",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -13871,7 +13871,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -13880,7 +13880,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "b7813318eda50eff619653a22b625ba7fd6e386ea8597b5b47575efbde87241f",
@@ -13889,7 +13889,7 @@
    "name": "Cloudflare 8.6 (рецепт AnyDesk TCP)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 58
+   "target": 55
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -13898,7 +13898,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -13907,7 +13907,7 @@
    "name": "Proton",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -13916,7 +13916,7 @@
    "name": "Signal",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -13925,7 +13925,7 @@
    "name": "Viber",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -13934,7 +13934,7 @@
    "name": "archive.org",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -13943,7 +13943,7 @@
    "name": "Bluesky",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -13952,7 +13952,7 @@
    "name": "Мои сайты",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -13961,7 +13961,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -13970,7 +13970,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "88bfe92f59cdf6d7eced981b6b3cc4f7d133753b24e89ad35e08ef4ccf8a6b6d",
@@ -13979,7 +13979,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V11.txt",
    "status": "duplicate",
-   "target": 69
+   "target": 66
   },
   {
    "identity": "dc72b4fcdbd2e560abdcfd044fba945d6a2b47657a1459054990a76a62605fe4",
@@ -14083,11 +14083,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 11,
-   "item_id": "",
+   "item_id": "D005",
    "name": "githubusercontent.com",
    "preset": "Universal V10.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -14096,7 +14096,7 @@
    "name": "Apple",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -14105,7 +14105,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -14114,7 +14114,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -14123,7 +14123,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -14132,7 +14132,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -14141,7 +14141,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -14150,7 +14150,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -14159,7 +14159,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -14168,7 +14168,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -14177,7 +14177,7 @@
    "name": "disboard.org",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -14186,7 +14186,7 @@
    "name": "discord.com",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "bc8e09c86d5ee8654d434a3b0881eb3669873536efd5068159791ec5e8325c13",
@@ -14195,7 +14195,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V10.txt",
    "status": "added",
-   "target": 70
+   "target": 67
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -14204,7 +14204,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -14227,11 +14227,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 27,
-   "item_id": "",
+   "item_id": "D006",
    "name": "Facebook",
    "preset": "Universal V10.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -14240,7 +14240,7 @@
    "name": "Instagram",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -14258,7 +14258,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -14267,7 +14267,7 @@
    "name": "chatgpt",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -14276,7 +14276,7 @@
    "name": "Gemini",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -14285,7 +14285,7 @@
    "name": "Notion",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -14294,7 +14294,7 @@
    "name": "Claude",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -14303,7 +14303,7 @@
    "name": "DeepSeek",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -14312,7 +14312,7 @@
    "name": "Twitch",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -14321,7 +14321,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -14330,7 +14330,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -14339,7 +14339,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -14357,7 +14357,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -14366,7 +14366,7 @@
    "name": "rutracker.org",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -14375,16 +14375,16 @@
    "name": "LinkedIn",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 44,
-   "item_id": "",
+   "item_id": "D007",
    "name": "virustotal.com",
    "preset": "Universal V10.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -14393,7 +14393,7 @@
    "name": "modrinth.com",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -14402,7 +14402,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -14411,7 +14411,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -14429,7 +14429,7 @@
    "name": "Ubisoft",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -14438,7 +14438,7 @@
    "name": "SoundCloud",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -14447,7 +14447,7 @@
    "name": "Speedtest",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -14456,7 +14456,7 @@
    "name": "itch.io",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -14465,7 +14465,7 @@
    "name": "Fandom",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -14474,7 +14474,7 @@
    "name": "ntc.party",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -14483,7 +14483,7 @@
    "name": "obsidian.md",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -14492,7 +14492,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -14501,7 +14501,7 @@
    "name": "WhatsApp",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -14510,7 +14510,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -14519,7 +14519,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -14528,7 +14528,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -14537,7 +14537,7 @@
    "name": "Proton",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -14546,7 +14546,7 @@
    "name": "Signal",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -14555,7 +14555,7 @@
    "name": "Viber",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -14564,7 +14564,7 @@
    "name": "archive.org",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -14573,7 +14573,7 @@
    "name": "Bluesky",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -14582,7 +14582,7 @@
    "name": "Мои сайты",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -14591,7 +14591,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -14600,52 +14600,52 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V10.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "d9ed83c590f1032f3e655b5c264915e04c2326ea3bc220875dc668550e1336cb",
    "index": 0,
-   "item_id": "",
+   "item_id": "D032",
    "name": "Выбрано вручную: valheim",
    "preset": "Universal V9.txt",
-   "status": "added",
-   "target": 71
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "3923f14269e8bbf1ef8ab650f741ee3ce81cac6eb50b7ba6b1cdc4528ba8ec8f",
    "index": 1,
-   "item_id": "",
+   "item_id": "D033",
    "name": "Выбрано вручную: facebook",
    "preset": "Universal V9.txt",
-   "status": "added",
-   "target": 72
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "4ca3ab3b6ac0af8ae8651cd7f43233c2ccbec8f60944a6b597f8abaed4d2b0b1",
    "index": 2,
-   "item_id": "",
+   "item_id": "D034",
    "name": "Выбрано вручную: soundcloud",
    "preset": "Universal V9.txt",
-   "status": "added",
-   "target": 73
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1dc59506776a33896e31af92435d3d8edd3a84c87206531ba8e4c9254855205f",
    "index": 3,
-   "item_id": "",
+   "item_id": "D035",
    "name": "Выбрано вручную: speedtest",
    "preset": "Universal V9.txt",
-   "status": "added",
-   "target": 74
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "25187ea3ed2590ae6522ec9ffbd990353e736283ab04b8e5e4d1770cba872703",
    "index": 4,
-   "item_id": "",
+   "item_id": "D036",
    "name": "Выбрано вручную: medium",
    "preset": "Universal V9.txt",
-   "status": "added",
-   "target": 75
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "207a56924d2bdfcf9b1364547c1a05a59426c268e5f6e8e881c3483349129348",
@@ -14686,11 +14686,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 9,
-   "item_id": "",
+   "item_id": "D037",
    "name": "githubusercontent.com",
    "preset": "Universal V9.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -14699,7 +14699,7 @@
    "name": "Apple",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -14708,7 +14708,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -14717,7 +14717,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -14726,7 +14726,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -14735,7 +14735,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -14744,7 +14744,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -14753,7 +14753,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -14762,7 +14762,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -14771,7 +14771,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -14780,7 +14780,7 @@
    "name": "disboard.org",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -14789,7 +14789,7 @@
    "name": "discord.com",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "bc8e09c86d5ee8654d434a3b0881eb3669873536efd5068159791ec5e8325c13",
@@ -14798,7 +14798,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 70
+   "target": 67
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -14807,7 +14807,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -14830,11 +14830,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 25,
-   "item_id": "",
+   "item_id": "D038",
    "name": "Facebook",
    "preset": "Universal V9.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -14843,7 +14843,7 @@
    "name": "Instagram",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -14861,7 +14861,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -14870,7 +14870,7 @@
    "name": "chatgpt",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -14879,7 +14879,7 @@
    "name": "Gemini",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -14888,7 +14888,7 @@
    "name": "Notion",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -14897,7 +14897,7 @@
    "name": "Claude",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -14906,7 +14906,7 @@
    "name": "DeepSeek",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -14915,7 +14915,7 @@
    "name": "Twitch",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -14924,7 +14924,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -14933,7 +14933,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -14942,7 +14942,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -14960,7 +14960,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -14969,7 +14969,7 @@
    "name": "rutracker.org",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -14978,16 +14978,16 @@
    "name": "LinkedIn",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 42,
-   "item_id": "",
+   "item_id": "D039",
    "name": "virustotal.com",
    "preset": "Universal V9.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -14996,7 +14996,7 @@
    "name": "modrinth.com",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -15005,7 +15005,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -15014,7 +15014,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -15032,7 +15032,7 @@
    "name": "Ubisoft",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -15041,7 +15041,7 @@
    "name": "SoundCloud",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -15050,7 +15050,7 @@
    "name": "Speedtest",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -15059,7 +15059,7 @@
    "name": "itch.io",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -15068,7 +15068,7 @@
    "name": "Fandom",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -15077,7 +15077,7 @@
    "name": "ntc.party",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -15086,7 +15086,7 @@
    "name": "obsidian.md",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -15095,7 +15095,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -15104,7 +15104,7 @@
    "name": "WhatsApp",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -15113,7 +15113,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -15122,7 +15122,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -15131,7 +15131,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -15140,7 +15140,7 @@
    "name": "Proton",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -15149,7 +15149,7 @@
    "name": "Signal",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -15158,7 +15158,7 @@
    "name": "Viber",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -15167,7 +15167,7 @@
    "name": "archive.org",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -15176,7 +15176,7 @@
    "name": "Bluesky",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -15185,7 +15185,7 @@
    "name": "Мои сайты",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -15194,7 +15194,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -15203,7 +15203,7 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V9.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -15235,11 +15235,11 @@
   {
    "identity": "1ec3bc37b69c972d84670f352bd3179fee5f5cbbd13bf2db1e07113a435c3fa5",
    "index": 3,
-   "item_id": "",
+   "item_id": "D029",
    "name": "githubusercontent.com",
    "preset": "Universal V8.txt",
-   "status": "duplicate",
-   "target": 10
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "1b62fa7e8960c9a7402849d37c8e2b216ac9480ce7b258ea7a86737bf2429a20",
@@ -15248,7 +15248,7 @@
    "name": "Apple",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 11
+   "target": 10
   },
   {
    "identity": "7da83e66e3f0f3ce3256c1e7d24bfed2101722831d8ee9ee8547c0a4cb02f661",
@@ -15257,7 +15257,7 @@
    "name": "Cloudflare WARP API",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 12
+   "target": 11
   },
   {
    "identity": "f3bacc9852dcd0ea44e3f89ba2cdcd9ceecdb6a2f89e5aadfa010058d3981ad4",
@@ -15266,7 +15266,7 @@
    "name": "Cloudflare TCP",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 13
+   "target": 12
   },
   {
    "identity": "2570b6f2d2351b2e8ccbd351747acf97bf8f6f61b94a0c227e63ae3af82cc2d1",
@@ -15275,7 +15275,7 @@
    "name": "cloudfront.net",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 14
+   "target": 13
   },
   {
    "identity": "e57d1cdf3a6db91beba4505b20b949fa5422c56564f60f260aafe4390dbe8ab8",
@@ -15284,7 +15284,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "bfafe9022ab6c96f096614b0a5986334674952defad8644d74cbff077b572c55",
@@ -15293,7 +15293,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 16
+   "target": 15
   },
   {
    "identity": "015ceccdb2a37ecc2c8fc65f36256a462f8f9ca1c9327fb73f8c75bf1a32e576",
@@ -15302,7 +15302,7 @@
    "name": "youtube.com (QUIC)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 17
+   "target": 16
   },
   {
    "identity": "1f5ba450e66aef0cef4f23cb860fe33c3759676afb5bb8fc349700f5f455c32d",
@@ -15311,7 +15311,7 @@
    "name": "updates.discord.com",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fb85f87e452e70b8a13a47114179f58c406444d4831b285ad21fb91fe3ecca8c",
@@ -15320,7 +15320,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 20
+   "target": 19
   },
   {
    "identity": "7c045fa7bc37c5b33be4d236299dde442980a294aef7f6d4deededdedc90a926",
@@ -15329,7 +15329,7 @@
    "name": "disboard.org",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 21
+   "target": 20
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -15338,7 +15338,7 @@
    "name": "discord.com",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "bc8e09c86d5ee8654d434a3b0881eb3669873536efd5068159791ec5e8325c13",
@@ -15347,7 +15347,7 @@
    "name": "discord.com (IP fallback)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 70
+   "target": 67
   },
   {
    "identity": "d1a6eaf621c5bd65542ab67ebb64fc2c8637ff9d0ddf30a50625162210341a64",
@@ -15356,7 +15356,7 @@
    "name": "Голосовые звонки/чаты",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 23
+   "target": 22
   },
   {
    "identity": "bfc3dd332e7111c2db90c48248d85d2aecbc128d37069a26ee2232daf6898b7b",
@@ -15379,11 +15379,11 @@
   {
    "identity": "da36a8ec25fd4ff60ba85310d0a4a1e9489ab73202160b7a941f5c8da55333ec",
    "index": 19,
-   "item_id": "",
+   "item_id": "D030",
    "name": "Facebook",
    "preset": "Universal V8.txt",
-   "status": "duplicate",
-   "target": 25
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "99ece7a19aebeaf2367e378a0cb200ccf294d81b676c4de94d33ad2d2455ec0e",
@@ -15392,7 +15392,7 @@
    "name": "Instagram",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 26
+   "target": 24
   },
   {
    "identity": "20227314127e5391fe812032d03aae74dc723703d0768166dcf50762160eb3e4",
@@ -15410,7 +15410,7 @@
    "name": "Google (сервисы)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 29
+   "target": 27
   },
   {
    "identity": "e52cddabd9d237f571e6013fdad9a571b95a5e0508522e6f84df11398740058d",
@@ -15419,7 +15419,7 @@
    "name": "chatgpt",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 30
+   "target": 28
   },
   {
    "identity": "c0326d366e5bd01c639850bf545a45c24cf7fa87bdeb4e0afa778082f2edf1bb",
@@ -15428,7 +15428,7 @@
    "name": "Gemini",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 31
+   "target": 29
   },
   {
    "identity": "225cbc58560c520b88637f965f8879cdfc628e0bc5d94ef81858a35e72a152d9",
@@ -15437,7 +15437,7 @@
    "name": "Notion",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 32
+   "target": 30
   },
   {
    "identity": "87d46b832750cffec50ff9641c7e1ec2eee21990a8927dccd2cddb7c9952fdf4",
@@ -15446,7 +15446,7 @@
    "name": "Claude",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 33
+   "target": 31
   },
   {
    "identity": "43deeee08ffbb1465eb75d9e46a4182229caff3a40283543c4ea56988c913688",
@@ -15455,7 +15455,7 @@
    "name": "DeepSeek",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 34
+   "target": 32
   },
   {
    "identity": "9ec11664c70876c733b742d32a3daa199af369c9998fa5f8f8092b53f49d4921",
@@ -15464,7 +15464,7 @@
    "name": "Twitch",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 35
+   "target": 33
   },
   {
    "identity": "95adc20405e1e7c0fee6986d018f9af3d19884a8dcb9d5596f3313eae481db47",
@@ -15473,7 +15473,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 36
+   "target": 34
   },
   {
    "identity": "dfac391baa434dc4a411aded68e7326aafa4ec904df3b3fcbc4110b034f99c8c",
@@ -15482,7 +15482,7 @@
    "name": "awsapps.com (AWS SSO / WorkSpaces)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 37
+   "target": 35
   },
   {
    "identity": "225cf57b21fe2492b3dabd3438eda0c8ff9c9f2b4b0dd55fb21ba8271bbe87a6",
@@ -15491,7 +15491,7 @@
    "name": "Amazon TCP",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 38
+   "target": 36
   },
   {
    "identity": "bde8951f3cf9e5c9f7ffef19d3c53cc6e6faf4452c4337898d47d202f1454706",
@@ -15509,7 +15509,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 40
+   "target": 38
   },
   {
    "identity": "ed159e29c1b89bedf48520eccb70cfec2ae3a1a1c403cf2ea85fa4a080239d4d",
@@ -15518,7 +15518,7 @@
    "name": "rutracker.org",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 41
+   "target": 39
   },
   {
    "identity": "748f5d034d89c7868672fcd3baaf5785da44478d2a8ac5ba1f12f5cd09c92ead",
@@ -15527,16 +15527,16 @@
    "name": "LinkedIn",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 42
+   "target": 40
   },
   {
    "identity": "46849ada600b17b8a46e0b809410457edf9491bb0c7ec41fbee9e4056a125646",
    "index": 36,
-   "item_id": "",
+   "item_id": "D031",
    "name": "virustotal.com",
    "preset": "Universal V8.txt",
-   "status": "duplicate",
-   "target": 43
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "d82992ecc6bd4ecea7215f26ed07081b5edc8576a2087124c869e503a3a0a061",
@@ -15545,7 +15545,7 @@
    "name": "modrinth.com",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 44
+   "target": 41
   },
   {
    "identity": "de42614a9dc97b634bbac8ad660513be0867020b76c56d3450801fcf8520c65d",
@@ -15554,7 +15554,7 @@
    "name": "skinsrestorer.net",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 45
+   "target": 42
   },
   {
    "identity": "734ea8cefc3e0c88ccdd82c81df16098b3959aa2633fde9d957cc0e6d8494676",
@@ -15563,7 +15563,7 @@
    "name": "i.scdn.co (обложки Spotify)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 46
+   "target": 43
   },
   {
    "identity": "c4741f746169efc571e09ba6e783d151511b2f6adc84bba2dc718f51296f70b9",
@@ -15581,7 +15581,7 @@
    "name": "Ubisoft",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "1070d89b0479dd5eeea6f26c8e7aad78deda088322d6d44e34411e64fd6db759",
@@ -15590,7 +15590,7 @@
    "name": "SoundCloud",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 48
+   "target": 45
   },
   {
    "identity": "0697ce8f68985e8b9bd3b701b99e8825fd60a3cc90ab63d7007d4b6b7e55157f",
@@ -15599,7 +15599,7 @@
    "name": "Speedtest",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "0b2e7d70edf7f4a00fee4d0bf9ebdab853b8d85a2037910a98b4884c33b0f999",
@@ -15608,7 +15608,7 @@
    "name": "itch.io",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -15617,7 +15617,7 @@
    "name": "Fandom",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "852503d09837aac4dff1fa210f361d0adc4172a80fe565f0f94cdc816bf5d5eb",
@@ -15626,7 +15626,7 @@
    "name": "ntc.party",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "b0640403a9ab5d678e642898a5ef2abb6639414b7048b77ca01db00b9c65c0d4",
@@ -15635,7 +15635,7 @@
    "name": "obsidian.md",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "7aa9194aa99c897f4c9d45e948189e4f4ed471f131e9750a8a6724e4a130dde5",
@@ -15644,7 +15644,7 @@
    "name": "Microsoft Store",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "3cd75a4d42eaed4a85c82b869eb50313f2d2cb697a8c6ba152e7292a51171f15",
@@ -15653,7 +15653,7 @@
    "name": "WhatsApp",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 55
+   "target": 52
   },
   {
    "identity": "089b4f813b78bd4e9dc53713b563ce51c6d729dc893250e45ae0659c89e50362",
@@ -15662,7 +15662,7 @@
    "name": "static.whatsapp.net",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 56
+   "target": 53
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -15671,7 +15671,7 @@
    "name": "AnyDesk TCP",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "acb459674114a2c606b7dd00213f408b0cc644e7ac47ddbebbc46b24a5b94617",
@@ -15680,7 +15680,7 @@
    "name": "AnyDesk UDP",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "c139f1f6be4f53029ab0b2cd10dcdb6ea7797ce3f118f75eb663ba5fdae677af",
@@ -15689,7 +15689,7 @@
    "name": "Proton",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 60
+   "target": 57
   },
   {
    "identity": "b73d95ce4b24847fdbe2f6153ef27c77b2b3386f971c34a884839de5ed425adf",
@@ -15698,7 +15698,7 @@
    "name": "Signal",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 61
+   "target": 58
   },
   {
    "identity": "a6dbcb58b368e02c67b2f048eb98e655c03feb776a5583e80ca23ca0d0eeca6a",
@@ -15707,7 +15707,7 @@
    "name": "Viber",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 62
+   "target": 59
   },
   {
    "identity": "859e98e9d083fcdb48fcf33abb537739c48e81b98214c512ffe2a853bb78671c",
@@ -15716,7 +15716,7 @@
    "name": "archive.org",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 63
+   "target": 60
   },
   {
    "identity": "d599187e54b01ab17cf38b1d22d34e64491df557e923ab293e31e6d81bcd1225",
@@ -15725,7 +15725,7 @@
    "name": "Bluesky",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 64
+   "target": 61
   },
   {
    "identity": "d89840945b2cc26c6a8c0629d31fc66036f878fe616b552bd85fcfc1f2698751",
@@ -15734,7 +15734,7 @@
    "name": "Мои сайты",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 65
+   "target": 62
   },
   {
    "identity": "e434ebe0b7f850c8364d0e633d0598b40ceeaca9adc869df425e36481b82048e",
@@ -15743,7 +15743,7 @@
    "name": "rutor.info (.is)",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 66
+   "target": 63
   },
   {
    "identity": "6fed6aa928db62b921fd86921b616e3bb57b8a3cca4115154c07deae2d069e55",
@@ -15752,25 +15752,25 @@
    "name": "Russia blacklist TCP 443",
    "preset": "Universal V8.txt",
    "status": "duplicate",
-   "target": 67
+   "target": 64
   },
   {
    "identity": "7e6ce0b6909c83d04df918efffdc788d8b3795654f0f6437ea76b65c05bd986a",
    "index": 0,
-   "item_id": "",
+   "item_id": "D001",
    "name": "Signal",
    "preset": "Default + YouTube no QUIC + wssize.txt",
-   "status": "added",
-   "target": 76
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "eb0d502235f60d55f19541d31ec176366c504a9e207095ced40810c86db69dda",
    "index": 1,
-   "item_id": "",
+   "item_id": "D002",
    "name": "Matrix",
    "preset": "Default + YouTube no QUIC + wssize.txt",
-   "status": "added",
-   "target": 77
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "136a4f27fdbe361510f963104dacc285dcf1ebecc35abc64f9122338c3783202",
@@ -15779,7 +15779,7 @@
    "name": "SimpleX",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 78
+   "target": 68
   },
   {
    "identity": "ea22291bb025eeffe19569f9c8f5ac83362dccc12be03c643dbe4b9df419cea5",
@@ -15806,7 +15806,7 @@
    "name": "YouTube · быстрый протокол QUIC",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 79
+   "target": 69
   },
   {
    "identity": "2b3581901319ed4426f8644db7a7dc4fe817a9c964ba32f677ec85706754f03e",
@@ -15820,11 +15820,11 @@
   {
    "identity": "77c796e965dd35f2719d8c3a896c72ee053e0dedf106d27096ab6d42cb775092",
    "index": 7,
-   "item_id": "",
+   "item_id": "D003",
    "name": "Бэкенд Google",
    "preset": "Default + YouTube no QUIC + wssize.txt",
-   "status": "added",
-   "target": 80
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "b5ca88cb2e7460699cf0740a582959dcc6526bae95251ce577f511f495f739ee",
@@ -15833,7 +15833,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -15860,7 +15860,7 @@
    "name": "obsidian.md",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 82
+   "target": 71
   },
   {
    "identity": "14ac874ccd14e488caa6b2d10cf80d87e8aa30e4d1d67aff51269fa15dae86be",
@@ -15887,7 +15887,7 @@
    "name": "SoundCloud",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 83
+   "target": 72
   },
   {
    "identity": "9c79c74e66520f578ab955aa4f81e22d70aad2a6f6ee95ba30dab7ff2e9a8b82",
@@ -15896,7 +15896,7 @@
    "name": "rutracker.org",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 84
+   "target": 73
   },
   {
    "identity": "8e5a0beefc217886c956c9db993023fbd4fbb10fcc553a24c27ed2d5eae8240e",
@@ -15905,7 +15905,7 @@
    "name": "rutor.info (.is)",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 85
+   "target": 74
   },
   {
    "identity": "17aaee8c35bdcfd8922e5db04b3e991cd84c95dd86b272af255eea2dbf627306",
@@ -15914,7 +15914,7 @@
    "name": "Roblox · игра",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 86
+   "target": 75
   },
   {
    "identity": "7b6382a41b5d846c0e7a036e70869e87190a46ee9a1ad8e3f7a3c1c1cdf0c866",
@@ -15932,7 +15932,7 @@
    "name": "Facebook",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 87
+   "target": 76
   },
   {
    "identity": "56e6fe8e52b1814abdec5e8af6cdcc7a8c145e97fdff9e44049ad6559fefa1b7",
@@ -15941,7 +15941,7 @@
    "name": "Instagram",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 88
+   "target": 77
   },
   {
    "identity": "8236b00e8fd5e32ea12c5eaeea7ea1d79bd03630edc111a86a06febfb7097397",
@@ -16004,7 +16004,7 @@
    "name": "Tanki X",
    "preset": "Default + YouTube no QUIC + wssize.txt",
    "status": "added",
-   "target": 89
+   "target": 78
   },
   {
    "identity": "c4b798003c91cea2c5f0804a01446b66dbf14b7ab4d3f62ee8b0b652a33f0690",
@@ -16022,7 +16022,7 @@
    "name": "AnyDesk UDP",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 59
+   "target": 56
   },
   {
    "identity": "3153187c9435084e0930bdbc4ba880c5467e56298fe43870d9410ed18757a4da",
@@ -16031,7 +16031,7 @@
    "name": "AnyDesk TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 57
+   "target": 54
   },
   {
    "identity": "0eac97d4361082242af9c7b5daeba5eca2961eade26bb91761565f96753f8ecd",
@@ -16040,7 +16040,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 90
+   "target": 79
   },
   {
    "identity": "0090674bd9427042ac9fc00d7c53032463cc74f452974680079c4c2504091441",
@@ -16067,7 +16067,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -16108,11 +16108,11 @@
   {
    "identity": "151dadfce3903888008a6e81ff1c8011089e584f9d9eaec6d2b6de8fe3a44f89",
    "index": 11,
-   "item_id": "",
+   "item_id": "D004",
    "name": "discord (images)",
    "preset": "Default v1 (game filter).txt",
-   "status": "added",
-   "target": 91
+   "status": "dead",
+   "target": null
   },
   {
    "identity": "44d7830c54b9ef452f76d36eb0f683662ea418fa77e1552f8079386e0a107e21",
@@ -16139,7 +16139,7 @@
    "name": "ntc.party",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 52
+   "target": 49
   },
   {
    "identity": "9c42b8a76821a8cfc90962109c8ab3bbb46c0bcba275a23e761388d16fb7616a",
@@ -16148,7 +16148,7 @@
    "name": "Fandom",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 51
+   "target": 48
   },
   {
    "identity": "ef0aceb4d4db0f7538fecbf0b1d6eff701a7e786bd1445887440bba35fda42d2",
@@ -16166,7 +16166,7 @@
    "name": "obsidian.md",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 53
+   "target": 50
   },
   {
    "identity": "105bc6c3e99b009d5c899b696851947c0d90ad8fc0661422209e85cb29175d87",
@@ -16184,7 +16184,7 @@
    "name": "Speedtest",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 49
+   "target": 46
   },
   {
    "identity": "6c02fea0d5be16a1277bd08acb21bd5f7953e268f74a2765279ddd6cd9fc3efd",
@@ -16193,7 +16193,7 @@
    "name": "Roblox TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 92
+   "target": 80
   },
   {
    "identity": "b6c9d107085cce14f352694f61ee667880a7d2f9b3b93c6035f35ff1407af533",
@@ -16202,7 +16202,7 @@
    "name": "Ubisoft",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 47
+   "target": 44
   },
   {
    "identity": "de3319027bcf2db4aa98f9c405c88a56bd6fe8c283674eda33b1acd8e3d46fce",
@@ -16220,7 +16220,7 @@
    "name": "Google TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 93
+   "target": 81
   },
   {
    "identity": "9b8cbb2a9eb2a4e15a001a0e5b59094ff71279f7d312f25c22e4eb9e9704230f",
@@ -16229,7 +16229,7 @@
    "name": "TikTok",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 94
+   "target": 82
   },
   {
    "identity": "791aa925c3620172c839448fe83a41b0033a0596dc074f415483cf2ab6123272",
@@ -16256,7 +16256,7 @@
    "name": "Microsoft Store",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 54
+   "target": 51
   },
   {
    "identity": "663e65df552d2eb0e1fe739e674a8f59415565db7a5236efb8722ddbd6c86b06",
@@ -16283,7 +16283,7 @@
    "name": "itch.io",
    "preset": "Default v1 (game filter).txt",
    "status": "duplicate",
-   "target": 50
+   "target": 47
   },
   {
    "identity": "4478c69462fc3416bceac6592ba25e7b1f14ac5c2b0d23e90ce7a399f183a1f8",
@@ -16292,7 +16292,7 @@
    "name": "Мои сайты",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 95
+   "target": 83
   },
   {
    "identity": "77db131b606ea732618ef74c8452b7d777189fb6b78add4d9079f47a69f36c62",
@@ -16301,7 +16301,7 @@
    "name": "Facebook",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 96
+   "target": 84
   },
   {
    "identity": "57c42aee11ade960c4eb9fba03804aeda364ea7a9b202de9004f4b9e00adf21b",
@@ -16328,7 +16328,7 @@
    "name": "Cloudflare TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 97
+   "target": 85
   },
   {
    "identity": "7eaf949e713a564723a8f0e7dc833fe311e062f6150ee71173df3b5e6a48a806",
@@ -16346,7 +16346,7 @@
    "name": "WorldStream TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 98
+   "target": 86
   },
   {
    "identity": "e433674996b6be7181f55ee859bfeba93665b027bb20a2ed9be3d7b43bace16a",
@@ -16355,7 +16355,7 @@
    "name": "OVH TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 99
+   "target": 87
   },
   {
    "identity": "22b5d85fc071518a8cc7f8c99cd979443db32224a272a6ec5e74fde93d9ce797",
@@ -16364,7 +16364,7 @@
    "name": "DigitalOcean TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 100
+   "target": 88
   },
   {
    "identity": "37e729b2012b35aeebe1de08a1db6ef9e8ce85c60434a77f284068396e07d734",
@@ -16373,7 +16373,7 @@
    "name": "Datacamp TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 101
+   "target": 89
   },
   {
    "identity": "87ffe35d5736d38e4ee7c1399c31e5400c8cf6f351ef51c434ad1e25fe30e159",
@@ -16382,7 +16382,7 @@
    "name": "NovoServe TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 102
+   "target": 90
   },
   {
    "identity": "038a574ae11a8db81ffed54f2201708fbb7943fb3ff094e2131e5810e89b9688",
@@ -16391,7 +16391,7 @@
    "name": "FranTech Solutions TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 103
+   "target": 91
   },
   {
    "identity": "f6b2aa586854c434b08ae5a4d274ca945dc05c512bb02eec0147d7dbfa5b019d",
@@ -16400,7 +16400,7 @@
    "name": "Fastly TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 104
+   "target": 92
   },
   {
    "identity": "51a8ee17457525a128fa2bd93bb508008517953cae2384410e5fb03695309eac",
@@ -16409,7 +16409,7 @@
    "name": "Akamai TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 105
+   "target": 93
   },
   {
    "identity": "fcfe3c5047fa90a33b8142bddea16b3e31ccf9226c1ab8151550cf754ff47504",
@@ -16418,7 +16418,7 @@
    "name": "Railway TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 106
+   "target": 94
   },
   {
    "identity": "23b064f3eb9f598c4888630d72b9199a06003c349db82066bc6cc8f83b6b3e21",
@@ -16427,7 +16427,7 @@
    "name": "Google Cloud TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 107
+   "target": 95
   },
   {
    "identity": "c37a1fff5303c21033e3936c6bf9d347d8e94d16870652ef4773ff01135b585a",
@@ -16445,7 +16445,7 @@
    "name": "League of Legends RU TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 108
+   "target": 96
   },
   {
    "identity": "f9f5457e51b6c6c15113787958713c2f2f5a5bab0ced5dc2c0866eff6d7fd490",
@@ -16454,7 +16454,7 @@
    "name": "League of Legends EUW TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 109
+   "target": 97
   },
   {
    "identity": "56b9943c2cf3c9f688a2a0987ea2a97b5ef54af08cba86c3ef92e4ba96cceb87",
@@ -16463,7 +16463,7 @@
    "name": "WARP TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 110
+   "target": 98
   },
   {
    "identity": "d3c85c0a6bc9ad7e42c8dceb4951a615c5d66a53d0d3b746249f3c670cbdc6c1",
@@ -16472,7 +16472,7 @@
    "name": "ZapretKVN TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 111
+   "target": 99
   },
   {
    "identity": "d1b95ca58c6c0590bc42c03229d49511cc5ff36da72002f91009de6bf2272dd4",
@@ -16481,7 +16481,7 @@
    "name": "Timeweb TCP",
    "preset": "Default v1 (game filter).txt",
    "status": "added",
-   "target": 112
+   "target": 100
   },
   {
    "identity": "24685e005e4d1bf94ac9d7e37414290152b7e83cf19c93d7ee08b7c76208cf96",
@@ -16652,7 +16652,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Default v2 (game filter).txt",
    "status": "duplicate",
-   "target": 15
+   "target": 14
   },
   {
    "identity": "b5ca88cb2e7460699cf0740a582959dcc6526bae95251ce577f511f495f739ee",
@@ -16661,7 +16661,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default v2 (game filter).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -16679,7 +16679,7 @@
    "name": "updates.discord.com",
    "preset": "Default v2 (game filter).txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "7aa61b3ed77d027517cb40347f3068636af2aa4107e622dbcf7f8d77347a4141",
@@ -16688,7 +16688,7 @@
    "name": "obsidian.md",
    "preset": "Default v2 (game filter).txt",
    "status": "duplicate",
-   "target": 82
+   "target": 71
   },
   {
    "identity": "23bce32e6a8aec9fc4d04bcbd064c7d888e83be12a5f53280e0d981c55b655d8",
@@ -16697,7 +16697,7 @@
    "name": "discord.com",
    "preset": "Default v2 (game filter).txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "e4c45daf2e7c840b5a95540ba6a71803d06ec2072cbfb5a0caf6a167dad27542",
@@ -16832,7 +16832,7 @@
    "name": "discord.com",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 113
+   "target": 101
   },
   {
    "identity": "6713704e86eb58510063954ba5a5169f93cfb00428a80fed51ff922ffa782bfc",
@@ -16841,7 +16841,7 @@
    "name": "Cloudflare TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 114
+   "target": 102
   },
   {
    "identity": "b121946042d803464c8df39e917060cab92cab0ba10a45ec966f31986359334b",
@@ -16850,7 +16850,7 @@
    "name": "cloudfront.net",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 115
+   "target": 103
   },
   {
    "identity": "b95eae2cd143f8771ec08fcc83bc946a9b13e5ab417488b189b9fb96fa876a22",
@@ -16859,7 +16859,7 @@
    "name": "Amazon TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 116
+   "target": 104
   },
   {
    "identity": "bce299f1b42efbd9fa666247ec766b1b5d2f46369218c3926155c281d1597dcb",
@@ -16868,7 +16868,7 @@
    "name": "EpicGames & Fortnite",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 117
+   "target": 105
   },
   {
    "identity": "e8909a92da4bcfcdc9ed28930ad86d3ec93036398ade6e87a76ebffc97fcf0b5",
@@ -16877,7 +16877,7 @@
    "name": "League of Legends RU TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 118
+   "target": 106
   },
   {
    "identity": "cc40b8595197b369d2f7c47fec6b76c40f4689332a6bcb6329e04728f5a01f2e",
@@ -16886,7 +16886,7 @@
    "name": "League of Legends EUW TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 119
+   "target": 107
   },
   {
    "identity": "c35c638ac837384da2cf125dc5e64a143049ad4f0be5c4f7b9b858440b784175",
@@ -16895,7 +16895,7 @@
    "name": "OVH TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 120
+   "target": 108
   },
   {
    "identity": "32f469533964b644125440ae905174da60d395970dffd107ebb7420f5675ee6f",
@@ -16904,7 +16904,7 @@
    "name": "WhatsApp",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 121
+   "target": 109
   },
   {
    "identity": "28dbbbca987ffcdb0fa3162a1f252e5014fbf14c93b833b26846adfc6a7cf152",
@@ -16913,7 +16913,7 @@
    "name": "WARP TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 122
+   "target": 110
   },
   {
    "identity": "6766dd535a724c79adee4a9143dba606d60a6fd6c92d68678ae5964113ec5d16",
@@ -16922,7 +16922,7 @@
    "name": "ZapretKVN TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 123
+   "target": 111
   },
   {
    "identity": "f71124eb97b78277ce0315c62e58fee2e13a37883f5979c6db04789a0686533a",
@@ -16931,7 +16931,7 @@
    "name": "Timeweb TCP",
    "preset": "Default v2 (game filter).txt",
    "status": "added",
-   "target": 124
+   "target": 112
   },
   {
    "identity": "dedd96571e98c229fa68b4c7cd5f0986834ac790891e5171e066a1398fbe6b3c",
@@ -17093,7 +17093,7 @@
    "name": "youtube.com (RTMPS Россия)",
    "preset": "Default v3 (game filter).txt",
    "status": "added",
-   "target": 125
+   "target": 113
   },
   {
    "identity": "b5ca88cb2e7460699cf0740a582959dcc6526bae95251ce577f511f495f739ee",
@@ -17102,7 +17102,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default v3 (game filter).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -17120,7 +17120,7 @@
    "name": "updates.discord.com",
    "preset": "Default v3 (game filter).txt",
    "status": "duplicate",
-   "target": 19
+   "target": 18
   },
   {
    "identity": "fc173a18a21a54c17d5359553fb7ac1a5551b8d9ea48f8cd4b9d915f672b884a",
@@ -17138,7 +17138,7 @@
    "name": "discord.com",
    "preset": "Default v3 (game filter).txt",
    "status": "duplicate",
-   "target": 22
+   "target": 21
   },
   {
    "identity": "7aa61b3ed77d027517cb40347f3068636af2aa4107e622dbcf7f8d77347a4141",
@@ -17147,7 +17147,7 @@
    "name": "obsidian.md",
    "preset": "Default v3 (game filter).txt",
    "status": "duplicate",
-   "target": 82
+   "target": 71
   },
   {
    "identity": "d2964695fdf7e53a04b5256cd8960c9804c42a51a27d28abc647c535a5cadb05",
@@ -17192,7 +17192,7 @@
    "name": "itch.io",
    "preset": "Default v3 (game filter).txt",
    "status": "added",
-   "target": 126
+   "target": 114
   },
   {
    "identity": "aa37730f76d7c640458ef88326e77b30337664608475f94a6516a5bc04b6f14d",
@@ -17201,7 +17201,7 @@
    "name": "Google (сервисы)",
    "preset": "Default v3 (game filter).txt",
    "status": "added",
-   "target": 127
+   "target": 115
   },
   {
    "identity": "e7a5612c2e3a2b48cf667d6ef5793c05dc1db599f248f537b893390aa3421088",
@@ -17264,7 +17264,7 @@
    "name": "Tanki X",
    "preset": "Default v3 (game filter).txt",
    "status": "duplicate",
-   "target": 89
+   "target": 78
   },
   {
    "identity": "6f9b1696720fa12a3661cb89b83008eeacfc00d5a8013486b0ec1c1ed075e02d",
@@ -17372,7 +17372,7 @@
    "name": "googlevideo.com (CDN сервера)",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 128
+   "target": 116
   },
   {
    "identity": "cbca52c09d6a9a60b76ab820432685dbdce4ccaaacdbf995949892e6f5fd5f75",
@@ -17381,7 +17381,7 @@
    "name": "youtube.com (интерфейс)",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 129
+   "target": 117
   },
   {
    "identity": "c2486f0dbfbe1e2891712fe55cd8d80b5fd2eea5840b7f4fc6d5192b082625cd",
@@ -17399,7 +17399,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default v4 (game filter).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -17417,7 +17417,7 @@
    "name": "DeepSeek",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 130
+   "target": 118
   },
   {
    "identity": "e853da659225705d28e51f56be5a2a954b4079e331605ad35fcd5b224172108c",
@@ -17426,7 +17426,7 @@
    "name": "Ubisoft",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 131
+   "target": 119
   },
   {
    "identity": "229f4c39250d43f87aec21d28510fdfb064f121ce23f7fc7f9904f7622bc1db6",
@@ -17435,7 +17435,7 @@
    "name": "updates.discord.com",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 132
+   "target": 120
   },
   {
    "identity": "72479f5648778b87e67e19071a62b17ef7ab8f352dd1cb2bee33d8a8b7f38865",
@@ -17444,7 +17444,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 133
+   "target": 121
   },
   {
    "identity": "8b804356151467dcd5cec8796c80ae7cefe5c838c4b9591cedf3c8d5d01f04a9",
@@ -17453,7 +17453,7 @@
    "name": "discord.com",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 134
+   "target": 122
   },
   {
    "identity": "7aa61b3ed77d027517cb40347f3068636af2aa4107e622dbcf7f8d77347a4141",
@@ -17462,7 +17462,7 @@
    "name": "obsidian.md",
    "preset": "Default v4 (game filter).txt",
    "status": "duplicate",
-   "target": 82
+   "target": 71
   },
   {
    "identity": "7ffd927174361264d7c022d49cac064128f0d1292f7432858a1bb0397982f539",
@@ -17489,7 +17489,7 @@
    "name": "Roblox TCP",
    "preset": "Default v4 (game filter).txt",
    "status": "added",
-   "target": 135
+   "target": 123
   },
   {
    "identity": "2aa798ceef0a9c7e930d57165ebb6481d8f57f353128a11b849319f6430ce7c0",
@@ -17786,7 +17786,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "Default v5 (game filter).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -17858,7 +17858,7 @@
    "name": "rutracker.org",
    "preset": "Default v5 (game filter).txt",
    "status": "added",
-   "target": 136
+   "target": 124
   },
   {
    "identity": "6eacd1b10efac05a2dd70c3035a201b7fd352aaa95259bae8ce237857ebe32ce",
@@ -17894,7 +17894,7 @@
    "name": "Tanki X",
    "preset": "Default v5 (game filter).txt",
    "status": "added",
-   "target": 137
+   "target": 125
   },
   {
    "identity": "64f3d81cd05ab63a9722a4affb5b6bc557ea8e14e1c7ee2d33e75cbcf70d9b31",
@@ -17921,7 +17921,7 @@
    "name": "Roblox TCP",
    "preset": "Default v5 (game filter).txt",
    "status": "added",
-   "target": 138
+   "target": 126
   },
   {
    "identity": "d43abee398915b9c70a925081088c29317b49608f8070d3d86b6a0c506989d88",
@@ -18110,7 +18110,7 @@
    "name": "discord.media (voice RTC)",
    "preset": "ALL TCP & UDP multisplit_stun.txt",
    "status": "added",
-   "target": 139
+   "target": 127
   },
   {
    "identity": "d71a20ee8d83d8b7c934fc10765b29d19b154d4b8a3cb3111939304c5a67f7fc",
@@ -18119,7 +18119,7 @@
    "name": "discord (images)",
    "preset": "ALL TCP & UDP multisplit_stun.txt",
    "status": "added",
-   "target": 140
+   "target": 128
   },
   {
    "identity": "a30fd2bb22a81ec7261db04db9f05183abf12bab2876a5cce0fc8b3be7cf597e",
@@ -18128,7 +18128,7 @@
    "name": "updates.discord.com",
    "preset": "ALL TCP & UDP multisplit_stun.txt",
    "status": "added",
-   "target": 141
+   "target": 129
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -18164,7 +18164,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "white sni (circular).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -18200,7 +18200,7 @@
    "name": "Исключения домены (RU сайты)",
    "preset": "shadow probes (circular).txt",
    "status": "duplicate",
-   "target": 81
+   "target": 70
   },
   {
    "identity": "258bff481906f091cf5ab183a44991742d7db211c1e5b418d114124c085367d9",
@@ -18230,5 +18230,6 @@
    "target": null
   }
  ],
+ "slimmed": 12,
  "source": "RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa"
 }

@@ -9,11 +9,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "008a0b47a57f6ece4d5be9777a4c263ad342fd14c4e0c96f7dac2a91584eb6a0",
     ),
     (
-        "lists/google-backend.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/google-backend.txt"),
-        "3c0fb75c2ebdef99ef1a3d8226ea735dae2d387d88905c161952d17a9714c881",
-    ),
-    (
         "lists/ipset-akamai.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/ipset-akamai.txt"),
         "11ce16478645955046e8a6cd4c58757642620818630e221e46e550fcaa00fe51",
@@ -117,11 +112,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "lists/ipset-zapretkvn.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/ipset-zapretkvn.txt"),
         "f9ce8a7290fe6d42dde33bff0293b868c25557d1d4c69bc28c85d16286d89036",
-    ),
-    (
-        "lists/matrix.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/matrix.txt"),
-        "0019f9cd1002f270d0ec7b0748e4d6f2a04b654c3b7a28b5c8de1dcf6bcfc556",
     ),
     (
         "lists/netrogat.txt",
@@ -619,11 +609,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "lists/roblox.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/roblox.txt"),
         "278ede5763d33be4bfcb3016790cccc4bea71d53a62d0f0a63941145a36b5185",
-    ),
-    (
-        "lists/signal.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/signal.txt"),
-        "43e6e23a15674a02783f724d9521491345350b0e5264b254bc67241f01533583",
     ),
     (
         "lists/simplex.txt",

@@ -191,7 +191,7 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
                 rec.item_id = next_id()
                 rec.detail = (
                     f"тот же трафик, другое действие; оставлено действие секции «{merged_sections[t].name}» "
-                    f"(№{t + 1} итогового пресета), как в основе или более раннем пресете"
+                    "как в основе или более раннем пресете"
                 )
                 continue
             if not sec.is_scoped() or _only_broad(sec, broad_lists):
@@ -336,7 +336,7 @@ def check_coverage(cov: dict, sections: list[Section], globals_: list[str]) -> l
         elif rec["status"] == "duplicate":
             if rec["identity"] not in ids:
                 problems.append(f"{rec['preset']}#{rec['index']}: дубль без оригинала")
-        elif rec["status"] in ("conflict", "excluded", "removed"):
+        elif rec["status"] in ("conflict", "excluded", "removed", "dead"):
             if not rec["item_id"]:
                 problems.append(f"{rec['preset']}#{rec['index']}: нет номера записи")
         else:

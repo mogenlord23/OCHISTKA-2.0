@@ -37,6 +37,19 @@ class OutputTests(unittest.TestCase):
                 for w in words:
                     self.assertNotIn(w, f.lower())
 
+    def test_slimming_is_idempotent_and_proven(self):
+        import slim
+
+        def load(rel):
+            for root in (RUNTIME, EXTRA):
+                path = os.path.join(root, rel)
+                if os.path.isfile(path):
+                    return [x.strip() for x in read(path).splitlines() if x.strip() and not x.strip().startswith("#")]
+            return None
+
+        m = zpreset.parse(read(PRESET))
+        self.assertEqual(slim.find_dead(m.sections, load), [], "в итоговом пресете не осталось недостижимых секций")
+
     def test_protected_files_are_untouched(self):
         base = os.path.join(REPO, "assets/desync/presets/Universal V13 Lite.txt")
         self.assertEqual(
@@ -70,7 +83,14 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(len(m.globals), len(set(m.globals)))
         words = ("telegram", "steam", "riot", "valorant")
         kept = [s for s in base.sections if not any(w in " ".join(s.args).lower() for w in words)]
-        self.assertEqual([s.args for s in m.sections[: len(kept)]], [s.args for s in kept])
+        # Основа идёт первой и в прежнем порядке; пропавшие секции основы — только недостижимые
+        # (перекрыты более ранними), они записаны в манифесте как dead.
+        cov = json.loads(read(os.path.join(REPO, "docs/status/bypass-merge-coverage.json")))
+        dead_ids = {r["identity"] for r in cov["sections"] if r["status"] == "dead"}
+        expected = [s for s in kept if s.identity() not in dead_ids]
+        self.assertEqual([s.args for s in m.sections[: len(expected)]], [s.args for s in expected])
+        for s_ in kept:
+            self.assertTrue(s_.identity() in dead_ids or s_.args in [x.args for x in m.sections])
         for g in base.globals:
             if not any(w in g.lower() for w in words):
                 self.assertIn(g, m.globals)

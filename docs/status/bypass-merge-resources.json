@@ -11,12 +11,6 @@
    "size_bytes": 76
   },
   {
-   "destination": "lists/google-backend.txt",
-   "source_path": "vendor/zapret-gui/lists/google-backend.txt",
-   "sha256": "3c0fb75c2ebdef99ef1a3d8226ea735dae2d387d88905c161952d17a9714c881",
-   "size_bytes": 75
-  },
-  {
    "destination": "lists/ipset-akamai.txt",
    "source_path": "vendor/zapret-gui/lists/ipset-akamai.txt",
    "sha256": "11ce16478645955046e8a6cd4c58757642620818630e221e46e550fcaa00fe51",
@@ -141,12 +135,6 @@
    "source_path": "vendor/zapret-gui/lists/ipset-zapretkvn.txt",
    "sha256": "f9ce8a7290fe6d42dde33bff0293b868c25557d1d4c69bc28c85d16286d89036",
    "size_bytes": 10718
-  },
-  {
-   "destination": "lists/matrix.txt",
-   "source_path": "vendor/zapret-gui/lists/matrix.txt",
-   "sha256": "0019f9cd1002f270d0ec7b0748e4d6f2a04b654c3b7a28b5c8de1dcf6bcfc556",
-   "size_bytes": 32
   },
   {
    "destination": "lists/netrogat.txt",
@@ -741,12 +729,6 @@
    "source_path": "vendor/zapret-gui/lists/roblox.txt",
    "sha256": "278ede5763d33be4bfcb3016790cccc4bea71d53a62d0f0a63941145a36b5185",
    "size_bytes": 1048
-  },
-  {
-   "destination": "lists/signal.txt",
-   "source_path": "vendor/zapret-gui/lists/signal.txt",
-   "sha256": "43e6e23a15674a02783f724d9521491345350b0e5264b254bc67241f01533583",
-   "size_bytes": 11
   },
   {
    "destination": "lists/simplex.txt",

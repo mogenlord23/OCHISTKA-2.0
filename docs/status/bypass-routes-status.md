@@ -140,6 +140,6 @@
 | photon-network | ipset | game | catalog | справочно: действие не задано |
 | roblox-network | ipset | game | catalog | справочно: действие не задано |
 
-## Секции итогового пресета (145)
+## Секции итогового пресета (133)
 
 Основа Universal V13 Lite (без удалённых сервисов) + секции из других пресетов + щиты pass. Состав по секциям: `assets/desync/presets/OCHISTKA Merged.txt`; причины исключений: `bypass-merge-conflicts.md`.
