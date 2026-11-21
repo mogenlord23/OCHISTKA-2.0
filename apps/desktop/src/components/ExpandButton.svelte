@@ -59,10 +59,11 @@
       border-color 0.3s;
   }
 
-  /* В покое 14 px; при наведении та же иконка вырастает scale до ~22 px и уходит вниз. */
+  /* В покое 20 px (как значки окна). При наведении иконка вырастает в 2,4 раза и уходит вниз:
+     низ намеренно срезается границей кнопки (overflow: hidden), как в smart-emu-83. */
   .icon {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     flex: none;
     transform-origin: center;
     transition: transform 0.3s;
@@ -71,7 +72,7 @@
   .icon path {
     fill: none;
     stroke: currentColor;
-    stroke-width: 2.2;
+    stroke-width: 1.9;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
@@ -111,7 +112,7 @@
 
   .expand:hover:not(:disabled) .icon,
   .expand:focus-visible:not(:disabled) .icon {
-    transform: translateY(9px) scale(1.55);
+    transform: translateY(20px) scale(2.4);
   }
 
   .expand:hover:not(:disabled) .label,
