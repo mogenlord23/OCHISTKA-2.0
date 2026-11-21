@@ -1,0 +1,824 @@
+{
+  "schema_version": 1,
+  "note": "Offline source mapping only; Git blob SHA-1 is NOT an adequate security verification for runtime. Compute and pin SHA-256 and verify each resource before packaging or running.",
+  "source_repository": "https://github.com/RixyPow/netzapret",
+  "source_commit": "883ba05b9531a283e0d6c83fdc3536016fbd51d3",
+  "source_preset": "presets/Universal V13 Lite.txt",
+  "preset_sha256": "e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7",
+  "total_resources": 135,
+  "total_source_bytes": 2385103,
+  "licenses": "NetZapret MIT + Zapret GUI MIT; verify any additional per-file provenance before redistribution",
+  "state": "UNVERIFIED_DEPENDENCIES_DO_NOT_RUN",
+  "files": [
+    {
+      "destination": "bin/dtls_clienthello_w3_org.bin",
+      "source_path": "vendor/zapret-gui/bin/dtls_clienthello_w3_org.bin",
+      "git_blob_sha1": "8d90faf51272dfe4526dafd077fee2cf09de4243",
+      "size_bytes": 226
+    },
+    {
+      "destination": "bin/fake_quic.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_quic.bin",
+      "git_blob_sha1": "11319d2640f4d06dafc7ad02d315579f0c9b4dbc",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/fake_quic_1.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_quic_1.bin",
+      "git_blob_sha1": "11319d2640f4d06dafc7ad02d315579f0c9b4dbc",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/fake_quic_2.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_quic_2.bin",
+      "git_blob_sha1": "80a07cc8870c88be6d8ac7f9bf9dc9bb1979468b",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/fake_quic_3.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_quic_3.bin",
+      "git_blob_sha1": "8c3bff4c1e9af767bab8b86a70b6574b974dbde4",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/fake_tls_1.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_1.bin",
+      "git_blob_sha1": "a0c2daf083712a0dd53d5c209fb9c2cb8dcd2d96",
+      "size_bytes": 225
+    },
+    {
+      "destination": "bin/fake_tls_2.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_2.bin",
+      "git_blob_sha1": "d1188e34fd57bb87aa46e5134fdb3f6a93d21de0",
+      "size_bytes": 228
+    },
+    {
+      "destination": "bin/fake_tls_3.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_3.bin",
+      "git_blob_sha1": "c740462fc090942b1afd571681339ec26af65fd1",
+      "size_bytes": 652
+    },
+    {
+      "destination": "bin/fake_tls_4.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_4.bin",
+      "git_blob_sha1": "8274fce65a1706d6faf7603a716ccef8b57a53e5",
+      "size_bytes": 314
+    },
+    {
+      "destination": "bin/fake_tls_5.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_5.bin",
+      "git_blob_sha1": "57cf1311f0f91dfc84c047aec34bdc212fdef460",
+      "size_bytes": 306
+    },
+    {
+      "destination": "bin/fake_tls_6.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_6.bin",
+      "git_blob_sha1": "9ad5a4bd1d2e31a0150ab127a9033f149336df40",
+      "size_bytes": 209
+    },
+    {
+      "destination": "bin/fake_tls_7.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_7.bin",
+      "git_blob_sha1": "229e357d05c363d504eea32d9731296bcf6565dc",
+      "size_bytes": 226
+    },
+    {
+      "destination": "bin/fake_tls_8.bin",
+      "source_path": "vendor/zapret-gui/bin/fake_tls_8.bin",
+      "git_blob_sha1": "bd381b82bcb6f8b97b3b5104bfaaad60995ac3b7",
+      "size_bytes": 318
+    },
+    {
+      "destination": "bin/http_iana_org.bin",
+      "source_path": "vendor/zapret-gui/bin/http_iana_org.bin",
+      "git_blob_sha1": "3ae50b3dce1a6ef86a9025a25bb988d4faf8ad76",
+      "size_bytes": 418
+    },
+    {
+      "destination": "bin/nz-quic_initial_lemana_pro.bin",
+      "source_path": "config/blobs/quic_initial_lemana_pro.bin",
+      "git_blob_sha1": "59593ba851f0b1b9c8924853154cda30969f3dda",
+      "size_bytes": 1357
+    },
+    {
+      "destination": "bin/nz-quic_initial_steam_chat_com.bin",
+      "source_path": "config/blobs/quic_initial_steam_chat_com.bin",
+      "git_blob_sha1": "49f7512835bee040471f23ae0a1a32964c4c043c",
+      "size_bytes": 1357
+    },
+    {
+      "destination": "bin/nz-quic_initial_steamstatic_com.bin",
+      "source_path": "config/blobs/quic_initial_steamstatic_com.bin",
+      "git_blob_sha1": "85644f49294fda9352bcdf2423a76c17bdc30fd5",
+      "size_bytes": 1357
+    },
+    {
+      "destination": "bin/nz-tls_clienthello_awswaf_com.bin",
+      "source_path": "config/blobs/tls_clienthello_awswaf_com.bin",
+      "git_blob_sha1": "ebc48bc6d45eaab7524650b04c11ef3c864fcf8e",
+      "size_bytes": 1100
+    },
+    {
+      "destination": "bin/nz-tls_clienthello_steam_chat_com.bin",
+      "source_path": "config/blobs/tls_clienthello_steam_chat_com.bin",
+      "git_blob_sha1": "2aa913dae8036202acd7e58554ea71ec188557ab",
+      "size_bytes": 1100
+    },
+    {
+      "destination": "bin/nz-tls_clienthello_steamstatic_com.bin",
+      "source_path": "config/blobs/tls_clienthello_steamstatic_com.bin",
+      "git_blob_sha1": "31cd3e97d85da57312b5fcf83af20ac2bf66bf93",
+      "size_bytes": 1100
+    },
+    {
+      "destination": "bin/nz-tls_clienthello_teamspeak_com.bin",
+      "source_path": "config/blobs/tls_clienthello_teamspeak_com.bin",
+      "git_blob_sha1": "7aaa8d01f37b78349bc7377a5ef3a0d8a6f79798",
+      "size_bytes": 1100
+    },
+    {
+      "destination": "bin/quic_1.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_1.bin",
+      "git_blob_sha1": "80a07cc8870c88be6d8ac7f9bf9dc9bb1979468b",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_2.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_2.bin",
+      "git_blob_sha1": "16faef7f4808366b91eac725701de4c87bd14326",
+      "size_bytes": 136
+    },
+    {
+      "destination": "bin/quic_3.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_3.bin",
+      "git_blob_sha1": "ea0c77cd339b4850f85ae19fc6971439cded1173",
+      "size_bytes": 1357
+    },
+    {
+      "destination": "bin/quic_4.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_4.bin",
+      "git_blob_sha1": "1927e61c2d0317152a044b404fa0241190ee5316",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_5.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_5.bin",
+      "git_blob_sha1": "6cf9aacc747c2e0f45f2b4c45b582641093e080d",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_6.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_6.bin",
+      "git_blob_sha1": "1d5ddfd7ae449498be9aa848838441600c8b336b",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_7.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_7.bin",
+      "git_blob_sha1": "8c3bff4c1e9af767bab8b86a70b6574b974dbde4",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_initial_vk_com.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_initial_vk_com.bin",
+      "git_blob_sha1": "ea0c77cd339b4850f85ae19fc6971439cded1173",
+      "size_bytes": 1357
+    },
+    {
+      "destination": "bin/quic_initial_www_google_com.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_initial_www_google_com.bin",
+      "git_blob_sha1": "80a07cc8870c88be6d8ac7f9bf9dc9bb1979468b",
+      "size_bytes": 1200
+    },
+    {
+      "destination": "bin/quic_test_00.bin",
+      "source_path": "vendor/zapret-gui/bin/quic_test_00.bin",
+      "git_blob_sha1": "d69eb3f833be7da1a2848ba45690bc14c2001e48",
+      "size_bytes": 144
+    },
+    {
+      "destination": "bin/stun.bin",
+      "source_path": "vendor/zapret-gui/bin/stun.bin",
+      "git_blob_sha1": "a97b5acbe80be0452011387fa9ae33afb8f87249",
+      "size_bytes": 100
+    },
+    {
+      "destination": "bin/syn_packet.bin",
+      "source_path": "vendor/zapret-gui/bin/syn_packet.bin",
+      "git_blob_sha1": "bbe1e960c780f0e2975096c68e6f7b29b259c2ed",
+      "size_bytes": 32
+    },
+    {
+      "destination": "bin/tls_clienthello_1.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_1.bin",
+      "git_blob_sha1": "ff296ee7e2b5685021ae1d0bea03b0754ddafdd3",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_10.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_10.bin",
+      "git_blob_sha1": "5ea21f11e7d9262a24de6270b3c609f8c32046f1",
+      "size_bytes": 305
+    },
+    {
+      "destination": "bin/tls_clienthello_11.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_11.bin",
+      "git_blob_sha1": "3412da70c729b39f94b47b85899d9f0f46362ecb",
+      "size_bytes": 286
+    },
+    {
+      "destination": "bin/tls_clienthello_12.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_12.bin",
+      "git_blob_sha1": "89006697edecb8244a04e3f234da57070ac0eb45",
+      "size_bytes": 289
+    },
+    {
+      "destination": "bin/tls_clienthello_13.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_13.bin",
+      "git_blob_sha1": "da20101c6753a6e16e2375665eed58b20388cd08",
+      "size_bytes": 300
+    },
+    {
+      "destination": "bin/tls_clienthello_14.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_14.bin",
+      "git_blob_sha1": "59b343ae869a7e80b0c6c200cd634e6c1bca3103",
+      "size_bytes": 228
+    },
+    {
+      "destination": "bin/tls_clienthello_17.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_17.bin",
+      "git_blob_sha1": "33bfb39af9f4a52fc00e9f9fd02445c3a82f3afc",
+      "size_bytes": 309
+    },
+    {
+      "destination": "bin/tls_clienthello_18.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_18.bin",
+      "git_blob_sha1": "229e357d05c363d504eea32d9731296bcf6565dc",
+      "size_bytes": 226
+    },
+    {
+      "destination": "bin/tls_clienthello_2.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_2.bin",
+      "git_blob_sha1": "c740462fc090942b1afd571681339ec26af65fd1",
+      "size_bytes": 652
+    },
+    {
+      "destination": "bin/tls_clienthello_2n.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_2n.bin",
+      "git_blob_sha1": "62985b63657c9343b805f915e5774a4e26a554d5",
+      "size_bytes": 681
+    },
+    {
+      "destination": "bin/tls_clienthello_3.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_3.bin",
+      "git_blob_sha1": "e641d731d161fb0ba957f374615d1ff823cb8948",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_4.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_4.bin",
+      "git_blob_sha1": "ec908c2bfffc29500a938f1d4ef180321393b9ca",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_4pda_to.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_4pda_to.bin",
+      "git_blob_sha1": "21ac37804ff14244d20868d3a5ca62ef0247a9aa",
+      "size_bytes": 284
+    },
+    {
+      "destination": "bin/tls_clienthello_5.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_5.bin",
+      "git_blob_sha1": "9ad5a4bd1d2e31a0150ab127a9033f149336df40",
+      "size_bytes": 209
+    },
+    {
+      "destination": "bin/tls_clienthello_6.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_6.bin",
+      "git_blob_sha1": "da59c402325a40c059362bf04256ae640407da32",
+      "size_bytes": 208
+    },
+    {
+      "destination": "bin/tls_clienthello_7.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_7.bin",
+      "git_blob_sha1": "ec76ea7c7f69e106288b2ec5a168b44dd78df337",
+      "size_bytes": 306
+    },
+    {
+      "destination": "bin/tls_clienthello_8.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_8.bin",
+      "git_blob_sha1": "441598474e1100659e9a9a9d15d5592ffbf8c20f",
+      "size_bytes": 280
+    },
+    {
+      "destination": "bin/tls_clienthello_9.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_9.bin",
+      "git_blob_sha1": "cc3e556115a4e517e1a5624b37299d6ff092f984",
+      "size_bytes": 721
+    },
+    {
+      "destination": "bin/tls_clienthello_chat_deepseek_com.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_chat_deepseek_com.bin",
+      "git_blob_sha1": "2bc2a20ba06686fef67484ea96d2550d7607430f",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_gosuslugi_ru.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_gosuslugi_ru.bin",
+      "git_blob_sha1": "d9e0f4a83de2f26855876574b8cf00797258558c",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_iana_org.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_iana_org.bin",
+      "git_blob_sha1": "e641d731d161fb0ba957f374615d1ff823cb8948",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_max_ru.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_max_ru.bin",
+      "git_blob_sha1": "64a1af8bd27d0aee0d06b3293aeeeb163999418b",
+      "size_bytes": 664
+    },
+    {
+      "destination": "bin/tls_clienthello_sberbank_ru.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_sberbank_ru.bin",
+      "git_blob_sha1": "e87d565d155356b1dcd5d22e01633b29c8980a4a",
+      "size_bytes": 560
+    },
+    {
+      "destination": "bin/tls_clienthello_vk_com.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_vk_com.bin",
+      "git_blob_sha1": "ec908c2bfffc29500a938f1d4ef180321393b9ca",
+      "size_bytes": 517
+    },
+    {
+      "destination": "bin/tls_clienthello_vk_com_kyber.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_vk_com_kyber.bin",
+      "git_blob_sha1": "92c639e39c7e012a239f30405744059e73d739ca",
+      "size_bytes": 1812
+    },
+    {
+      "destination": "bin/tls_clienthello_www_google_com.bin",
+      "source_path": "vendor/zapret-gui/bin/tls_clienthello_www_google_com.bin",
+      "git_blob_sha1": "62985b63657c9343b805f915e5774a4e26a554d5",
+      "size_bytes": 681
+    },
+    {
+      "destination": "lists/amazon.txt",
+      "source_path": "vendor/zapret-gui/lists/amazon.txt",
+      "git_blob_sha1": "61f2f508405140d46b5298649c2827d95250f0e2",
+      "size_bytes": 51
+    },
+    {
+      "destination": "lists/apple.txt",
+      "source_path": "vendor/zapret-gui/lists/apple.txt",
+      "git_blob_sha1": "75c9abc2e7fe8125cd28caa4911e3a755ff58326",
+      "size_bytes": 74
+    },
+    {
+      "destination": "lists/chatgpt.txt",
+      "source_path": "vendor/zapret-gui/lists/chatgpt.txt",
+      "git_blob_sha1": "ba5b20917f4108c774789a55761a51cdf812bcf8",
+      "size_bytes": 56
+    },
+    {
+      "destination": "lists/claude.txt",
+      "source_path": "vendor/zapret-gui/lists/claude.txt",
+      "git_blob_sha1": "e97761dc733aa08c50388f3d0e16749952cf96ea",
+      "size_bytes": 35
+    },
+    {
+      "destination": "lists/cloudflare.txt",
+      "source_path": "vendor/zapret-gui/lists/cloudflare.txt",
+      "git_blob_sha1": "b2687e5473fa8f1479804e1aae7dd99a2a40a2aa",
+      "size_bytes": 133
+    },
+    {
+      "destination": "lists/cloudfront.txt",
+      "source_path": "vendor/zapret-gui/lists/cloudfront.txt",
+      "git_blob_sha1": "cd443e4e1fb5a75be122bd4b7211b683f51cf4ef",
+      "size_bytes": 15
+    },
+    {
+      "destination": "lists/deepseek.txt",
+      "source_path": "vendor/zapret-gui/lists/deepseek.txt",
+      "git_blob_sha1": "5c6b1bb6214737ec6553c7f978bd8ce28bcaa955",
+      "size_bytes": 35
+    },
+    {
+      "destination": "lists/discord-media.txt",
+      "source_path": "vendor/zapret-gui/lists/discord-media.txt",
+      "git_blob_sha1": "efad87bac9b1c554c508cda3fd1a5da57e9209d5",
+      "size_bytes": 14
+    },
+    {
+      "destination": "lists/discord-updates.txt",
+      "source_path": "vendor/zapret-gui/lists/discord-updates.txt",
+      "git_blob_sha1": "cf204b57aaf69495e24a5f6cc8143eedae76212c",
+      "size_bytes": 20
+    },
+    {
+      "destination": "lists/discord.txt",
+      "source_path": "vendor/zapret-gui/lists/discord.txt",
+      "git_blob_sha1": "12d80b665a1c51aaccd40db70225aaf18fb7d696",
+      "size_bytes": 672
+    },
+    {
+      "destination": "lists/epicgames-fortnite.txt",
+      "source_path": "vendor/zapret-gui/lists/epicgames-fortnite.txt",
+      "git_blob_sha1": "9a7a6172759cd3424bb2865973f96af8f86e3d4a",
+      "size_bytes": 58
+    },
+    {
+      "destination": "lists/facebook.txt",
+      "source_path": "vendor/zapret-gui/lists/facebook.txt",
+      "git_blob_sha1": "d1125f40a61acae68a97cb475f454d6fe901b48a",
+      "size_bytes": 43
+    },
+    {
+      "destination": "lists/fandom.txt",
+      "source_path": "vendor/zapret-gui/lists/fandom.txt",
+      "git_blob_sha1": "e44cafe5eafca8a1ffadad3106883e39fc41fe3b",
+      "size_bytes": 24
+    },
+    {
+      "destination": "lists/gemini.txt",
+      "source_path": "vendor/zapret-gui/lists/gemini.txt",
+      "git_blob_sha1": "b7b4b9d3912443e04233fe18d1cc16a0bb25ec7c",
+      "size_bytes": 14
+    },
+    {
+      "destination": "lists/git-zapret-moe.txt",
+      "source_path": "vendor/zapret-gui/lists/git-zapret-moe.txt",
+      "git_blob_sha1": "796d8d9cde1298b2d4202837780109e406087f50",
+      "size_bytes": 15
+    },
+    {
+      "destination": "lists/github.txt",
+      "source_path": "vendor/zapret-gui/lists/github.txt",
+      "git_blob_sha1": "9a14cf1ac5914af3661b8cf75411adef4823acb2",
+      "size_bytes": 104
+    },
+    {
+      "destination": "lists/githubusercontent.txt",
+      "source_path": "vendor/zapret-gui/lists/githubusercontent.txt",
+      "git_blob_sha1": "79d7ace49773a02d0040b7ae9d1c5a9cf852ba8f",
+      "size_bytes": 22
+    },
+    {
+      "destination": "lists/google.txt",
+      "source_path": "vendor/zapret-gui/lists/google.txt",
+      "git_blob_sha1": "43fe391f587feb77488cd47d51180f5ea9f64754",
+      "size_bytes": 157
+    },
+    {
+      "destination": "lists/googlevideo.txt",
+      "source_path": "vendor/zapret-gui/lists/googlevideo.txt",
+      "git_blob_sha1": "4258f9b5dfcb9c4ee097acf55bbb47832ba6ead6",
+      "size_bytes": 16
+    },
+    {
+      "destination": "lists/instagram.txt",
+      "source_path": "vendor/zapret-gui/lists/instagram.txt",
+      "git_blob_sha1": "e9f0ed2e3e2c0df94272938d6c5c062bfa7b6d03",
+      "size_bytes": 31
+    },
+    {
+      "destination": "lists/ipset-amazon.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-amazon.txt",
+      "git_blob_sha1": "ed4b7acbef4875a6b4b3ae52f67cd7cb0490a780",
+      "size_bytes": 125371
+    },
+    {
+      "destination": "lists/ipset-anydesk.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-anydesk.txt",
+      "git_blob_sha1": "9097ecddfb4f479b7f4143fb939ef32ea7dfdd32",
+      "size_bytes": 212
+    },
+    {
+      "destination": "lists/ipset-discord.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-discord.txt",
+      "git_blob_sha1": "c839dd3db1d3297a574baa9b667520a66078a59f",
+      "size_bytes": 837
+    },
+    {
+      "destination": "lists/ipset-dns.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-dns.txt",
+      "git_blob_sha1": "6fd4cfb5292442d2a00cb7217d815ea9bdad6c84",
+      "size_bytes": 286
+    },
+    {
+      "destination": "lists/ipset-exclude.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-exclude.txt",
+      "git_blob_sha1": "805f6a9ec3a8fad6df55f15944f3f0299029287b",
+      "size_bytes": 126
+    },
+    {
+      "destination": "lists/ipset-hetzner.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-hetzner.txt",
+      "git_blob_sha1": "8733231091ea0f59fcb1b80e11369c5658ba8709",
+      "size_bytes": 1291
+    },
+    {
+      "destination": "lists/ipset-ru.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-ru.txt",
+      "git_blob_sha1": "4daf85adffd9f59b0564461b069b3f1c1bd3aee3",
+      "size_bytes": 10142
+    },
+    {
+      "destination": "lists/ipset-russia-youtube-rtmps.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-russia-youtube-rtmps.txt",
+      "git_blob_sha1": "3099f664d666d04b9aaf652ecde4a56ac12caa90",
+      "size_bytes": 495
+    },
+    {
+      "destination": "lists/ipset-telegram.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-telegram.txt",
+      "git_blob_sha1": "944fa1917d7098bd7e06909efd42008265a0d1fd",
+      "size_bytes": 274
+    },
+    {
+      "destination": "lists/ipset-twitter.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-twitter.txt",
+      "git_blob_sha1": "1a95f6f377af5ef7a1c3384866a492cb4261807d",
+      "size_bytes": 236
+    },
+    {
+      "destination": "lists/ipset-youtube.txt",
+      "source_path": "vendor/zapret-gui/lists/ipset-youtube.txt",
+      "git_blob_sha1": "0941b46fe2a756c8c400ba580ae4c7106238cf28",
+      "size_bytes": 223
+    },
+    {
+      "destination": "lists/itch.txt",
+      "source_path": "vendor/zapret-gui/lists/itch.txt",
+      "git_blob_sha1": "a687dbfb9d6c7088c9eb0c0f6a3605edc64dd9ef",
+      "size_bytes": 76
+    },
+    {
+      "destination": "lists/linkedin.txt",
+      "source_path": "vendor/zapret-gui/lists/linkedin.txt",
+      "git_blob_sha1": "d72f5348110b262affa3fbc6f08959d28c94e063",
+      "size_bytes": 23
+    },
+    {
+      "destination": "lists/microsoft-store.txt",
+      "source_path": "vendor/zapret-gui/lists/microsoft-store.txt",
+      "git_blob_sha1": "7f9555fb496bf75bf68d94dc1319592ee984391d",
+      "size_bytes": 498
+    },
+    {
+      "destination": "lists/notion.txt",
+      "source_path": "vendor/zapret-gui/lists/notion.txt",
+      "git_blob_sha1": "3c9311df86e8bdf0b293820b90b9de8bedcd9a3c",
+      "size_bytes": 22
+    },
+    {
+      "destination": "lists/ntcparty.txt",
+      "source_path": "vendor/zapret-gui/lists/ntcparty.txt",
+      "git_blob_sha1": "f699561dd6e6ddf52dc027c4f32e5e260ccd10c3",
+      "size_bytes": 10
+    },
+    {
+      "destination": "lists/nz-archive.txt",
+      "source_path": "config/lists/archive.txt",
+      "git_blob_sha1": "cfc6573d6c869dcb42fd5fdef0870d84dbc62f9e",
+      "size_bytes": 62
+    },
+    {
+      "destination": "lists/nz-bluesky.txt",
+      "source_path": "config/lists/bluesky.txt",
+      "git_blob_sha1": "c5716db0c0e12f797ca42023c50de6edec1d4d87",
+      "size_bytes": 202
+    },
+    {
+      "destination": "lists/nz-bsky-app.txt",
+      "source_path": "config/lists/bsky-app.txt",
+      "git_blob_sha1": "853fd67952a7c4f911b779b423d0be73c43a9be4",
+      "size_bytes": 443
+    },
+    {
+      "destination": "lists/nz-facebook.txt",
+      "source_path": "config/lists/facebook.txt",
+      "git_blob_sha1": "797d517ef91b3478640dfb6695eaab3b575d0962",
+      "size_bytes": 55
+    },
+    {
+      "destination": "lists/nz-github.txt",
+      "source_path": "config/lists/github.txt",
+      "git_blob_sha1": "d2c2192d8265b91e72e399dc33fcc66d7e490bb7",
+      "size_bytes": 637
+    },
+    {
+      "destination": "lists/nz-ipset-cloudflare-8.txt",
+      "source_path": "config/lists/ipset-cloudflare-8.txt",
+      "git_blob_sha1": "ca5f7a9cd8c27cde261244d7d266ac0b7af58067",
+      "size_bytes": 731
+    },
+    {
+      "destination": "lists/nz-medium.txt",
+      "source_path": "config/lists/medium.txt",
+      "git_blob_sha1": "2fcce7d4abe0f3a32dcaf8021d1dc4a5de4e2d22",
+      "size_bytes": 21
+    },
+    {
+      "destination": "lists/nz-proton.txt",
+      "source_path": "config/lists/proton.txt",
+      "git_blob_sha1": "530c841e39916a2686db1004b2af36480b986027",
+      "size_bytes": 278
+    },
+    {
+      "destination": "lists/nz-signal.txt",
+      "source_path": "config/lists/signal.txt",
+      "git_blob_sha1": "9f83fdf6668de4b6b037d9088f72cfdaae245863",
+      "size_bytes": 203
+    },
+    {
+      "destination": "lists/nz-soundcloud.txt",
+      "source_path": "config/lists/soundcloud.txt",
+      "git_blob_sha1": "bb1c4afa041681b21352e86bdb1e54dd3b420aad",
+      "size_bytes": 717
+    },
+    {
+      "destination": "lists/nz-speedtest.txt",
+      "source_path": "config/lists/speedtest.txt",
+      "git_blob_sha1": "609bc0a162b98e0bd779cfb7fa5229b544b44cca",
+      "size_bytes": 303
+    },
+    {
+      "destination": "lists/nz-twitter.txt",
+      "source_path": "config/lists/twitter.txt",
+      "git_blob_sha1": "5f640f6caad00869aedc7d42a73512c558e8cdd8",
+      "size_bytes": 700
+    },
+    {
+      "destination": "lists/nz-valheim.txt",
+      "source_path": "config/lists/valheim.txt",
+      "git_blob_sha1": "e85a37b2ce856c535790672731807d5dc7f095cd",
+      "size_bytes": 445
+    },
+    {
+      "destination": "lists/nz-viber.txt",
+      "source_path": "config/lists/viber.txt",
+      "git_blob_sha1": "1aee3213f540b571258521c5e7befe8edae6b56c",
+      "size_bytes": 142
+    },
+    {
+      "destination": "lists/nz-virustotal.txt",
+      "source_path": "config/lists/virustotal.txt",
+      "git_blob_sha1": "1f359008b2759c49ecad4bc8324eb3365730b189",
+      "size_bytes": 518
+    },
+    {
+      "destination": "lists/obsidian.txt",
+      "source_path": "vendor/zapret-gui/lists/obsidian.txt",
+      "git_blob_sha1": "2726118394ccdc009b1b4d4397a9f0364fb0f86f",
+      "size_bytes": 12
+    },
+    {
+      "destination": "lists/other.txt",
+      "source_path": "vendor/zapret-gui/lists/other.txt",
+      "git_blob_sha1": "11d9b93113fa67f02c6b76dbe69a6bb0ca6af131",
+      "size_bytes": 2397
+    },
+    {
+      "destination": "lists/riot-valorant.txt",
+      "source_path": "vendor/zapret-gui/lists/riot-valorant.txt",
+      "git_blob_sha1": "74992b473669ab4998123e3b35e1dddcb154487b",
+      "size_bytes": 154
+    },
+    {
+      "destination": "lists/russia-blacklist.txt",
+      "source_path": "vendor/zapret-gui/lists/russia-blacklist.txt",
+      "git_blob_sha1": "6d4498efdf96c9acf8f0fe342100c5d4b3900466",
+      "size_bytes": 1773081
+    },
+    {
+      "destination": "lists/rutor.txt",
+      "source_path": "vendor/zapret-gui/lists/rutor.txt",
+      "git_blob_sha1": "a182c37a1c6dc78496030c0a1892490e807b7236",
+      "size_bytes": 20
+    },
+    {
+      "destination": "lists/rutracker.txt",
+      "source_path": "vendor/zapret-gui/lists/rutracker.txt",
+      "git_blob_sha1": "3b9b04e9bf5c1bcd300294c4d5d19c82d0161313",
+      "size_bytes": 205
+    },
+    {
+      "destination": "lists/soundcloud.txt",
+      "source_path": "vendor/zapret-gui/lists/soundcloud.txt",
+      "git_blob_sha1": "bd4059ce5ce93cea226e234ad93d778f29fe6384",
+      "size_bytes": 375
+    },
+    {
+      "destination": "lists/speedtest.txt",
+      "source_path": "vendor/zapret-gui/lists/speedtest.txt",
+      "git_blob_sha1": "5c3273e23084e97eea1e1b868a5abc2020086948",
+      "size_bytes": 77
+    },
+    {
+      "destination": "lists/static-whatsapp-net.txt",
+      "source_path": "vendor/zapret-gui/lists/static-whatsapp-net.txt",
+      "git_blob_sha1": "1d1220a6581b4727dd02be9270d1a3e6e48b6c5e",
+      "size_bytes": 20
+    },
+    {
+      "destination": "lists/steam.txt",
+      "source_path": "vendor/zapret-gui/lists/steam.txt",
+      "git_blob_sha1": "d2c1226872788c108d370a1e1afd6f776bcf1c0a",
+      "size_bytes": 243
+    },
+    {
+      "destination": "lists/twitch.txt",
+      "source_path": "vendor/zapret-gui/lists/twitch.txt",
+      "git_blob_sha1": "90fcf94ff1dfc5bc257855f442ffe2557eee1b79",
+      "size_bytes": 180
+    },
+    {
+      "destination": "lists/ubisoft.txt",
+      "source_path": "vendor/zapret-gui/lists/ubisoft.txt",
+      "git_blob_sha1": "5487aa427c907ae89cd066016e648822685eae36",
+      "size_bytes": 65
+    },
+    {
+      "destination": "lists/whatsapp.txt",
+      "source_path": "vendor/zapret-gui/lists/whatsapp.txt",
+      "git_blob_sha1": "45a745f0b3e285636751f83ab1b5f4015d913426",
+      "size_bytes": 68
+    },
+    {
+      "destination": "lists/youtube.txt",
+      "source_path": "vendor/zapret-gui/lists/youtube.txt",
+      "git_blob_sha1": "80098ac5533634424944da8bbc13e887e408dd32",
+      "size_bytes": 406
+    },
+    {
+      "destination": "lua/custom_diag.lua",
+      "source_path": "vendor/zapret-gui/lua/custom_diag.lua",
+      "git_blob_sha1": "9e5bc94b71d085670734c44464101dc44a8bd541",
+      "size_bytes": 5731
+    },
+    {
+      "destination": "lua/custom_funcs.lua",
+      "source_path": "vendor/zapret-gui/lua/custom_funcs.lua",
+      "git_blob_sha1": "02b59ba378db717ceffe57714ddf18e1f43f7878",
+      "size_bytes": 202554
+    },
+    {
+      "destination": "lua/fakemultidisorder.lua",
+      "source_path": "vendor/zapret-gui/lua/fakemultidisorder.lua",
+      "git_blob_sha1": "2917e9df9c1b93abf7baaa5623bb0c3396bfd870",
+      "size_bytes": 8202
+    },
+    {
+      "destination": "lua/fakemultisplit.lua",
+      "source_path": "vendor/zapret-gui/lua/fakemultisplit.lua",
+      "git_blob_sha1": "60cd6c0e794bf9f70b149caf533089296424c90c",
+      "size_bytes": 5921
+    },
+    {
+      "destination": "lua/zapret-antidpi.lua",
+      "source_path": "vendor/zapret-gui/lua/zapret-antidpi.lua",
+      "git_blob_sha1": "b768277b01114246503819d15a8ed1bb15011b5c",
+      "size_bytes": 51866
+    },
+    {
+      "destination": "lua/zapret-auto.lua",
+      "source_path": "vendor/zapret-gui/lua/zapret-auto.lua",
+      "git_blob_sha1": "2eb416f86d18f5854e1d29d17121340051430efa",
+      "size_bytes": 21123
+    },
+    {
+      "destination": "lua/zapret-lib.lua",
+      "source_path": "vendor/zapret-gui/lua/zapret-lib.lua",
+      "git_blob_sha1": "5a568c511495113d5d0b15896bbe0ab158631dae",
+      "size_bytes": 94880
+    },
+    {
+      "destination": "lua/zapret-multishake.lua",
+      "source_path": "vendor/zapret-gui/lua/zapret-multishake.lua",
+      "git_blob_sha1": "e8e23b40e6ab4c9bf65458dde3c18932407e4efd",
+      "size_bytes": 30173
+    },
+    {
+      "destination": "windivert.filter/windivert_part.discord_media.txt",
+      "source_path": "vendor/zapret-gui/windivert.filter/windivert_part.discord_media.txt",
+      "git_blob_sha1": "d84f257adf3aa3e0a7b9c1640f3ee2ef390ae407",
+      "size_bytes": 581
+    },
+    {
+      "destination": "windivert.filter/windivert_part.stun.txt",
+      "source_path": "vendor/zapret-gui/windivert.filter/windivert_part.stun.txt",
+      "git_blob_sha1": "a76169025c899816dedbc35efe9f39d92631cf95",
+      "size_bytes": 96
+    },
+    {
+      "destination": "windivert.filter/windivert_part.wireguard.txt",
+      "source_path": "vendor/zapret-gui/windivert.filter/windivert_part.wireguard.txt",
+      "git_blob_sha1": "bf62026643604b91e33a8b4f399e26739e5a914d",
+      "size_bytes": 166
+    }
+  ]
+}
