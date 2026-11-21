@@ -23,7 +23,7 @@
   /** Пауза между заменами: одна-две буквы раз в ~0,7 с. */
   const TICK_MS = 700;
   /** Ширина ячейки вымышленного знака в em: ровные ячейки того же шрифта, строка не «плывёт». */
-  const CELL_EM = 0.6;
+  const CELL_EM = 0.72;
 
   let focused = $state(false);
   let visible = $state(true);
@@ -94,7 +94,7 @@
   /* Ячейка фиксированной ширины: замена знака не сдвигает строку. */
   .ch {
     display: inline-block;
-    width: 0.6em;
+    width: 0.72em;
     text-align: center;
   }
 

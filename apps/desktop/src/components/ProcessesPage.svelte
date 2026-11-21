@@ -241,16 +241,6 @@
         onclick={() => void refresh()}
       />
       <ExpandButton
-        icon={ACTION_ICONS.endTask}
-        label="Завершить"
-        width={104}
-        name="Завершить задачу"
-        danger
-        disabled={!selected || isProtectedProcess(selected)}
-        aria-describedby={endReason ? 'proc-end-reason' : undefined}
-        onclick={() => selected && askEnd(selected)}
-      />
-      <ExpandButton
         icon={ACTION_ICONS.explorer}
         label="Расположение"
         width={120}
@@ -258,6 +248,16 @@
         disabled={!selected || revealing}
         aria-describedby={selected ? undefined : 'proc-end-reason'}
         onclick={() => selected && showPath(selected)}
+      />
+      <ExpandButton
+        icon={ACTION_ICONS.endTask}
+        label="Завершить"
+        width={104}
+        name="Завершить задачу"
+        accent
+        disabled={!selected || isProtectedProcess(selected)}
+        aria-describedby={endReason ? 'proc-end-reason' : undefined}
+        onclick={() => selected && askEnd(selected)}
       />
       <span id="proc-end-reason" class="sr-only">{endReason}</span>
     </div>

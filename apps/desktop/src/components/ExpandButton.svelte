@@ -17,6 +17,8 @@
     name: string;
     /** Ширина раскрытой кнопки, px. */
     width?: number;
+    /** Розовый фон при наведении (акцентное действие). */
+    accent?: boolean;
     danger?: boolean;
   };
 
@@ -26,12 +28,20 @@
     label,
     name,
     width = 124,
+    accent = false,
     danger = false,
     ...rest
   }: Props = $props();
 </script>
 
-<button type="button" class="expand" class:danger style:--w="{width}px" aria-label={name} {...rest}>
+<button
+  type="button"
+  class="expand"
+  class:pink={accent || danger}
+  style:--w="{width}px"
+  aria-label={name}
+  {...rest}
+>
   <svg {viewBox} class="icon" aria-hidden="true" focusable="false"><path d={icon}></path></svg>
   <span class="label" aria-hidden="true">{label}</span>
 </button>
@@ -99,18 +109,17 @@
     pointer-events: none;
   }
 
+  /* Обычная кнопка при наведении остаётся чёрной: меняются только ширина, иконка и подпись. */
   .expand:hover:not(:disabled),
   .expand:focus-visible:not(:disabled) {
     width: var(--w);
-    background: var(--ink);
-    box-shadow: none;
-    color: var(--black);
   }
 
-  .expand.danger:hover:not(:disabled),
-  .expand.danger:focus-visible:not(:disabled) {
-    /* Фирменный розовый, как у кнопки закрытия окна (TitleBar.svelte). */
+  /* Акцентное действие: фирменный розовый, как у кнопки закрытия окна (TitleBar.svelte). */
+  .expand.pink:hover:not(:disabled),
+  .expand.pink:focus-visible:not(:disabled) {
     background: #ff009d;
+    box-shadow: none;
     color: var(--black);
   }
 
@@ -128,7 +137,8 @@
 
   /* Переключатель (role="switch"): включённое состояние видно и без наведения. */
   .expand[aria-checked='true']:not(:disabled) {
-    background: var(--ink);
+    background: #ff009d;
+    box-shadow: none;
     color: var(--black);
   }
 

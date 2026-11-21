@@ -5,8 +5,8 @@
  * их число (с потолком). Это оформление, а не защита от снимка экрана. Настоящая ссылка не меняется.
  */
 const URL_PARTS = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/is;
-/** Без самых узких и самых широких знаков (i, j, m, r, t, w, M, W): ячейки ровной ширины выглядят цельно. */
-const DECOY_ALPHABET = 'abcdefghknpqsuvxyzABCDEFGHJKLNPQRSTUVXYZ23456789';
+/** Только знаки средней ширины (0,5–0,68 em): без узких (i, j, l, r, t, f) и широких (m, w, C, D, G, H, M, N, O, Q, U, W). */
+const DECOY_ALPHABET = 'abdeghknopqsuvxyzABEFKLPRSTVXYZ23456789';
 /** Сколько приманок рисуется самое большее: дальше поле всё равно обрезает строку. */
 export const MAX_RENDERED = 160;
 
