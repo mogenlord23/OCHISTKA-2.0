@@ -1,6 +1,7 @@
 # Проверка настоящего Windows-движка и кандидата TCP-профиля в режимах
-# --dry-run и --intercept=0. НЕТ перехвата пакетов, включения WinDivert,
-# изменения настроек ОС или повторной сборки Zapret 2.
+# --dry-run и --intercept=0. WinDivert инициализируется даже в режиме
+# --intercept=0, поэтому проверка ограничена исходящим TCP на локальный порт 9.
+# Нет штатного захвата веб-трафика, изменения настроек ОС или повторной сборки.
 name: validate-desync-windows
 
 on:
@@ -46,8 +47,11 @@ jobs:
 
             # Точная копия первого экспериментального TCP-профиля из
             # ochistka-core::desync::windows_tcp_candidate_profile().
-            # Установка --intercept=0 отключает WinDivert, но выполняет lua-init;
-            # --dry-run дополнительно проверяет параметры и наличие файлов.
+            # --dry-run проверяет параметры и наличие файлов без запуска драйвера.
+            # --intercept=0 выполняет Lua init, но в Windows всё равно
+            # инициализирует WinDivert; поэтому задаём строгий raw-фильтр
+            # только для 127.0.0.1:9, не допуская перехвата обычного трафика.
+            # По upstream --wf-raw переопределяет конструктор --wf-tcp-out.
             $candidate = @(
               '--wf-tcp-out=80,443'
               '--lua-init=@zapret-lib.lua'
@@ -63,8 +67,9 @@ jobs:
             )
             & .\winws2.exe --dry-run @candidate
             if ($LASTEXITCODE -ne 0) { throw "TCP candidate --dry-run failed: $LASTEXITCODE" }
-            & .\winws2.exe --intercept=0 @candidate
-            if ($LASTEXITCODE -ne 0) { throw "TCP candidate Lua init failed: $LASTEXITCODE" }
+            $restricted = '--wf-raw=outbound and tcp.DstPort == 9 and ip.DstAddr == 127.0.0.1'
+            & .\winws2.exe --intercept=0 --debug=1 $restricted @candidate
+            if ($LASTEXITCODE -ne 0) { throw "TCP candidate Lua init/WinDivert restricted smoke failed: $LASTEXITCODE" }
           } finally {
             Pop-Location
           }
