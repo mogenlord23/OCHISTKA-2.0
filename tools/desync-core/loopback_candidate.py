@@ -22,8 +22,9 @@ from loopback_smoke import Handler, inspect_log, request_local_http, wait_ready
 def main() -> int:
     if sys.platform != "win32":
         raise RuntimeError("Only permitted on a disposable Windows CI runner")
-    if len(sys.argv) != 2:
-        raise RuntimeError("Usage: loopback_candidate.py VERIFIED_RELEASE_DIRECTORY")
+    if len(sys.argv) != 3 or sys.argv[2] not in ("fake", "full"):
+        raise RuntimeError("Usage: loopback_candidate.py VERIFIED_RELEASE_DIRECTORY fake|full")
+    mode = sys.argv[2]
     exe = pathlib.Path(sys.argv[1]).resolve() / "winws2.exe"
     for name in ("winws2.exe", "zapret-lib.lua", "zapret-antidpi.lua"):
         if not (exe.parent / name).is_file():
@@ -51,9 +52,12 @@ def main() -> int:
         "--filter-l7=http",
         "--payload=http_req",
         "--lua-desync=fake:blob=fake_default_http:tcp_md5",
-        "--payload=http_req",
-        "--lua-desync=multisplit:pos=1:seqovl=5:seqovl_pattern=0x1603030000",
     ]
+    if mode == "full":
+        args.extend([
+            "--payload=http_req",
+            "--lua-desync=multisplit:pos=1:seqovl=5:seqovl_pattern=0x1603030000",
+        ])
 
     with tempfile.TemporaryDirectory(prefix="ochistka-candidate-") as tmp:
         log = pathlib.Path(tmp) / "winws2-candidate.log"
@@ -79,10 +83,11 @@ def main() -> int:
                     # Lua functions only when called for the HTTP payload.
                     fake_executed = "fake: " in log_text
                     multisplit_executed = "multisplit:" in log_text
-                    if captured and fake_executed and multisplit_executed:
+                    if captured and fake_executed and (mode == "fake" or multisplit_executed):
+                        label = "fake()" if mode == "fake" else "fake() + multisplit()"
                         print(
-                            "PASS: localhost HTTP succeeded; packets were captured; "
-                            "upstream fake() and multisplit() Lua were executed.",
+                            f"PASS: localhost HTTP succeeded; WinDivert captured "
+                            f"packets; upstream {label} was executed.",
                             flush=True,
                         )
                         return 0
@@ -90,7 +95,7 @@ def main() -> int:
                         break
                     time.sleep(0.2)
                 raise RuntimeError(
-                    "Candidate HTTP request passed but Lua actions were not both confirmed.\n"
+                    "Candidate HTTP request passed but required Lua action was not confirmed.\n"
                     + inspect_log(log, limit=14000)
                 )
         except Exception:
