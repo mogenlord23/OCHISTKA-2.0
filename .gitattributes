@@ -3,3 +3,5 @@
 assets/desync/*.lua text eol=lf
 assets/desync/presets/*.txt text eol=lf
 assets/desync/runtime/** -text
+# Встроенные списки проверяются по SHA-256: Git for Windows не должен менять окончания строк.
+assets/desync/runtime-extra/** -text
