@@ -29,17 +29,19 @@ pub const AFTER: Limits = Limits {
     total: Duration::from_secs(10),
 };
 
-/// Обход «медленнее»: в 1,5 раза (и не меньше порога шума) либо на 5 с и больше — по любому
+/// Обход «медленнее»: в 1,5 раза (и не меньше порога шума 1 с) либо на 5 с и больше — по любому
 /// показателю любого адреса, который без обхода открывался. Адрес, переставший открываться, — тоже.
+/// Откат делается только если это подтвердил повторный замер через 5 с на том же адресе.
 pub const SLOWER_FACTOR: f64 = 1.5;
 pub const SLOWER_BY: Duration = Duration::from_secs(5);
 /// Разницу меньше этого порога не считаем замедлением по кратности (шум на миллисекундах).
-pub const NOISE_FLOOR: Duration = Duration::from_millis(250);
+pub const NOISE_FLOOR: Duration = Duration::from_secs(1);
+/// Через сколько секунд подтверждается замедление повторным замером на том же адресе.
+pub const RECHECK_AFTER: Duration = Duration::from_secs(5);
 
 pub const URLS: [&str; 3] = [YOUTUBE_URL, DISCORD_URL, CONTROL_URL];
 
 /// Сообщения пользователю: простые слова, без технических терминов.
-pub const SLOWER_MESSAGE: &str = "С обходом сайты грузятся медленнее, обход выключен";
 pub const NOT_SLOWER_MESSAGE: &str =
     "Сайты отвечают быстрее или так же; это не доказывает работу у провайдера";
 pub const NO_COMPARE_MESSAGE: &str = "Без обхода сайты не открываются, сравнить нельзя. Обход включён на 120 секунд — проверьте сайты сами";
@@ -148,12 +150,75 @@ pub fn measure(fetch: Arc<dyn TimedFetch>, urls: &[&str], limits: Limits) -> Mea
     }
 }
 
+/// Что именно не так с адресом при включённом обходе.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FindingKind {
+    /// Открывается, но медленнее: (было, стало), в миллисекундах.
+    Slower { before: Duration, after: Duration },
+    /// Перестал открываться.
+    NotOpening,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Finding {
+    pub url: String,
+    pub kind: FindingKind,
+}
+
+/// Понятное имя адреса для сообщения.
+pub fn site_name(url: &str) -> &'static str {
+    if url == YOUTUBE_URL {
+        "YouTube"
+    } else if url == DISCORD_URL {
+        "Discord"
+    } else {
+        "проверочный сайт"
+    }
+}
+
+fn seconds(d: Duration) -> String {
+    format!("{:.1}", d.as_secs_f64()).replace('.', ",")
+}
+
+/// Причина отката простыми словами: «Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо
+/// 0,8 с). Обход выключен».
+pub fn rollback_message(findings: &[Finding]) -> String {
+    let slower: Vec<String> = findings
+        .iter()
+        .filter_map(|f| match &f.kind {
+            FindingKind::Slower { before, after } => Some(format!(
+                "{}: {} с вместо {} с",
+                site_name(&f.url),
+                seconds(*after),
+                seconds(*before)
+            )),
+            FindingKind::NotOpening => None,
+        })
+        .collect();
+    let broken: Vec<&str> = findings
+        .iter()
+        .filter(|f| f.kind == FindingKind::NotOpening)
+        .map(|f| site_name(&f.url))
+        .collect();
+    let mut parts = Vec::new();
+    if !slower.is_empty() {
+        parts.push(format!(
+            "Сайты с обходом открываются медленнее ({})",
+            slower.join("; ")
+        ));
+    }
+    if !broken.is_empty() {
+        parts.push(format!("С обходом не открывается: {}", broken.join(", ")));
+    }
+    format!("{}. Обход выключен", parts.join(". "))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verdict {
     /// Не медленнее (быстрее, так же).
     NotSlower,
-    /// Медленнее или перестал открываться; причины по адресам.
-    Slower(Vec<String>),
+    /// Медленнее или перестал открываться; находки по адресам.
+    Slower(Vec<Finding>),
     /// Без обхода не открылся ни один адрес: сравнить нечем, откат не нужен.
     NothingToCompare { opened_with_bypass: bool },
 }
@@ -169,21 +234,33 @@ fn slower(base: Duration, after: Duration) -> bool {
 
 /// Сравнивает замер с обходом с замером без него — только по адресам, которые без обхода открылись.
 pub fn compare(baseline: &Measurement, after: &Measurement) -> Verdict {
+    compare_urls(baseline, after, None)
+}
+
+/// То же, но только по перечисленным адресам (повторный замер подозрительных).
+pub fn compare_urls(
+    baseline: &Measurement,
+    after: &Measurement,
+    only: Option<&[String]>,
+) -> Verdict {
     if !baseline.any_opened() {
         return Verdict::NothingToCompare {
             opened_with_bypass: after.any_opened(),
         };
     }
-    let mut reasons = Vec::new();
+    let mut found = Vec::new();
     for (url, base) in &baseline.entries {
-        if !base.opened() {
+        if !base.opened() || only.is_some_and(|list| !list.contains(url)) {
             continue; // без обхода не открывался: это и есть цель обхода, не сравниваем
         }
         let Some((_, now)) = after.entries.iter().find(|(u, _)| u == url) else {
             continue;
         };
         if !now.opened() {
-            reasons.push(format!("{url}: с обходом перестал открываться"));
+            found.push(Finding {
+                url: url.clone(),
+                kind: FindingKind::NotOpening,
+            });
             continue;
         }
         let (bf, bt) = (
@@ -194,26 +271,35 @@ pub fn compare(baseline: &Measurement, after: &Measurement) -> Verdict {
             now.first_byte.unwrap_or_default(),
             now.total.unwrap_or_default(),
         );
-        if slower(bf, nf) {
-            reasons.push(format!(
-                "{url}: первый ответ {} мс вместо {} мс",
-                nf.as_millis(),
-                bf.as_millis()
-            ));
-        }
+        // В сообщении — загрузка целиком, если она медленнее, иначе первый ответ.
         if slower(bt, nt) {
-            reasons.push(format!(
-                "{url}: загрузка {} мс вместо {} мс",
-                nt.as_millis(),
-                bt.as_millis()
-            ));
+            found.push(Finding {
+                url: url.clone(),
+                kind: FindingKind::Slower {
+                    before: bt,
+                    after: nt,
+                },
+            });
+        } else if slower(bf, nf) {
+            found.push(Finding {
+                url: url.clone(),
+                kind: FindingKind::Slower {
+                    before: bf,
+                    after: nf,
+                },
+            });
         }
     }
-    if reasons.is_empty() {
+    if found.is_empty() {
         Verdict::NotSlower
     } else {
-        Verdict::Slower(reasons)
+        Verdict::Slower(found)
     }
+}
+
+/// Адреса, которые нужно перемерить.
+pub fn flagged_urls(findings: &[Finding]) -> Vec<String> {
+    findings.iter().map(|f| f.url.clone()).collect()
 }
 
 /// Подставной транспорт для тестов: на каждый адрес — очередь ответов (последний повторяется).
@@ -291,8 +377,9 @@ mod tests {
 
     #[test]
     fn slower_by_factor_by_five_seconds_but_not_by_noise() {
-        assert!(slower(ms(1000), ms(1600)));
+        assert!(slower(ms(1000), ms(2100)));
         assert!(!slower(ms(1000), ms(1500)));
+        assert!(!slower(ms(400), ms(650)), "разброс 400 → 650 мс не откат");
         assert!(!slower(ms(20), ms(40)));
         assert!(slower(ms(10_000), ms(15_000)));
         assert!(!slower(ms(10_000), ms(14_900)));
@@ -363,7 +450,7 @@ mod tests {
         let base = m(Fake::new(&all(ok(300, 900))));
         let after = m(Fake::new(&all(ok(300, 2500))));
         match compare(&base, &after) {
-            Verdict::Slower(r) => assert!(r.iter().any(|x| x.contains("загрузка")), "{r:?}"),
+            Verdict::Slower(r) => assert!(matches!(r[0].kind, FindingKind::Slower { .. }), "{r:?}"),
             v => panic!("{v:?}"),
         }
     }
@@ -422,13 +509,45 @@ mod tests {
     }
 
     #[test]
-    fn user_messages_contain_no_technical_words() {
-        for text in [
-            SLOWER_MESSAGE,
-            NOT_SLOWER_MESSAGE,
-            NO_COMPARE_MESSAGE,
-            NO_INTERNET_MESSAGE,
+    fn the_rollback_reason_names_the_site_and_the_times_in_plain_words() {
+        let f = vec![
+            Finding {
+                url: YOUTUBE_URL.into(),
+                kind: FindingKind::Slower {
+                    before: ms(800),
+                    after: ms(3200),
+                },
+            },
+            Finding {
+                url: DISCORD_URL.into(),
+                kind: FindingKind::NotOpening,
+            },
+        ];
+        let text = rollback_message(&f);
+        assert!(
+            text.starts_with("Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо 0,8 с)"),
+            "{text}"
+        );
+        assert!(text.contains("С обходом не открывается: Discord"), "{text}");
+        assert!(text.ends_with("Обход выключен"));
+        let t = text.to_lowercase();
+        for bad in [
+            "замер",
+            "базов",
+            "служб",
+            "порт",
+            "драйвер",
+            "пресет",
+            "движок",
+            "sha",
         ] {
+            assert!(!t.contains(bad), "{text}: {bad}");
+        }
+    }
+
+    #[test]
+    fn user_messages_contain_no_technical_words() {
+        for text in [NOT_SLOWER_MESSAGE, NO_COMPARE_MESSAGE, NO_INTERNET_MESSAGE] {
             let t = text.to_lowercase();
             for bad in [
                 "замер",

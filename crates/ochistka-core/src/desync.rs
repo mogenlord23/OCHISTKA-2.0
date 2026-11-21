@@ -376,6 +376,8 @@ pub struct DesyncService {
     speed: Mutex<Option<Arc<dyn speed::TimedFetch>>>,
     /// Проверка скорости после запуска идёт в фоновом потоке (в тестах — вызывается вручную).
     speed_async: bool,
+    /// Через сколько подтверждается замедление повторным замером на том же адресе.
+    recheck_delay: Duration,
     /// Пробный режим: срок, номер запуска (старый таймер сам завершается) и пометки пользователя.
     trial: Mutex<TrialInner>,
     trial_limit: Duration,
@@ -490,6 +492,7 @@ impl DesyncService {
             vpn_stopper: Mutex::new(None),
             speed: Mutex::new(None),
             speed_async: true,
+            recheck_delay: speed::RECHECK_AFTER,
             trial: Mutex::new(TrialInner::default()),
             trial_limit: TRIAL_LIMIT,
             stop_wait: (25, Duration::from_millis(40)),
@@ -663,6 +666,9 @@ impl DesyncService {
         let measurement = rx
             .recv_timeout(speed::BASELINE.total + Duration::from_secs(1))
             .ok();
+        if let Some(m) = &measurement {
+            self.log_speed("без обхода", m);
+        }
         let mut t = lock(&self.trial);
         t.phase = TrialPhase::Idle;
         if let Some(m) = measurement {
@@ -721,28 +727,75 @@ impl DesyncService {
             }
             t.phase = TrialPhase::MeasuringAfter;
         }
-        let after = speed::measure(probe, &speed::URLS, speed::AFTER);
-        let (note, rollback) = match speed::compare(baseline, &after) {
-            speed::Verdict::Slower(_) => (speed::SLOWER_MESSAGE, true),
-            speed::Verdict::NotSlower => (speed::NOT_SLOWER_MESSAGE, false),
+        let after = speed::measure(probe.clone(), &speed::URLS, speed::AFTER);
+        self.log_speed("с обходом", &after);
+        let mut verdict = speed::compare(baseline, &after);
+        // Одиночный разброс не откатывает: замедление должно подтвердиться повторным замером
+        // через 5 с на тех же адресах (и сбой — только если повторный запрос тоже не прошёл).
+        if let speed::Verdict::Slower(first) = &verdict {
+            let urls = speed::flagged_urls(first);
+            std::thread::sleep(self.recheck_delay);
+            {
+                let t = lock(&self.trial);
+                if t.generation != generation || t.deadline.is_none() {
+                    drop(t);
+                    self.set_phase(TrialPhase::Idle);
+                    return;
+                }
+            }
+            let refs: Vec<&str> = urls.iter().map(String::as_str).collect();
+            let again = speed::measure(probe, &refs, speed::AFTER);
+            self.log_speed("повтор", &again);
+            let confirmed = speed::compare_urls(baseline, &again, Some(&urls));
+            verdict = confirmed;
+        }
+        let (note, rollback): (String, bool) = match verdict {
+            speed::Verdict::Slower(found) => (speed::rollback_message(&found), true),
+            speed::Verdict::NotSlower => (speed::NOT_SLOWER_MESSAGE.into(), false),
             speed::Verdict::NothingToCompare {
                 opened_with_bypass: true,
-            } => (speed::NO_COMPARE_MESSAGE, false),
+            } => (speed::NO_COMPARE_MESSAGE.into(), false),
             speed::Verdict::NothingToCompare {
                 opened_with_bypass: false,
-            } => (speed::NO_INTERNET_MESSAGE, false),
+            } => (speed::NO_INTERNET_MESSAGE.into(), false),
         };
+        self.log_text(&format!("итог: {note}"));
         {
             let mut t = lock(&self.trial);
             t.phase = TrialPhase::Idle;
             if t.generation != generation {
                 return;
             }
-            t.speed_note = Some(note.into());
+            t.speed_note = Some(note);
         }
         if rollback {
             let _ = self.stop_trial();
         }
+    }
+
+    /// Строка в журнал проверки скорости (папка данных обхода): что намерили и чем кончилось.
+    fn log_text(&self, text: &str) {
+        use std::io::Write;
+        let _ = std::fs::create_dir_all(&self.dir);
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dir.join("desync-speed.log"))
+        {
+            let _ = writeln!(f, "{text}");
+        }
+    }
+
+    fn log_speed(&self, label: &str, m: &speed::Measurement) {
+        let parts: Vec<String> = m
+            .entries
+            .iter()
+            .map(|(url, t)| match t.total {
+                Some(total) => format!("{}: {} мс", speed::site_name(url), total.as_millis()),
+                None => format!("{}: не открылся", speed::site_name(url)),
+            })
+            .collect();
+        self.log_text(&format!("{label}: {}", parts.join(", ")));
     }
 
     /// Если VPN работает — отключает его и убеждается, что он действительно не активен.
@@ -2787,6 +2840,7 @@ mod tests {
         s.candidate = profile();
         s.stop_wait = (2, Duration::from_millis(1));
         s.speed_async = false;
+        s.recheck_delay = Duration::from_millis(1);
         s.set_speed_probe(fake);
         Arc::new(s)
     }
@@ -2824,7 +2878,12 @@ mod tests {
             "откат прошёл через общий путь остановки"
         );
         let st = s.trial_status(std::time::Instant::now());
-        assert_eq!(st.speed_note.as_deref(), Some(speed::SLOWER_MESSAGE));
+        let note = st.speed_note.clone().unwrap();
+        assert!(
+            note.starts_with("Сайты с обходом открываются медленнее (YouTube: 3,0 с вместо 0,9 с"),
+            "{note}"
+        );
+        assert!(note.ends_with("Обход выключен"));
         assert!(!st.active && st.error.is_none());
         s.coord.begin(coordinator::Owner::Vpn).unwrap();
     }
@@ -2864,12 +2923,80 @@ mod tests {
         s.start_trial(true, &mut |_| {}).unwrap();
         finish_speed_check(&s);
         assert!(!s.is_running());
+        let note = s
+            .trial_status(std::time::Instant::now())
+            .speed_note
+            .unwrap();
+        assert!(
+            note.contains("С обходом не открывается") && note.ends_with("Обход выключен"),
+            "{note}"
+        );
+    }
+
+    /// Ответы по каждому адресу: без обхода, с обходом, повторный замер.
+    fn speed_fake3(base: Timing, first: Timing, again: Timing) -> Arc<SpeedFake> {
+        let items: Vec<(&str, Vec<Timing>)> = URLS
+            .iter()
+            .map(|u| (*u, vec![base, first, again]))
+            .collect();
+        Arc::new(SpeedFake::new(&items))
+    }
+
+    #[test]
+    fn a_one_off_spike_does_not_roll_back_but_a_sustained_slowdown_does() {
+        let base = Timing::done(ms(300), ms(900));
+        let slow = Timing::done(ms(300), ms(3200));
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(&flags, speed_fake3(base, slow, base));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(s.is_running());
         assert_eq!(
             s.trial_status(std::time::Instant::now())
                 .speed_note
                 .as_deref(),
-            Some(speed::SLOWER_MESSAGE)
+            Some(speed::NOT_SLOWER_MESSAGE)
         );
+        s.stop_trial().unwrap();
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(&flags, speed_fake3(base, slow, slow));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(!s.is_running());
+        let note = s
+            .trial_status(std::time::Instant::now())
+            .speed_note
+            .unwrap();
+        assert!(note.contains("YouTube: 3,2 с вместо 0,9 с"), "{note}");
+    }
+
+    #[test]
+    fn a_single_failure_does_not_roll_back_but_a_repeated_one_does() {
+        let base = Timing::done(ms(300), ms(900));
+        let down = Timing::timeout(speed::AFTER.per_request);
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(&flags, speed_fake3(base, down, base));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(s.is_running(), "единичный сбой не откатывает");
+        s.stop_trial().unwrap();
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(&flags, speed_fake3(base, down, down));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(!s.is_running(), "повторный сбой откатывает");
+    }
+
+    #[test]
+    fn the_old_noise_case_400_to_650_ms_never_turns_the_bypass_off() {
+        let base = Timing::done(ms(200), ms(400));
+        let a = Timing::done(ms(300), ms(650));
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(&flags, speed_fake3(base, a, a));
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        assert!(s.is_running());
+        s.stop_trial().unwrap();
     }
 
     #[test]
