@@ -1,59 +1,103 @@
 <script lang="ts">
-  import DecryptedText from './DecryptedText.svelte';
   import FloatingField from './FloatingField.svelte';
-  import { segments, visualLine } from '../lib/secretMask';
+  import { decoyChars, mutateDecoy, splitSecret, type DecoyChar } from '../lib/secretMask';
 
   /** Поле для секретной ссылки: плавающая подпись внутри поля. Пока поле не редактируется, вместо
-      ссылки показана «приманка»: адрес сервера и случайные символы вместо токена, по которым спокойно
-      пробегает эффект Decrypted Text (порт React Bits): участки строки перемешиваются по очереди.
-      В фокусе поле обычное: можно править, выделять и вставлять настоящую ссылку. Настоящее значение
-      `value` не меняется и уходит в импорт. Приманка не выводится из символов токена. */
+      ссылки показано оформление: адрес сервера стоит неподвижно, а вместо токена — вымышленные
+      случайные символы, которые изредка по одному плавно заменяются другими. Приманка не выводится
+      из символов токена (от секрета зависит только их число). В фокусе поле обычное: можно править
+      настоящую ссылку (в этот момент она видна). Значение `value` не меняется и уходит в импорт.
+      Это оформление, а не защита от снимка экрана. */
   let {
     value = $bindable(''),
     label = 'Ссылка подписки',
     onenter,
   }: { value?: string; label?: string; onenter?: () => void } = $props();
 
-  const PARTS = 3;
-  const PERIOD = 4200; // один круг: участок 1, участок 2, участок 3 и пауза
-  const GAP = 1100;
+  /** Пауза между заменами: одна-две буквы раз в ~0,7 с. */
+  const TICK_MS = 700;
 
   let focused = $state(false);
-  let parts = $state<({ play: () => void } | undefined)[]>([]);
+  let visible = $state(true);
+  let secret = $state<DecoyChar[]>([]);
 
   const hasValue = $derived(value !== '');
   const showOverlay = $derived(hasValue && !focused);
-  // Новая приманка только при смене ссылки, а не на каждый кадр анимации.
-  const line = $derived(visualLine(value));
-  const chunks = $derived(segments(line, PARTS));
+  const parts = $derived(splitSecret(value));
+
+  // Новая приманка только при смене числа скрытых символов (то есть при новой ссылке).
+  $effect(() => {
+    const length = parts.secretLength;
+    secret = decoyChars(length);
+  });
 
   $effect(() => {
-    if (!showOverlay || chunks.length === 0) return;
+    const onVisibility = () => (visible = document.visibilityState !== 'hidden');
+    onVisibility();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  });
+
+  $effect(() => {
+    if (!showOverlay || !visible || parts.secretLength === 0) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const circle = () => {
-      chunks.forEach((_, i) => timers.push(setTimeout(() => parts[i]?.play(), i * GAP)));
-    };
-    timers.push(setTimeout(circle, 500));
-    const loop = setInterval(circle, PERIOD + chunks.length * GAP);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(loop);
-    };
+    const timer = setInterval(() => {
+      secret = mutateDecoy(secret, Math.random() < 0.3 ? 2 : 1);
+    }, TICK_MS);
+    return () => clearInterval(timer);
   });
 </script>
 
 <FloatingField bind:value bind:focused {label} {onenter} hideText={showOverlay}>
   {#snippet overlay()}
-    {#each chunks as chunk, i (i)}
-      <DecryptedText
-        bind:this={parts[i]}
-        text={chunk}
-        animateOn="manual"
-        speed={70}
-        maxIterations={12}
-        sequential={false}
-      />
-    {/each}
+    <span class="line">
+      <span class="open">{parts.open}</span>
+      {#if secret.length > 0}
+        <span class="secret">
+          {#each secret as c (c.id)}<span class="ch">{c.ch}</span>{/each}
+        </span>
+      {/if}
+    </span>
   {/snippet}
 </FloatingField>
+
+<style>
+  /* Длинная строка не обрывается посреди буквы у края поля, а мягко растворяется. */
+  .line {
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+  }
+
+  .open,
+  .secret {
+    white-space: pre;
+  }
+
+  /* Моноширинный шрифт: замена буквы не двигает строку. */
+  .secret {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+    font-size: inherit;
+  }
+
+  .ch {
+    display: inline-block;
+    animation: ch-in 0.9s ease both;
+  }
+
+  @keyframes ch-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ch {
+      animation: none;
+    }
+  }
+</style>

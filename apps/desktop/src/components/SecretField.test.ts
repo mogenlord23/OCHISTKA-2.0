@@ -69,4 +69,41 @@ describe('SecretField', () => {
     await fireEvent.keyDown(input, { key: 'Enter' });
     expect(onenter).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the host still and changes only a few secret letters per tick', async () => {
+    vi.useFakeTimers();
+    const { container } = render(SecretField, { value: URL_TEXT });
+    const open = () => container.querySelector('.open')?.textContent;
+    const letters = () =>
+      Array.from(container.querySelectorAll('.secret .ch'), (e) => e.textContent);
+    const first = letters();
+    expect(open()).toBe('https://sub.test/');
+    let maxChanged = 0;
+    let prev = first;
+    for (let i = 0; i < 30; i++) {
+      await vi.advanceTimersByTimeAsync(700);
+      expect(open()).toBe('https://sub.test/');
+      const now = letters();
+      expect(now).toHaveLength(first.length);
+      maxChanged = Math.max(maxChanged, now.filter((c, j) => c !== prev[j]).length);
+      prev = now;
+    }
+    expect(maxChanged).toBeGreaterThan(0);
+    expect(maxChanged).toBeLessThanOrEqual(2);
+  });
+
+  it('stops animating while focused and keeps the real value for import', async () => {
+    vi.useFakeTimers();
+    const { container } = render(SecretField, { value: URL_TEXT });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await fireEvent.focus(input);
+    expect(container.querySelector('.secret')).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(input.value).toBe(URL_TEXT);
+  });
+
+  it('stays empty for an empty field', () => {
+    const { container } = render(SecretField, { value: '' });
+    expect(container.querySelector('.overlay')).toBeNull();
+  });
 });

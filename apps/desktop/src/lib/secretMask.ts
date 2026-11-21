@@ -48,3 +48,33 @@ export function segments(text: string, count: number): string[] {
   for (let i = 0; i < chars.length; i += size) out.push(chars.slice(i, i + size).join(''));
   return out;
 }
+
+/** Один символ-приманка с номером: новый номер = символ заменён (нужен для плавного появления). */
+export interface DecoyChar {
+  id: number;
+  ch: string;
+}
+
+let nextId = 1;
+
+/** Начальный набор приманок длиной `length`. */
+export function decoyChars(length: number, random: () => number = Math.random): DecoyChar[] {
+  return Array.from(decoy(length, random), (ch) => ({ id: nextId++, ch }));
+}
+
+/** Заменяет `count` случайных позиций новыми приманками, остальные остаются теми же объектами. */
+export function mutateDecoy(
+  chars: DecoyChar[],
+  count = 1,
+  random: () => number = Math.random,
+): DecoyChar[] {
+  if (chars.length === 0) return chars;
+  const next = chars.slice();
+  for (let n = 0; n < count; n++) {
+    const at = Math.floor(random() * next.length);
+    let ch = decoy(1, random);
+    if (ch === next[at].ch) ch = decoy(1, random);
+    next[at] = { id: nextId++, ch };
+  }
+  return next;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decoy, segments, splitSecret, visualLine } from './secretMask';
+import { decoy, decoyChars, mutateDecoy, segments, splitSecret, visualLine } from './secretMask';
 
 const SECRET = 'SECRET-TOKEN-123';
 
@@ -57,5 +57,24 @@ describe('segments', () => {
   it('keeps short text in one part', () => {
     expect(segments('abc', 3)).toEqual(['abc']);
     expect(segments('', 3)).toEqual([]);
+  });
+});
+
+describe('decoyChars / mutateDecoy', () => {
+  it('replaces only the requested number of positions and keeps the length', () => {
+    const before = decoyChars(20);
+    const after = mutateDecoy(before, 2);
+    expect(after).toHaveLength(20);
+    const changed = after.filter((c, i) => c !== before[i]);
+    expect(changed.length).toBeGreaterThanOrEqual(1);
+    expect(changed.length).toBeLessThanOrEqual(2);
+    changed.forEach((c) => expect(/^[A-Za-z0-9]$/.test(c.ch)).toBe(true));
+  });
+
+  it('gives a changed position a new id and never equals the old letter', () => {
+    const before = decoyChars(1);
+    const after = mutateDecoy(before, 1, () => 0);
+    expect(after[0].id).not.toBe(before[0].id);
+    expect(mutateDecoy([], 1)).toEqual([]);
   });
 });
