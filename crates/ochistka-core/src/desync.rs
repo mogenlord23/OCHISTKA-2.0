@@ -194,6 +194,21 @@ pub fn windows_tcp_candidate_profile() -> Profile {
     }
 }
 
+/// Реальный Universal V13 Lite из NetZapret, ещё НЕ подтверждённый внешней сетью.
+/// Возвращает целый пресет со всеми 73 секциями без объединения чужих рецептов.
+/// Это кандидат для будущей установки через WindowsDesyncAdapter; само наличие
+/// функции НЕ меняет site_discord_profile() и не разблокирует переключатель.
+pub fn windows_netzapret_v13_lite_candidate_profile() -> Result<Profile, preset::PresetError> {
+    let original = include_str!("../../../assets/desync/presets/Universal V13 Lite.txt");
+    let parsed = preset::ZapretPreset::parse(original)?;
+    Ok(Profile {
+        id: "windows-netzapret-v13-lite-unverified",
+        engine: Engine::Winws2,
+        title: "Universal V13 Lite (требуется подтверждение сети)",
+        args: parsed.command_arguments(),
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum DesyncError {
     #[error("Другая операция с обходом ещё выполняется")]
@@ -616,6 +631,23 @@ mod tests {
             .iter()
             .any(|arg| arg.starts_with("--lua-desync=multisplit:")));
         assert!(!candidate.args.iter().any(|arg| arg.starts_with("--wf-udp")));
+        assert!(site_discord_profile(Platform::Windows).is_none());
+    }
+
+    #[test]
+    fn whole_netzapret_profile_is_in_core_but_not_user_enabled() {
+        let candidate = windows_netzapret_v13_lite_candidate_profile().unwrap();
+        assert_eq!(candidate.engine, Engine::Winws2);
+        assert_eq!(candidate.id, "windows-netzapret-v13-lite-unverified");
+        assert_eq!(candidate.args.len(), 564);
+        assert_eq!(
+            candidate.args.iter().filter(|x| x.as_str() == "--new").count(),
+            73
+        );
+        assert_eq!(
+            candidate.args.first().map(String::as_str),
+            Some("--lua-init=@lua/zapret-lib.lua")
+        );
         assert!(site_discord_profile(Platform::Windows).is_none());
     }
 

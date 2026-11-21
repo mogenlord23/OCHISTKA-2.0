@@ -45,4 +45,4 @@
 ## Исходный пресет NetZapret (6Б.5Г.2)
 
 - `assets/desync/presets/Universal V13 Lite.txt`: неизменённый исходный файл `RixyPow/netzapret@883ba05b9531a283e0d6c83fdc3536016fbd51d3`, SHA-256 `e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7`.
-- NetZapret MIT © 2026 RixyPow; исходные секции Zapret GUI MIT © 2025–2026 censorliber/loop-uh. Лицензии `assets/desync/presets/LICENSE-NetZapret.txt` и `LICENSE-ZapretGUI.txt`. Внешние Lua, списки, пакеты и фильтры **ещё не включены в поставку**.
+- NetZapret MIT © 2026 RixyPow; исходные секции Zapret GUI MIT © 2025–2026 censorliber/loop-uh. Лицензии `assets/desync/presets/LICENSE-NetZapret.txt` и `LICENSE-ZapretGUI.txt`. 135 оригинальных Lua/списков/образцов/фильтров теперь включены в **дерево исходников** `assets/desync/runtime/` и закреплены по SHA-256 в `docs/status/desync-preset-resources.json`. Их установка в пользовательскую сборку OCHISTKA ещё не интегрирована; готовую функцию обхода не заявляем. Дополнительные списки NetZapret могли использовать материалы v2fly/domain-list-community (MIT); учитывать этот источник при выпуске.
