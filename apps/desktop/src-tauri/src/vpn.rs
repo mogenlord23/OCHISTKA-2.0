@@ -56,6 +56,31 @@ pub fn core_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     dirs
 }
 
+/// Папки, где ищется SonicDPI: ресурсы приложения (`resource_dir/sonicdpi`, установщик кладёт файлы
+/// туда), рядом с exe и (в разработке) папка исходников. Текущая папка не используется.
+pub fn sonicdpi_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let plain = |p: PathBuf| PathBuf::from(crate::appearance::plain_path(&p));
+    if let Some(res) = resource_dir {
+        dirs.push(plain(res.join("sonicdpi")));
+        dirs.push(plain(res.join("resources").join("sonicdpi")));
+    }
+    if let Some(exe_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(PathBuf::from))
+    {
+        dirs.push(exe_dir.join("sonicdpi"));
+        dirs.push(exe_dir.join("resources").join("sonicdpi"));
+    }
+    #[cfg(debug_assertions)]
+    dirs.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("sonicdpi"),
+    );
+    dirs
+}
+
 /// Собирает сервис и сразу убирает последствия аварийного завершения прошлого запуска
 /// (оставшееся ядро и системный прокси).
 pub fn build_service(
@@ -170,6 +195,16 @@ mod tests {
     }
 
     #[test]
+    fn sonicdpi_dirs_come_from_the_resource_folder_and_never_from_the_current_folder() {
+        let dirs = sonicdpi_dirs(Some(PathBuf::from("/app/res")));
+        assert_eq!(dirs[0], PathBuf::from("/app/res/sonicdpi"));
+        assert!(dirs.iter().any(|d| d.ends_with("resources/sonicdpi")));
+        assert!(dirs.iter().all(|d| d.is_absolute()), "{dirs:?}");
+        // Без папки ресурсов остаются только соседи exe и папка исходников (в разработке).
+        assert!(!sonicdpi_dirs(None).contains(&PathBuf::from("sonicdpi")));
+    }
+
+    #[test]
     fn core_dirs_include_resources_and_exe_neighbours() {
         let dirs = core_dirs(Some(PathBuf::from("/app/res")));
         assert_eq!(dirs[0], PathBuf::from("/app/res/vpn-core"));
@@ -185,13 +220,14 @@ pub struct DesyncState(pub Arc<ochistka_core::desync::DesyncService>);
 pub fn build_desync(
     vpn: &VpnState,
     coord: Arc<ochistka_core::desync::coordinator::NetCoordinator>,
+    resource_dir: Option<PathBuf>,
 ) -> DesyncState {
     use ochistka_core::desync::{desync_conflict_guard, vpn_signal_source, DesyncService};
     let dir = ochistka_platform::desync::desync_data_dir();
     let desync = Arc::new(
         DesyncService::new(
             dir.clone(),
-            ochistka_platform::desync::adapter_for_current_os(dir),
+            ochistka_platform::desync::adapter_for_current_os(sonicdpi_dirs(resource_dir)),
             vpn_signal_source(Arc::downgrade(&vpn.0)),
         )
         .with_coordinator(coord),

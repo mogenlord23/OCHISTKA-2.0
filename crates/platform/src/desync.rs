@@ -21,21 +21,29 @@ pub mod probe;
 pub const ENGINE_EXE: &str = SONICDPI_EXE;
 
 pub struct WindowsDesyncAdapter {
-    dir: PathBuf,
+    /// Папки, где может лежать `sonicdpi.exe` (ресурсы приложения; порядок = приоритет). Рабочая
+    /// (текущая) папка не используется.
+    dirs: Vec<PathBuf>,
 }
 
 impl WindowsDesyncAdapter {
-    /// `dir` — папка компонентов в данных приложения.
-    pub fn new(dir: PathBuf) -> Self {
-        Self { dir }
+    /// `dirs` — папки ресурсов приложения с компонентами SonicDPI.
+    pub fn new(dirs: Vec<PathBuf>) -> Self {
+        Self { dirs }
     }
 
-    fn engine(&self) -> SonicDpiEngine {
-        SonicDpiEngine::new(self.dir.clone())
+    /// Первая папка, где `sonicdpi.exe` есть и это обычный файл (не ссылка и не папка).
+    fn engine(&self) -> Option<SonicDpiEngine> {
+        self.dirs.iter().find_map(|dir| {
+            let engine = SonicDpiEngine::new(dir.clone());
+            std::fs::symlink_metadata(engine.exe_path())
+                .is_ok_and(|meta| meta.is_file())
+                .then_some(engine)
+        })
     }
 
-    fn exe_path(&self) -> PathBuf {
-        self.engine().exe_path()
+    fn exe_path(&self) -> Option<PathBuf> {
+        self.engine().map(|engine| engine.exe_path())
     }
 }
 
@@ -72,11 +80,8 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     }
 
     fn locate(&self) -> Result<PathBuf, String> {
-        let exe = self.exe_path();
-        match std::fs::symlink_metadata(&exe) {
-            Ok(meta) if meta.is_file() => Ok(exe),
-            _ => Err("файл движка обхода отсутствует".into()),
-        }
+        self.exe_path()
+            .ok_or_else(|| "файл движка обхода отсутствует".into())
     }
 
     fn has_privileges(&self) -> bool {
@@ -90,14 +95,14 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         log: &Path,
     ) -> Result<Box<dyn CoreProcess>, String> {
         // Только наш файл из папки компонентов и только известный набор аргументов.
-        if exe != self.exe_path() {
+        let Some(engine) = self.engine().filter(|e| e.exe_path() == exe) else {
             return Err("запуск чужого файла отклонён".into());
-        }
+        };
         let profile = match args {
             [run, flag, profile] if run == "run" && flag == "--profile" => profile,
             _ => return Err("запуск с чужими аргументами отклонён".into()),
         };
-        Ok(Box::new(self.engine().spawn(profile, log)?))
+        Ok(Box::new(engine.spawn(profile, log)?))
     }
 
     fn driver_state(&self) -> desync::DriverState {
@@ -111,7 +116,9 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     /// Завершает движок от прошлого запуска по сохранённому PID: только процесс с именем
     /// `sonicdpi.exe` из нашей папки; чужой процесс с тем же PID не трогается.
     fn kill_stale(&self, pid: u32) {
-        let _ = self.engine().stop_by_pid(pid);
+        for dir in &self.dirs {
+            let _ = SonicDpiEngine::new(dir.clone()).stop_by_pid(pid);
+        }
     }
 
     /// Жив ли ещё наш движок с этим PID (после `kill_stale`).
@@ -130,9 +137,9 @@ pub fn desync_data_dir() -> PathBuf {
 }
 
 /// Адаптер для текущей ОС. Ядро (`ochistka-core`) об ОС ничего не знает.
-pub fn adapter_for_current_os(dir: PathBuf) -> Box<dyn DesyncAdapter> {
+pub fn adapter_for_current_os(engine_dirs: Vec<PathBuf>) -> Box<dyn DesyncAdapter> {
     if cfg!(windows) {
-        Box::new(WindowsDesyncAdapter::new(dir))
+        Box::new(WindowsDesyncAdapter::new(engine_dirs))
     } else {
         Box::new(desync::UnavailableAdapter::new(Platform::current()))
     }
@@ -153,7 +160,7 @@ mod tests {
     #[test]
     fn locate_needs_the_engine_file_and_refuses_a_folder_or_missing_file() {
         let dir = temp("locate");
-        let adapter = WindowsDesyncAdapter::new(dir.clone());
+        let adapter = WindowsDesyncAdapter::new(vec![dir.clone()]);
         assert!(adapter.locate().is_err(), "файла нет");
         std::fs::create_dir(dir.join(ENGINE_EXE)).unwrap();
         assert!(adapter.locate().is_err(), "папка вместо файла");
@@ -163,9 +170,27 @@ mod tests {
     }
 
     #[test]
+    fn the_engine_is_taken_from_the_resource_folders_in_order_never_from_the_current_folder() {
+        let missing = temp("res-missing");
+        let second = temp("res-second");
+        std::fs::write(second.join(ENGINE_EXE), b"x").unwrap();
+        let adapter = WindowsDesyncAdapter::new(vec![missing.clone(), second.clone()]);
+        assert_eq!(adapter.locate().unwrap(), second.join(ENGINE_EXE));
+        // Первая папка получила файл: она важнее.
+        std::fs::write(missing.join(ENGINE_EXE), b"y").unwrap();
+        assert_eq!(adapter.locate().unwrap(), missing.join(ENGINE_EXE));
+        // Без папок ресурсов (или с пустыми) файл не ищется ни в текущей папке, ни в PATH.
+        let current = std::env::current_dir().unwrap();
+        std::fs::write(current.join(ENGINE_EXE), b"z").unwrap();
+        let none = WindowsDesyncAdapter::new(vec![]);
+        assert!(none.locate().is_err());
+        let _ = std::fs::remove_file(current.join(ENGINE_EXE));
+    }
+
+    #[test]
     fn spawn_refuses_a_foreign_file_and_foreign_arguments() {
         let dir = temp("spawn");
-        let adapter = WindowsDesyncAdapter::new(dir.clone());
+        let adapter = WindowsDesyncAdapter::new(vec![dir.clone()]);
         let log = dir.join("a.log");
         let run: Vec<String> = ["run", "--profile", "youtube-discord"]
             .iter()
@@ -180,6 +205,9 @@ mod tests {
             .iter()
             .map(|a| a.to_string())
             .collect();
+        // Файла движка в папке ресурсов ещё нет: тоже «чужой».
+        assert!(adapter.spawn(&dir.join(ENGINE_EXE), &evil, &log).is_err());
+        std::fs::write(dir.join(ENGINE_EXE), b"x").unwrap();
         assert!(adapter.spawn(&dir.join(ENGINE_EXE), &evil, &log).is_err());
         assert!(adapter
             .spawn(&dir.join(ENGINE_EXE), &["-vv".to_string()], &log)
@@ -198,7 +226,7 @@ mod tests {
         // Чужой процесс: имя не sonicdpi.exe.
         let mut foreign =
             crate::vpn::spawn_logged(&sleeper, &["30"], &dir, &dir.join("a.log")).unwrap();
-        WindowsDesyncAdapter::new(dir.clone()).kill_stale(foreign.pid());
+        WindowsDesyncAdapter::new(vec![dir.clone()]).kill_stale(foreign.pid());
         assert!(!foreign.has_exited(), "чужой процесс остался");
         // «Наш» процесс: имя и папка совпадают.
         let ours_dir = temp("ours");
@@ -210,7 +238,7 @@ mod tests {
             &ours_dir.join("b.log"),
         )
         .unwrap();
-        WindowsDesyncAdapter::new(ours_dir).kill_stale(ours.pid());
+        WindowsDesyncAdapter::new(vec![ours_dir]).kill_stale(ours.pid());
         std::thread::sleep(std::time::Duration::from_millis(300));
         assert!(ours.has_exited(), "свой процесс остановлен");
         foreign.kill();
@@ -218,7 +246,7 @@ mod tests {
 
     #[test]
     fn readiness_is_honest_off_windows() {
-        let adapter = WindowsDesyncAdapter::new(temp("ready"));
+        let adapter = WindowsDesyncAdapter::new(vec![temp("ready")]);
         if cfg!(windows) {
             assert_eq!(adapter.readiness(), Readiness::Ready);
         } else {

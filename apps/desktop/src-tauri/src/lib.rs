@@ -74,7 +74,7 @@ pub fn run() {
             let coord =
                 std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
             let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord.clone());
-            let desync_state = vpn::build_desync(&vpn_state, coord);
+            let desync_state = vpn::build_desync(&vpn_state, coord, app.path().resource_dir().ok());
             app.manage(vpn_state);
             app.manage(desync_state);
             app.manage(service_check::ProbeState::default());
