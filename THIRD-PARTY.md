@@ -37,3 +37,7 @@
 ## Флаги стран — flag-icons (lipis)
 
 Папка `apps/desktop/src/assets/flags`: SVG-флаги 4×3 из проекта flag-icons (https://github.com/lipis/flag-icons), лицензия MIT, © 2013 Panayiotis Lipiridis. Файлы rs, mx, es, hr, md заменены упрощёнными трёхполосными версиями (без гербов) ради размера.
+
+## Обход блокировок (подготовка, этап 6Б.1)
+
+Планируются Zapret 2 / winws2 (bol-van/zapret2, MIT) и WinDivert (basil00/WinDivert, LGPL v3 / GPL v2; только отдельными файлами DLL и драйвера, без статической линковки). Бинарные файлы пока НЕ поставляются и не скачиваются: SHA-256 и подлинность подтверждаются на Windows скриптом `tools/desync-core/verify-sources.ps1`, затем значения закрепляются в `crates/ochistka-core/src/desync.rs`.

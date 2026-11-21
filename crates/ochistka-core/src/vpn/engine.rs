@@ -16,6 +16,8 @@ use url::Url;
 pub struct PinnedEngine {
     pub version: &'static str,
     pub url: &'static str,
+    /// Путь на github.com, под которым обязан лежать файл (выпуски только нужного проекта).
+    pub url_prefix: &'static str,
     pub archive_sha256: &'static str,
     pub files: &'static [(&'static str, &'static str)],
 }
@@ -23,6 +25,7 @@ pub struct PinnedEngine {
 pub const PINNED: PinnedEngine = PinnedEngine {
     version: "1.14.4",
     url: "https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-windows-amd64.zip",
+    url_prefix: "/SagerNet/sing-box/releases/download/",
     archive_sha256: "99185d75d314a07dbba4a130c8ad986cbeb629a07927975636b341ca61f991df",
     files: &[
         (
@@ -45,6 +48,11 @@ pub const MAX_ARCHIVE_BYTES: usize = 150 * 1024 * 1024;
 
 /// Первый адрес: только https и только выпуски SagerNet/sing-box на github.com.
 pub fn download_url_allowed(url: &str) -> bool {
+    url_allowed_under(url, PINNED.url_prefix)
+}
+
+/// Адрес допустим, если это https на github.com (без порта и логина) и путь начинается с `prefix`.
+pub fn url_allowed_under(url: &str, prefix: &str) -> bool {
     let Ok(parsed) = Url::parse(url) else {
         return false;
     };
@@ -52,9 +60,7 @@ pub fn download_url_allowed(url: &str) -> bool {
         && parsed.host_str() == Some("github.com")
         && parsed.port().is_none()
         && parsed.username().is_empty()
-        && parsed
-            .path()
-            .starts_with("/SagerNet/sing-box/releases/download/")
+        && parsed.path().starts_with(prefix)
 }
 
 /// Переходы при загрузке: GitHub отдаёт файл с собственных адресов `*.githubusercontent.com`.
@@ -152,7 +158,7 @@ pub fn install(
         progress(PrepareProgress { percent: 100 });
         return Ok(());
     }
-    if !download_url_allowed(spec.url) {
+    if !url_allowed_under(spec.url, spec.url_prefix) {
         return Err(PrepareError::integrity("адрес загрузки не разрешён"));
     }
     let mut last = None;
@@ -277,6 +283,7 @@ mod tests {
         PinnedEngine {
             version: "t",
             url: PINNED.url,
+            url_prefix: PINNED.url_prefix,
             archive_sha256: Box::leak(sha256_hex(archive).into_boxed_str()),
             files: Box::leak(list.into_boxed_slice()),
         }

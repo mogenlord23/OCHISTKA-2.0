@@ -3,6 +3,7 @@ pub mod appearance_cursor;
 pub mod appearance_wallpaper;
 pub mod assess;
 pub mod cleanup;
+pub mod desync;
 pub mod drivers;
 pub mod fs;
 pub mod hardware;
