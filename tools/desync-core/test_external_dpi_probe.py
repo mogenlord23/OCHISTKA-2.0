@@ -114,5 +114,76 @@ class EvidenceTests(unittest.TestCase):
         self.assertTrue(self.result("http_success", 302).reachable)
 
 
+
+class SafetyTests(unittest.TestCase):
+    def test_stop_engine_reports_failure_when_process_survives(self) -> None:
+        proc = mock.Mock()
+        proc.poll.return_value = None
+        proc.wait.side_effect = module.subprocess.TimeoutExpired("x", 3)
+        with mock.patch.object(module.signal, "CTRL_BREAK_EVENT", 1, create=True):
+            self.assertFalse(module.stop_engine(proc))
+        proc.kill.assert_called_once()
+
+    def test_stop_engine_true_for_already_finished_process(self) -> None:
+        proc = mock.Mock()
+        proc.poll.return_value = 0
+        self.assertTrue(module.stop_engine(proc))
+        proc.send_signal.assert_not_called()
+
+    def test_active_probe_always_stops_engine_even_when_probe_fails(self) -> None:
+        proc = mock.Mock()
+        proc.poll.return_value = None
+        dry = mock.Mock(returncode=0)
+        with tempfile.TemporaryDirectory() as folder:
+            log = pathlib.Path(folder) / "engine.log"
+            exe = pathlib.Path(folder) / "winws2.exe"
+            with mock.patch.object(module.subprocess, "run", return_value=dry), \
+                 mock.patch.object(module.subprocess, "Popen", return_value=proc), \
+                 mock.patch.object(module.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, create=True), \
+                 mock.patch.object(module, "wait_capture"), \
+                 mock.patch.object(module, "bounded_probe_https", side_effect=RuntimeError("boom")), \
+                 mock.patch.object(module, "stop_engine", return_value=True) as stop:
+                with self.assertRaises(RuntimeError):
+                    module.active_probe(exe, "example.org", "1.1.1.1", log)
+                stop.assert_called_once_with(proc)
+
+    def test_active_probe_fails_loudly_if_engine_cannot_be_stopped(self) -> None:
+        proc = mock.Mock()
+        proc.poll.return_value = None
+        with tempfile.TemporaryDirectory() as folder:
+            log = pathlib.Path(folder) / "engine.log"
+            exe = pathlib.Path(folder) / "winws2.exe"
+            with mock.patch.object(module.subprocess, "run", return_value=mock.Mock(returncode=0)), \
+                 mock.patch.object(module.subprocess, "Popen", return_value=proc), \
+                 mock.patch.object(module.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, create=True), \
+                 mock.patch.object(module, "wait_capture"), \
+                 mock.patch.object(module, "bounded_probe_https", return_value=module.ProbeResult("timeout", None, 1)), \
+                 mock.patch.object(module, "stop_engine", return_value=False):
+                with self.assertRaisesRegex(RuntimeError, "Could not stop"):
+                    module.active_probe(exe, "example.org", "1.1.1.1", log)
+
+    def test_rejected_candidate_arguments_never_start_the_driver(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            exe = pathlib.Path(folder) / "winws2.exe"
+            with mock.patch.object(module.subprocess, "run", return_value=mock.Mock(returncode=1)), \
+                 mock.patch.object(module.subprocess, "Popen") as popen:
+                with self.assertRaises(RuntimeError):
+                    module.active_probe(exe, "example.org", "1.1.1.1", pathlib.Path(folder) / "l")
+                popen.assert_not_called()
+
+    def test_preflight_helpers_detect_proxy_and_other_engine_without_killing(self) -> None:
+        def run(stdout: str):
+            return mock.Mock(stdout=stdout)
+        with mock.patch.object(module.subprocess, "run", return_value=run("    ProxyEnable    REG_DWORD    0x1\n")):
+            self.assertTrue(module.system_proxy_enabled())
+        with mock.patch.object(module.subprocess, "run", return_value=run("    ProxyEnable    REG_DWORD    0x0\n")):
+            self.assertFalse(module.system_proxy_enabled())
+        with mock.patch.object(module.subprocess, "run", return_value=run('"winws2.exe","123"\n')) as call:
+            self.assertTrue(module.other_engine_running())
+            self.assertEqual(call.call_args.args[0][0], "tasklist.exe")
+        with mock.patch.object(module.subprocess, "run", return_value=run("INFO: No tasks\n")):
+            self.assertFalse(module.other_engine_running())
+
+
 if __name__ == "__main__":
     unittest.main()

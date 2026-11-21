@@ -44,6 +44,7 @@ fn lua_assets_valid(dir: &Path) -> bool {
     })
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn lua_write_error(err: std::io::Error) -> PrepareError {
     PrepareError {
         reason: "не удалось сохранить Lua-скрипты".into(),
@@ -54,20 +55,21 @@ fn lua_write_error(err: std::io::Error) -> PrepareError {
 /// Сохраняем оригинальные Lua-файлы только в каталог проверенного движка.
 /// Повторная запись исправляет отсутствующие или изменённые Lua-файлы; проверка
 /// целостности после подготовки обязательна, а запуск при подмене блокируется.
+#[cfg_attr(not(windows), allow(dead_code))]
 fn install_lua_assets(dir: &Path) -> Result<(), PrepareError> {
-    std::fs::create_dir_all(dir).map_err(|err| lua_write_error(err))?;
+    std::fs::create_dir_all(dir).map_err(lua_write_error)?;
     for (name, data) in LUA_ASSETS {
         let path = dir.join(name);
         if std::fs::read(&path).is_ok_and(|file| file.as_slice() == data) {
             continue;
         }
         let tmp = dir.join(format!("{name}.part"));
-        std::fs::write(&tmp, data).map_err(|err| lua_write_error(err))?;
+        std::fs::write(&tmp, data).map_err(lua_write_error)?;
         // Удаляем только свой одноимённый ресурс, не чужие файлы и каталоги.
         if path.is_file() {
-            std::fs::remove_file(&path).map_err(|err| lua_write_error(err))?;
+            std::fs::remove_file(&path).map_err(lua_write_error)?;
         }
-        std::fs::rename(&tmp, &path).map_err(|err| lua_write_error(err))?;
+        std::fs::rename(&tmp, &path).map_err(lua_write_error)?;
     }
     if !lua_assets_valid(dir) {
         return Err(PrepareError {

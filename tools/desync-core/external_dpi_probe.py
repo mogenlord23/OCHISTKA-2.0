@@ -252,15 +252,18 @@ def wait_capture(proc: subprocess.Popen[bytes], log: pathlib.Path) -> None:
     raise RuntimeError("Timed out waiting for narrow WinDivert capture")
 
 
-def stop_engine(proc: subprocess.Popen[bytes] | None) -> None:
+def stop_engine(proc: subprocess.Popen[bytes] | None) -> bool:
+    """Stop our own engine process. Returns True only when it is certainly not running."""
     if proc is None or proc.poll() is not None:
-        return
-    try:
-        proc.send_signal(signal.CTRL_BREAK_EVENT)
-        proc.wait(timeout=3)
-    except (OSError, subprocess.TimeoutExpired):
-        proc.kill()
-        proc.wait(timeout=3)
+        return True
+    for stop in (lambda: proc.send_signal(signal.CTRL_BREAK_EVENT), proc.kill):
+        try:
+            stop()
+            proc.wait(timeout=3)
+            return True
+        except (OSError, subprocess.TimeoutExpired, AttributeError):
+            continue
+    return proc.poll() is not None
 
 
 def active_probe(exe: pathlib.Path, host: str, ip: str, log: pathlib.Path) -> ProbeResult:
@@ -293,8 +296,10 @@ def active_probe(exe: pathlib.Path, host: str, ip: str, log: pathlib.Path) -> Pr
             return result
     finally:
         # Stop FIRST; Windows then releases the temporary packet filter.
-        stop_engine(proc)
+        stopped = stop_engine(proc)
         client.close()
+        if not stopped:
+            raise RuntimeError("Could not stop the test engine process; stop it manually (Task Manager)")
 
 
 def interpret(before: ProbeResult, active: ProbeResult, after: ProbeResult) -> str:
@@ -306,6 +311,25 @@ def interpret(before: ProbeResult, active: ProbeResult, after: ProbeResult) -> s
     if after.reachable or before.outcome != after.outcome:
         return "inconclusive_control_changed"
     return "repeatable_connectivity_improvement_not_proof_of_dpi"
+
+
+def other_engine_running() -> bool:
+    """Detection only (never kills anything): another winws2 would share the packet driver."""
+    out = subprocess.run(
+        ["tasklist.exe", "/FI", "IMAGENAME eq winws2.exe", "/FO", "CSV", "/NH"],
+        capture_output=True, text=True, timeout=15, check=False,
+    ).stdout
+    return "winws2.exe" in out.lower()
+
+
+def system_proxy_enabled() -> bool:
+    """Read-only check of the Windows user proxy switch (a VPN in proxy mode sets it)."""
+    out = subprocess.run(
+        ["reg.exe", "query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+         "/v", "ProxyEnable"],
+        capture_output=True, text=True, timeout=15, check=False,
+    ).stdout
+    return bool(re.search(r"ProxyEnable\s+REG_DWORD\s+0x[1-9a-f]", out, re.IGNORECASE))
 
 
 def is_admin_windows() -> bool:
@@ -337,6 +361,10 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError("Only an explicitly elevated Windows session can run this test")
     if options.bundle_dir.resolve() == pathlib.Path.cwd().resolve():
         raise RuntimeError("Do not use the current repository as an engine bundle directory")
+    if system_proxy_enabled():
+        raise RuntimeError("A system proxy is enabled (VPN in proxy mode?): disconnect it first")
+    if other_engine_running():
+        raise RuntimeError("Another winws2.exe is already running; stop it first (it is never killed here)")
 
     # The initial control must show a real problem, or the test is meaningless.
     with tempfile.TemporaryDirectory(prefix="ochistka-external-probe-") as folder:
