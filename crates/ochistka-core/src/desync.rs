@@ -159,7 +159,7 @@ pub enum DesyncError {
     VpnRunning,
     #[error("Обход пока недоступен в этой версии")]
     NoProfile,
-    #[error("Файлы для обхода не готовы. Повторите попытку позже")]
+    #[error("Файлы для обхода не найдены")]
     NotPrepared(String),
     #[error("Для обхода нужны права администратора")]
     NeedsAdmin,

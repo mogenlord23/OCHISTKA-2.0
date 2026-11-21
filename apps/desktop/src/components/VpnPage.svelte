@@ -684,11 +684,7 @@
               {/if}
             </section>
             {#if item.id === 'bypass'}
-              <BypassSitesPanel
-                open={sitesOpen}
-                active={bypass.checked}
-                onclose={() => (sitesOpen = false)}
-              />
+              <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
             {/if}
           {/each}
           {#if dnsMenu}

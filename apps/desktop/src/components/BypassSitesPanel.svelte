@@ -9,12 +9,9 @@
 
   let {
     open,
-    active = false,
     onclose,
   }: {
     open: boolean;
-    /** Обход сейчас включён: новые сайты вступят в силу при следующем включении. */
-    active?: boolean;
     onclose: () => void;
   } = $props();
 
@@ -67,10 +64,7 @@
         <span class="title">Мои сайты</span>
         <button type="button" class="icon-btn" aria-label="Закрыть" onclick={onclose}>✕</button>
       </div>
-      <p class="note">
-        Эти сайты тоже пойдут через обход. По одному адресу в строке: example.com или ссылка
-        https://. {active ? 'Изменения вступят в силу при следующем включении.' : ''}
-      </p>
+      <p class="note">Домены пока не применяются</p>
       <textarea
         bind:value={draft}
         rows="3"

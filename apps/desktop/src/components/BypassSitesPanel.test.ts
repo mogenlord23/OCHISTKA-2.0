@@ -87,13 +87,10 @@ describe('BypassSitesPanel', () => {
     expect(await screen.findByText('example.com')).toBeTruthy();
   });
 
-  it('tells that changes apply at the next start only while the bypass is on', async () => {
-    const { rerender } = render(BypassSitesPanel, {
-      props: { open: true, active: false, onclose: () => {} },
-    });
+  it('says in one line that domains are not applied yet', () => {
+    render(BypassSitesPanel, { props: { open: true, onclose: () => {} } });
+    expect(screen.getByText('Домены пока не применяются')).toBeTruthy();
     expect(screen.queryByText(/вступят в силу/)).toBeNull();
-    await rerender({ open: true, active: true, onclose: () => {} });
-    expect(screen.getByText(/вступят в силу при следующем включении/)).toBeTruthy();
   });
 
   it('uses plain words only', () => {
