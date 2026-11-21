@@ -370,6 +370,8 @@
 
   .body {
     position: relative;
+    /* Свой слой: подложка ниже (z-index: -1) остаётся внутри .body и лежит под панелью. */
+    isolation: isolate;
     display: flex;
     flex: 1;
     min-height: 0;
@@ -383,6 +385,7 @@
     content: '';
     position: absolute;
     inset: 0 calc(110px - var(--radius-lg)) 0 0;
+    z-index: -1;
     background-color: var(--accent);
     transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
   }
