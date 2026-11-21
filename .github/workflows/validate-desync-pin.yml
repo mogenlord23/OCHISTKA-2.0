@@ -28,3 +28,20 @@ jobs:
         run: cargo test -p ochistka-core -p ochistka-platform --lib
       - name: Offline external probe safety tests (no network / no driver)
         run: python3 -m unittest discover -s tools/desync-core -p 'test_external_dpi_probe.py' -q
+
+  windows-offline:
+    # Only Python unit tests and no-op planning. Never --execute or start WinDivert.
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Offline probe safety tests on Windows (no driver)
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tools/desync-core -p 'test_external_dpi_probe.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Offline probe tests failed on Windows' }
+      - name: Plan-only mode (no network and no driver)
+        shell: pwsh
+        run: |
+          python tools/desync-core/external_dpi_probe.py --host example.org --ip 1.1.1.1
+          if ($LASTEXITCODE -ne 0) { throw 'Offline plan-only probe failed on Windows' }
