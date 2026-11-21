@@ -165,7 +165,6 @@
     border-radius: var(--radius-md);
     background: var(--surface);
     color: var(--ink);
-    box-shadow: 0 0 0 2px #000;
     font: inherit;
     resize: vertical;
   }
@@ -177,7 +176,6 @@
     border-radius: var(--radius-md);
     background: var(--surface);
     color: var(--ink);
-    box-shadow: 0 0 0 2px #000;
     font: inherit;
     font-weight: 700;
     cursor: pointer;
