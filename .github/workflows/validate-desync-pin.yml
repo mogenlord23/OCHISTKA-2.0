@@ -1,4 +1,4 @@
-# Проверка только Rust-кода привязки Zapret 2; движок повторно НЕ собирается.
+# Проверка Rust-кода и безопасного offline-инструмента; сетевых тестов нет.
 name: validate-desync-pin
 
 on:
@@ -9,6 +9,8 @@ on:
       - crates/ochistka-core/src/desync.rs
       - crates/platform/src/desync.rs
       - assets/desync/**
+      - tools/desync-core/external_dpi_probe.py
+      - tools/desync-core/test_external_dpi_probe.py
       - .github/workflows/validate-desync-pin.yml
 
 permissions:
@@ -24,3 +26,5 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test core and platform
         run: cargo test -p ochistka-core -p ochistka-platform --lib
+      - name: Offline external probe safety tests (no network / no driver)
+        run: python3 -m unittest discover -s tools/desync-core -p 'test_external_dpi_probe.py' -q
