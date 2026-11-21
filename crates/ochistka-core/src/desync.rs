@@ -1,10 +1,14 @@
-//! Подготовка и безопасное управление движком обхода блокировок (Zapret 2: `winws2` + WinDivert).
-//! Этап 6Б.1: логика и порты без привязки к интерфейсу. Основной переключатель «Обход блокировок»
-//! к этому модулю пока НЕ подключён, настоящий запуск `winws2` на Windows не проверен.
+//! Единая система «Обход блокировок»: общее ядро для Windows, Linux и macOS.
 //!
-//! Правила: ничего не запускается без явного вызова `start`; состав файлов и их SHA-256 закреплены
-//! заранее (как у sing-box), без подтверждённых хэшей компоненты не скачиваются; постоянных служб
-//! нет; ошибки не меняют сеть (системный прокси, DNS, hosts здесь не трогаются).
+//! Общее (этот файл): состояния, профили и стратегии, автоматический выбор стратегии без
+//! смешивания, управление процессом (запуск только по явному действию, проверка, остановка, защита
+//! от второго экземпляра, очистка после аварии), конфликт с VPN, честная готовность адаптера.
+//! Системное (адаптеры, `crates/platform`): Windows — `winws2` + WinDivert; Linux — `nfqws2` +
+//! NFQUEUE; macOS — Zapret 2 не поддерживается, адаптер сообщает это и ничего не запускает.
+//!
+//! Пока ни один настоящий адаптер не готов, основной переключатель «Обход блокировок» не включается
+//! (`Readiness`). Ничего не скачивается и не запускается без подтверждённых источников и хэшей.
+//! Системный прокси, DNS, hosts и маршруты здесь не трогаются.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
@@ -30,6 +34,88 @@ pub const SOURCES: &[(&str, &str, &str)] = &[
     ),
 ];
 
+/// Операционная система адаптера.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Platform {
+    Windows,
+    Linux,
+    MacOs,
+}
+
+impl Platform {
+    /// ОС, под которую собрано приложение.
+    pub fn current() -> Self {
+        if cfg!(target_os = "windows") {
+            Platform::Windows
+        } else if cfg!(target_os = "macos") {
+            Platform::MacOs
+        } else {
+            Platform::Linux
+        }
+    }
+}
+
+/// Движок десинка (одна реализация на ОС; на macOS его нет).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Engine {
+    /// Zapret 2 для Windows (перехват пакетов WinDivert).
+    Winws2,
+    /// Zapret 2 для Linux (перехват через NFQUEUE).
+    Nfqws2,
+}
+
+impl Engine {
+    pub fn for_platform(platform: Platform) -> Option<Self> {
+        match platform {
+            Platform::Windows => Some(Engine::Winws2),
+            Platform::Linux => Some(Engine::Nfqws2),
+            Platform::MacOs => None,
+        }
+    }
+}
+
+/// Что обход должен охватывать (одно понятие для всех ОС).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Coverage {
+    Sites,
+    Discord,
+    Telegram,
+    Games,
+}
+
+/// Готов ли системный адаптер. Функцию как работающую показываем только при `Ready`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Readiness {
+    Ready,
+    /// Адаптер для этой ОС ещё не написан или не проверен.
+    NotImplemented(String),
+    /// На этой ОС такого механизма нет.
+    Unsupported(String),
+}
+
+/// Одна стратегия обхода: движок, охват и аргументы. Стратегии не складываются.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Strategy {
+    pub id: &'static str,
+    pub engine: Engine,
+    pub covers: &'static [Coverage],
+    pub args: Vec<String>,
+}
+
+/// Автоматический выбор: из стратегий движка берётся ОДНА, которая охватывает всё нужное целиком,
+/// с наименьшим лишним охватом (меньше правил, меньше конфликтов). Объединять стратегии нельзя:
+/// если одной подходящей нет, возвращается `None`.
+pub fn select_strategy<'a>(
+    candidates: &'a [Strategy],
+    engine: Engine,
+    wanted: &[Coverage],
+) -> Option<&'a Strategy> {
+    candidates
+        .iter()
+        .filter(|s| s.engine == engine && wanted.iter().all(|w| s.covers.contains(w)))
+        .min_by_key(|s| s.covers.len())
+}
+
 /// Закреплённый выпуск компонентов. `None`, пока хэши официальных файлов не подтверждены:
 /// в этом случае ничего не скачивается (неподтверждённые бинарные файлы не используем).
 pub fn pinned() -> Option<&'static PinnedEngine> {
@@ -40,13 +126,14 @@ pub fn pinned() -> Option<&'static PinnedEngine> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Profile {
     pub id: &'static str,
+    pub engine: Engine,
     pub title: &'static str,
     pub args: Vec<String>,
 }
 
-/// Профиль «Сайты и Discord». `None`, пока набор аргументов не проверен на настоящем Windows:
+/// Профиль «Сайты и Discord» для ОС. `None`, пока набор аргументов не проверен на настоящей ОС:
 /// придумывать параметры обхода нельзя.
-pub fn site_discord_profile() -> Option<Profile> {
+pub fn site_discord_profile(_platform: Platform) -> Option<Profile> {
     None
 }
 
@@ -54,6 +141,8 @@ pub fn site_discord_profile() -> Option<Profile> {
 pub enum DesyncError {
     #[error("Другая операция с обходом ещё выполняется")]
     Busy,
+    #[error("{0}")]
+    Unavailable(String),
     #[error("Сначала отключите VPN: пока обход и VPN вместе не работают")]
     VpnRunning,
     #[error("Профиль обхода пока не подтверждён, включение недоступно")]
@@ -75,21 +164,24 @@ pub enum DesyncState {
     Error,
 }
 
-/// Всё, что требует операционной системы (реализация для Windows — в `crates/platform`).
-pub trait DesyncHost: Send + Sync {
-    /// Путь к `winws2`, если все компоненты на месте и их хэши совпали.
+/// Системный адаптер: всё, что зависит от ОС (реализации — в `crates/platform`, по одной на ОС).
+pub trait DesyncAdapter: Send + Sync {
+    fn platform(&self) -> Platform;
+    /// Готов ли адаптер. Не `Ready` — переключатель не включается, запуск отказывает.
+    fn readiness(&self) -> Readiness;
+    /// Путь к движку (`winws2` или `nfqws2`), если все компоненты на месте и их хэши совпали.
     fn locate(&self) -> Result<PathBuf, String>;
     /// Скачивает и проверяет закреплённые компоненты (только при подтверждённых хэшах).
     fn install(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError>;
-    /// Есть ли права администратора у приложения (нужны драйверу перехвата пакетов).
-    fn is_elevated(&self) -> bool;
+    /// Есть ли права для перехвата пакетов (администратор в Windows, root или CAP_NET_ADMIN в Linux).
+    fn has_privileges(&self) -> bool;
     fn spawn(
         &self,
         exe: &Path,
         args: &[String],
         log: &Path,
     ) -> Result<Box<dyn CoreProcess>, String>;
-    /// Останавливает процесс от прошлого запуска, если это действительно `winws2`.
+    /// Останавливает процесс от прошлого запуска, если это действительно наш движок.
     fn kill_stale(&self, pid: u32);
 }
 
@@ -101,7 +193,7 @@ struct Inner {
 
 pub struct DesyncService {
     dir: PathBuf,
-    host: Box<dyn DesyncHost>,
+    adapter: Box<dyn DesyncAdapter>,
     profile: Option<Profile>,
     /// Есть ли закреплённый выпуск (можно ли скачивать недостающее).
     installable: bool,
@@ -120,13 +212,14 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 impl DesyncService {
     pub fn new(
         dir: PathBuf,
-        host: Box<dyn DesyncHost>,
+        adapter: Box<dyn DesyncAdapter>,
         vpn_active: Box<dyn Fn() -> bool + Send + Sync>,
     ) -> Self {
+        let profile = site_discord_profile(adapter.platform());
         Self {
             dir,
-            host,
-            profile: site_discord_profile(),
+            adapter,
+            profile,
             installable: pinned().is_some(),
             vpn_active,
             settle: (5, Duration::from_millis(200)),
@@ -179,14 +272,20 @@ impl DesyncService {
     }
 
     fn start_locked(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), DesyncError> {
+        match self.adapter.readiness() {
+            Readiness::Ready => {}
+            Readiness::NotImplemented(why) | Readiness::Unsupported(why) => {
+                return Err(DesyncError::Unavailable(why));
+            }
+        }
         if (self.vpn_active)() {
             return Err(DesyncError::VpnRunning);
         }
         let profile = self.profile.as_ref().ok_or(DesyncError::NoProfile)?;
-        let exe = match self.host.locate() {
+        let exe = match self.adapter.locate() {
             Ok(path) => path,
             Err(_) if self.installable => {
-                self.host.install(progress).map_err(|e| {
+                self.adapter.install(progress).map_err(|e| {
                     let _ = std::fs::create_dir_all(&self.dir);
                     let _ = std::fs::write(
                         self.dir.join("desync-prepare.log"),
@@ -194,13 +293,13 @@ impl DesyncService {
                     );
                     DesyncError::Prepare(e.reason)
                 })?;
-                self.host
+                self.adapter
                     .locate()
                     .map_err(|why| DesyncError::NotPrepared(mask_secrets(&why)))?
             }
             Err(why) => return Err(DesyncError::NotPrepared(mask_secrets(&why))),
         };
-        if !self.host.is_elevated() {
+        if !self.adapter.has_privileges() {
             return Err(DesyncError::NeedsAdmin);
         }
         // Остаток собственного процесса после аварии: останавливаем до запуска нового.
@@ -208,7 +307,7 @@ impl DesyncService {
         std::fs::create_dir_all(&self.dir)
             .map_err(|e| DesyncError::Start(format!("папка недоступна: {e}")))?;
         let mut process = self
-            .host
+            .adapter
             .spawn(&exe, &profile.args, &self.log_file())
             .map_err(|why| DesyncError::Start(mask_secrets(&why)))?;
         let _ = std::fs::write(self.pid_file(), process.pid().to_string());
@@ -246,7 +345,7 @@ impl DesyncService {
             .ok()
             .and_then(|t| t.trim().parse().ok())
         {
-            self.host.kill_stale(pid);
+            self.adapter.kill_stale(pid);
         }
         let _ = std::fs::remove_file(self.pid_file());
     }
@@ -261,6 +360,58 @@ impl DesyncService {
     pub fn shutdown(&self) {
         self.stop();
     }
+}
+
+/// Адаптер-заглушка для ОС, где системная часть ещё не написана или механизма нет. Ничего не
+/// запускает и не скачивает; честно сообщает причину. Используется приложением, пока нет настоящего.
+pub struct UnavailableAdapter {
+    platform: Platform,
+}
+
+impl UnavailableAdapter {
+    pub fn new(platform: Platform) -> Self {
+        Self { platform }
+    }
+}
+
+impl DesyncAdapter for UnavailableAdapter {
+    fn platform(&self) -> Platform {
+        self.platform
+    }
+
+    fn readiness(&self) -> Readiness {
+        match self.platform {
+            Platform::Windows => Readiness::NotImplemented(
+                "Обход блокировок для Windows ещё не готов: движок не подтверждён".into(),
+            ),
+            Platform::Linux => Readiness::NotImplemented(
+                "Обход блокировок для Linux ещё не готов: системная часть не написана".into(),
+            ),
+            Platform::MacOs => {
+                Readiness::Unsupported("На macOS движок обхода (Zapret 2) не поддерживается".into())
+            }
+        }
+    }
+
+    fn locate(&self) -> Result<PathBuf, String> {
+        Err("компоненты обхода не подготовлены".into())
+    }
+
+    fn install(&self, _: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError> {
+        Err(PrepareError::unsupported(
+            "загрузка компонентов не разрешена",
+        ))
+    }
+
+    fn has_privileges(&self) -> bool {
+        false
+    }
+
+    fn spawn(&self, _: &Path, _: &[String], _: &Path) -> Result<Box<dyn CoreProcess>, String> {
+        Err("запуск недоступен".into())
+    }
+
+    fn kill_stale(&self, _: u32) {}
 }
 
 #[cfg(test)]
@@ -295,11 +446,18 @@ mod tests {
     struct Host {
         flags: Arc<Flags>,
         elevated: bool,
+        readiness: Readiness,
         install_fails: bool,
         spawn_fails: bool,
     }
 
-    impl DesyncHost for Host {
+    impl DesyncAdapter for Host {
+        fn platform(&self) -> Platform {
+            Platform::Windows
+        }
+        fn readiness(&self) -> Readiness {
+            self.readiness.clone()
+        }
         fn locate(&self) -> Result<PathBuf, String> {
             if self.flags.present.load(Ordering::SeqCst) {
                 Ok(PathBuf::from("winws2.exe"))
@@ -319,7 +477,7 @@ mod tests {
             self.flags.present.store(true, Ordering::SeqCst);
             Ok(())
         }
-        fn is_elevated(&self) -> bool {
+        fn has_privileges(&self) -> bool {
             self.elevated
         }
         fn spawn(&self, _: &Path, _: &[String], _: &Path) -> Result<Box<dyn CoreProcess>, String> {
@@ -352,6 +510,7 @@ mod tests {
     fn profile() -> Option<Profile> {
         Some(Profile {
             id: "sites-discord",
+            engine: Engine::Winws2,
             title: "Сайты и Discord",
             args: vec!["--fake-arg".into()],
         })
@@ -378,6 +537,7 @@ mod tests {
         Host {
             flags,
             elevated: true,
+            readiness: Readiness::Ready,
             install_fails: false,
             spawn_fails: false,
         }
@@ -386,7 +546,12 @@ mod tests {
     #[test]
     fn nothing_is_pinned_or_enabled_until_hashes_and_profile_are_verified() {
         assert!(pinned().is_none(), "неподтверждённые файлы не скачиваем");
-        assert!(site_discord_profile().is_none(), "профиль не придуман");
+        for platform in [Platform::Windows, Platform::Linux, Platform::MacOs] {
+            assert!(
+                site_discord_profile(platform).is_none(),
+                "профиль не придуман"
+            );
+        }
         let flags = Arc::new(Flags::default());
         let mut s = DesyncService::new(
             temp_dir(),
@@ -540,5 +705,121 @@ mod tests {
         assert_eq!(state, DesyncState::Error);
         assert!(message.contains("остановился"));
         assert!(!s.pid_file().exists());
+    }
+
+    fn strategies() -> Vec<Strategy> {
+        vec![
+            Strategy {
+                id: "win-sites",
+                engine: Engine::Winws2,
+                covers: &[Coverage::Sites],
+                args: vec![],
+            },
+            Strategy {
+                id: "win-sites-discord",
+                engine: Engine::Winws2,
+                covers: &[Coverage::Sites, Coverage::Discord],
+                args: vec![],
+            },
+            Strategy {
+                id: "win-all",
+                engine: Engine::Winws2,
+                covers: &[
+                    Coverage::Sites,
+                    Coverage::Discord,
+                    Coverage::Telegram,
+                    Coverage::Games,
+                ],
+                args: vec![],
+            },
+            Strategy {
+                id: "linux-sites-discord",
+                engine: Engine::Nfqws2,
+                covers: &[Coverage::Sites, Coverage::Discord],
+                args: vec![],
+            },
+        ]
+    }
+
+    #[test]
+    fn one_compatible_strategy_is_chosen_and_strategies_are_never_merged() {
+        let all = strategies();
+        let pick =
+            |engine, wanted: &[Coverage]| select_strategy(&all, engine, wanted).map(|s| s.id);
+        assert_eq!(pick(Engine::Winws2, &[Coverage::Sites]), Some("win-sites"));
+        assert_eq!(
+            pick(Engine::Winws2, &[Coverage::Sites, Coverage::Discord]),
+            Some("win-sites-discord"),
+            "наименьший лишний охват"
+        );
+        assert_eq!(
+            pick(Engine::Winws2, &[Coverage::Discord, Coverage::Games]),
+            Some("win-all")
+        );
+        // Telegram есть только в «win-all»; для Linux его нет вовсе: стратегии не складываем.
+        assert_eq!(pick(Engine::Nfqws2, &[Coverage::Telegram]), None);
+        assert_eq!(
+            pick(Engine::Nfqws2, &[Coverage::Sites, Coverage::Discord]),
+            Some("linux-sites-discord"),
+            "стратегия чужого движка не подходит"
+        );
+    }
+
+    #[test]
+    fn each_platform_has_its_own_engine_and_macos_has_none() {
+        assert_eq!(
+            Engine::for_platform(Platform::Windows),
+            Some(Engine::Winws2)
+        );
+        assert_eq!(Engine::for_platform(Platform::Linux), Some(Engine::Nfqws2));
+        assert_eq!(Engine::for_platform(Platform::MacOs), None);
+    }
+
+    #[test]
+    fn a_not_ready_adapter_never_starts_anything() {
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        for readiness in [
+            Readiness::NotImplemented("не готов".into()),
+            Readiness::Unsupported("нет на этой ОС".into()),
+        ] {
+            let r = readiness.clone();
+            let s = make(
+                &flags,
+                move |f| Host {
+                    readiness: r,
+                    ..good(f)
+                },
+                true,
+                false,
+            );
+            assert!(matches!(
+                s.start(&mut |_| {}).unwrap_err(),
+                DesyncError::Unavailable(_)
+            ));
+            assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        }
+    }
+
+    #[test]
+    fn the_placeholder_adapter_is_honest_on_every_platform() {
+        for (platform, unsupported) in [
+            (Platform::Windows, false),
+            (Platform::Linux, false),
+            (Platform::MacOs, true),
+        ] {
+            let adapter = UnavailableAdapter::new(platform);
+            assert_eq!(adapter.platform(), platform);
+            match adapter.readiness() {
+                Readiness::Unsupported(_) => assert!(unsupported),
+                Readiness::NotImplemented(_) => assert!(!unsupported),
+                Readiness::Ready => panic!("заглушка не может быть готова"),
+            }
+            assert!(adapter.locate().is_err());
+            assert!(!adapter.has_privileges());
+            let s = DesyncService::new(temp_dir(), Box::new(adapter), Box::new(|| false));
+            assert!(s.start(&mut |_| {}).is_err());
+            assert_eq!(s.status().0, DesyncState::Error);
+        }
     }
 }
