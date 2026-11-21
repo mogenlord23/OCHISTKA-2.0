@@ -17,10 +17,11 @@ pub struct Limits {
     pub total: Duration,
 }
 
-/// Замер до включения обхода: запрос ≤ 5 с, весь замер ≤ 8 с.
+/// Замер без обхода идёт параллельно с подготовкой и не должен задерживать включение:
+/// запрос и весь замер ≤ 3 с (закрытый сайт без обхода и так «не открылся»).
 pub const BASELINE: Limits = Limits {
-    per_request: Duration::from_secs(5),
-    total: Duration::from_secs(8),
+    per_request: Duration::from_secs(3),
+    total: Duration::from_secs(3),
 };
 /// Замер с обходом (в фоне): запрос ≤ 5 с, весь замер ≤ 10 с.
 pub const AFTER: Limits = Limits {
@@ -277,10 +278,10 @@ mod tests {
     }
 
     #[test]
-    fn limits_are_five_seconds_per_request_and_eight_or_ten_in_total() {
+    fn limits_are_three_seconds_without_the_bypass_and_five_or_ten_with_it() {
         assert_eq!(
             (BASELINE.per_request, BASELINE.total),
-            (Duration::from_secs(5), Duration::from_secs(8))
+            (Duration::from_secs(3), Duration::from_secs(3))
         );
         assert_eq!(
             (AFTER.per_request, AFTER.total),

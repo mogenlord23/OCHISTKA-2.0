@@ -195,23 +195,116 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
     Ok(())
 }
 
+/// Что уже проверено по SHA-256: путь -> (размер, время изменения, ожидаемый хэш). Пока размер и
+/// время изменения файла не менялись, повторное чтение и хэширование не нужны; любое изменение
+/// файла сбрасывает запись, и файл проверяется заново.
+type VerifiedFiles =
+    std::collections::HashMap<PathBuf, (u64, Option<std::time::SystemTime>, String)>;
+
 pub struct WindowsDesyncAdapter {
     dir: PathBuf,
     spec: Option<&'static PinnedEngine>,
+    verified: std::sync::Mutex<VerifiedFiles>,
+    /// Сколько файлов реально хэшировалось (для тестов и замеров).
+    hashed: std::sync::atomic::AtomicUsize,
 }
 
 impl WindowsDesyncAdapter {
     /// `dir` — папка компонентов в данных приложения.
     pub fn new(dir: PathBuf) -> Self {
+        Self::with_spec_inner(dir, desync::pinned())
+    }
+
+    fn with_spec_inner(dir: PathBuf, spec: Option<&'static PinnedEngine>) -> Self {
         Self {
             dir,
-            spec: desync::pinned(),
+            spec,
+            verified: Default::default(),
+            hashed: Default::default(),
         }
     }
 
     #[cfg(test)]
     fn with_spec(dir: PathBuf, spec: Option<&'static PinnedEngine>) -> Self {
-        Self { dir, spec }
+        Self::with_spec_inner(dir, spec)
+    }
+
+    /// Файл обычный (не ссылка) и его SHA-256 совпадает; результат запоминается до изменения файла.
+    fn file_ok(&self, path: &Path, digest: &str) -> bool {
+        let Ok(meta) = std::fs::symlink_metadata(path) else {
+            return false;
+        };
+        if !meta.is_file() || meta.file_type().is_symlink() {
+            return false;
+        }
+        let key = (meta.len(), meta.modified().ok(), digest.to_string());
+        if self
+            .verified
+            .lock()
+            .is_ok_and(|map| map.get(path) == Some(&key))
+        {
+            return true;
+        }
+        self.hashed
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let ok = std::fs::read(path).is_ok_and(|bytes| engine::sha256_hex(&bytes) == digest);
+        if let Ok(mut map) = self.verified.lock() {
+            if ok {
+                map.insert(path.to_path_buf(), key);
+            } else {
+                map.remove(path);
+            }
+        }
+        ok
+    }
+
+    /// Все встроенные ресурсы лежат в папке движка и совпадают по SHA-256. Папка и подпапки
+    /// проверяются на ссылки один раз за проверку, файлы — через кеш.
+    fn resources_ok(&self) -> bool {
+        if std::fs::symlink_metadata(&self.dir).is_ok_and(|m| m.file_type().is_symlink()) {
+            return false;
+        }
+        let Ok(root) = self.dir.canonicalize() else {
+            return false;
+        };
+        let mut folders = std::collections::BTreeSet::new();
+        for (relative, _, _) in all_resources() {
+            if let Some(parent) = self.dir.join(relative).parent() {
+                folders.insert(parent.to_path_buf());
+            }
+        }
+        if !folders
+            .iter()
+            .all(|f| f.canonicalize().is_ok_and(|r| r.starts_with(&root)))
+        {
+            return false;
+        }
+        all_resources().all(|(relative, _, digest)| self.file_ok(&self.dir.join(relative), digest))
+    }
+
+    fn lua_ok(&self) -> bool {
+        static DIGESTS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+        let digests = DIGESTS.get_or_init(|| {
+            LUA_ASSETS
+                .iter()
+                .map(|(_, data)| engine::sha256_hex(data))
+                .collect()
+        });
+        LUA_ASSETS
+            .iter()
+            .zip(digests)
+            .all(|((name, _), digest)| self.file_ok(&self.dir.join(name), digest))
+    }
+
+    fn engine_ok(&self, spec: &PinnedEngine) -> bool {
+        spec.files
+            .iter()
+            .all(|(name, digest)| self.file_ok(&self.dir.join(name), digest))
+    }
+
+    /// Движок, Lua и все файлы профиля на месте и не изменены.
+    fn components_valid(&self, spec: &PinnedEngine) -> bool {
+        self.engine_ok(spec) && self.lua_ok() && self.resources_ok()
     }
 
     fn exe_path(&self) -> PathBuf {
@@ -300,10 +393,7 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let spec = self
             .spec
             .ok_or("файлы движка не закреплены: нет подтверждённых версий и хэшей")?;
-        if engine::is_installed(spec, &self.dir)
-            && lua_assets_valid(&self.dir)
-            && preset_assets_valid(&self.dir)
-        {
+        if self.components_valid(spec) {
             Ok(self.exe_path())
         } else {
             Err("компоненты обхода, Lua или файлы профиля отсутствуют либо изменены".into())
@@ -367,10 +457,7 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         let Some(spec) = self.spec else {
             return Err("движок не закреплён".into());
         };
-        if !engine::is_installed(spec, &self.dir)
-            || !lua_assets_valid(&self.dir)
-            || !preset_assets_valid(&self.dir)
-        {
+        if !self.components_valid(spec) {
             return Err(
                 "запуск отклонён: целостность движка, Lua или файлов профиля нарушена".into(),
             );
@@ -385,6 +472,23 @@ impl DesyncAdapter for WindowsDesyncAdapter {
 
     /// Останавливает процесс из прошлого запуска, только если номер принадлежит именно нашему
     /// `winws2.exe` (путь к файлу совпадает). По имени чужие процессы не трогаем.
+    /// В фоне при старте программы: если движок уже установлен, обновляет Lua и данные профиля
+    /// (после обновления программы) и запоминает их проверку, чтобы нажатие кнопки не тратило время.
+    /// Ничего не скачивает и не запускает.
+    fn warm_up(&self) {
+        let Some(spec) = self.spec else {
+            return;
+        };
+        if !self.exe_path().is_file() {
+            return;
+        }
+        if !self.components_valid(spec) && engine::is_installed(spec, &self.dir) {
+            let _ = install_lua_assets(&self.dir);
+            let _ = install_preset_assets(&self.dir);
+        }
+        let _ = self.components_valid(spec);
+    }
+
     fn driver_state(&self) -> desync::DriverState {
         crate::windows::driver_service::state()
     }
@@ -466,6 +570,49 @@ mod tests {
             135,
             "135 закреплённых файлов не менялись"
         );
+    }
+
+    #[test]
+    fn verified_files_are_not_hashed_again_until_they_change() {
+        let dir = temp("cache");
+        install_preset_assets(&dir).unwrap();
+        let adapter = WindowsDesyncAdapter::with_spec(dir.clone(), None);
+        let total = PINNED_RESOURCES.len() + MERGED_EXTRA_RESOURCES.len();
+        assert!(adapter.resources_ok());
+        let first = adapter.hashed.load(std::sync::atomic::Ordering::Relaxed);
+        assert_eq!(first, total, "первая проверка хэширует все файлы");
+        assert!(adapter.resources_ok());
+        assert_eq!(
+            adapter.hashed.load(std::sync::atomic::Ordering::Relaxed),
+            first,
+            "вторая — из кеша"
+        );
+        // Подмена файла другого размера сбрасывает кеш для этого файла.
+        let (name, _, _) = MERGED_EXTRA_RESOURCES[0];
+        std::fs::write(dir.join(name), b"tampered").unwrap();
+        assert!(!adapter.resources_ok());
+        // Подмена того же размера, но с новым временем изменения — тоже.
+        install_preset_assets(&dir).unwrap();
+        assert!(adapter.resources_ok());
+        let path = dir.join(name);
+        let len = std::fs::metadata(&path).unwrap().len() as usize;
+        std::fs::write(&path, vec![b'x'; len]).unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(5);
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert!(!adapter.resources_ok());
+    }
+
+    #[test]
+    fn warm_up_without_an_installed_engine_does_nothing() {
+        let dir = temp("warm");
+        let adapter = WindowsDesyncAdapter::with_spec(dir.clone(), None);
+        adapter.warm_up();
+        assert!(!dir.join("lists").exists(), "ничего не записано");
     }
 
     #[test]

@@ -5,8 +5,6 @@
 
 use ochistka_core::desync::DriverState;
 
-use super::services::sc_path;
-
 /// Имя службы драйвера (создаётся самим WinDivert при открытии).
 pub const WINDIVERT_SERVICE: &str = "WinDivert";
 
@@ -51,6 +49,7 @@ mod imp {
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
 
+    use super::super::services::sc_path;
     use super::*;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -149,6 +148,7 @@ pub fn stop() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::services::sc_path;
     use super::*;
 
     const RUNNING: &str = "SERVICE_NAME: WinDivert\n        TYPE               : 1  KERNEL_DRIVER  \n        STATE              : 4  RUNNING \n                                (STOPPABLE, NOT_PAUSABLE, IGNORES_SHUTDOWN)\n";

@@ -18,7 +18,7 @@ pub mod routing;
 pub mod speed;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
 use thiserror::Error;
@@ -332,6 +332,9 @@ pub trait DesyncAdapter: Send + Sync {
         args: &[String],
         log: &Path,
     ) -> Result<Box<dyn CoreProcess>, String>;
+    /// Заранее (в фоне, при старте программы) проверяет и запоминает целостность уже установленных
+    /// файлов, чтобы нажатие кнопки не тратило на это время. Ничего не скачивает и не запускает.
+    fn warm_up(&self) {}
     /// Состояние службы драйвера перехвата (Windows: WinDivert). Где драйвера нет — `NotApplicable`.
     fn driver_state(&self) -> DriverState {
         DriverState::NotApplicable
@@ -400,6 +403,22 @@ pub enum TrialVerdict {
     Unchecked,
 }
 
+/// Сколько заняли этапы последнего запуска (для журнала и тестов).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StartTimings {
+    pub vpn_stop: Duration,
+    /// Проверка файлов, подготовка, права, остаток прошлого запуска, служба драйвера.
+    pub prepare: Duration,
+    /// Сколько ещё пришлось ждать замер, который идёт параллельно с подготовкой.
+    pub baseline_wait: Duration,
+    /// Запуск процесса и проверка, что он не завершился сразу.
+    pub spawn_settle: Duration,
+    pub total: Duration,
+}
+
+/// Сколько результат замера без обхода считается годным для следующего включения.
+const BASELINE_CACHE: Duration = Duration::from_secs(300);
+
 /// Что сейчас делает пробный запуск (для надписи «Проверяем…»).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TrialPhase {
@@ -418,6 +437,9 @@ struct TrialInner {
     phase: TrialPhase,
     /// Только для тестов: базовый замер, ожидающий ручного вызова проверки.
     pending_baseline: Option<speed::Measurement>,
+    /// Последний успешный замер без обхода и когда он сделан (повторное включение без ожидания).
+    baseline_cache: Option<(std::time::Instant, speed::Measurement)>,
+    timings: Option<StartTimings>,
     /// Итог замера скорости для интерфейса (откат или «не медленнее»).
     speed_note: Option<String>,
     notes: Vec<(Coverage, TrialVerdict)>,
@@ -474,7 +496,8 @@ impl DesyncService {
             kill_attempts: 3,
             candidate,
             confirmed: routing::CONFIRMED_EXTERNAL_PROFILES,
-            settle: (5, Duration::from_millis(200)),
+            // Проверка, что процесс не завершился сразу: 8 × 50 мс = 400 мс (раньше 1 с ожидания).
+            settle: (8, Duration::from_millis(50)),
             inner: Mutex::new(Inner {
                 state: DesyncState::Off,
                 process: None,
@@ -578,7 +601,13 @@ impl DesyncService {
         if let Err(denied) = self.coord.begin(coordinator::Owner::Desync) {
             return self.fail(DesyncError::NotAllowed(denied.to_string()));
         }
-        let result = self.start_locked(progress, &profile, false);
+        let result = self.start_locked(
+            progress,
+            &profile,
+            false,
+            None,
+            &mut StartTimings::default(),
+        );
         match &result {
             Ok(()) => self.coord.activate(coordinator::Owner::Desync),
             Err(_) => self.coord.release(coordinator::Owner::Desync),
@@ -601,23 +630,80 @@ impl DesyncService {
         lock(&self.trial).phase = phase;
     }
 
-    /// Замер ДО включения обхода (VPN к этому моменту уже выключен): три адреса одновременно,
-    /// запрос ≤ 5 с, весь замер ≤ 8 с. Без транспорта — `None`. Результат «ничего не открылось»
-    /// обход не блокирует: сайт, закрытый без обхода, и есть цель обхода.
-    fn measure_baseline(&self) -> Result<Option<speed::Measurement>, DesyncError> {
+    /// Замер БЕЗ обхода стартует сразу и идёт параллельно с подготовкой файлов; к запуску движка
+    /// его результат нужен готовым. Свежий прошлый результат (≤ 5 минут) берётся без нового
+    /// замера. Без транспорта — `None`. «Ничего не открылось» обход не блокирует: сайт, закрытый
+    /// без обхода, и есть цель обхода.
+    fn begin_baseline(&self) -> Result<Option<mpsc::Receiver<speed::Measurement>>, DesyncError> {
         let Some(probe) = lock(&self.speed).clone() else {
             return Ok(None);
         };
+        let (tx, rx) = mpsc::channel();
         {
             let mut t = lock(&self.trial);
             if t.phase != TrialPhase::Idle {
                 return Err(DesyncError::Busy);
             }
+            if let Some((at, m)) = t.baseline_cache.clone() {
+                if at.elapsed() < BASELINE_CACHE {
+                    let _ = tx.send(m);
+                    return Ok(Some(rx));
+                }
+            }
             t.phase = TrialPhase::MeasuringBaseline;
         }
-        let baseline = speed::measure(probe, &speed::URLS, speed::BASELINE);
-        self.set_phase(TrialPhase::Idle);
-        Ok(Some(baseline))
+        std::thread::spawn(move || {
+            let _ = tx.send(speed::measure(probe, &speed::URLS, speed::BASELINE));
+        });
+        Ok(Some(rx))
+    }
+
+    /// Ждёт результат замера без обхода (ограничен пределом замера) и запоминает его.
+    fn finish_baseline(&self, rx: &mpsc::Receiver<speed::Measurement>) {
+        let measurement = rx
+            .recv_timeout(speed::BASELINE.total + Duration::from_secs(1))
+            .ok();
+        let mut t = lock(&self.trial);
+        t.phase = TrialPhase::Idle;
+        if let Some(m) = measurement {
+            if m.any_opened() {
+                t.baseline_cache = Some((std::time::Instant::now(), m.clone()));
+            }
+            t.pending_baseline = Some(m);
+        } else {
+            t.pending_baseline = None;
+        }
+    }
+
+    /// Одна строка в журнал запуска (папка данных обхода): чтобы по файлу было видно, где ушло время.
+    fn log_timings(&self, t: &StartTimings) {
+        use std::io::Write;
+        let _ = std::fs::create_dir_all(&self.dir);
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.dir.join("desync-start.log"))
+        {
+            let _ = writeln!(
+                f,
+                "запуск: всего {} мс (VPN {} мс, подготовка {} мс, ожидание проверки {} мс, процесс {} мс)",
+                t.total.as_millis(),
+                t.vpn_stop.as_millis(),
+                t.prepare.as_millis(),
+                t.baseline_wait.as_millis(),
+                t.spawn_settle.as_millis()
+            );
+        }
+    }
+
+    /// Подготовка в фоне при старте программы (проверка установленных файлов).
+    pub fn warm_up(&self) {
+        self.adapter.warm_up();
+    }
+
+    /// Этапы последнего запуска.
+    pub fn last_start_timings(&self) -> Option<StartTimings> {
+        lock(&self.trial).timings
     }
 
     /// Замер с обходом (в фоне, ≤ 10 с) и сравнение только по адресам, которые открылись без обхода.
@@ -717,7 +803,13 @@ impl DesyncService {
         let Some(profile) = self.profile.clone() else {
             return self.fail(DesyncError::NoProfile);
         };
-        let result = self.start_locked(progress, &profile, false);
+        let result = self.start_locked(
+            progress,
+            &profile,
+            false,
+            None,
+            &mut StartTimings::default(),
+        );
         self.record(&result);
         result
     }
@@ -727,7 +819,10 @@ impl DesyncService {
         progress: &mut dyn FnMut(PrepareProgress),
         profile: &Profile,
         trial: bool,
+        baseline: Option<mpsc::Receiver<speed::Measurement>>,
+        timings: &mut StartTimings,
     ) -> Result<(), DesyncError> {
+        let prepare_started = std::time::Instant::now();
         let readiness = if trial {
             self.adapter.trial_readiness()
         } else {
@@ -769,6 +864,14 @@ impl DesyncService {
         std::fs::create_dir_all(&self.dir)
             .map_err(|e| DesyncError::Start(format!("папка недоступна: {e}")))?;
         let driver_before = self.adapter.driver_state();
+        timings.prepare = prepare_started.elapsed();
+        // Замер без обхода шёл параллельно подготовке; движок стартует только после него.
+        if let Some(rx) = &baseline {
+            let waited = std::time::Instant::now();
+            self.finish_baseline(rx);
+            timings.baseline_wait = waited.elapsed();
+        }
+        let spawn_started = std::time::Instant::now();
         let mut process = self
             .adapter
             .spawn(&exe, &profile.args, &self.log_file())
@@ -786,6 +889,7 @@ impl DesyncService {
             std::thread::sleep(self.settle.1);
         }
         self.note_driver_started(&driver_before);
+        timings.spawn_settle = spawn_started.elapsed();
         let mut inner = lock(&self.inner);
         inner.process = Some(process);
         inner.state = DesyncState::Running;
@@ -826,10 +930,17 @@ impl DesyncService {
         if !self.adapter.has_privileges() {
             return Err(DesyncError::NeedsAdmin);
         }
-        let baseline = if self.status().0 != DesyncState::Running {
+        let started = std::time::Instant::now();
+        let mut timings = StartTimings::default();
+        let baseline_rx = if self.status().0 != DesyncState::Running {
             self.stop_vpn_if_active()?;
-            lock(&self.trial).speed_note = None;
-            self.measure_baseline()?
+            timings.vpn_stop = started.elapsed();
+            {
+                let mut t = lock(&self.trial);
+                t.speed_note = None;
+                t.pending_baseline = None;
+            }
+            self.begin_baseline()?
         } else {
             None
         };
@@ -857,9 +968,16 @@ impl DesyncService {
         if let Err(denied) = self.coord.begin(coordinator::Owner::Desync) {
             return self.fail(DesyncError::NotAllowed(denied.to_string()));
         }
-        let result = self.start_locked(progress, &profile, true);
+        let result = self.start_locked(progress, &profile, true, baseline_rx, &mut timings);
+        if result.is_err() {
+            // Незавершённый замер без обхода больше не нужен.
+            self.set_phase(TrialPhase::Idle);
+        }
         match &result {
             Ok(()) => {
+                timings.total = started.elapsed();
+                lock(&self.trial).timings = Some(timings);
+                self.log_timings(&timings);
                 self.coord.activate(coordinator::Owner::Desync);
                 let generation = {
                     let mut t = lock(&self.trial);
@@ -874,6 +992,7 @@ impl DesyncService {
                     self.trial_limit.as_secs()
                 );
                 self.spawn_trial_timer(generation);
+                let baseline = lock(&self.trial).pending_baseline.clone();
                 if let Some(baseline) = baseline {
                     self.spawn_speed_check(generation, baseline);
                 }
@@ -1323,6 +1442,8 @@ mod tests {
         trial: Readiness,
         install_fails: bool,
         spawn_fails: bool,
+        /// Задержка `locate` (проверка файлов), чтобы проверить параллельность с замером.
+        locate_delay: Duration,
     }
 
     impl DesyncAdapter for Host {
@@ -1336,6 +1457,7 @@ mod tests {
             self.trial.clone()
         }
         fn locate(&self) -> Result<PathBuf, String> {
+            std::thread::sleep(self.locate_delay);
             if self.flags.present.load(Ordering::SeqCst) {
                 Ok(PathBuf::from("winws2.exe"))
             } else {
@@ -1448,6 +1570,7 @@ mod tests {
             trial: Readiness::Ready,
             install_fails: false,
             spawn_fails: false,
+            locate_delay: Duration::ZERO,
         }
     }
 
@@ -2930,6 +3053,84 @@ mod tests {
             s.trial_status(std::time::Instant::now()).phase,
             TrialPhase::Idle
         );
+        s.stop_trial().unwrap();
+    }
+
+    // ----- этапы запуска, параллельный замер, кеш -----
+
+    #[test]
+    fn stage_timings_are_recorded_and_logged() {
+        let flags = Arc::new(Flags::default());
+        let s = speed_service(
+            &flags,
+            speed_fake(Timing::done(ms(10), ms(20)), Timing::done(ms(10), ms(20))),
+        );
+        assert!(s.last_start_timings().is_none());
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let t = s.last_start_timings().unwrap();
+        assert!(t.total >= t.prepare + t.spawn_settle, "{t:?}");
+        let log = std::fs::read_to_string(s.dir.join("desync-start.log")).unwrap();
+        assert!(
+            log.contains("запуск: всего") && log.contains("подготовка"),
+            "{log}"
+        );
+        // Цифры на фейках (без диска и сети) выводятся для docs/status/bypass-optimization.md.
+        println!("TIMINGS(fake) {t:?}");
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn the_baseline_runs_in_parallel_with_preparation_not_after_it() {
+        // Подготовка (проверка файлов) 400 мс и замер 400 мс: вместе ≈ 400, а не 800.
+        struct Slow(Duration);
+        impl speed::TimedFetch for Slow {
+            fn fetch(&self, _: &str, _: Duration) -> Timing {
+                std::thread::sleep(self.0);
+                Timing::done(self.0, self.0)
+            }
+        }
+        let flags = Arc::new(Flags::default());
+        flags.present.store(true, Ordering::SeqCst);
+        let mut svc = make(
+            &flags,
+            |f| Host {
+                readiness: Readiness::NotImplemented("профиль не проверен".into()),
+                locate_delay: Duration::from_millis(400),
+                ..good(f)
+            },
+            true,
+            false,
+        );
+        svc.candidate = profile();
+        svc.speed_async = false;
+        svc.set_speed_probe(Arc::new(Slow(Duration::from_millis(400))));
+        let s = Arc::new(svc);
+        let started = std::time::Instant::now();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let took = started.elapsed();
+        assert!(
+            took < Duration::from_millis(760),
+            "последовательно было бы ≥ 800 мс, вышло {took:?}"
+        );
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn a_fresh_baseline_is_reused_so_the_next_start_does_not_wait_for_it() {
+        let flags = Arc::new(Flags::default());
+        let fake = speed_fake(
+            Timing::done(ms(300), ms(900)),
+            Timing::done(ms(300), ms(900)),
+        );
+        let s = speed_service(&flags, fake.clone());
+        s.start_trial(true, &mut |_| {}).unwrap();
+        finish_speed_check(&s);
+        let after_first = fake.calls.lock().unwrap().len();
+        assert_eq!(after_first, 6, "три адреса без обхода и три с обходом");
+        s.stop_trial().unwrap();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        // Второй запуск: замера без обхода нет (взят прошлый), новых запросов пока не было.
+        assert_eq!(fake.calls.lock().unwrap().len(), after_first);
         s.stop_trial().unwrap();
     }
 
