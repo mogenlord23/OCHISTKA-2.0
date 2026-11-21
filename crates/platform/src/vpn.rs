@@ -73,7 +73,7 @@ pub fn spawn_logged(
     hide_window(&mut command);
     let child = command
         .spawn()
-        .map_err(|e| format!("Не удалось запустить VPN-ядро: {e}"))?;
+        .map_err(|e| format!("Не удалось запустить процесс: {e}"))?;
     Ok(StdCoreProcess { child })
 }
 

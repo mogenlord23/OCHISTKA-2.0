@@ -153,6 +153,34 @@ pub fn pinned() -> Option<&'static PinnedEngine> {
     }
 }
 
+/// Предел длины командной строки CreateProcess в Windows (символов).
+pub const WINDOWS_COMMAND_LINE_LIMIT: usize = 32_767;
+
+/// Длина командной строки Windows для запуска `exe` с `args` (как её собирает Rust: путь в
+/// кавычках, аргументы через пробел, аргументы с пробелом — в кавычках, `"` экранируется).
+pub fn windows_command_line_len(exe: &str, args: &[String]) -> usize {
+    let mut len = exe.chars().count() + 2;
+    for arg in args {
+        let quoted = arg.is_empty() || arg.contains([' ', '\t']);
+        len += 1 + arg.chars().count() + arg.matches('"').count();
+        if quoted {
+            len += 2;
+        }
+    }
+    len
+}
+
+/// Заранее отказывает, если командная строка не поместится, вместо загадочной ошибки ОС 206.
+pub fn check_command_line(exe: &str, args: &[String]) -> Result<usize, String> {
+    let len = windows_command_line_len(exe, args);
+    if len > WINDOWS_COMMAND_LINE_LIMIT {
+        return Err(format!(
+            "набор правил слишком длинный для запуска: {len} символов, Windows принимает не больше {WINDOWS_COMMAND_LINE_LIMIT}"
+        ));
+    }
+    Ok(len)
+}
+
 /// Один проверенный профиль обхода (сайты и Discord): аргументы `winws2`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Profile {
@@ -208,7 +236,7 @@ pub fn windows_merged_candidate_profile() -> Result<Profile, preset::PresetError
         id: "windows-ochistka-merged-unverified",
         engine: Engine::Winws2,
         title: "Обход блокировок (объединённый пресет, не проверен)",
-        args: parsed.command_arguments(),
+        args: parsed.launch_arguments(),
     })
 }
 
@@ -2152,6 +2180,64 @@ mod tests {
         flags.ignore_kill.store(false, Ordering::SeqCst);
         flags.exited.store(true, Ordering::SeqCst);
         s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn merged_profile_command_line_fits_the_windows_limit_with_margin() {
+        let merged = windows_merged_candidate_profile().unwrap();
+        let exe = r"C:\Users\Someone\AppData\Local\OCHISTKA\desync\winws2.exe";
+        let len = windows_command_line_len(exe, &merged.args);
+        // CreateProcess принимает не больше 32 767 символов; нужен запас (не больше 30 000).
+        assert!(
+            len <= 30_000,
+            "командная строка {len} символов, предел Windows 32 767"
+        );
+        assert!(check_command_line(exe, &merged.args).is_ok());
+    }
+
+    #[test]
+    fn too_long_command_line_is_refused_with_a_clear_reason_not_os_error_206() {
+        let exe = r"C:\x\winws2.exe";
+        let long: Vec<String> = (0..2000)
+            .map(|i| format!("--lua-desync=fake:blob={i:030}"))
+            .collect();
+        let err = check_command_line(exe, &long).unwrap_err();
+        assert!(
+            err.contains("слишком длинн") && err.contains("32767"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn windows_command_line_length_counts_quotes_for_arguments_with_spaces() {
+        let exe = r"C:\a\w.exe";
+        let plain = windows_command_line_len(exe, &["--a=1".to_string()]);
+        let spaced = windows_command_line_len(exe, &["--name=A B".to_string()]);
+        assert_eq!(plain, exe.len() + 2 + 1 + 5);
+        assert_eq!(spaced, exe.len() + 2 + 1 + "--name=A B".len() + 2);
+    }
+
+    #[test]
+    fn launch_arguments_differ_from_the_full_preset_only_by_profile_names() {
+        let m = preset::ZapretPreset::parse(include_str!(
+            "../../../assets/desync/presets/OCHISTKA Merged.txt"
+        ))
+        .unwrap();
+        let full = m.command_arguments();
+        let launch = m.launch_arguments();
+        let without_names: Vec<String> = full
+            .iter()
+            .filter(|a| !a.starts_with("--name="))
+            .cloned()
+            .collect();
+        assert_eq!(launch, without_names);
+        // Ни одно правило не потеряно: все не-именные аргументы на месте, порядок прежний.
+        assert!(launch.len() < full.len());
+        assert_eq!(
+            launch.iter().filter(|a| a.as_str() == "--new").count(),
+            m.sections.len()
+        );
+        assert_eq!(windows_merged_candidate_profile().unwrap().args, launch);
     }
 
     #[test]

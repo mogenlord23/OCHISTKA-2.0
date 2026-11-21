@@ -375,6 +375,8 @@ impl DesyncAdapter for WindowsDesyncAdapter {
                 "запуск отклонён: целостность движка, Lua или файлов профиля нарушена".into(),
             );
         }
+        // Windows принимает командную строку до 32 767 символов: понятный отказ вместо ошибки 206.
+        desync::check_command_line(&exe.to_string_lossy(), args)?;
         let workdir = exe.parent().unwrap_or(Path::new("."));
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let process = spawn_logged(exe, &arg_refs, workdir, log)?;

@@ -120,6 +120,17 @@ impl ZapretPreset {
         result
     }
 
+    /// Аргументы для запуска движка: то же самое, но без `--name=` (имена профилей нужны только
+    /// людям и журналу, Lua-модули поставки их не читают). Правила, их порядок и `--new` не
+    /// меняются. Нужно потому, что объединённый пресет с именами длиннее предела Windows
+    /// (32 767 символов командной строки, ошибка 206).
+    pub fn launch_arguments(&self) -> Vec<String> {
+        self.command_arguments()
+            .into_iter()
+            .filter(|argument| !argument.starts_with("--name="))
+            .collect()
+    }
+
     /// Discover every referenced file without fetching, reading or trusting it.
     pub fn required_resources(&self) -> Result<BTreeSet<String>, PresetError> {
         let mut resources = BTreeSet::new();
