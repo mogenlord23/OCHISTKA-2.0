@@ -277,7 +277,7 @@ impl Dialer for TcpDialer {
 // ---------- HTTPS: только Windows (SChannel), на других ОС честная заглушка ----------
 
 #[cfg(windows)]
-mod http {
+pub(crate) mod http {
     use super::*;
     use reqwest::blocking::Client;
     use reqwest::redirect::Policy;
