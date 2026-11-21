@@ -46,7 +46,6 @@
   let revealing = $state(false);
   /** Процесс, ожидающий подтверждения завершения. Без подтверждения ядро не вызывается. */
   let pending = $state<ProcessInfo | null>(null);
-  let updatedAt = $state('');
 
   let cancelButton = $state<HTMLButtonElement | null>(null);
 
@@ -74,7 +73,6 @@
       processes = await listProcesses();
       rememberList('processes', processes);
       prefetchProcessIcons(processes);
-      updatedAt = new Date().toLocaleTimeString('ru-RU');
       listError = null;
     } catch (err) {
       listError = toProcessesError(err);
@@ -244,10 +242,7 @@
       >
     </div>
 
-    <p class="status-line">
-      Процессов: {processes.length}{updatedAt ? ` · обновлено ${updatedAt}` : ''} · каждые 3 секунды ·
-      CPU — доля всех ядер, память — рабочий набор · клик по заголовку сортирует
-    </p>
+    <p class="status-line">Процессов: {processes.length} · Обновление каждые 3 секунды</p>
 
     {#if listError}
       <p class="alert" role="alert">{listError.message}</p>
@@ -330,7 +325,6 @@
       </div>
     {/if}
 
-    <p class="field-label">Файл выбранного процесса</p>
     <div class="path-box selectable" aria-live="polite">
       {#if pathInfo}
         <span class="path">

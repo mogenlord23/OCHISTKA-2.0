@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import FloatingField from './FloatingField.svelte';
   import Switch from './Switch.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import {
@@ -157,14 +158,15 @@
 </script>
 
 <section class="page" aria-label="Службы">
-  <label class="field-label" for="services-search">Поиск по названию службы</label>
-  <input
-    id="services-search"
-    type="search"
-    class="search"
-    aria-label="Поиск по названию службы"
-    bind:value={query}
-  />
+  <div class="search-row">
+    <FloatingField
+      id="services-search"
+      type="search"
+      label="Поиск службы"
+      ariaLabel="Поиск по названию службы"
+      bind:value={query}
+    />
+  </div>
 
   <div class="buttons">
     <button type="button" onclick={() => void refresh()}>Обновить</button>
@@ -282,28 +284,13 @@
     min-height: 0;
     color: var(--page-text);
   }
-  .field-label {
-    margin: 4px 0 0;
-    font-size: var(--text-small);
-    font-weight: 800;
-    text-transform: uppercase;
-  }
   .status-line {
     margin: 0;
     font-size: var(--text-small);
     font-weight: 600;
   }
-  .search {
-    height: 48px;
-    padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--ink);
-    font: inherit;
-  }
-  .search:focus-visible {
-    outline: 2px solid var(--ink);
+  .search-row {
+    display: flex;
   }
   .buttons {
     display: flex;
