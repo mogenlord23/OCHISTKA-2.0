@@ -34,6 +34,8 @@ pub enum VpnError {
     Engine(String),
     #[error("Не удалось изменить системный прокси: {0}")]
     Proxy(String),
+    #[error("{0}")]
+    ProxyConflict(String),
     #[error("Сначала выбери сервер")]
     NoServer,
     #[error("Сначала отключи VPN")]

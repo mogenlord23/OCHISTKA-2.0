@@ -38,6 +38,17 @@ const VALUES: &[(&str, Kind)] = &[
     ("AutoConfigURL", Kind::Text),
 ];
 
+/// Что сделал откат системного прокси.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Restored {
+    /// Копии не было: ничего не менялось.
+    Nothing,
+    /// Прежние значения возвращены.
+    Restored,
+    /// Адрес прокси уже сменила другая программа: её значения не тронуты, копия снята.
+    ForeignKept,
+}
+
 pub struct SystemProxy {
     registry: Arc<dyn RegistryPort>,
     refresh: Arc<dyn ProxyRefresh>,
@@ -55,6 +66,32 @@ impl SystemProxy {
     /// Есть ли неотменённая копия (прокси выставлен нами).
     pub fn is_active(&self) -> bool {
         matches!(self.registry.read_dword(BACKUP_KEY, "Active"), Ok(Some(1)))
+    }
+
+    /// Чужие настройки прокси, которые мы не вправе молча менять: включённый прокси с адресом
+    /// (другой VPN или программа) или сценарий автонастройки. Адреса не возвращаем.
+    /// Вызывать после отката собственной устаревшей копии.
+    pub fn foreign_conflict(&self) -> Result<Option<&'static str>, VpnError> {
+        let enabled = matches!(
+            self.registry
+                .read_dword(INTERNET_KEY, "ProxyEnable")
+                .map_err(proxy_err)?,
+            Some(1)
+        );
+        let server = self
+            .registry
+            .read_string(INTERNET_KEY, "ProxyServer")
+            .map_err(proxy_err)?
+            .is_some_and(|s| !s.trim().is_empty());
+        if enabled && server {
+            return Ok(Some("системный прокси"));
+        }
+        let pac = self
+            .registry
+            .read_string(INTERNET_KEY, "AutoConfigURL")
+            .map_err(proxy_err)?
+            .is_some_and(|s| !s.trim().is_empty());
+        Ok(pac.then_some("сценарий автонастройки прокси"))
     }
 
     /// Включает системный прокси на `127.0.0.1:port`. Повторный вызов копию не перезаписывает.
@@ -138,9 +175,9 @@ impl SystemProxy {
 
     /// Возвращает прежние настройки. Если пользователь или другая программа уже сменили
     /// адрес прокси, их значения не трогаем, копию просто снимаем. Без копии ничего не делает.
-    pub fn restore(&self) -> Result<(), VpnError> {
+    pub fn restore(&self) -> Result<Restored, VpnError> {
         if !self.is_active() {
-            return Ok(());
+            return Ok(Restored::Nothing);
         }
         let ours = self
             .registry
@@ -158,7 +195,11 @@ impl SystemProxy {
         }
         self.registry.delete_key(BACKUP_KEY).map_err(proxy_err)?;
         self.refresh.refresh();
-        Ok(())
+        Ok(if untouched {
+            Restored::Restored
+        } else {
+            Restored::ForeignKept
+        })
     }
 
     fn restore_value(&self, name: &str, kind: Kind) -> Result<(), VpnError> {
@@ -219,6 +260,8 @@ pub(crate) mod fake {
     #[derive(Default)]
     pub struct FakeRegistry {
         pub map: Mutex<HashMap<(String, String), V>>,
+        /// Имитация отказа записи в настройки Windows (для проверки сообщений об ошибке отката).
+        pub fail_internet_writes: std::sync::atomic::AtomicBool,
     }
 
     impl FakeRegistry {
@@ -243,6 +286,19 @@ pub(crate) mod fake {
         }
     }
 
+    impl FakeRegistry {
+        fn check_fail(&self, key: &str) -> Result<(), CoreError> {
+            if key == super::INTERNET_KEY
+                && self
+                    .fail_internet_writes
+                    .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(CoreError::Probe("запись отклонена".into()));
+            }
+            Ok(())
+        }
+    }
+
     impl RegistryPort for FakeRegistry {
         fn read_dword(&self, key: &str, name: &str) -> Result<Option<u32>, CoreError> {
             Ok(match self.get(key, name) {
@@ -251,6 +307,7 @@ pub(crate) mod fake {
             })
         }
         fn write_dword(&self, key: &str, name: &str, value: u32) -> Result<(), CoreError> {
+            self.check_fail(key)?;
             self.set_d(key, name, value);
             Ok(())
         }
@@ -261,10 +318,12 @@ pub(crate) mod fake {
             })
         }
         fn write_string(&self, key: &str, name: &str, value: &str) -> Result<(), CoreError> {
+            self.check_fail(key)?;
             self.set_s(key, name, value);
             Ok(())
         }
         fn delete_value(&self, key: &str, name: &str) -> Result<(), CoreError> {
+            self.check_fail(key)?;
             self.map.lock().unwrap().remove(&(key.into(), name.into()));
             Ok(())
         }
@@ -394,5 +453,57 @@ mod tests {
             Some(V::S("other-vpn:9".into()))
         );
         assert!(!proxy.is_active());
+    }
+
+    #[test]
+    fn foreign_proxy_and_pac_are_reported_without_addresses() {
+        let reg = Arc::new(FakeRegistry::default());
+        let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
+        assert_eq!(proxy.foreign_conflict().unwrap(), None);
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 1);
+        reg.set_s(INTERNET_KEY, "ProxyServer", "10.1.2.3:8080");
+        assert_eq!(proxy.foreign_conflict().unwrap(), Some("системный прокси"));
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 0);
+        assert_eq!(
+            proxy.foreign_conflict().unwrap(),
+            None,
+            "выключенный прокси не мешает"
+        );
+        reg.set_s(INTERNET_KEY, "AutoConfigURL", "http://pac.example/x.pac");
+        assert_eq!(
+            proxy.foreign_conflict().unwrap(),
+            Some("сценарий автонастройки прокси")
+        );
+    }
+
+    #[test]
+    fn restore_reports_what_happened() {
+        let reg = Arc::new(FakeRegistry::default());
+        let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
+        assert_eq!(proxy.restore().unwrap(), Restored::Nothing);
+        proxy.enable(1111).unwrap();
+        assert_eq!(proxy.restore().unwrap(), Restored::Restored);
+        proxy.enable(2222).unwrap();
+        reg.set_s(INTERNET_KEY, "ProxyServer", "10.0.0.9:3128");
+        assert_eq!(proxy.restore().unwrap(), Restored::ForeignKept);
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S("10.0.0.9:3128".into())),
+            "чужой адрес не тронут"
+        );
+    }
+
+    #[test]
+    fn failed_restore_keeps_the_backup_for_a_retry() {
+        let reg = Arc::new(FakeRegistry::default());
+        let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
+        proxy.enable(3333).unwrap();
+        reg.fail_internet_writes
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(proxy.restore().is_err());
+        assert!(proxy.is_active(), "копия осталась, откат можно повторить");
+        reg.fail_internet_writes
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(proxy.restore().unwrap(), Restored::Restored);
     }
 }

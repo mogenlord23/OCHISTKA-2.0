@@ -18,7 +18,7 @@ use super::latency::{measure, Dialer, PARALLEL, TIMEOUT};
 use super::mask::mask_secrets;
 use super::parse::{ImportReport, Server};
 use super::routes::{RoutingRules, PRESETS};
-use super::sysproxy::SystemProxy;
+use super::sysproxy::{Restored, SystemProxy};
 use super::VpnError;
 
 /// Дочерний процесс ядра.
@@ -272,10 +272,16 @@ impl VpnService {
             let died = conn.process.as_mut().is_none_or(|p| p.has_exited());
             if died {
                 let tail = self.log_tail();
-                self.cleanup_locked(&mut conn);
+                let outcome = self.cleanup_locked(&mut conn);
                 conn.state = ConnState::Error;
                 conn.message = format!("VPN остановился.{tail}");
                 conn.since = None;
+                if let Err(err) = outcome {
+                    conn.message = format!(
+                        "{} Не удалось вернуть прежние настройки прокси Windows: {err}",
+                        conn.message
+                    );
+                }
             }
         }
         ConnectionStatus {
@@ -402,6 +408,13 @@ impl VpnService {
                 .ok_or(VpnError::NoServer)?;
             (server, data.rules.clone())
         };
+        if let Err(err) = self.prepare_system_proxy() {
+            let mut conn = lock(&self.conn);
+            *conn = Conn::idle();
+            conn.state = ConnState::Error;
+            conn.message = err.to_string();
+            return Err(err);
+        }
         {
             let mut conn = lock(&self.conn);
             *conn = Conn::idle();
@@ -441,13 +454,38 @@ impl VpnService {
             }
             Err(err) => {
                 let mut conn = lock(&self.conn);
-                self.cleanup_locked(&mut conn);
+                let outcome = self.cleanup_locked(&mut conn);
                 *conn = Conn::idle();
                 conn.state = ConnState::Error;
                 conn.message = err.to_string();
+                if let Err(restore) = outcome {
+                    conn.message = format!(
+                        "{} Не удалось вернуть прежние настройки прокси Windows: {restore}",
+                        conn.message
+                    );
+                }
                 Err(err)
             }
         }
+    }
+
+    /// До запуска ядра: убирает устаревшие следы нашего прошлого запуска и не даёт молча
+    /// перезаписать чужой прокси (другой VPN, сценарий автонастройки).
+    fn prepare_system_proxy(&self) -> Result<(), VpnError> {
+        let leftovers = self.proxy.is_active() || self.pid_file().exists();
+        if leftovers {
+            self.recover().map_err(|err| {
+                VpnError::Proxy(format!(
+                    "не удалось вернуть настройки после прошлого запуска ({err}); подключение не начато"
+                ))
+            })?;
+        }
+        if let Some(what) = self.proxy.foreign_conflict()? {
+            return Err(VpnError::ProxyConflict(format!(
+                "В Windows уже включён {what}: возможно, это другой VPN или программа. OCHISTKA его не меняет. Отключите его и повторите подключение"
+            )));
+        }
+        Ok(())
     }
 
     /// Скачивает движок и снова ищет его. Подробности неудачи пишутся в журнал, а не показываются.
@@ -520,27 +558,48 @@ impl VpnService {
     }
 
     /// Останавливает ядро, возвращает системный прокси, стирает конфигурацию с ключами.
-    fn cleanup_locked(&self, conn: &mut Conn) {
+    /// Ошибку отката не скрываем: копия настроек в реестре остаётся, откат повторится при запуске.
+    fn cleanup_locked(&self, conn: &mut Conn) -> Result<Restored, VpnError> {
         if let Some(mut p) = conn.process.take() {
             p.kill();
         }
-        let _ = self.proxy.restore();
+        let restored = self.proxy.restore();
         let _ = std::fs::remove_file(self.pid_file());
         let _ = std::fs::remove_file(self.session_dir().join("config.json"));
+        restored
     }
 
     pub fn disconnect(&self) -> ConnectionStatus {
         let _op = lock(&self.op);
         {
             let mut conn = lock(&self.conn);
-            self.cleanup_locked(&mut conn);
+            let outcome = self.cleanup_locked(&mut conn);
             *conn = Conn::idle();
+            Self::note_restore(&mut conn, outcome);
         }
         self.status()
     }
 
-    /// Вызывается при запуске: убирает ядро и системный прокси после аварийного завершения.
-    pub fn recover_on_start(&self) {
+    /// Показывает итог отката: ошибку (настройки не возвращены) или пометку о чужих настройках.
+    fn note_restore(conn: &mut Conn, outcome: Result<Restored, VpnError>) {
+        match outcome {
+            Err(err) => {
+                conn.state = ConnState::Error;
+                conn.message = format!(
+                    "Не удалось вернуть прежние настройки прокси Windows: {err}. Повторите отключение или перезапустите OCHISTKA: оно вернёт их при запуске"
+                );
+            }
+            Ok(Restored::ForeignKept) => {
+                conn.message =
+                    "Отключено. Системный прокси уже изменила другая программа, мы его не трогали"
+                        .into();
+            }
+            Ok(_) => {}
+        }
+    }
+
+    /// Убирает следы прошлого запуска: ядро по номеру из файла, ключи и системный прокси.
+    fn recover(&self) -> Result<Restored, VpnError> {
         if let Some(pid) = std::fs::read_to_string(self.pid_file())
             .ok()
             .and_then(|t| t.trim().parse().ok())
@@ -549,7 +608,14 @@ impl VpnService {
         }
         let _ = std::fs::remove_file(self.pid_file());
         let _ = std::fs::remove_file(self.session_dir().join("config.json"));
-        let _ = self.proxy.restore();
+        self.proxy.restore()
+    }
+
+    /// Вызывается при запуске: убирает ядро и системный прокси после аварийного завершения.
+    pub fn recover_on_start(&self) {
+        let outcome = self.recover();
+        let mut conn = lock(&self.conn);
+        Self::note_restore(&mut conn, outcome);
     }
 
     /// Вызывается при выходе из приложения.
@@ -563,7 +629,7 @@ mod tests {
     use super::*;
     use crate::vpn::fetch::FetchResponse;
     use crate::vpn::sysproxy::fake::{FakeRegistry, V};
-    use crate::vpn::sysproxy::{NoRefresh, INTERNET_KEY};
+    use crate::vpn::sysproxy::{NoRefresh, BACKUP_KEY, INTERNET_KEY};
     use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
     use std::sync::Arc;
 
@@ -921,6 +987,144 @@ mod tests {
         let st = s.connect().unwrap();
         assert_eq!(st.state, ConnState::Connected);
         assert!(!st.verified && st.message.contains("не подтверждён"));
+    }
+
+    fn service_on(reg: &Arc<FakeRegistry>, flags: &Flags, dir: &Path) -> VpnService {
+        let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
+        VpnService::new(
+            dir.to_path_buf(),
+            Box::new(FakeHost::good(flags)),
+            proxy,
+            Box::new(NoNet),
+            Box::new(OkDialer),
+        )
+    }
+
+    #[test]
+    fn foreign_proxy_is_never_overwritten_and_the_core_is_not_started() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 1);
+        reg.set_s(INTERNET_KEY, "ProxyServer", "10.1.2.3:8080");
+        let err = s.connect().unwrap_err();
+        assert!(matches!(err, VpnError::ProxyConflict(_)), "{err:?}");
+        let text = err.to_string();
+        assert!(
+            text.contains("уже включён") && !text.contains("10.1.2.3"),
+            "{text}"
+        );
+        assert_eq!(s.status().state, ConnState::Error);
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S("10.1.2.3:8080".into()))
+        );
+        assert!(!dir.join("session").join("config.json").exists());
+        // Чужой прокси убрали: подключение проходит.
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 0);
+        assert_eq!(s.connect().unwrap().state, ConnState::Connected);
+    }
+
+    #[test]
+    fn stale_session_from_a_crash_is_cleaned_then_connect_and_disconnect_return_the_true_original()
+    {
+        // Сценарий проверки на Windows: до теста уже был наш прокси и ядро от прошлого запуска.
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        let first = service_on(&reg, &flags, &dir);
+        first.import(LIST).unwrap();
+        first.connect().unwrap();
+        let leftover = reg.get(INTERNET_KEY, "ProxyServer");
+        assert!(leftover.is_some(), "прошлый сеанс оставил наш прокси");
+        // Приложение закрыто аварийно: ни disconnect, ни shutdown. Новый запуск без recover.
+        std::mem::forget(first);
+        let second = service_on(&reg, &flags, &dir);
+        assert_eq!(second.connect().unwrap().state, ConnState::Connected);
+        assert!(
+            flags.stale.lock().unwrap().contains(&4242),
+            "старое ядро остановлено"
+        );
+        assert!(
+            reg.get(INTERNET_KEY, "ProxyServer").is_some(),
+            "новый сеанс выставил свой прокси"
+        );
+        second.disconnect();
+        // Настоящее исходное состояние (до всех наших запусков): прокси не было.
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+        assert!(reg.get(INTERNET_KEY, "ProxyEnable").is_none());
+        assert!(reg.get(BACKUP_KEY, "Active").is_none(), "копия снята");
+    }
+
+    #[test]
+    fn user_settings_are_restored_after_disconnect_failed_connect_and_a_crash() {
+        let original = |reg: &FakeRegistry| {
+            reg.set_d(INTERNET_KEY, "ProxyEnable", 0);
+            reg.set_s(INTERNET_KEY, "ProxyOverride", "<local>");
+        };
+        // 1. Успешное отключение.
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        original(&reg);
+        let s = service_on(&reg, &flags, &dir);
+        s.import(LIST).unwrap();
+        s.connect().unwrap();
+        s.disconnect();
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(0)));
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyOverride"),
+            Some(V::S("<local>".into()))
+        );
+        // 2. Авария и перезапуск с recover_on_start.
+        s.connect().unwrap();
+        std::mem::forget(s);
+        let restarted = service_on(&reg, &flags, &dir);
+        restarted.recover_on_start();
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(0)));
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+        assert_eq!(restarted.status().state, ConnState::Disconnected);
+    }
+
+    #[test]
+    fn failed_restore_is_shown_as_an_error_not_as_a_clean_disconnect() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        reg.fail_internet_writes.store(true, Ordering::SeqCst);
+        let st = s.disconnect();
+        assert_eq!(st.state, ConnState::Error);
+        assert!(
+            st.message.contains("Не удалось вернуть прежние настройки"),
+            "{}",
+            st.message
+        );
+        assert!(
+            reg.get(BACKUP_KEY, "Active").is_some(),
+            "копия осталась для повтора"
+        );
+        // Повторное отключение после устранения причины возвращает настройки.
+        reg.fail_internet_writes.store(false, Ordering::SeqCst);
+        let again = s.disconnect();
+        assert_eq!(again.state, ConnState::Disconnected);
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+    }
+
+    #[test]
+    fn proxy_changed_by_another_program_is_left_alone_and_said_so() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        reg.set_s(INTERNET_KEY, "ProxyServer", "10.0.0.9:3128");
+        let st = s.disconnect();
+        assert_eq!(st.state, ConnState::Disconnected);
+        assert!(st.message.contains("другая программа"), "{}", st.message);
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S("10.0.0.9:3128".into()))
+        );
     }
 
     #[test]
