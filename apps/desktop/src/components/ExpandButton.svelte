@@ -17,6 +17,8 @@
     name: string;
     /** Ширина раскрытой кнопки, px. */
     width?: number;
+    /** Заливка вместо контура (корзина Uiverse). */
+    filled?: boolean;
     danger?: boolean;
   };
 
@@ -26,31 +28,33 @@
     label,
     name,
     width = 124,
+    filled = false,
     danger = false,
     ...rest
   }: Props = $props();
 </script>
 
-<span class="slot" style:--w="{width}px">
-  <button type="button" class="expand" class:danger aria-label={name} {...rest}>
-    <svg {viewBox} class="icon" aria-hidden="true" focusable="false"><path d={icon}></path></svg>
-    <span class="label" aria-hidden="true">{label}</span>
-  </button>
-</span>
+<button
+  type="button"
+  class="expand"
+  class:danger
+  class:filled
+  style:--w="{width}px"
+  aria-label={name}
+  {...rest}
+>
+  <svg {viewBox} class="icon" aria-hidden="true" focusable="false"><path d={icon}></path></svg>
+  <span class="label" aria-hidden="true">{label}</span>
+</button>
 
 <style>
-  .slot {
-    flex: none;
-    width: var(--w);
-    height: 40px;
-  }
-
   .expand {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    flex: none;
     width: 40px;
     height: 40px;
     padding: 0;
@@ -67,28 +71,35 @@
   }
 
   .icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex: none;
-    transition:
-      width 0.3s,
-      height 0.3s,
-      transform 0.3s;
+    transition: transform 0.3s;
   }
 
   .icon path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .filled .icon path {
     fill: currentColor;
+    stroke: none;
   }
 
   .label {
     position: absolute;
-    top: -16px;
+    top: 4px;
     left: 0;
     right: 0;
     text-align: center;
     white-space: nowrap;
     font-size: 2px;
     font-weight: 600;
+    transform: translateY(-8px);
     line-height: 1.2;
     opacity: 0;
     transition:
@@ -114,16 +125,14 @@
 
   .expand:hover:not(:disabled) .icon,
   .expand:focus-visible:not(:disabled) .icon {
-    width: 40px;
-    height: 40px;
-    transform: translateY(60%);
+    transform: translateY(8px);
   }
 
   .expand:hover:not(:disabled) .label,
   .expand:focus-visible:not(:disabled) .label {
     font-size: var(--text-small);
     opacity: 1;
-    transform: translateY(24px);
+    transform: translateY(0);
   }
 
   .expand:focus-visible {
