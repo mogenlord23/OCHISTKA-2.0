@@ -123,7 +123,7 @@
   /** Нажатие — явное действие пользователя: включает или выключает. Автозапуска нет. */
   async function toggleBypass() {
     if (bypassBusy) return;
-    const stopping = trial?.active === true;
+    const stopping = trial?.active === true || Boolean(trial?.error);
     bypassBusy = true;
     bypassError = null;
     try {

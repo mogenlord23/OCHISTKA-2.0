@@ -695,6 +695,28 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true });
   });
 
+  it('never shows «Выключено» while the driver is still running; a press retries the stop', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => ({
+        ...IDLE,
+        active: true,
+        remainingSecs: 30,
+        error: 'Драйвер не остановлен, перезагрузите компьютер',
+      }),
+      desync_trial_stop: () => IDLE,
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    const row = () => sw.closest('.switch-row')?.textContent ?? '';
+    await waitFor(() => expect(row()).toContain('Драйвер не остановлен, перезагрузите компьютер'));
+    expect(row()).toContain('Ошибка');
+    expect(row()).not.toContain('Выключено');
+    await fireEvent.click(sw);
+    await waitFor(() => expect(calls('desync_trial_stop')).toHaveLength(1));
+    expect(calls('desync_trial_start')).toHaveLength(0);
+  });
+
   it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),

@@ -4,6 +4,7 @@ pub mod appearance;
 pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;
+pub mod driver_service;
 pub mod drivers;
 pub mod explorer;
 pub mod files;

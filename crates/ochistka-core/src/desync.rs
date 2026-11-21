@@ -290,6 +290,25 @@ pub enum DesyncState {
     Error,
 }
 
+/// Состояние службы драйвера перехвата.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DriverState {
+    /// На этой ОС драйвера нет.
+    NotApplicable,
+    /// Службы нет.
+    Absent,
+    Stopped,
+    Running,
+    /// Состояние выяснить не удалось.
+    Unknown(String),
+}
+
+/// Короткая причина для интерфейса, если драйвер не остановился.
+pub const DRIVER_NOT_STOPPED: &str = "Драйвер не остановлен, перезагрузите компьютер";
+
+/// Файл состояния обхода в папке данных: помнит, что службу драйвера запустила программа.
+const STATE_FILE: &str = "desync-state.json";
+
 /// Системный адаптер: всё, что зависит от ОС (реализации — в `crates/platform`, по одной на ОС).
 pub trait DesyncAdapter: Send + Sync {
     fn platform(&self) -> Platform;
@@ -312,6 +331,14 @@ pub trait DesyncAdapter: Send + Sync {
         args: &[String],
         log: &Path,
     ) -> Result<Box<dyn CoreProcess>, String>;
+    /// Состояние службы драйвера перехвата (Windows: WinDivert). Где драйвера нет — `NotApplicable`.
+    fn driver_state(&self) -> DriverState {
+        DriverState::NotApplicable
+    }
+    /// Останавливает службу драйвера. Вызывается только для службы, которую запустила программа.
+    fn stop_driver(&self) -> Result<(), String> {
+        Ok(())
+    }
     /// Останавливает процесс от прошлого запуска, если это действительно наш движок.
     fn kill_stale(&self, pid: u32);
 }
@@ -387,6 +414,8 @@ pub struct TrialStatus {
     /// Причина, по которой пробный запуск сейчас невозможен (если невозможен).
     pub unavailable: Option<String>,
     pub notes: Vec<(Coverage, TrialVerdict)>,
+    /// Короткая причина, если обход не выключился до конца (например, драйвер не остановлен).
+    pub error: Option<String>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -644,8 +673,11 @@ impl DesyncService {
         }
         // Остаток собственного процесса после аварии: останавливаем до запуска нового.
         self.recover();
+        // Служба драйвера от прошлого запуска должна быть остановлена до нового.
+        self.release_driver()?;
         std::fs::create_dir_all(&self.dir)
             .map_err(|e| DesyncError::Start(format!("папка недоступна: {e}")))?;
+        let driver_before = self.adapter.driver_state();
         let mut process = self
             .adapter
             .spawn(&exe, &profile.args, &self.log_file())
@@ -654,12 +686,15 @@ impl DesyncService {
         for _ in 0..self.settle.0 {
             if process.has_exited() {
                 let _ = std::fs::remove_file(self.pid_file());
+                self.note_driver_started(&driver_before);
+                let _ = self.release_driver();
                 return Err(DesyncError::Start(
                     "процесс завершился сразу после запуска".into(),
                 ));
             }
             std::thread::sleep(self.settle.1);
         }
+        self.note_driver_started(&driver_before);
         let mut inner = lock(&self.inner);
         inner.process = Some(process);
         inner.state = DesyncState::Running;
@@ -840,6 +875,15 @@ impl DesyncService {
             }
         }
         let _ = std::fs::remove_file(self.pid_file());
+        // Процесс завершён: если службу драйвера запустила программа, останавливаем и её.
+        // Пока служба работает, обход НЕ считается выключенным.
+        if let Err(err) = self.release_driver() {
+            inner.state = DesyncState::Error;
+            inner.message = DRIVER_NOT_STOPPED.into();
+            drop(inner);
+            self.coord.mark_unclean(coordinator::Owner::Desync);
+            return Err(err);
+        }
         inner.state = DesyncState::Off;
         inner.message = "Выключено".into();
         drop(inner);
@@ -907,9 +951,16 @@ impl DesyncService {
         TrialStatus {
             active,
             remaining_secs,
-            message: lock(&self.inner).message.clone(),
+            message: {
+                let inner = lock(&self.inner);
+                inner.message.clone()
+            },
             unavailable,
             notes,
+            error: {
+                let inner = lock(&self.inner);
+                (inner.state == DesyncState::Error).then(|| inner.message.clone())
+            },
         }
     }
 
@@ -921,6 +972,64 @@ impl DesyncService {
         if lock(&self.inner).process.is_none() {
             t.deadline = None;
             t.generation += 1;
+        }
+    }
+
+    fn state_file(&self) -> PathBuf {
+        self.dir.join(STATE_FILE)
+    }
+
+    /// Запустила ли службу драйвера сама программа (отметка в файле состояния).
+    pub fn driver_marked(&self) -> bool {
+        std::fs::read_to_string(self.state_file())
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .and_then(|v| v.get("driver_started_by_app").and_then(|x| x.as_bool()))
+            .unwrap_or(false)
+    }
+
+    fn set_driver_mark(&self, on: bool) {
+        if on {
+            let _ = std::fs::create_dir_all(&self.dir);
+            let _ = std::fs::write(self.state_file(), "{\"driver_started_by_app\":true}\n");
+        } else {
+            let _ = std::fs::remove_file(self.state_file());
+        }
+    }
+
+    /// Если до запуска движка служба не работала, а теперь работает — её запустила программа:
+    /// запоминаем это в файле состояния. Служба, уже работавшая до нас, не помечается.
+    fn note_driver_started(&self, before: &DriverState) {
+        if *before != DriverState::Running && self.adapter.driver_state() == DriverState::Running {
+            self.set_driver_mark(true);
+        }
+    }
+
+    /// Останавливает службу драйвера, если её запустила программа. Ничего не трогает, если службу
+    /// запустил кто-то другой (например, другое VPN-приложение). Вызывается под `op` после
+    /// остановки движка. Успех — только если служба действительно не работает.
+    fn release_driver(&self) -> Result<(), DesyncError> {
+        if !self.driver_marked() {
+            return Ok(());
+        }
+        let fail = |why: String| DesyncError::Stop(format!("{DRIVER_NOT_STOPPED} ({why})"));
+        match self.adapter.driver_state() {
+            DriverState::NotApplicable | DriverState::Absent | DriverState::Stopped => {
+                self.set_driver_mark(false);
+                return Ok(());
+            }
+            DriverState::Running | DriverState::Unknown(_) => {}
+        }
+        if let Err(why) = self.adapter.stop_driver() {
+            return Err(fail(why));
+        }
+        match self.adapter.driver_state() {
+            DriverState::Running => Err(fail("служба всё ещё работает".into())),
+            DriverState::Unknown(why) => Err(fail(why)),
+            _ => {
+                self.set_driver_mark(false);
+                Ok(())
+            }
         }
     }
 
@@ -939,6 +1048,14 @@ impl DesyncService {
     pub fn recover_on_start(&self) {
         let _op = lock(&self.op);
         self.recover();
+        // Прошлый запуск мог закончиться принудительно: служба драйвера осталась работать.
+        if let Err(err) = self.release_driver() {
+            let mut inner = lock(&self.inner);
+            inner.state = DesyncState::Error;
+            inner.message = err.to_string();
+            drop(inner);
+            self.coord.mark_unclean(coordinator::Owner::Desync);
+        }
     }
 
     /// Вызывается при выходе из приложения.
@@ -1058,6 +1175,13 @@ mod tests {
         stale: Mutex<Vec<u32>>,
         /// Аргументы последнего запуска движка.
         spawn_args: Mutex<Vec<String>>,
+        /// Состояние службы драйвера в фейке и число её остановок.
+        driver: Mutex<Option<DriverState>>,
+        driver_stops: AtomicU32,
+        /// Запуск движка запускает службу драйвера (как настоящий winws2).
+        spawn_starts_driver: AtomicBool,
+        /// Остановка службы не удаётся.
+        driver_stop_fails: AtomicBool,
     }
 
     struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>, bool);
@@ -1129,6 +1253,9 @@ mod tests {
                 return Err("не удалось запустить".into());
             }
             self.flags.spawned.fetch_add(1, Ordering::SeqCst);
+            if self.flags.spawn_starts_driver.load(Ordering::SeqCst) {
+                *self.flags.driver.lock().unwrap() = Some(DriverState::Running);
+            }
             Ok(Box::new(FakeProcess(
                 self.flags.exited.clone(),
                 self.flags.killed.clone(),
@@ -1138,6 +1265,22 @@ mod tests {
         }
         fn kill_stale(&self, pid: u32) {
             self.flags.stale.lock().unwrap().push(pid);
+        }
+        fn driver_state(&self) -> DriverState {
+            self.flags
+                .driver
+                .lock()
+                .unwrap()
+                .clone()
+                .unwrap_or(DriverState::NotApplicable)
+        }
+        fn stop_driver(&self) -> Result<(), String> {
+            self.flags.driver_stops.fetch_add(1, Ordering::SeqCst);
+            if self.flags.driver_stop_fails.load(Ordering::SeqCst) {
+                return Err("отказано в доступе".into());
+            }
+            *self.flags.driver.lock().unwrap() = Some(DriverState::Stopped);
+            Ok(())
         }
     }
 
@@ -2238,6 +2381,142 @@ mod tests {
             m.sections.len()
         );
         assert_eq!(windows_merged_candidate_profile().unwrap().args, launch);
+    }
+
+    // ----- служба драйвера WinDivert -----
+
+    fn driver_flags(initial: DriverState) -> Arc<Flags> {
+        let flags = Arc::new(Flags::default());
+        *flags.driver.lock().unwrap() = Some(initial);
+        flags.spawn_starts_driver.store(true, Ordering::SeqCst);
+        flags
+    }
+
+    fn driver_now(flags: &Flags) -> DriverState {
+        flags.driver.lock().unwrap().clone().unwrap()
+    }
+
+    #[test]
+    fn driver_started_by_the_app_is_stopped_with_the_bypass_and_the_mark_is_cleared() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert_eq!(driver_now(&flags), DriverState::Running);
+        assert!(s.driver_marked(), "запуск службы записан в файл состояния");
+        s.stop_trial().unwrap();
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert_eq!(flags.driver_stops.load(Ordering::SeqCst), 1);
+        assert!(!s.driver_marked());
+        assert_eq!(s.status().0, DesyncState::Off);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn a_driver_already_running_before_us_is_never_stopped() {
+        let flags = driver_flags(DriverState::Running);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        assert!(!s.driver_marked());
+        s.stop_trial().unwrap();
+        assert_eq!(flags.driver_stops.load(Ordering::SeqCst), 0);
+        assert_eq!(driver_now(&flags), DriverState::Running);
+    }
+
+    #[test]
+    fn failed_driver_stop_keeps_the_bypass_not_off_with_a_short_reason() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.driver_stop_fails.store(true, Ordering::SeqCst);
+        let err = s.stop_trial().unwrap_err();
+        assert!(matches!(err, DesyncError::Stop(_)), "{err:?}");
+        assert_eq!(s.status().0, DesyncState::Error);
+        let st = s.trial_status(std::time::Instant::now());
+        assert_eq!(st.error.as_deref(), Some(DRIVER_NOT_STOPPED));
+        assert!(st.active && !st.message.contains("Выключено"));
+        assert!(s.driver_marked(), "отметка остаётся, пока служба работает");
+        assert_eq!(
+            s.coord.mode(),
+            Some(coordinator::Mode::Unclean(coordinator::Owner::Desync))
+        );
+        // Ни новый запуск, ни VPN не получают разрешения.
+        assert!(s.coord.begin(coordinator::Owner::Vpn).is_err());
+        // Повтор после устранения причины доводит остановку до конца.
+        flags.driver_stop_fails.store(false, Ordering::SeqCst);
+        s.stop_trial().unwrap();
+        assert!(!s.driver_marked());
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert!(s.trial_status(std::time::Instant::now()).error.is_none());
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn a_service_that_stays_running_after_stop_is_a_failure_too() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        // stop_driver «удаётся», но служба по-прежнему RUNNING.
+        *flags.driver.lock().unwrap() = Some(DriverState::Running);
+        flags.driver_stop_fails.store(true, Ordering::SeqCst);
+        assert!(s.stop_trial().is_err());
+        assert!(s.driver_marked());
+    }
+
+    #[test]
+    fn timer_and_exit_paths_also_stop_the_driver_and_exit_reports_failure() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let late = std::time::Instant::now() + Duration::from_secs(121);
+        assert!(s.tick(late));
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert!(!s.driver_marked());
+        // Выход из программы: остановка службы удалась / не удалась.
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.driver_stop_fails.store(true, Ordering::SeqCst);
+        assert!(matches!(s.shutdown().unwrap_err(), DesyncError::Stop(_)));
+        assert!(s.driver_marked());
+        flags.driver_stop_fails.store(false, Ordering::SeqCst);
+        s.shutdown().unwrap();
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+    }
+
+    #[test]
+    fn startup_recovery_stops_a_driver_left_running_by_a_forced_exit() {
+        let flags = driver_flags(DriverState::Running);
+        let s = trial_service(&flags, false);
+        s.set_driver_mark(true); // прошлый запуск программы пометил службу и был закрыт принудительно
+        s.recover_on_start();
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert!(!s.driver_marked());
+        assert_eq!(s.status().0, DesyncState::Off);
+        // Нет отметки (службу запустил кто-то другой) — служба не трогается.
+        let flags = driver_flags(DriverState::Running);
+        let s = trial_service(&flags, false);
+        s.recover_on_start();
+        assert_eq!(driver_now(&flags), DriverState::Running);
+        assert_eq!(flags.driver_stops.load(Ordering::SeqCst), 0);
+        // Остановить не удалось: ошибка в состоянии, запуск заблокирован, отметка остаётся.
+        let flags = driver_flags(DriverState::Running);
+        let s = trial_service(&flags, false);
+        s.set_driver_mark(true);
+        flags.driver_stop_fails.store(true, Ordering::SeqCst);
+        s.recover_on_start();
+        assert_eq!(s.status().0, DesyncState::Error);
+        assert!(s.driver_marked());
+        assert!(s.start_trial(true, &mut |_| {}).is_err());
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn driver_marker_is_a_small_json_file_in_the_app_folder() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let text = std::fs::read_to_string(s.dir.join("desync-state.json")).unwrap();
+        assert!(text.contains("driver_started_by_app"));
+        s.stop_trial().unwrap();
+        assert!(!s.dir.join("desync-state.json").exists());
     }
 
     #[test]

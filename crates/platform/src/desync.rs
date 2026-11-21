@@ -385,6 +385,14 @@ impl DesyncAdapter for WindowsDesyncAdapter {
 
     /// Останавливает процесс из прошлого запуска, только если номер принадлежит именно нашему
     /// `winws2.exe` (путь к файлу совпадает). По имени чужие процессы не трогаем.
+    fn driver_state(&self) -> desync::DriverState {
+        crate::windows::driver_service::state()
+    }
+
+    fn stop_driver(&self) -> Result<(), String> {
+        crate::windows::driver_service::stop()
+    }
+
     fn kill_stale(&self, pid: u32) {
         let target = [Pid::from_u32(pid)];
         let Ok(mut system) = System::new() else {

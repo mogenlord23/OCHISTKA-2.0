@@ -7,6 +7,8 @@ export interface TrialStatus {
   message: string;
   /** Причина, по которой запуск сейчас невозможен; null — можно запускать. */
   unavailable: string | null;
+  /** Короткая причина, если обход не выключился до конца (драйвер не остановлен). */
+  error?: string | null;
 }
 
 export const desyncTrialStatus = () => invoke<TrialStatus>('desync_trial_status');
@@ -44,6 +46,8 @@ export function bypassView(
   error: string | null,
 ): BypassView {
   if (busy) return { status: 'pending', available: false, text: 'Подготовка…', hint: null };
+  // Пока драйвер не остановлен, «Выключено» не показываем: ошибка, повторное нажатие повторяет остановку.
+  if (trial?.error) return { status: 'error', available: true, text: 'Ошибка', hint: trial.error };
   if (trial?.active) {
     return {
       status: 'on',

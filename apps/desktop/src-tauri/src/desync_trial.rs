@@ -26,6 +26,8 @@ pub struct TrialDto {
     pub message: String,
     /// Почему запуск сейчас невозможен; `None` — можно запускать.
     pub unavailable: Option<String>,
+    /// Короткая причина, если обход не выключился до конца (например, драйвер не остановлен).
+    pub error: Option<String>,
     /// Только наблюдения пользователя, не подтверждение работы сервиса.
     pub notes: Vec<TrialNoteDto>,
 }
@@ -54,6 +56,7 @@ fn to_dto(st: TrialStatus) -> TrialDto {
         remaining_secs: st.remaining_secs,
         message: st.message,
         unavailable: st.unavailable,
+        error: st.error,
         notes: st
             .notes
             .into_iter()
