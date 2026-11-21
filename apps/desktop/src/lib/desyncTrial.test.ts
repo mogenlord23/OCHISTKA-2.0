@@ -23,16 +23,7 @@ describe('texts of the bypass switch', () => {
       bypassView(base, null, null),
       bypassView(base, 'on', null),
       bypassView(base, 'off', null),
-      bypassView({ ...base, active: true, phase: 'measuringAfter' }, null, null),
-      bypassView(
-        {
-          ...base,
-          active: true,
-          speedNote: 'Сайты отвечают быстрее или так же',
-        },
-        null,
-        null,
-      ),
+      bypassView({ ...base, active: true }, null, null),
       bypassView({ ...base, error: ALLOWED_DRIVER }, null, null),
       bypassView(base, null, 'Нужны права администратора'),
       bypassView({ ...base, unavailable: 'Нужны права администратора' }, null, null),

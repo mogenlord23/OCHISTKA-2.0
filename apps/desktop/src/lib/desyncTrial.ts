@@ -8,10 +8,6 @@ export interface TrialStatus {
   unavailable: string | null;
   /** Короткая причина, если обход не выключился до конца (драйвер не остановлен). */
   error?: string | null;
-  /** Идёт замер скорости: «Проверяем…». */
-  phase?: 'idle' | 'measuringBaseline' | 'measuringAfter';
-  /** Итог замера скорости: откат или «быстрее или так же; это не доказывает работу у провайдера». */
-  speedNote?: string | null;
 }
 
 export const desyncTrialStatus = () => invoke<TrialStatus>('desync_trial_status');
@@ -81,14 +77,13 @@ export function bypassView(
     };
   }
   if (trial?.active) {
-    const checking = trial.phase === 'measuringAfter';
     return {
       status: 'on',
       checked: true,
       busy: false,
       available: true,
-      text: checking ? 'Проверяем… · Включено' : 'Включено',
-      hint: trial.speedNote ?? null,
+      text: 'Включено',
+      hint: null,
     };
   }
   if (error) {
@@ -117,6 +112,6 @@ export function bypassView(
     busy: false,
     available: trial.unavailable === null,
     text: 'Выключено',
-    hint: trial.speedNote ?? trial.unavailable,
+    hint: trial.unavailable,
   };
 }

@@ -212,8 +212,6 @@ pub fn build_desync(
             Ok(())
         }
     }));
-    // Замер скорости до и после включения обхода (в фоне, без автозапуска).
-    desync.set_speed_probe(Arc::new(ochistka_platform::desync::probe::TimedHttps));
     desync.recover_on_start();
     // Проверка уже установленных файлов заранее, в фоне: нажатие кнопки не тратит на неё время.
     let warm = desync.clone();

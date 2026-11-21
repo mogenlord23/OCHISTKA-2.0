@@ -719,32 +719,6 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(calls('desync_trial_start')).toHaveLength(0);
   });
 
-  it('shows «Проверяем…» while measuring and the speed verdicts without claiming it works', async () => {
-    let state: Record<string, unknown> = { ...RUNNING, phase: 'measuringAfter' };
-    backend({ vpn_snapshot: () => makeSnapshot(), desync_trial_status: () => state });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    const row = () => sw.closest('.switch-row')?.textContent ?? '';
-    await waitFor(() => expect(row()).toContain('Проверяем…'));
-    state = {
-      ...RUNNING,
-      phase: 'idle',
-      speedNote: 'Сайты отвечают быстрее или так же; это не доказывает работу у провайдера',
-    };
-    await waitFor(() => expect(row()).toContain('это не доказывает работу у провайдера'), {
-      timeout: 3000,
-    });
-    expect(sw.getAttribute('aria-checked')).toBe('true');
-    state = {
-      ...IDLE,
-      speedNote:
-        'Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо 0,8 с). Обход выключен',
-    };
-    await waitFor(() => expect(row()).toContain('YouTube: 3,2 с вместо 0,8 с'), { timeout: 3000 });
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(row()).toContain('Выключено');
-  });
-
   it('has a side button that opens and closes the sites panel, same button again closes', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
