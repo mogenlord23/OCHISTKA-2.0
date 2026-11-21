@@ -19,6 +19,8 @@ on:
       - docs/status/desync-preset-resources.json
       - tools/desync-core/test_ochistka_dpi_check.py
       - tools/desync-core/package/**
+      - tools/bypass-merge/**
+      - docs/status/bypass-merge-*
       - .github/workflows/build-desync-diagnostic-package.yml
       - .github/workflows/validate-desync-pin.yml
 
@@ -39,6 +41,8 @@ jobs:
         run: python3 tools/desync-core/preset_runtime_assets.py verify
       - name: Offline external probe safety tests (no network / no driver)
         run: python3 -m unittest discover -s tools/desync-core -p 'test_*.py' -q
+      - name: Merged bypass preset and routes (offline data checks)
+        run: python3 -m unittest discover -s tools/bypass-merge -p 'test_*.py' -q
 
   windows-offline:
     # Only Python unit tests and no-op planning. Never --execute or start WinDivert.

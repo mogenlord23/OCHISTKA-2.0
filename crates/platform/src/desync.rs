@@ -22,10 +22,17 @@ use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 use crate::vpn::spawn_logged;
 
+mod merged_assets;
 mod preset_assets;
 pub mod probe;
 
+use merged_assets::MERGED_EXTRA_RESOURCES;
 use preset_assets::PINNED_RESOURCES;
+
+/// Все встроенные ресурсы: 135 закреплённых файлов V13 Lite и данные объединённого пресета.
+fn all_resources() -> impl Iterator<Item = &'static (&'static str, &'static [u8], &'static str)> {
+    PINNED_RESOURCES.iter().chain(MERGED_EXTRA_RESOURCES.iter())
+}
 
 pub const ENGINE_EXE: &str = "winws2.exe";
 
@@ -93,7 +100,7 @@ fn preset_assets_valid(dir: &Path) -> bool {
     let Ok(root) = dir.canonicalize() else {
         return false;
     };
-    PINNED_RESOURCES.iter().all(|(relative, _, digest)| {
+    all_resources().all(|(relative, _, digest)| {
         let path = dir.join(relative);
         std::fs::symlink_metadata(&path)
             .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
@@ -108,9 +115,7 @@ fn preset_assets_valid(dir: &Path) -> bool {
 fn embedded_resources_intact() -> bool {
     static OK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *OK.get_or_init(|| {
-        PINNED_RESOURCES
-            .iter()
-            .all(|(_, bytes, digest)| engine::sha256_hex(bytes) == *digest)
+        all_resources().all(|(_, bytes, digest)| engine::sha256_hex(bytes) == *digest)
     })
 }
 
@@ -124,7 +129,7 @@ fn preset_asset_error(detail: impl Into<String>) -> PrepareError {
 /// Explicit preparation only. Verify bundled hashes before writing anything.
 /// A partial write can never create a ready adapter; locate/spawn recheck all 135.
 fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
-    for (relative, bytes, digest) in PINNED_RESOURCES {
+    for (relative, bytes, digest) in all_resources() {
         if engine::sha256_hex(bytes) != *digest {
             return Err(preset_asset_error(format!(
                 "нарушен SHA-256 встроенного ресурса: {relative}"
@@ -138,7 +143,7 @@ fn install_preset_assets(dir: &Path) -> Result<(), PrepareError> {
     let root = dir
         .canonicalize()
         .map_err(|e| preset_asset_error(e.to_string()))?;
-    for (relative, embedded, digest) in PINNED_RESOURCES {
+    for (relative, embedded, digest) in all_resources() {
         let path = dir.join(relative);
         let parent = path
             .parent()
@@ -426,6 +431,44 @@ pub fn adapter_for_current_os(dir: PathBuf) -> Box<dyn DesyncAdapter> {
 mod tests {
     use super::*;
     use ochistka_core::vpn::engine::sha256_hex;
+
+    #[test]
+    fn merged_preset_resources_are_all_embedded_with_matching_hashes() {
+        let merged = ochistka_core::desync::preset::ZapretPreset::parse(include_str!(
+            "../../../assets/desync/presets/OCHISTKA Merged.txt"
+        ))
+        .unwrap();
+        let names: std::collections::BTreeSet<&str> = all_resources().map(|(n, _, _)| *n).collect();
+        assert_eq!(
+            names.len(),
+            PINNED_RESOURCES.len() + MERGED_EXTRA_RESOURCES.len(),
+            "имена не повторяются"
+        );
+        for rel in merged.required_resources().unwrap() {
+            assert!(names.contains(rel.as_str()), "{rel}");
+        }
+        for (name, bytes, digest) in MERGED_EXTRA_RESOURCES {
+            assert_eq!(engine::sha256_hex(bytes), *digest, "{name}");
+            assert!(name.starts_with("lists/") && !name.contains(".."), "{name}");
+        }
+        assert_eq!(
+            PINNED_RESOURCES.len(),
+            135,
+            "135 закреплённых файлов не менялись"
+        );
+    }
+
+    #[test]
+    fn merged_resources_install_into_the_engine_folder_and_tampering_is_detected() {
+        let dir = temp("merged");
+        install_preset_assets(&dir).unwrap();
+        assert!(preset_assets_valid(&dir));
+        let (name, _, _) = MERGED_EXTRA_RESOURCES[0];
+        std::fs::write(dir.join(name), b"tampered").unwrap();
+        assert!(!preset_assets_valid(&dir));
+        install_preset_assets(&dir).unwrap();
+        assert!(preset_assets_valid(&dir));
+    }
 
     #[test]
     fn trial_readiness_does_not_change_normal_readiness() {

@@ -94,6 +94,14 @@ class OutputTests(unittest.TestCase):
         shields = [s for s in m.sections if s.name.startswith("Маршрут (pass)")]
         self.assertEqual(len(shields), sum(1 for r in data["routes"] if r["applied"] == "shield"))
 
+    def test_generated_rust_assets_list_exactly_the_manifest_files(self):
+        man = json.loads(read(os.path.join(REPO, "docs/status/bypass-merge-resources.json")))
+        rs = read(os.path.join(REPO, "crates/platform/src/desync/merged_assets.rs"))
+        for f in man["files"]:
+            self.assertIn(f'"{f["destination"]}"', rs)
+            self.assertIn(f'"{f["sha256"]}"', rs)
+        self.assertEqual(rs.count("include_bytes!"), len(man["files"]))
+
     def test_no_executable_or_lua_code_is_added(self):
         for root, _, files in os.walk(EXTRA):
             for f in files:

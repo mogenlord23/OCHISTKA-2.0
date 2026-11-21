@@ -198,6 +198,20 @@ pub fn windows_tcp_candidate_profile() -> Profile {
     }
 }
 
+/// Единый объединённый пресет «Обход блокировок» (основа Universal V13 Lite + секции из других
+/// пресетов RixyPow/netzapret без повторов; см. `docs/status/bypass-merge-*.md`). НЕ подтверждён
+/// на реальной сети: годится только для явного пробного запуска, обычный профиль не разблокирует.
+pub fn windows_merged_candidate_profile() -> Result<Profile, preset::PresetError> {
+    let merged = include_str!("../../../assets/desync/presets/OCHISTKA Merged.txt");
+    let parsed = preset::ZapretPreset::parse(merged)?;
+    Ok(Profile {
+        id: "windows-ochistka-merged-unverified",
+        engine: Engine::Winws2,
+        title: "Обход блокировок (объединённый пресет, не проверен)",
+        args: parsed.command_arguments(),
+    })
+}
+
 /// Реальный Universal V13 Lite из NetZapret, ещё НЕ подтверждённый внешней сетью.
 /// Возвращает целый пресет со всеми 73 секциями без объединения чужих рецептов.
 /// Это кандидат для будущей установки через WindowsDesyncAdapter; само наличие
@@ -355,7 +369,7 @@ impl DesyncService {
         #[cfg(test)]
         let profile = site_discord_profile(adapter.platform());
         let candidate = if adapter.platform() == Platform::Windows {
-            windows_netzapret_v13_lite_candidate_profile().ok()
+            windows_merged_candidate_profile().ok()
         } else {
             None
         };
@@ -963,6 +977,8 @@ mod tests {
         /// Если `true`, процесс игнорирует `kill()` и продолжает работать.
         ignore_kill: Arc<AtomicBool>,
         stale: Mutex<Vec<u32>>,
+        /// Аргументы последнего запуска движка.
+        spawn_args: Mutex<Vec<String>>,
     }
 
     struct FakeProcess(Arc<AtomicBool>, Arc<AtomicBool>, Arc<AtomicBool>, bool);
@@ -1023,7 +1039,13 @@ mod tests {
         fn has_privileges(&self) -> bool {
             self.elevated
         }
-        fn spawn(&self, _: &Path, _: &[String], _: &Path) -> Result<Box<dyn CoreProcess>, String> {
+        fn spawn(
+            &self,
+            _: &Path,
+            args: &[String],
+            _: &Path,
+        ) -> Result<Box<dyn CoreProcess>, String> {
+            *self.flags.spawn_args.lock().unwrap() = args.to_vec();
             if self.spawn_fails {
                 return Err("не удалось запустить".into());
             }
@@ -1848,6 +1870,80 @@ mod tests {
             RoutePlan::Block(_)
         ));
         s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn merged_profile_is_base_plus_sections_without_duplicates_and_resources_exist() {
+        let merged = windows_merged_candidate_profile().unwrap();
+        assert_eq!(merged.id, "windows-ochistka-merged-unverified");
+        let m = preset::ZapretPreset::parse(include_str!(
+            "../../../assets/desync/presets/OCHISTKA Merged.txt"
+        ))
+        .unwrap();
+        let base = preset::ZapretPreset::parse(include_str!(
+            "../../../assets/desync/presets/Universal V13 Lite.txt"
+        ))
+        .unwrap();
+        // Основа первой и без изменений; общие аргументы основы на месте.
+        assert_eq!(m.sections[..base.sections.len()], base.sections[..]);
+        for g in &base.global_arguments {
+            assert!(m.global_arguments.contains(g), "{g}");
+        }
+        assert!(m.sections.len() > base.sections.len());
+        // Нет повторов: ни секций (имя не учитывается), ни общих аргументов.
+        let mut seen = std::collections::BTreeSet::new();
+        for s in &m.sections {
+            let body: Vec<&String> = s
+                .arguments
+                .iter()
+                .filter(|a| !a.starts_with("--name="))
+                .collect();
+            assert!(seen.insert(body.clone()), "повтор секции: {body:?}");
+        }
+        let mut globals = std::collections::BTreeSet::new();
+        for g in &m.global_arguments {
+            assert!(globals.insert(g), "повтор аргумента: {g}");
+        }
+        // Все ресурсы есть в дереве закреплённых 135 файлов или в дополнительных данных.
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/desync");
+        for rel in m.required_resources().unwrap() {
+            assert!(
+                root.join("runtime").join(&rel).is_file()
+                    || root.join("runtime-extra").join(&rel).is_file(),
+                "{rel}"
+            );
+        }
+    }
+
+    #[test]
+    fn trial_runs_the_merged_profile_not_the_old_single_preset() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        let args = flags.spawn_args.lock().unwrap().clone();
+        let merged = windows_merged_candidate_profile().unwrap();
+        // В тесте кандидат подставлен тестовым профилем, но настоящий конструктор берёт объединённый.
+        assert!(!args.is_empty());
+        let real = DesyncService::new(
+            temp_dir(),
+            Box::new(good(flags.clone())),
+            Box::new(routing::VpnSignal::default),
+        );
+        assert_eq!(
+            real.candidate.as_ref().map(|p| p.args.clone()),
+            Some(merged.args)
+        );
+        s.stop_trial().unwrap();
+    }
+
+    #[test]
+    fn merged_profile_does_not_unlock_normal_activation() {
+        assert!(routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
+        assert!(site_discord_profile(Platform::Windows).is_none());
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        let plan = s.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
+        assert!(matches!(plan.overall, RoutePlan::Block(_)));
     }
 
     #[test]

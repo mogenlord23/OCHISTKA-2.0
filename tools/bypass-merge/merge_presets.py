@@ -89,6 +89,30 @@ def cmd_inventory(args: argparse.Namespace) -> None:
         fh.write(md)
 
 
+RUST_ASSETS = os.path.join(REPO, "crates/platform/src/desync/merged_assets.rs")
+
+
+def render_rust_assets(files: list[dict]) -> str:
+    """Встроенные дополнительные данные для объединённого пресета (с SHA-256 каждого файла)."""
+    out = [
+        "//! Дополнительные данные объединённого пресета «Обход блокировок»: списки адресов и доменов.",
+        "//! Создано tools/bypass-merge/merge_presets.py из docs/status/bypass-merge-resources.json; вручную не править.",
+        "//! 135 закреплённых файлов Universal V13 Lite лежат в `preset_assets.rs` и здесь не повторяются.",
+        "",
+        "pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[",
+    ]
+    for f in files:
+        out += [
+            "    (",
+            f"        \"{f['destination']}\",",
+            f"        include_bytes!(\"../../../../assets/desync/runtime-extra/{f['destination']}\"),",
+            f"        \"{f['sha256']}\",",
+            "    ),",
+        ]
+    out.append("];")
+    return "\n".join(out) + "\n"
+
+
 def cmd_merge(args: argparse.Namespace) -> None:
     src = source_id(args.source)
     loaded = dict(inventory.load_presets(args.source))
@@ -187,6 +211,8 @@ def cmd_merge(args: argparse.Namespace) -> None:
     with open(os.path.join(REPO, "docs/status/bypass-merge-resources.json"), "w", encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, ensure_ascii=False, indent=1)
         fh.write("\n")
+    with open(RUST_ASSETS, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(render_rust_assets(files))
     counts = {}
     for r in result.section_records:
         counts[r.status] = counts.get(r.status, 0) + 1

@@ -660,6 +660,41 @@ describe('VpnPage: «Обход блокировок» — один перекл
     expect(sw.closest('.switch-row')?.textContent).toContain('Нужны права администратора');
   });
 
+  it('has no preset or route chooser: one switch only, everything else is data in the preset', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot(), desync_trial_status: () => IDLE });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    await screen.findByRole('switch', { name: 'Обход блокировок' });
+    expect(screen.getAllByRole('switch').map((el) => el.getAttribute('aria-label'))).toEqual([
+      'Обход блокировок',
+      'DNS',
+    ]);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByText(/пресет|маршрут (pass)|V13|Universal/i)).toBeNull();
+  });
+
+  it('shows the Russian refusal when VPN is running and keeps the switch off', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      desync_trial_status: () => IDLE,
+      desync_trial_start: () =>
+        Promise.reject({
+          kind: 'desync',
+          message: 'Сначала отключите VPN: пока обход и VPN вместе не работают',
+        }),
+    });
+    render(VpnPage, { props: { subsection: 'advanced' } });
+    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
+    await waitFor(() => expect(sw.disabled).toBe(false));
+    await fireEvent.click(sw);
+    await waitFor(() =>
+      expect(sw.closest('.switch-row')?.textContent).toContain('Сначала отключите VPN'),
+    );
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true });
+  });
+
   it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
