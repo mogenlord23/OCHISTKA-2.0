@@ -2,9 +2,6 @@ name: verify-sonicdpi
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/optimistic-hypatia-hgstjj]
-    paths: ['.github/workflows/verify-sonicdpi.yml']
 
 permissions:
   contents: read
