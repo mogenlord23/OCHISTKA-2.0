@@ -126,6 +126,17 @@ jobs:
           }
           if ($uiMissing.Count -gt 0) { throw "Missing in frontend bundle: $($uiMissing -join ', ')" }
 
+          # Компоненты SonicDPI: в папке ресурсов, из которой Tauri собирает установщик, обязательны эти файлы.
+          $res = 'apps/desktop/src-tauri/resources/sonicdpi'
+          foreach ($need in @('sonicdpi.exe','WinDivert64.sys','WinDivert.dll')) {
+            $f = Join-Path $res $need
+            if (-not (Test-Path $f) -or (Get-Item $f).Length -eq 0) { throw "SonicDPI component missing in bundle resources: $need" }
+          }
+          $conf = Get-Content 'apps/desktop/src-tauri/tauri.conf.json' -Raw
+          if (-not $conf.Contains('resources/sonicdpi/*')) { throw 'tauri.conf.json does not bundle resources/sonicdpi' }
+          $sonicFiles = Get-Content (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt')
+          $sonicNames = ($sonicFiles | ForEach-Object { ($_ -split '\s+')[-1] }) -join ', '
+
           @(
             "OCHISTKA: установщик Windows 10/11 x64 для ручного испытания",
             "Исходный коммит: $($env:SOURCE_SHA)",
@@ -136,8 +147,13 @@ jobs:
             "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
             "В CI проверено: сборка, svelte-check, vitest, cargo check; в приложении есть команды пробного режима и переключатель.",
             "В CI НЕ проверено: запуск GUI, права администратора, WinDivert, перехват и сеть. Это делает пользователь вручную.",
-            "Движок SonicDPI (sonicdpi.exe) и WinDivert в установщик пока НЕ входят: без файла sonicdpi.exe кнопка «Обход блокировок» не заработает (следующий этап)."
+            "SonicDPI v0.2.2 в установщике: архив SonicDPI-windows-x64.zip, SHA-256 ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0 (проверен в сборке).",
+            "Файлы SonicDPI (папка sonicdpi в ресурсах): $sonicNames",
+            "SHA-256 и размер каждого файла: см. sonicdpi-files.txt рядом.",
+            "Драйвер WinDivert из SonicDPI, не подписан нами (подпись WinDivert — его автора).",
+            "В установщике наличие файлов проверено по папке ресурсов сборки; внутрь самого установщика (NSIS) в CI не заглядывали."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt') out/sonicdpi-files.txt
           Get-Content out/BUILD-INFO.txt
           "installer_name=$name" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "installer_sha256=$hash" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
