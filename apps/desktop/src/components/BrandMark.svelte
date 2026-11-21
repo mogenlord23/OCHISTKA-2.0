@@ -1,80 +1,51 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import VariableProximity from './VariableProximity.svelte';
 
-  /** Слово OCHISTKA с мягким откликом на курсор: ближайшие к мыши буквы чуть жирнее и выше.
-      Шрифт заголовков (Arial Black) не переменный, поэтому «толщина» делается тонким обводом
-      того же цвета (text-stroke), а форма — лёгким растяжением по вертикали (transform). Ни то ни другое
-      не меняет ширину букв и положение соседей. Слушатель движения живёт только пока курсор над словом. */
+  /** Слово OCHISTKA с эффектом Variable Proximity (React Bits, порт `VariableProximity.svelte`).
+      Нужен переменный шрифт: в проект положен Roboto Flex (SIL OFL 1.1), урезанный до букв слова
+      (5 КБ, оси wght 100–1000 и opsz). Ширина слова зарезервирована по самому жирному состоянию,
+      поэтому положение и размер логотипа не меняются, соседи не двигаются. */
   const WORD = 'OCHISTKA';
-  const RADIUS = 72;
-  const letters = WORD.split('');
+  const REST = "'wght' 800, 'opsz' 28";
+  const NEAR = "'wght' 1000, 'opsz' 28";
 
-  let host = $state<HTMLElement>();
-  let spans: HTMLElement[] = [];
-  let centres: number[] = [];
-  let frame = 0;
-  let lastX = 0;
-  let active = false;
-
-  const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
-  function paint() {
-    frame = 0;
-    spans.forEach((el, i) => {
-      const d = Math.abs(lastX - centres[i]);
-      const p = Math.max(0, 1 - d / RADIUS) ** 2;
-      el.style.setProperty('--p', p.toFixed(3));
-    });
-  }
-
-  function onMove(event: PointerEvent) {
-    lastX = event.clientX;
-    if (!frame) frame = requestAnimationFrame(paint);
-  }
-
-  function enter() {
-    if (reduced() || active || !host) return;
-    // Центры букв считаются один раз при входе курсора.
-    centres = spans.map((el) => {
-      const r = el.getBoundingClientRect();
-      return (r.left + r.right) / 2;
-    });
-    active = true;
-    host.addEventListener('pointermove', onMove);
-  }
-
-  function leave() {
-    if (!active || !host) return;
-    active = false;
-    host.removeEventListener('pointermove', onMove);
-    if (frame) cancelAnimationFrame(frame);
-    frame = 0;
-    spans.forEach((el) => el.style.setProperty('--p', '0'));
-  }
-
-  onDestroy(leave);
+  let box = $state<HTMLElement | null>(null);
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 </script>
 
-<!-- Область отклика чуть шире слова (отрицательные поля не двигают соседей). -->
-<strong
-  class="brand-word"
-  data-tauri-drag-region
-  aria-label={WORD}
-  bind:this={host}
-  onpointerenter={enter}
-  onpointerleave={leave}
->
-  {#each letters as ch, i (i)}
-    <span class="ch" data-tauri-drag-region aria-hidden="true" bind:this={spans[i]}>{ch}</span>
-  {/each}
+<strong class="brand-word" data-tauri-drag-region bind:this={box} aria-label={WORD}>
+  <!-- Невидимая копия в самом жирном состоянии: задаёт ширину и высоту места под слово. -->
+  <span class="sizer" aria-hidden="true" style:font-variation-settings={NEAR}>{WORD}</span>
+  <span class="live" aria-hidden="true" style:font-variation-settings={REST}>
+    {#if reduced}
+      {WORD}
+    {:else}
+      <VariableProximity
+        label={WORD}
+        fromFontVariationSettings={REST}
+        toFontVariationSettings={NEAR}
+        containerRef={box}
+        radius={80}
+        falloff="linear"
+        smoothing={0.2}
+      />
+    {/if}
+  </span>
 </strong>
 
 <style>
+  @font-face {
+    font-family: 'Roboto Flex OCHISTKA';
+    src: url('../assets/fonts/RobotoFlex-OCHISTKA.woff2') format('woff2');
+    font-weight: 100 1000;
+    font-style: normal;
+    font-display: block;
+  }
+
   strong {
+    position: relative;
     display: inline-block;
-    padding: 12px 18px;
-    margin: -12px -18px;
-    font-family: var(--font-heading);
+    font-family: 'Roboto Flex OCHISTKA', var(--font-heading);
     font-size: 28px;
     font-weight: 900;
     line-height: 1;
@@ -83,22 +54,16 @@
     white-space: nowrap;
   }
 
-  .ch {
-    display: inline-block;
-    --p: 0;
-    transform: scaleY(calc(1 + var(--p) * 0.07));
-    transform-origin: 50% 70%;
-    -webkit-text-stroke: calc(var(--p) * 1.1px) currentColor;
-    transition:
-      transform 140ms ease-out,
-      -webkit-text-stroke-width 140ms ease-out;
+  .sizer {
+    visibility: hidden;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .ch {
-      transition: none;
-      transform: none;
-      -webkit-text-stroke: 0;
-    }
+  /* Живое слово поверх зарезервированного места; клики проходят сквозь него на строку заголовка,
+     поэтому окно по-прежнему перетаскивается за слово. */
+  .live {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
   }
 </style>

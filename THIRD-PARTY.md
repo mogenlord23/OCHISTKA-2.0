@@ -21,3 +21,11 @@
 - Официальный архив `sing-box-1.14.4-windows-amd64.zip`, SHA-256 `99185d75d314a07dbba4a130c8ad986cbeb629a07927975636b341ca61f991df`. Внутри `sing-box.exe` (`8f30682e…93bbe7c8b9`) и `libcronet.dll` (сетевой стек Chromium, лицензия BSD, `3217c626…ba54a2928`).
 - Программа не изменяется и не линкуется с OCHISTKA: приложение запускает её как отдельный процесс. Скачивается скриптом `tools/vpn-core/fetch.ps1` с проверкой хэшей и упаковывается как ресурс установщика.
 - Последствия GPL для распространения установщика (приложить текст лицензии и ссылку на исходный код выпуска) надо проверить перед публичным выпуском. Лицензия самой OCHISTKA: TBD.
+
+## React Bits: Variable Proximity и Decrypted Text (MIT + Commons Clause)
+
+`apps/desktop/src/components/VariableProximity.svelte` и `DecryptedText.svelte` — порты на Svelte 5 оригинальных компонентов React Bits (https://reactbits.dev, автор David Haz, репозиторий DavidHDev/react-bits, файлы `VariableProximity.jsx` и `DecryptedText.jsx`). Лицензия «MIT + Commons Clause»: использование разрешено как части приложения; нельзя продавать сам компонент. Уведомление об авторских правах сохранено в заголовках файлов. Не перенесены эффект `flip` и `hoverRadius` у Decrypted Text, перенос слова на несколько строк у Variable Proximity.
+
+## Roboto Flex (SIL OFL 1.1)
+
+`apps/desktop/src/assets/fonts/RobotoFlex-OCHISTKA.woff2` — переменный шрифт Roboto Flex (Google Fonts, https://github.com/googlefonts/roboto-flex), урезанный Google Fonts до букв O, C, H, I, S, T, K, A (оси wght 100–1000 и opsz). Нужен для эффекта Variable Proximity на слове OCHISTKA. Лицензия SIL Open Font License 1.1: встраивание разрешено.

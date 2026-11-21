@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import { maskSubscriptionUrl, scrambleFrame } from '../lib/secretMask';
+  import { tick } from 'svelte';
+  import DecryptedText from './DecryptedText.svelte';
+  import { maskSubscriptionUrl } from '../lib/secretMask';
 
   /** Поле для секретной ссылки: плавающая подпись, маска (видны схема и сервер) и показ по кнопке.
-      Значение `value` всегда настоящее: именно оно уходит в импорт. */
+      Значение `value` всегда настоящее: именно оно уходит в импорт. Эффект Decrypted Text (порт React
+      Bits) играет только на маске: при вставке и при повторном скрытии. Настоящая ссылка в
+      анимацию не попадает ни одним кадром. */
   let {
     value = $bindable(''),
     label = 'Ссылка подписки',
@@ -13,53 +16,42 @@
   let revealed = $state(false);
   let focused = $state(false);
   let hovered = $state(false);
-  let scramble = $state<string | null>(null);
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let decrypt = $state<{ play: () => void }>();
 
   const hasValue = $derived(value !== '');
   const lifted = $derived(focused || hovered || hasValue);
-  const masked = $derived(!revealed && scramble === null);
-  const overlay = $derived(scramble ?? maskSubscriptionUrl(value));
-  const showOverlay = $derived(hasValue && ((masked && !focused) || scramble !== null));
+  const masked = $derived(!revealed);
+  const overlay = $derived(maskSubscriptionUrl(value));
+  const showOverlay = $derived(hasValue && masked && !focused);
 
-  function stop() {
-    clearInterval(timer);
-    timer = undefined;
+  /** Маска «собирается» из случайных символов; запускаем после обновления DOM. */
+  let playWhenShown = false;
+
+  async function replay() {
+    await tick();
+    if (decrypt) decrypt.play();
+    else playWhenShown = true;
   }
 
-  function reveal() {
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || value.length === 0) {
-      revealed = true;
-      return;
+  // Вставка делается при фокусе, когда маски на экране ещё нет: эффект сыграет, как только она появится.
+  $effect(() => {
+    if (showOverlay && decrypt && playWhenShown) {
+      playWhenShown = false;
+      decrypt.play();
     }
-    // Лёгкий эффект «расшифровки»: ~240 мс, 8 кадров, символы слева направо.
-    let step = 0;
-    stop();
-    scramble = scrambleFrame(value, 0);
-    timer = setInterval(() => {
-      step += 1;
-      if (step >= 8) {
-        stop();
-        scramble = null;
-        revealed = true;
-      } else {
-        scramble = scrambleFrame(value, Math.ceil((value.length * step) / 8));
-      }
-    }, 30);
+  });
+
+  async function toggle() {
+    revealed = !revealed;
+    if (!revealed) await replay();
   }
 
-  function toggle() {
-    if (revealed) {
-      stop();
-      scramble = null;
-      revealed = false;
-    } else {
-      reveal();
-    }
+  /** Вставка в пустое поле: после ухода фокуса маска проявится эффектом. */
+  function onInput(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const pasted = (event as InputEvent).inputType === 'insertFromPaste';
+    if (pasted && input.value !== '') void replay();
   }
-
-  onDestroy(stop);
 </script>
 
 <div
@@ -80,11 +72,20 @@
     aria-label={label}
     onfocus={() => (focused = true)}
     onblur={() => (focused = false)}
+    oninput={onInput}
     onkeydown={(e) => e.key === 'Enter' && onenter?.()}
   />
   <span class="lbl" aria-hidden="true">{label}</span>
   {#if showOverlay}
-    <span class="overlay" aria-hidden="true">{overlay}</span>
+    <span class="overlay" aria-hidden="true">
+      <DecryptedText
+        bind:this={decrypt}
+        text={overlay}
+        animateOn="manual"
+        speed={40}
+        maxIterations={9}
+      />
+    </span>
   {/if}
   <button
     type="button"

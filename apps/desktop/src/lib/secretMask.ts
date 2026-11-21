@@ -14,19 +14,3 @@ export function maskSubscriptionUrl(raw: string): string {
   const host = at >= 0 ? `${BULLET.repeat(3)}@${authority.slice(at + 1)}` : authority;
   return `${scheme}${host}${rest ? `/${BULLET.repeat(Math.min(Math.max(rest.length - 1, 6), 16))}` : ''}`;
 }
-
-const SCRAMBLE = '!#$%&*+<>?@ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
-
-/** Кадр лёгкого эффекта «расшифровки»: первые `shown` символов настоящие, остальные случайные. */
-export function scrambleFrame(
-  real: string,
-  shown: number,
-  random: () => number = Math.random,
-): string {
-  let out = '';
-  for (let i = 0; i < real.length; i++) {
-    out +=
-      i < shown || real[i] === ' ' ? real[i] : SCRAMBLE[Math.floor(random() * SCRAMBLE.length)];
-  }
-  return out;
-}

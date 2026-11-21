@@ -32,13 +32,19 @@ describe('SecretField', () => {
     const { container } = render(SecretField, { value: URL_TEXT });
     const toggle = screen.getByRole('button', { name: 'Показать ссылку' });
     await fireEvent.click(toggle);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(50);
     expect(screen.getByRole('button', { name: 'Скрыть ссылку' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
     expect(container.querySelector('.overlay')).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Скрыть ссылку' }));
-    expect(container.querySelector('.overlay')?.textContent).not.toContain('SECRET-TOKEN');
+    // Пока маска «собирается» эффектом, ни на одном кадре в страницу не попадает секретная часть.
+    for (let i = 0; i < 14; i++) {
+      expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('SECRET');
+      expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('TOKEN');
+      await vi.advanceTimersByTimeAsync(40);
+    }
+    expect(container.querySelector('.overlay')?.textContent ?? '').not.toContain('SECRET-TOKEN');
     expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe(URL_TEXT);
   });
 

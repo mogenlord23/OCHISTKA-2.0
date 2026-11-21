@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskSubscriptionUrl, scrambleFrame } from './secretMask';
+import { maskSubscriptionUrl } from './secretMask';
 
 describe('maskSubscriptionUrl', () => {
   it('keeps scheme and host, hides the path with the token', () => {
@@ -28,14 +28,5 @@ describe('maskSubscriptionUrl', () => {
 
   it('never grows with the secret length beyond the cap', () => {
     expect(maskSubscriptionUrl('https://h.test/' + 'a'.repeat(500)).length).toBeLessThan(40);
-  });
-});
-
-describe('scrambleFrame', () => {
-  it('reveals symbols from the left and keeps the length', () => {
-    const frame = scrambleFrame('https://abc', 4, () => 0);
-    expect(frame.startsWith('http')).toBe(true);
-    expect(frame.length).toBe('https://abc'.length);
-    expect(scrambleFrame('abc', 3)).toBe('abc');
   });
 });
