@@ -86,7 +86,7 @@ jobs:
           $bytes = [System.IO.File]::ReadAllBytes($exe.FullName)
           $text = [System.Text.Encoding]::Latin1.GetString($bytes)
           $missing = @()
-          foreach ($needle in @('desync_trial_status','desync_trial_start','desync_trial_stop','desync_trial_note','service_access_plan','service_check','Universal V13 Lite')) {
+          foreach ($needle in @('desync_trial_status','desync_trial_start','desync_trial_stop','desync_trial_note','service_access_plan','service_check','OCHISTKA Merged')) {
             if (-not $text.Contains($needle)) { $missing += $needle }
           }
           if ($missing.Count -gt 0) { throw "Missing in application binary: $($missing -join ', ')" }
