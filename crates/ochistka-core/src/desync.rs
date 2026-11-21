@@ -3,16 +3,14 @@
 //! Общее (этот файл): состояния, профили и стратегии, автоматический выбор стратегии без
 //! смешивания, управление процессом (запуск только по явному действию, проверка, остановка, защита
 //! от второго экземпляра, очистка после аварии), конфликт с VPN, честная готовность адаптера.
-//! Системное (адаптеры, `crates/platform`): Windows — `winws2` + WinDivert; Linux — `nfqws2` +
-//! NFQUEUE; macOS — Zapret 2 не поддерживается, адаптер сообщает это и ничего не запускает.
+//! Системное (адаптеры, `crates/platform`): Windows — SonicDPI (`sonicdpi.exe`) + WinDivert;
+//! Linux и macOS пока без движка, адаптер сообщает это и ничего не запускает.
 //!
-//! Windows-движок из проверенного Release закреплён по SHA-256, но основной переключатель
-//! «Обход блокировок» остаётся недоступным, пока рабочий профиль не проверен (`Readiness`).
-//! Ничего не скачивается и не запускается без подтверждённых источников и хэшей.
+//! Кнопка «Обход блокировок» запускает один профиль `youtube-discord`. Файл `sonicdpi.exe`
+//! пока не входит в установщик: без него запуск сообщает, что не хватает файлов.
 //! Системный прокси, DNS, hosts и маршруты здесь не трогаются.
 
 pub mod coordinator;
-pub mod preset;
 pub mod probe;
 pub mod routing;
 pub mod user_sites;
@@ -23,16 +21,16 @@ use std::time::Duration;
 
 use thiserror::Error;
 
-use crate::vpn::engine::{PinnedEngine, PrepareError, PrepareProgress};
+use crate::vpn::engine::PrepareProgress;
 use crate::vpn::mask::mask_secrets;
 use crate::vpn::service::{ConflictGuard, CoreProcess, VpnService};
 
-/// Официальные источники и лицензии (подтверждаются на Windows скриптом `tools/desync-core/verify-sources.ps1`).
+/// Официальные источники и лицензии движка обхода.
 pub const SOURCES: &[(&str, &str, &str)] = &[
     (
-        "Zapret 2 (winws2)",
-        "https://github.com/bol-van/zapret2/releases/",
-        "MIT",
+        "SonicDPI",
+        "https://github.com/by-sonic/sonicdpi/releases/",
+        "MIT OR Apache-2.0",
     ),
     (
         "WinDivert",
@@ -62,21 +60,18 @@ impl Platform {
     }
 }
 
-/// Движок десинка (одна реализация на ОС; на macOS его нет).
+/// Движок десинка (одна реализация на ОС; пока только Windows).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Engine {
-    /// Zapret 2 для Windows (перехват пакетов WinDivert).
-    Winws2,
-    /// Zapret 2 для Linux (перехват через NFQUEUE).
-    Nfqws2,
+    /// SonicDPI для Windows (перехват пакетов WinDivert).
+    SonicDpi,
 }
 
 impl Engine {
     pub fn for_platform(platform: Platform) -> Option<Self> {
         match platform {
-            Platform::Windows => Some(Engine::Winws2),
-            Platform::Linux => Some(Engine::Nfqws2),
-            Platform::MacOs => None,
+            Platform::Windows => Some(Engine::SonicDpi),
+            Platform::Linux | Platform::MacOs => None,
         }
     }
 }
@@ -124,65 +119,7 @@ pub fn select_strategy<'a>(
         .min_by_key(|s| s.covers.len())
 }
 
-/// Проверенный Windows x64 ZIP из успешного запуска build-zapret2-windows №44885741341.
-/// ZIP опубликован отдельным prerelease: содержимое и SHA-256 не менялись.
-/// GitHub Release: https://github.com/mogenlord23/OCHISTKA-2.0/releases/tag/zapret2-winws2-2026-11-21
-pub static PINNED_WINDOWS: PinnedEngine = PinnedEngine {
-    version: "zapret2-winws2-2026-11-21",
-    url: "https://github.com/mogenlord23/OCHISTKA-2.0/releases/download/zapret2-winws2-2026-11-21/zapret2-winws2-windows-x64.zip",
-    url_prefix: "/mogenlord23/OCHISTKA-2.0/releases/download/",
-    archive_sha256: "15bb46aca6904c674cb018250855398c60d7676079fd534832f1e4d87f07e04a",
-    files: &[
-        ("winws2.exe", "5390cb6cec8cdb39bda657f83e8b87ce8dc96d074bf6a71e22c03c6896bcaf42"),
-        ("cygwin1.dll", "ed9d5379061e5de79c3375cc62246c2142ea1c97d94f4d16bfbea6fb1b7fc889"),
-        ("cygz.dll", "02561b4b4b473c40e9bed9c5df59334b5d79efae568b6e212a7c9d775ba8e647"),
-        ("WinDivert.dll", "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2"),
-        ("WinDivert64.sys", "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2"),
-        ("LICENSE-zapret2.txt", "d089978dd77d53cb6aa5dff51cfdbff617e52dd44af1ac44a6df02c6644f17d5"),
-        ("LICENSE-WinDivert.txt", "542e02ca56c33aea103ce84a8b874b0b15e25b9f559d9bf578a10652f824815d"),
-        ("LICENSE-luajit2.txt", "a9eddee2daeff45faaa62fce2d31f63a43a241b530519c305169f3d544249c31"),
-        ("manifest.json", "60505764e6ef5aac937e3259eb443069d433a944dfb0d05b218160f541f3c3d5"),
-    ],
-};
-
-/// Выпуск доступен только Windows; Linux и macOS пока без установленного движка.
-pub fn pinned() -> Option<&'static PinnedEngine> {
-    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
-        Some(&PINNED_WINDOWS)
-    } else {
-        None
-    }
-}
-
-/// Предел длины командной строки CreateProcess в Windows (символов).
-pub const WINDOWS_COMMAND_LINE_LIMIT: usize = 32_767;
-
-/// Длина командной строки Windows для запуска `exe` с `args` (как её собирает Rust: путь в
-/// кавычках, аргументы через пробел, аргументы с пробелом — в кавычках, `"` экранируется).
-pub fn windows_command_line_len(exe: &str, args: &[String]) -> usize {
-    let mut len = exe.chars().count() + 2;
-    for arg in args {
-        let quoted = arg.is_empty() || arg.contains([' ', '\t']);
-        len += 1 + arg.chars().count() + arg.matches('"').count();
-        if quoted {
-            len += 2;
-        }
-    }
-    len
-}
-
-/// Заранее отказывает, если командная строка не поместится, вместо загадочной ошибки ОС 206.
-pub fn check_command_line(exe: &str, args: &[String]) -> Result<usize, String> {
-    let len = windows_command_line_len(exe, args);
-    if len > WINDOWS_COMMAND_LINE_LIMIT {
-        return Err(format!(
-            "набор правил слишком длинный для запуска: {len} символов, Windows принимает не больше {WINDOWS_COMMAND_LINE_LIMIT}"
-        ));
-    }
-    Ok(len)
-}
-
-/// Один проверенный профиль обхода (сайты и Discord): аргументы `winws2`.
+/// Один профиль обхода: аргументы движка.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Profile {
     pub id: &'static str,
@@ -197,63 +134,19 @@ pub fn site_discord_profile(_platform: Platform) -> Option<Profile> {
     None
 }
 
-/// Кандидат TCP-профиля для Windows, НЕ подтверждённый на реальной сети.
-/// Аргументы повторяют пример из bol-van/zapret2/docs/readme.md на коммите
-/// 1eb4fd887b6091ccaf59feea7486162ac64c9319 (с WinDivert --wf-tcp-out).
-/// Это только HTTP/TLS (80/443): не заявляем поддержку голосового UDP Discord,
-/// Telegram, игр, QUIC или всех сайтов. Пока нет проверки, пользовательский
-/// профиль выше остаётся None, и включение обхода недоступно.
-pub fn windows_tcp_candidate_profile() -> Profile {
+/// Профиль кнопки «Обход блокировок»: SonicDPI с встроенным профилем `youtube-discord`
+/// (аргументы из README SonicDPI: `run --profile youtube-discord`). Работа у провайдера не
+/// подтверждена.
+pub fn sonicdpi_profile() -> Profile {
     Profile {
-        id: "windows-tcp-http-tls-candidate",
-        engine: Engine::Winws2,
-        title: "Пробный TCP-профиль для HTTP/HTTPS",
-        args: [
-            "--wf-tcp-out=80,443",
-            "--lua-init=@zapret-lib.lua",
-            "--lua-init=@zapret-antidpi.lua",
-            "--filter-tcp=80,443",
-            "--filter-l7=tls,http",
-            "--payload=tls_client_hello",
-            "--lua-desync=fake:blob=fake_default_tls:tcp_md5:tls_mod=rnd,rndsni,dupsid",
-            "--payload=http_req",
-            "--lua-desync=fake:blob=fake_default_http:tcp_md5",
-            "--payload=tls_client_hello,http_req",
-            "--lua-desync=multisplit:pos=1:seqovl=5:seqovl_pattern=0x1603030000",
-        ]
-        .iter()
-        .map(|arg| (*arg).to_string())
-        .collect(),
+        id: "sonicdpi-youtube-discord",
+        engine: Engine::SonicDpi,
+        title: "Обход блокировок (SonicDPI, youtube-discord)",
+        args: ["run", "--profile", "youtube-discord"]
+            .iter()
+            .map(|arg| (*arg).to_string())
+            .collect(),
     }
-}
-
-/// Единый объединённый пресет «Обход блокировок» (основа Universal V13 Lite + секции из других
-/// пресетов RixyPow/netzapret без повторов; см. `docs/status/bypass-merge-*.md`). НЕ подтверждён
-/// на реальной сети: годится только для явного пробного запуска, обычный профиль не разблокирует.
-pub fn windows_merged_candidate_profile() -> Result<Profile, preset::PresetError> {
-    let merged = include_str!("../../../assets/desync/presets/OCHISTKA Merged.txt");
-    let parsed = preset::ZapretPreset::parse(merged)?;
-    Ok(Profile {
-        id: "windows-ochistka-merged-unverified",
-        engine: Engine::Winws2,
-        title: "Обход блокировок (объединённый пресет, не проверен)",
-        args: parsed.launch_arguments(),
-    })
-}
-
-/// Реальный Universal V13 Lite из NetZapret, ещё НЕ подтверждённый внешней сетью.
-/// Возвращает целый пресет со всеми 73 секциями без объединения чужих рецептов.
-/// Это кандидат для будущей установки через WindowsDesyncAdapter; само наличие
-/// функции НЕ меняет site_discord_profile() и не разблокирует переключатель.
-pub fn windows_netzapret_v13_lite_candidate_profile() -> Result<Profile, preset::PresetError> {
-    let original = include_str!("../../../assets/desync/presets/Universal V13 Lite.txt");
-    let parsed = preset::ZapretPreset::parse(original)?;
-    Ok(Profile {
-        id: "windows-netzapret-v13-lite-unverified",
-        engine: Engine::Winws2,
-        title: "Universal V13 Lite (требуется подтверждение сети)",
-        args: parsed.command_arguments(),
-    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -323,10 +216,8 @@ pub trait DesyncAdapter: Send + Sync {
     fn trial_readiness(&self) -> Readiness {
         Readiness::NotImplemented("Обход блокировок пока недоступен на этой системе".into())
     }
-    /// Путь к движку (`winws2` или `nfqws2`), если все компоненты на месте и их хэши совпали.
+    /// Путь к движку (`sonicdpi.exe`), если файл на месте.
     fn locate(&self) -> Result<PathBuf, String>;
-    /// Скачивает и проверяет закреплённые компоненты (только при подтверждённых хэшах).
-    fn install(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError>;
     /// Есть ли права для перехвата пакетов (администратор в Windows, root или CAP_NET_ADMIN в Linux).
     fn has_privileges(&self) -> bool;
     fn spawn(
@@ -365,8 +256,6 @@ pub struct DesyncService {
     adapter: Box<dyn DesyncAdapter>,
     #[cfg(test)]
     profile: Option<Profile>,
-    /// Есть ли закреплённый выпуск (можно ли скачивать недостающее).
-    installable: bool,
     /// Реальное состояние VPN (из `VpnService::status`): одновременно перехват и VPN нельзя.
     vpn: Box<dyn Fn() -> routing::VpnSignal + Send + Sync>,
     /// Целый проверяемый пресет для плана (только Windows); не выбирается без подтверждения.
@@ -447,7 +336,7 @@ impl DesyncService {
         #[cfg(test)]
         let profile = site_discord_profile(adapter.platform());
         let candidate = if adapter.platform() == Platform::Windows {
-            windows_merged_candidate_profile().ok()
+            Some(sonicdpi_profile())
         } else {
             None
         };
@@ -457,7 +346,6 @@ impl DesyncService {
             adapter,
             #[cfg(test)]
             profile,
-            installable: pinned().is_some(),
             vpn,
             coord: Arc::new(coordinator::NetCoordinator::new()),
             vpn_stopper: Mutex::new(None),
@@ -610,28 +498,10 @@ impl DesyncService {
         &self.user_sites
     }
 
-    /// Аргументы запуска: профиль + секция с сайтами пользователя (если они есть). Список сайтов
-    /// записывается в `lists/nz-user-sites.txt` в папке движка; ссылки и чужие каталоги не трогаем.
+    /// Аргументы запуска: только профиль движка. Сайты пользователя пока не применяются
+    /// (список хранится, но движку не передаётся).
     fn launch_args(&self, profile: &Profile) -> Result<Vec<String>, DesyncError> {
-        let sites = self.user_sites.load();
-        let mut args = profile.args.clone();
-        let list = self.dir.join("lists").join("nz-user-sites.txt");
-        if sites.is_empty() {
-            let _ = std::fs::remove_file(&list);
-            return Ok(args);
-        }
-        let lists_dir = self.dir.join("lists");
-        let bad =
-            |why: &str| DesyncError::Start(format!("не удалось подготовить список сайтов: {why}"));
-        std::fs::create_dir_all(&lists_dir).map_err(|e| bad(&e.to_string()))?;
-        if std::fs::symlink_metadata(&lists_dir).is_ok_and(|m| m.file_type().is_symlink())
-            || std::fs::symlink_metadata(&list).is_ok_and(|m| m.file_type().is_symlink())
-        {
-            return Err(bad("папка списков заменена ссылкой"));
-        }
-        std::fs::write(&list, sites.join("\n") + "\n").map_err(|e| bad(&e.to_string()))?;
-        args.extend(user_sites::section_arguments());
-        Ok(args)
+        Ok(profile.args.clone())
     }
 
     /// Подготовка в фоне при старте программы (проверка установленных файлов).
@@ -722,7 +592,7 @@ impl DesyncService {
 
     fn start_locked(
         &self,
-        progress: &mut dyn FnMut(PrepareProgress),
+        _progress: &mut dyn FnMut(PrepareProgress),
         profile: &Profile,
         trial: bool,
         timings: &mut StartTimings,
@@ -744,19 +614,6 @@ impl DesyncService {
         }
         let exe = match self.adapter.locate() {
             Ok(path) => path,
-            Err(_) if self.installable => {
-                self.adapter.install(progress).map_err(|e| {
-                    let _ = std::fs::create_dir_all(&self.dir);
-                    let _ = std::fs::write(
-                        self.dir.join("desync-prepare.log"),
-                        mask_secrets(&e.detail),
-                    );
-                    DesyncError::Prepare(e.reason)
-                })?;
-                self.adapter
-                    .locate()
-                    .map_err(|why| DesyncError::NotPrepared(mask_secrets(&why)))?
-            }
             Err(why) => return Err(DesyncError::NotPrepared(mask_secrets(&why))),
         };
         if !self.adapter.has_privileges() {
@@ -799,7 +656,7 @@ impl DesyncService {
         Ok(())
     }
 
-    /// Пробный запуск ПОЛНОГО профиля NetZapret Universal V13 Lite. Только по явному согласию
+    /// Запуск обхода кнопкой (профиль SonicDPI `youtube-discord`). Только по явному согласию
     /// (проверяется здесь, а не только в интерфейсе), только Windows, одним экземпляром, под
     /// общим координатором (при VPN или его неочищенных настройках — отказ). Таймера нет.
     /// Обычную готовность адаптера и реестр подтверждённых
@@ -1193,19 +1050,13 @@ impl DesyncAdapter for UnavailableAdapter {
                 "Обход блокировок для Linux ещё не готов: системная часть не написана".into(),
             ),
             Platform::MacOs => {
-                Readiness::Unsupported("На macOS движок обхода (Zapret 2) не поддерживается".into())
+                Readiness::Unsupported("На macOS движок обхода не поддерживается".into())
             }
         }
     }
 
     fn locate(&self) -> Result<PathBuf, String> {
         Err("компоненты обхода не подготовлены".into())
-    }
-
-    fn install(&self, _: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError> {
-        Err(PrepareError::unsupported(
-            "загрузка компонентов не разрешена",
-        ))
     }
 
     fn has_privileges(&self) -> bool {
@@ -1228,7 +1079,6 @@ mod tests {
     #[derive(Default)]
     struct Flags {
         spawned: AtomicU32,
-        installed: AtomicBool,
         present: AtomicBool,
         exited: Arc<AtomicBool>,
         killed: Arc<AtomicBool>,
@@ -1274,7 +1124,6 @@ mod tests {
         elevated: bool,
         readiness: Readiness,
         trial: Readiness,
-        install_fails: bool,
         spawn_fails: bool,
         /// Задержка `locate` (проверка файлов), чтобы проверить параллельность с замером.
         locate_delay: Duration,
@@ -1293,22 +1142,10 @@ mod tests {
         fn locate(&self) -> Result<PathBuf, String> {
             std::thread::sleep(self.locate_delay);
             if self.flags.present.load(Ordering::SeqCst) {
-                Ok(PathBuf::from("winws2.exe"))
+                Ok(PathBuf::from("sonicdpi.exe"))
             } else {
                 Err("компонентов нет".into())
             }
-        }
-        fn install(&self, progress: &mut dyn FnMut(PrepareProgress)) -> Result<(), PrepareError> {
-            if self.install_fails {
-                return Err(PrepareError {
-                    reason: "загруженный файл не прошёл проверку, попробуйте позже".into(),
-                    detail: "SHA-256 не совпал https://x.example/path/TOKEN".into(),
-                });
-            }
-            progress(PrepareProgress { percent: 100 });
-            self.flags.installed.store(true, Ordering::SeqCst);
-            self.flags.present.store(true, Ordering::SeqCst);
-            Ok(())
         }
         fn has_privileges(&self) -> bool {
             self.elevated
@@ -1380,7 +1217,7 @@ mod tests {
     fn profile() -> Option<Profile> {
         Some(Profile {
             id: "sites-discord",
-            engine: Engine::Winws2,
+            engine: Engine::SonicDpi,
             title: "Сайты и Discord",
             args: vec!["--fake-arg".into()],
         })
@@ -1389,7 +1226,7 @@ mod tests {
     fn make(
         flags: &Arc<Flags>,
         host: impl FnOnce(Arc<Flags>) -> Host,
-        installable: bool,
+        _installable: bool,
         vpn: bool,
     ) -> DesyncService {
         let mut s = DesyncService::new(
@@ -1401,153 +1238,50 @@ mod tests {
             }),
         );
         s.profile = profile();
-        s.installable = installable;
         s.settle = (2, Duration::from_millis(1));
         s
     }
 
     fn good(flags: Arc<Flags>) -> Host {
+        flags.present.store(true, Ordering::SeqCst);
         Host {
             flags,
             elevated: true,
             readiness: Readiness::Ready,
             trial: Readiness::Ready,
-            install_fails: false,
             spawn_fails: false,
             locate_delay: Duration::ZERO,
         }
     }
 
     #[test]
-    fn candidate_profile_follows_upstream_tcp_example_but_is_not_activated() {
-        let candidate = windows_tcp_candidate_profile();
-        assert_eq!(candidate.engine, Engine::Winws2);
-        assert_eq!(candidate.args[0], "--wf-tcp-out=80,443");
-        assert_eq!(candidate.args[1], "--lua-init=@zapret-lib.lua");
-        assert_eq!(candidate.args[2], "--lua-init=@zapret-antidpi.lua");
-        assert!(candidate
-            .args
-            .iter()
-            .any(|arg| arg.starts_with("--lua-desync=fake:")));
-        assert!(candidate
-            .args
-            .iter()
-            .any(|arg| arg.starts_with("--lua-desync=multisplit:")));
-        assert!(!candidate.args.iter().any(|arg| arg.starts_with("--wf-udp")));
-        assert!(site_discord_profile(Platform::Windows).is_none());
-    }
-
-    #[test]
-    fn whole_netzapret_profile_is_in_core_but_not_user_enabled() {
-        let candidate = windows_netzapret_v13_lite_candidate_profile().unwrap();
-        assert_eq!(candidate.engine, Engine::Winws2);
-        assert_eq!(candidate.id, "windows-netzapret-v13-lite-unverified");
-        assert_eq!(candidate.args.len(), 564);
-        assert_eq!(
-            candidate
-                .args
-                .iter()
-                .filter(|x| x.as_str() == "--new")
-                .count(),
-            73
-        );
-        assert_eq!(
-            candidate.args.first().map(String::as_str),
-            Some("--lua-init=@lua/zapret-lib.lua")
-        );
-        assert!(site_discord_profile(Platform::Windows).is_none());
-    }
-
-    #[test]
-    fn verified_windows_engine_is_pinned_but_profile_remains_disabled() {
-        let spec = &PINNED_WINDOWS;
-        assert!(crate::vpn::engine::url_allowed_under(
-            spec.url,
-            spec.url_prefix
-        ));
-        assert_eq!(spec.archive_sha256.len(), 64);
-        assert_eq!(
-            spec.files.len(),
-            9,
-            "пять бинарных файлов, лицензии и manifest.json"
-        );
-        for required_name in [
-            "winws2.exe",
-            "cygwin1.dll",
-            "cygz.dll",
-            "WinDivert.dll",
-            "WinDivert64.sys",
-        ] {
-            assert!(spec.files.iter().any(|(name, _)| *name == required_name));
-        }
-        assert!(spec.files.iter().all(|(_, hash)| hash.len() == 64));
-        assert_eq!(
-            pinned().is_some(),
-            cfg!(all(target_os = "windows", target_arch = "x86_64"))
-        );
-
-        for platform in [Platform::Windows, Platform::Linux, Platform::MacOs] {
-            assert!(
-                site_discord_profile(platform).is_none(),
-                "профиль не придуман"
-            );
-        }
-        let flags = Arc::new(Flags::default());
-        let mut s = DesyncService::new(
-            temp_dir(),
-            Box::new(good(flags.clone())),
-            Box::new(routing::VpnSignal::default),
-        );
-        s.settle = (1, Duration::from_millis(1));
-        assert_eq!(s.start(&mut |_| {}).unwrap_err(), DesyncError::NoProfile);
-        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
-        assert_eq!(s.status().0, DesyncState::Error);
-    }
-
-    #[test]
-    fn prepares_missing_components_then_starts_and_stops() {
-        let flags = Arc::new(Flags::default());
-        let s = make(&flags, good, true, false);
-        let mut percents = vec![];
-        s.start(&mut |p| percents.push(p.percent)).unwrap();
-        assert!(flags.installed.load(Ordering::SeqCst));
-        assert_eq!(percents.last(), Some(&100));
-        assert_eq!(s.status().0, DesyncState::Running);
-        assert!(s.pid_file().exists());
-        s.stop();
-        assert!(flags.killed.load(Ordering::SeqCst), "процесс остановлен");
-        assert_eq!(s.status().0, DesyncState::Off);
-        assert!(!s.pid_file().exists(), "ресурсы освобождены");
-    }
-
-    #[test]
-    fn failed_file_check_starts_nothing_and_hides_secrets() {
-        let flags = Arc::new(Flags::default());
-        let s = make(
-            &flags,
-            |f| Host {
-                install_fails: true,
-                ..good(f)
-            },
-            true,
-            false,
-        );
-        let err = s.start(&mut |_| {}).unwrap_err();
-        assert!(matches!(err, DesyncError::Prepare(_)), "{err:?}");
-        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
-        let log = std::fs::read_to_string(s.dir.join("desync-prepare.log")).unwrap();
-        assert!(!log.contains("TOKEN"), "{log}");
-    }
-
-    #[test]
-    fn without_a_pinned_release_missing_components_are_not_downloaded() {
+    fn a_missing_engine_file_is_not_prepared_and_nothing_starts() {
         let flags = Arc::new(Flags::default());
         let s = make(&flags, good, false, false);
+        flags.present.store(false, Ordering::SeqCst);
         assert!(matches!(
             s.start(&mut |_| {}).unwrap_err(),
             DesyncError::NotPrepared(_)
         ));
-        assert!(!flags.installed.load(Ordering::SeqCst));
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn the_start_runs_the_sonicdpi_youtube_discord_profile_without_user_sites() {
+        let flags = Arc::new(Flags::default());
+        let s = trial_service(&flags, false);
+        s.user_sites().add("example.com").unwrap();
+        s.start_trial(true, &mut |_| {}).unwrap();
+        s.stop_trial().unwrap();
+        let real = DesyncService::new(
+            temp_dir(),
+            Box::new(good(flags.clone())),
+            Box::new(routing::VpnSignal::default),
+        );
+        let profile = real.candidate.clone().unwrap();
+        assert_eq!(profile.engine, Engine::SonicDpi);
+        assert_eq!(profile.args, ["run", "--profile", "youtube-discord"]);
+        assert_eq!(real.launch_args(&profile).unwrap(), profile.args);
     }
 
     #[test]
@@ -1654,31 +1388,25 @@ mod tests {
         vec![
             Strategy {
                 id: "win-sites",
-                engine: Engine::Winws2,
+                engine: Engine::SonicDpi,
                 covers: &[Coverage::Sites],
                 args: vec![],
             },
             Strategy {
                 id: "win-sites-discord",
-                engine: Engine::Winws2,
+                engine: Engine::SonicDpi,
                 covers: &[Coverage::Sites, Coverage::Discord],
                 args: vec![],
             },
             Strategy {
                 id: "win-all",
-                engine: Engine::Winws2,
+                engine: Engine::SonicDpi,
                 covers: &[
                     Coverage::Sites,
                     Coverage::Discord,
                     Coverage::Telegram,
                     Coverage::Games,
                 ],
-                args: vec![],
-            },
-            Strategy {
-                id: "linux-sites-discord",
-                engine: Engine::Nfqws2,
-                covers: &[Coverage::Sites, Coverage::Discord],
                 args: vec![],
             },
         ]
@@ -1690,7 +1418,7 @@ mod tests {
 
     static TEST_CONFIRMED: [ConfirmedCoverage; 1] = [ConfirmedCoverage {
         profile_id: "sites-discord",
-        engine: Engine::Winws2,
+        engine: Engine::SonicDpi,
         covers: &[Coverage::Sites, Coverage::Discord],
     }];
 
@@ -1884,10 +1612,11 @@ mod tests {
         s.coord.mark_unclean(coordinator::Owner::Vpn);
         assert!(s.start_trial(true, &mut |_| {}).is_err());
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
-        // Движок не подготовлен и скачать нельзя.
+        // Файла движка нет: запуск отказывает.
         let flags2 = Arc::new(Flags::default());
         let mut raw = make(&flags2, good, false, false);
         raw.candidate = profile();
+        flags2.present.store(false, Ordering::SeqCst);
         let raw = Arc::new(raw);
         assert!(matches!(
             raw.start_trial(true, &mut |_| {}).unwrap_err(),
@@ -2109,102 +1838,7 @@ mod tests {
     }
 
     #[test]
-    fn merged_profile_is_base_plus_sections_without_duplicates_and_resources_exist() {
-        let merged = windows_merged_candidate_profile().unwrap();
-        assert_eq!(merged.id, "windows-ochistka-merged-unverified");
-        let m = preset::ZapretPreset::parse(include_str!(
-            "../../../assets/desync/presets/OCHISTKA Merged.txt"
-        ))
-        .unwrap();
-        let base = preset::ZapretPreset::parse(include_str!(
-            "../../../assets/desync/presets/Universal V13 Lite.txt"
-        ))
-        .unwrap();
-        // Основа — «Universal V13 YT FIX» (ADR 0017): её Lua-модуль подключён, а Telegram, Steam и
-        // Riot / Valorant (решение владельца) в пресете отсутствуют.
-        let removed = |text: &str| {
-            let t = text.to_lowercase();
-            ["telegram", "steam", "riot", "valorant"]
-                .iter()
-                .any(|w| t.contains(w))
-        };
-        assert!(m
-            .global_arguments
-            .contains(&"--lua-init=@lua/nz-video.lua".to_string()));
-        for g in &base.global_arguments {
-            assert!(removed(g) || m.global_arguments.contains(g), "{g}");
-        }
-        assert!(m.sections.len() > 100);
-        // YouTube: секции со списками youtube и googlevideo на месте.
-        for needle in ["lists/youtube.txt", "lists/googlevideo.txt"] {
-            assert!(
-                m.sections
-                    .iter()
-                    .any(|sec| sec.arguments.iter().any(|a| a.contains(needle))),
-                "{needle}"
-            );
-        }
-        let everything = format!(
-            "{}\n{}",
-            m.global_arguments.join("\n"),
-            m.sections
-                .iter()
-                .map(|sec| sec.arguments.join(" "))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-        assert!(
-            !removed(&everything),
-            "в объединённом пресете не должно быть Telegram, Steam, Riot"
-        );
-        // Нет повторов: ни секций (имя не учитывается), ни общих аргументов.
-        let mut seen = std::collections::BTreeSet::new();
-        for s in &m.sections {
-            let body: Vec<&String> = s
-                .arguments
-                .iter()
-                .filter(|a| !a.starts_with("--name="))
-                .collect();
-            assert!(seen.insert(body.clone()), "повтор секции: {body:?}");
-        }
-        let mut globals = std::collections::BTreeSet::new();
-        for g in &m.global_arguments {
-            assert!(globals.insert(g), "повтор аргумента: {g}");
-        }
-        // Все ресурсы есть в дереве закреплённых 135 файлов или в дополнительных данных.
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/desync");
-        for rel in m.required_resources().unwrap() {
-            assert!(
-                root.join("runtime").join(&rel).is_file()
-                    || root.join("runtime-extra").join(&rel).is_file(),
-                "{rel}"
-            );
-        }
-    }
-
-    #[test]
-    fn trial_runs_the_merged_profile_not_the_old_single_preset() {
-        let flags = Arc::new(Flags::default());
-        let s = trial_service(&flags, false);
-        s.start_trial(true, &mut |_| {}).unwrap();
-        let args = flags.spawn_args.lock().unwrap().clone();
-        let merged = windows_merged_candidate_profile().unwrap();
-        // В тесте кандидат подставлен тестовым профилем, но настоящий конструктор берёт объединённый.
-        assert!(!args.is_empty());
-        let real = DesyncService::new(
-            temp_dir(),
-            Box::new(good(flags.clone())),
-            Box::new(routing::VpnSignal::default),
-        );
-        assert_eq!(
-            real.candidate.as_ref().map(|p| p.args.clone()),
-            Some(merged.args)
-        );
-        s.stop_trial().unwrap();
-    }
-
-    #[test]
-    fn merged_profile_does_not_unlock_normal_activation() {
+    fn the_profile_does_not_unlock_normal_activation() {
         assert!(routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
         assert!(site_discord_profile(Platform::Windows).is_none());
         let flags = Arc::new(Flags::default());
@@ -2235,7 +1869,6 @@ mod tests {
             }),
         );
         s.candidate = profile();
-        s.installable = true;
         s.settle = (2, Duration::from_millis(1));
         s.stop_wait = (2, Duration::from_millis(1));
         Arc::new(s)
@@ -2333,64 +1966,6 @@ mod tests {
         flags.ignore_kill.store(false, Ordering::SeqCst);
         flags.exited.store(true, Ordering::SeqCst);
         s.stop_trial().unwrap();
-    }
-
-    #[test]
-    fn merged_profile_command_line_fits_the_windows_limit_with_margin() {
-        let merged = windows_merged_candidate_profile().unwrap();
-        let exe = r"C:\Users\Someone\AppData\Local\OCHISTKA\desync\winws2.exe";
-        let len = windows_command_line_len(exe, &merged.args);
-        // CreateProcess принимает не больше 32 767 символов; нужен запас (не больше 30 000).
-        assert!(
-            len <= 30_000,
-            "командная строка {len} символов, предел Windows 32 767"
-        );
-        assert!(check_command_line(exe, &merged.args).is_ok());
-    }
-
-    #[test]
-    fn too_long_command_line_is_refused_with_a_clear_reason_not_os_error_206() {
-        let exe = r"C:\x\winws2.exe";
-        let long: Vec<String> = (0..2000)
-            .map(|i| format!("--lua-desync=fake:blob={i:030}"))
-            .collect();
-        let err = check_command_line(exe, &long).unwrap_err();
-        assert!(
-            err.contains("слишком длинн") && err.contains("32767"),
-            "{err}"
-        );
-    }
-
-    #[test]
-    fn windows_command_line_length_counts_quotes_for_arguments_with_spaces() {
-        let exe = r"C:\a\w.exe";
-        let plain = windows_command_line_len(exe, &["--a=1".to_string()]);
-        let spaced = windows_command_line_len(exe, &["--name=A B".to_string()]);
-        assert_eq!(plain, exe.len() + 2 + 1 + 5);
-        assert_eq!(spaced, exe.len() + 2 + 1 + "--name=A B".len() + 2);
-    }
-
-    #[test]
-    fn launch_arguments_differ_from_the_full_preset_only_by_profile_names() {
-        let m = preset::ZapretPreset::parse(include_str!(
-            "../../../assets/desync/presets/OCHISTKA Merged.txt"
-        ))
-        .unwrap();
-        let full = m.command_arguments();
-        let launch = m.launch_arguments();
-        let without_names: Vec<String> = full
-            .iter()
-            .filter(|a| !a.starts_with("--name="))
-            .cloned()
-            .collect();
-        assert_eq!(launch, without_names);
-        // Ни одно правило не потеряно: все не-именные аргументы на месте, порядок прежний.
-        assert!(launch.len() < full.len());
-        assert_eq!(
-            launch.iter().filter(|a| a.as_str() == "--new").count(),
-            m.sections.len()
-        );
-        assert_eq!(windows_merged_candidate_profile().unwrap().args, launch);
     }
 
     // ----- служба драйвера WinDivert -----
@@ -2510,12 +2085,6 @@ mod tests {
         assert!(!s.dir.join("desync-state.json").exists());
     }
 
-    // ----- замер скорости и откат -----
-
-    fn ms(n: u64) -> Duration {
-        Duration::from_millis(n)
-    }
-
     #[test]
     fn the_bypass_stays_on_by_itself_until_the_button_or_exit_stops_it() {
         let flags = Arc::new(Flags::default());
@@ -2551,51 +2120,6 @@ mod tests {
     }
 
     // ----- сайты пользователя -----
-
-    #[test]
-    fn user_sites_join_the_engine_arguments_at_the_next_start_through_a_list_file() {
-        let flags = Arc::new(Flags::default());
-        let s = trial_service(&flags, false);
-        // Пока сайтов нет: ни секции, ни файла.
-        s.start_trial(true, &mut |_| {}).unwrap();
-        let plain = flags.spawn_args.lock().unwrap().clone();
-        assert!(!plain.iter().any(|a| a.contains("nz-user-sites")));
-        assert!(!s.dir.join("lists").join("nz-user-sites.txt").exists());
-        s.stop_trial().unwrap();
-        // Добавили — вступает в силу при следующем включении.
-        s.user_sites()
-            .add("example.com\nhttps://other.org/page")
-            .unwrap();
-        s.start_trial(true, &mut |_| {}).unwrap();
-        let args = flags.spawn_args.lock().unwrap().clone();
-        assert!(args.contains(&"--hostlist=lists/nz-user-sites.txt".to_string()));
-        assert_eq!(args[args.len() - 5], "--new", "секция идёт последней");
-        let file = std::fs::read_to_string(s.dir.join("lists").join("nz-user-sites.txt")).unwrap();
-        assert_eq!(file, "example.com\nother.org\n");
-        s.stop_trial().unwrap();
-        // Удалили все — секция и файл исчезают.
-        s.user_sites().remove("example.com").unwrap();
-        s.user_sites().remove("other.org").unwrap();
-        s.start_trial(true, &mut |_| {}).unwrap();
-        assert!(!flags
-            .spawn_args
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|a| a.contains("nz-user-sites")));
-        assert!(!s.dir.join("lists").join("nz-user-sites.txt").exists());
-        s.stop_trial().unwrap();
-    }
-
-    #[test]
-    fn the_real_profile_with_user_sites_still_fits_the_windows_command_line() {
-        let merged = windows_merged_candidate_profile().unwrap();
-        let mut args = merged.args.clone();
-        args.extend(user_sites::section_arguments());
-        let exe = r"C:\Users\Someone\AppData\Local\OCHISTKA\desync\winws2.exe";
-        let len = windows_command_line_len(exe, &args);
-        assert!(len <= 30_000, "{len}");
-    }
 
     // ----- полные циклы -----
 
@@ -2841,7 +2365,7 @@ mod tests {
     fn live_service_plan_stays_off_for_unverified_profile() {
         let flags = Arc::new(Flags::default());
         let service = make(&flags, good, true, false);
-        // Адаптер в тесте заявляет Ready, но реальный пресет NetZapret не подтверждён опытом.
+        // Адаптер в тесте заявляет Ready, но реальный профиль не подтверждён опытом.
         let plan = service.plan_access(&[Coverage::Sites], &blocked(&[Coverage::Sites]));
         assert_eq!(
             plan.overall,
@@ -2853,7 +2377,6 @@ mod tests {
             RoutePlan::Use(AccessPath::Direct)
         );
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
-        assert!(!flags.installed.load(Ordering::SeqCst));
     }
 
     #[test]
@@ -3020,32 +2543,33 @@ mod tests {
         let all = strategies();
         let pick =
             |engine, wanted: &[Coverage]| select_strategy(&all, engine, wanted).map(|s| s.id);
-        assert_eq!(pick(Engine::Winws2, &[Coverage::Sites]), Some("win-sites"));
         assert_eq!(
-            pick(Engine::Winws2, &[Coverage::Sites, Coverage::Discord]),
+            pick(Engine::SonicDpi, &[Coverage::Sites]),
+            Some("win-sites")
+        );
+        assert_eq!(
+            pick(Engine::SonicDpi, &[Coverage::Sites, Coverage::Discord]),
             Some("win-sites-discord"),
             "наименьший лишний охват"
         );
         assert_eq!(
-            pick(Engine::Winws2, &[Coverage::Discord, Coverage::Games]),
+            pick(Engine::SonicDpi, &[Coverage::Discord, Coverage::Games]),
             Some("win-all")
         );
-        // Telegram есть только в «win-all»; для Linux его нет вовсе: стратегии не складываем.
-        assert_eq!(pick(Engine::Nfqws2, &[Coverage::Telegram]), None);
+        // Одной стратегии на Telegram и игры целиком нет: стратегии не складываем.
         assert_eq!(
-            pick(Engine::Nfqws2, &[Coverage::Sites, Coverage::Discord]),
-            Some("linux-sites-discord"),
-            "стратегия чужого движка не подходит"
+            pick(Engine::SonicDpi, &[Coverage::Telegram, Coverage::Discord]),
+            Some("win-all")
         );
     }
 
     #[test]
-    fn each_platform_has_its_own_engine_and_macos_has_none() {
+    fn only_windows_has_an_engine_for_now() {
         assert_eq!(
             Engine::for_platform(Platform::Windows),
-            Some(Engine::Winws2)
+            Some(Engine::SonicDpi)
         );
-        assert_eq!(Engine::for_platform(Platform::Linux), Some(Engine::Nfqws2));
+        assert_eq!(Engine::for_platform(Platform::Linux), None);
         assert_eq!(Engine::for_platform(Platform::MacOs), None);
     }
 

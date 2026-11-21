@@ -2,8 +2,8 @@
 //!
 //! Every requested service is judged separately from its OWN observation
 //! (`Reachable` / `Unreachable` / `Unchecked`): one shared "direct works" flag can never stand
-//! for YouTube, Discord, Telegram, sites and games at once. Direct, VPN and one whole Zapret
-//! profile are mutually exclusive. A parsed preset and a successful Windows `--dry-run` DO NOT
+//! for YouTube, Discord, Telegram, sites and games at once. Direct, VPN and one whole bypass
+//! profile are mutually exclusive. A successful Windows `--dry-run` DOES NOT
 //! grant verified coverage: only a separately reviewed, explicitly pinned evidence entry can.
 //! No entries are approved yet, so the desync path is never selected.
 
@@ -287,13 +287,13 @@ mod tests {
     use super::*;
 
     fn candidate() -> Profile {
-        super::super::windows_netzapret_v13_lite_candidate_profile().unwrap()
+        super::super::sonicdpi_profile()
     }
 
     fn approval(profile: &Profile, covers: &'static [Coverage]) -> Vec<ConfirmedCoverage> {
         vec![ConfirmedCoverage {
             profile_id: profile.id,
-            engine: Engine::Winws2,
+            engine: Engine::SonicDpi,
             covers,
         }]
     }

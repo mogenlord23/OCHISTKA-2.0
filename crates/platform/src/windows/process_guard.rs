@@ -1,4 +1,4 @@
-//! Надёжное завершение движка обхода (`winws2.exe`): поиск процесса по PID с проверкой ИМЕНИ
+//! Надёжное завершение движка обхода (`sonicdpi.exe`): поиск процесса по PID с проверкой ИМЕНИ
 //! (чужой процесс с тем же PID не трогается), завершение, проверка, что процесса больше нет, и
 //! объект «задание» Windows: если программа закрыта принудительно или упала, система сама
 //! завершает движок. Вызовы Win32 — только в `win32_ffi.rs`.
@@ -151,10 +151,10 @@ mod tests {
 
     #[test]
     fn names_match_ignoring_case_and_exe() {
-        assert!(name_matches("winws2.exe", "winws2.exe"));
-        assert!(name_matches("WINWS2.EXE", "winws2"));
-        assert!(!name_matches("winws2x.exe", "winws2.exe"));
-        assert!(!name_matches("chrome.exe", "winws2.exe"));
+        assert!(name_matches("sonicdpi.exe", "sonicdpi.exe"));
+        assert!(name_matches("SONICDPI.EXE", "sonicdpi"));
+        assert!(!name_matches("sonicdpix.exe", "sonicdpi.exe"));
+        assert!(!name_matches("chrome.exe", "sonicdpi.exe"));
     }
 
     #[test]
@@ -163,11 +163,11 @@ mod tests {
         let pid = child.id();
         assert!(is_alive_named(pid, "sleep"));
         assert!(
-            !is_alive_named(pid, "winws2.exe"),
-            "по имени winws2 такого процесса нет"
+            !is_alive_named(pid, "sonicdpi.exe"),
+            "по имени sonicdpi такого процесса нет"
         );
-        // Просим завершить «winws2» с PID чужого процесса: ничего не происходит.
-        assert!(terminate_named(pid, "winws2.exe", None));
+        // Просим завершить «sonicdpi» с PID чужого процесса: ничего не происходит.
+        assert!(terminate_named(pid, "sonicdpi.exe", None));
         assert!(child.try_wait().unwrap().is_none(), "чужой процесс жив");
         let _ = child.kill();
         let _ = child.wait();

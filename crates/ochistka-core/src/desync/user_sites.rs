@@ -167,22 +167,6 @@ impl UserSites {
     }
 }
 
-/// Секция для движка: те же правила, что у выбранных вручную сайтов в пресете (рецепт «Выбрано
-/// вручную»), список — файл `lists/nz-user-sites.txt` в папке движка. Идёт последней: ловит только
-/// трафик, который не поймали более ранние секции.
-pub fn section_arguments() -> Vec<String> {
-    [
-        "--new",
-        "--filter-tcp=80,443",
-        "--hostlist=lists/nz-user-sites.txt",
-        "--out-range=-d8",
-        "--lua-desync=hostfakesplit_multi:hosts=google.com,vimeo.com:tcp_ts=-1000:tcp_md5:repeats=2",
-    ]
-    .iter()
-    .map(|a| (*a).to_string())
-    .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,15 +319,5 @@ mod tests {
         UserSites::new(&dir).add("example.com").unwrap();
         let text = std::fs::read_to_string(dir.join(FILE)).unwrap();
         assert_eq!(text, r#"{"sites":["example.com"]}"#);
-    }
-
-    #[test]
-    fn the_engine_section_uses_the_manual_pick_recipe_and_the_user_list() {
-        let a = section_arguments();
-        assert_eq!(a[0], "--new");
-        assert!(a.contains(&"--hostlist=lists/nz-user-sites.txt".to_string()));
-        assert!(a
-            .iter()
-            .any(|x| x.starts_with("--lua-desync=hostfakesplit_multi")));
     }
 }

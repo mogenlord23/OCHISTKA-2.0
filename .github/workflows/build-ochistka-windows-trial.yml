@@ -86,7 +86,7 @@ jobs:
           $bytes = [System.IO.File]::ReadAllBytes($exe.FullName)
           $text = [System.Text.Encoding]::Latin1.GetString($bytes)
           $missing = @()
-          foreach ($needle in @('desync_trial_status','desync_trial_start','desync_trial_stop','desync_trial_note','service_access_plan','service_check','OCHISTKA Merged')) {
+          foreach ($needle in @('desync_trial_status','desync_trial_start','desync_trial_stop','desync_trial_note','service_access_plan','service_check')) {
             if (-not $text.Contains($needle)) { $missing += $needle }
           }
           if ($missing.Count -gt 0) { throw "Missing in application binary: $($missing -join ', ')" }
@@ -108,7 +108,7 @@ jobs:
             "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
             "В CI проверено: сборка, svelte-check, vitest, cargo check; в приложении есть команды пробного режима и переключатель.",
             "В CI НЕ проверено: запуск GUI, права администратора, WinDivert, перехват и сеть. Это делает пользователь вручную.",
-            "Движок winws2/WinDivert в установщик не входит: приложение загружает закреплённый выпуск само при пробном запуске."
+            "Движок SonicDPI (sonicdpi.exe) и WinDivert в установщик пока НЕ входят: без файла sonicdpi.exe кнопка «Обход блокировок» не заработает (следующий этап)."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
           Get-Content out/BUILD-INFO.txt
           "installer_name=$name" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV

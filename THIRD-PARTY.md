@@ -38,19 +38,9 @@
 
 Папка `apps/desktop/src/assets/flags`: SVG-флаги 4×3 из проекта flag-icons (https://github.com/lipis/flag-icons), лицензия MIT, © 2013 Panayiotis Lipiridis. Файлы rs, mx, es, hr, md заменены упрощёнными трёхполосными версиями (без гербов) ради размера.
 
-## Обход блокировок (подготовка, этап 6Б.1)
+## Обход блокировок (ADR 0018)
 
-Планируются Zapret 2 / winws2 (bol-van/zapret2, MIT) и WinDivert (basil00/WinDivert, LGPL v3 / GPL v2; только отдельными файлами DLL и драйвера, без статической линковки). Бинарные файлы пока НЕ поставляются и не скачиваются: SHA-256 и подлинность подтверждаются на Windows скриптом `tools/desync-core/verify-sources.ps1`, затем значения закрепляются в `crates/ochistka-core/src/desync.rs`.
+- SonicDPI v0.2.2 (`by-sonic/sonicdpi`, MIT OR Apache-2.0: LICENSE-MIT и LICENSE-APACHE в архиве релиза). Архив `SonicDPI-windows-x64.zip`, SHA-256 `ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0` (проверен, `docs/status/sonicdpi-verify.md`). В установщик пока не входит.
+- WinDivert 2.2.2 (basil00/WinDivert, LGPL v3 / GPL v2) идёт внутри архива SonicDPI отдельными файлами DLL и драйвера, без статической линковки.
+- Zapret 2 (winws2) и пресеты NetZapret удалены из репозитория (ADR 0018); история — в git.
 
-## Исходный пресет NetZapret (6Б.5Г.2)
-
-- `assets/desync/presets/Universal V13 Lite.txt`: неизменённый исходный файл `RixyPow/netzapret@883ba05b9531a283e0d6c83fdc3536016fbd51d3`, SHA-256 `e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7`.
-- NetZapret MIT © 2026 RixyPow; исходные секции Zapret GUI MIT © 2025–2026 censorliber/loop-uh. Лицензии `assets/desync/presets/LICENSE-NetZapret.txt` и `LICENSE-ZapretGUI.txt`. 135 оригинальных Lua/списков/образцов/фильтров теперь включены в **дерево исходников** `assets/desync/runtime/` и закреплены по SHA-256 в `docs/status/desync-preset-resources.json`. Они теперь также встроены в Windows Rust-адаптер через `include_bytes!` и устанавливаются только после проверки SHA-256 при явной подготовке движка; пользовательский обход всё ещё недоступен до подтверждения его работы на реальной сети. Дополнительные списки NetZapret могли использовать материалы v2fly/domain-list-community (MIT); учитывать этот источник при выпуске.
-
-## Объединённый пресет «Обход блокировок» (данные RixyPow/netzapret)
-
-- `assets/desync/presets/OCHISTKA Merged.txt` и `assets/desync/runtime-extra/lists/*.txt` собраны инструментом `tools/bypass-merge/merge_presets.py` из **файлов настроек** (пресеты десинка и списки адресов) репозитория `RixyPow/netzapret@d360a3de6961a5a413d80417dc9c83e6da0746aa`. Код RixyPow не копировался.
-- Лицензии: NetZapret — MIT © 2026 RixyPow; пресеты и секции Zapret GUI — MIT © 2025–2026 censorliber/loop-uh (тексты в `assets/desync/presets/LICENSE-NetZapret.txt`, `LICENSE-ZapretGUI.txt`). Списки адресов Zapret GUI могут содержать материалы v2fly/domain-list-community (MIT).
-- Компоненты вне этого этапа, не копируются без отдельного решения о лицензии OCHISTKA: код движков (GPL v3), библиотеки LGPL, Wintun (проприетарный).
-- Состав и причины исключений: `docs/status/bypass-merge-inventory.md`, `bypass-merge-conflicts.md`, `bypass-merge-coverage.json`, `bypass-merge-resources.json` (SHA-256 каждого нового файла).
-- Основа объединённого пресета — «Universal V13 YT FIX» (ADR 0017); ей нужен Lua-модуль `config/lua/video.lua` из `RixyPow/netzapret` (MIT © 2026 RixyPow), встроенный как `lua/nz-video.lua` с SHA-256 в `docs/status/bypass-merge-resources.json`. Источник данных теперь `RixyPow/netzapret@11f073c`.

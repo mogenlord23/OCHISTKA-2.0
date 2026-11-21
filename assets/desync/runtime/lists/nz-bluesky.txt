@@ -1,6 +1,0 @@
-# Bluesky.
-#
-# bsky.social — сервер учётных записей, bsky.app — само приложение.
-# Вход ломается отдельно от ленты.
-bsky.app
-bsky.social

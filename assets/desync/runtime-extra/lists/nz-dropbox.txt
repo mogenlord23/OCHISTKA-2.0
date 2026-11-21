@@ -1,7 +1,0 @@
-# Dropbox.
-#
-# dropboxusercontent.com — сама выдача файлов, отдельная от интерфейса:
-# папка открывается, а файл не скачивается.
-dropbox.com
-dropboxusercontent.com
-dropboxstatic.com

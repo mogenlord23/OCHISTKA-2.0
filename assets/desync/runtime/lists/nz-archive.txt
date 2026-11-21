@@ -1,2 +1,0 @@
-# Интернет-архив и Wayback Machine.
-archive.org
