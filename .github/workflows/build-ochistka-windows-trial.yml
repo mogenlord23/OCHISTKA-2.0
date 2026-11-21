@@ -61,6 +61,34 @@ jobs:
           cargo check --locked -p ochistka-desktop
           if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
 
+      - name: Fetch SonicDPI v0.2.2 and verify its SHA-256 (not stored in git)
+        shell: pwsh
+        env:
+          SONIC_URL: https://github.com/by-sonic/sonicdpi/releases/download/v0.2.2/SonicDPI-windows-x64.zip
+          SONIC_SHA256: ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'SonicDPI-windows-x64.zip'
+          Invoke-WebRequest -Uri $env:SONIC_URL -OutFile $zip
+          $actual = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SONIC_SHA256) { throw "SonicDPI archive SHA-256 mismatch: expected $($env:SONIC_SHA256), got $actual" }
+          Write-Host "SonicDPI archive SHA-256 OK: $actual"
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/resources/sonicdpi'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $wanted = @('sonicdpi.exe','WinDivert.dll','WinDivert64.sys','LICENSE-MIT','LICENSE-APACHE','THIRD_PARTY_LICENSES.md')
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+          try {
+            foreach ($name in $wanted) {
+              $entry = $archive.Entries | Where-Object { $_.FullName -eq $name } | Select-Object -First 1
+              if (-not $entry) { throw "File missing in SonicDPI archive: $name" }
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $dest $name), $true)
+            }
+          } finally { $archive.Dispose() }
+          $lines = Get-ChildItem $dest -File | Where-Object { $_.Name -ne 'README.txt' } | ForEach-Object { "{0}  {1}  {2}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Length, $_.Name }
+          $lines | Set-Content -Encoding utf8 (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt')
+          $lines | ForEach-Object { Write-Host $_ }
+
       - name: Build the NSIS installer (Tauri)
         shell: pwsh
         run: |

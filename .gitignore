@@ -10,6 +10,10 @@ Thumbs.db
 apps/desktop/src-tauri/resources/vpn-core/*
 !apps/desktop/src-tauri/resources/vpn-core/README.txt
 
+# SonicDPI v0.2.2 скачивается на сборке (GitHub), проверяется по SHA-256 и в git не хранится
+apps/desktop/src-tauri/resources/sonicdpi/*
+!apps/desktop/src-tauri/resources/sonicdpi/README.txt
+
 # Python: автоматически создаваемые файлы тестов
 __pycache__/
 *.py[cod]
