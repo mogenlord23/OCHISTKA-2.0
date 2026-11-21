@@ -6,8 +6,9 @@
 //! Системное (адаптеры, `crates/platform`): Windows — `winws2` + WinDivert; Linux — `nfqws2` +
 //! NFQUEUE; macOS — Zapret 2 не поддерживается, адаптер сообщает это и ничего не запускает.
 //!
-//! Пока ни один настоящий адаптер не готов, основной переключатель «Обход блокировок» не включается
-//! (`Readiness`). Ничего не скачивается и не запускается без подтверждённых источников и хэшей.
+//! Windows-движок из проверенного Release закреплён по SHA-256, но основной переключатель
+//! «Обход блокировок» остаётся недоступным, пока рабочий профиль не проверен (`Readiness`).
+//! Ничего не скачивается и не запускается без подтверждённых источников и хэшей.
 //! Системный прокси, DNS, hosts и маршруты здесь не трогаются.
 
 use std::path::{Path, PathBuf};
@@ -116,10 +117,34 @@ pub fn select_strategy<'a>(
         .min_by_key(|s| s.covers.len())
 }
 
-/// Закреплённый выпуск компонентов. `None`, пока хэши официальных файлов не подтверждены:
-/// в этом случае ничего не скачивается (неподтверждённые бинарные файлы не используем).
+/// Проверенный Windows x64 ZIP из успешного запуска build-zapret2-windows №44885741341.
+/// ZIP опубликован отдельным prerelease: содержимое и SHA-256 не менялись.
+/// GitHub Release: https://github.com/mogenlord23/OCHISTKA-2.0/releases/tag/zapret2-winws2-2026-11-21
+pub static PINNED_WINDOWS: PinnedEngine = PinnedEngine {
+    version: "zapret2-winws2-2026-11-21",
+    url: "https://github.com/mogenlord23/OCHISTKA-2.0/releases/download/zapret2-winws2-2026-11-21/zapret2-winws2-windows-x64.zip",
+    url_prefix: "/mogenlord23/OCHISTKA-2.0/releases/download/",
+    archive_sha256: "15bb46aca6904c674cb018250855398c60d7676079fd534832f1e4d87f07e04a",
+    files: &[
+        ("winws2.exe", "5390cb6cec8cdb39bda657f83e8b87ce8dc96d074bf6a71e22c03c6896bcaf42"),
+        ("cygwin1.dll", "ed9d5379061e5de79c3375cc62246c2142ea1c97d94f4d16bfbea6fb1b7fc889"),
+        ("cygz.dll", "02561b4b4b473c40e9bed9c5df59334b5d79efae568b6e212a7c9d775ba8e647"),
+        ("WinDivert.dll", "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2"),
+        ("WinDivert64.sys", "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2"),
+        ("LICENSE-zapret2.txt", "d089978dd77d53cb6aa5dff51cfdbff617e52dd44af1ac44a6df02c6644f17d5"),
+        ("LICENSE-WinDivert.txt", "542e02ca56c33aea103ce84a8b874b0b15e25b9f559d9bf578a10652f824815d"),
+        ("LICENSE-luajit2.txt", "a9eddee2daeff45faaa62fce2d31f63a43a241b530519c305169f3d544249c31"),
+        ("manifest.json", "60505764e6ef5aac937e3259eb443069d433a944dfb0d05b218160f541f3c3d5"),
+    ],
+};
+
+/// Выпуск доступен только Windows; Linux и macOS пока без установленного движка.
 pub fn pinned() -> Option<&'static PinnedEngine> {
-    None
+    if cfg!(target_os = "windows") {
+        Some(&PINNED_WINDOWS)
+    } else {
+        None
+    }
 }
 
 /// Один проверенный профиль обхода (сайты и Discord): аргументы `winws2`.
@@ -544,8 +569,23 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_pinned_or_enabled_until_hashes_and_profile_are_verified() {
-        assert!(pinned().is_none(), "неподтверждённые файлы не скачиваем");
+    fn verified_windows_engine_is_pinned_but_profile_remains_disabled() {
+        let spec = &PINNED_WINDOWS;
+        assert!(crate::vpn::engine::url_allowed_under(spec.url, spec.url_prefix));
+        assert_eq!(spec.archive_sha256.len(), 64);
+        assert_eq!(spec.files.len(), 9, "пять бинарных файлов, лицензии и manifest.json");
+        for required_name in [
+            "winws2.exe",
+            "cygwin1.dll",
+            "cygz.dll",
+            "WinDivert.dll",
+            "WinDivert64.sys",
+        ] {
+            assert!(spec.files.iter().any(|(name, _)| *name == required_name));
+        }
+        assert!(spec.files.iter().all(|(_, hash)| hash.len() == 64));
+        assert_eq!(pinned().is_some(), cfg!(target_os = "windows"));
+
         for platform in [Platform::Windows, Platform::Linux, Platform::MacOs] {
             assert!(
                 site_discord_profile(platform).is_none(),

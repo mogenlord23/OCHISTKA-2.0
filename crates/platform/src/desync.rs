@@ -6,10 +6,10 @@
 //! имени), понятная реакция на блокировку файла защитой Windows (защиту не отключаем и
 //! исключений не добавляем).
 //!
-//! Чего нет и почему: подтверждённых файлов и профиля. `winws2.exe` и подписанный драйвер WinDivert
-//! не лежат ни в одном проверяемом исходном репозитории (только в выпусках, откуда их не получить
-//! и не проверить), а переименованный драйвер из NetZapret («Monkey64.sys») не берём: это обход
-//! распознавания защитой. Поэтому `pinned()` пока `None`, адаптер не `Ready`, ничего не запускается.
+//! Движок Windows из проверенного Release с закреплёнными хэшами доступен для установки.
+//! Рабочие аргументы обхода ещё не проверены; до появления профиля адаптер сообщает
+//! NotImplemented и ничего не запускает. Подписанный драйвер используем без переименования;
+//! защиту Windows не отключаем.
 
 use std::path::{Path, PathBuf};
 
@@ -93,6 +93,11 @@ impl DesyncAdapter for WindowsDesyncAdapter {
             None => Readiness::NotImplemented(
                 "Обход блокировок пока недоступен: подтверждённые файлы движка отсутствуют".into(),
             ),
+            Some(_) if desync::site_discord_profile(Platform::Windows).is_none() => {
+                Readiness::NotImplemented(
+                    "Движок Zapret 2 закреплён, но рабочий профиль обхода ещё не проверен".into(),
+                )
+            }
             Some(_) => Readiness::Ready,
         }
     }
@@ -233,11 +238,40 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_ready_while_no_verified_files_are_pinned() {
+    fn adapter_stays_not_ready_without_verified_strategy() {
         let adapter = WindowsDesyncAdapter::new(temp("none"));
         assert!(matches!(adapter.readiness(), Readiness::NotImplemented(_)));
         assert!(adapter.locate().is_err());
-        assert!(adapter.install(&mut |_| {}).is_err());
+        // Не запускаем реальную сетевую загрузку в тесте: Release закреплён, но профиль не готов.
+    }
+
+    #[test]
+    fn five_required_runtime_files_are_checked_and_tampering_is_blocked() {
+        let dir = temp("five-files");
+        let files: [(&str, &[u8]); 5] = [
+            ("winws2.exe", b"exe"),
+            ("cygwin1.dll", b"cygwin"),
+            ("cygz.dll", b"zlib"),
+            ("WinDivert.dll", b"dll"),
+            ("WinDivert64.sys", b"driver"),
+        ];
+        let spec = spec_for(&files);
+        let adapter = WindowsDesyncAdapter::with_spec(dir.clone(), Some(spec));
+        for (name, data) in files {
+            std::fs::write(dir.join(name), data).unwrap();
+        }
+        assert!(adapter.locate().is_ok());
+        for (name, data) in files {
+            std::fs::write(dir.join(name), b"tampered").unwrap();
+            assert!(adapter.locate().is_err(), "подмена {name} должна блокировать запуск");
+            std::fs::write(dir.join(name), data).unwrap();
+            assert!(adapter.locate().is_ok(), "после восстановления {name} хэш совпадает");
+        }
+        for (name, data) in files {
+            std::fs::remove_file(dir.join(name)).unwrap();
+            assert!(adapter.locate().is_err(), "отсутствие {name} должно блокировать запуск");
+            std::fs::write(dir.join(name), data).unwrap();
+        }
     }
 
     #[test]

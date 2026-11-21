@@ -1,0 +1,25 @@
+# Проверка только Rust-кода привязки Zapret 2; движок повторно НЕ собирается.
+name: validate-desync-pin
+
+on:
+  push:
+    branches:
+      - claude/epic-knuth-0zhg19
+    paths:
+      - crates/ochistka-core/src/desync.rs
+      - crates/platform/src/desync.rs
+      - .github/workflows/validate-desync-pin.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Test core and platform
+        run: cargo test -p ochistka-core -p ochistka-platform --lib
