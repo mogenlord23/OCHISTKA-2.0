@@ -82,9 +82,7 @@ impl ZapretPreset {
                         seen_separator = true;
                     }
                 } else {
-                    if !argument.starts_with("--")
-                        || argument.chars().any(char::is_control)
-                    {
+                    if !argument.starts_with("--") || argument.chars().any(char::is_control) {
                         return Err(PresetError::InvalidArgument(index + 1));
                     }
                     current.push(argument.to_owned());
@@ -126,7 +124,9 @@ impl ZapretPreset {
     pub fn required_resources(&self) -> Result<BTreeSet<String>, PresetError> {
         let mut resources = BTreeSet::new();
         for argument in self.command_arguments() {
-            for part in argument.split(|c: char| c == '=' || c == ':' || c == ',' || c.is_whitespace()) {
+            for part in
+                argument.split(|c: char| c == '=' || c == ':' || c == ',' || c.is_whitespace())
+            {
                 if part.is_empty() {
                     continue;
                 }
@@ -236,7 +236,10 @@ mod tests {
     #[test]
     fn authentic_source_sha256_is_pinned() {
         let actual = format!("{:x}", Sha256::digest(UNIVERSAL.as_bytes()));
-        assert_eq!(actual, "e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7");
+        assert_eq!(
+            actual,
+            "e679901475d998cb0c7e5ed5c51a5286c3b97f02d4b6c0d947f4527830cacae7"
+        );
     }
 
     #[test]
@@ -244,7 +247,11 @@ mod tests {
         let source = "# Preset: Test\n--lua-init=@lua/zapret-lib.lua\n--new\n--name=YouTube interface\n--lua-desync=fake:strategy=25 --lua-desync=multidisorder:strategy=25\n";
         let preset = ZapretPreset::parse(source).unwrap();
         assert_eq!(
-            preset.command_arguments().iter().map(String::as_str).collect::<Vec<_>>(),
+            preset
+                .command_arguments()
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
             vec![
                 "--lua-init=@lua/zapret-lib.lua",
                 "--new",
