@@ -1939,12 +1939,43 @@ mod tests {
             "../../../assets/desync/presets/Universal V13 Lite.txt"
         ))
         .unwrap();
-        // Основа первой и без изменений; общие аргументы основы на месте.
-        assert_eq!(m.sections[..base.sections.len()], base.sections[..]);
+        // Основа первой и без изменений, кроме секций удалённых по решению владельца
+        // (Telegram, Steam, Riot / Valorant); общие аргументы основы на месте.
+        let removed = |text: &str| {
+            let t = text.to_lowercase();
+            ["telegram", "steam", "riot", "valorant"]
+                .iter()
+                .any(|w| t.contains(w))
+        };
+        let kept: Vec<_> = base
+            .sections
+            .iter()
+            .filter(|sec| !removed(&sec.arguments.join(" ")))
+            .cloned()
+            .collect();
+        assert_eq!(
+            base.sections.len() - kept.len(),
+            3,
+            "удалены ровно секции Telegram, Steam, Riot"
+        );
+        assert_eq!(m.sections[..kept.len()], kept[..]);
         for g in &base.global_arguments {
-            assert!(m.global_arguments.contains(g), "{g}");
+            assert!(removed(g) || m.global_arguments.contains(g), "{g}");
         }
-        assert!(m.sections.len() > base.sections.len());
+        assert!(m.sections.len() > kept.len());
+        let everything = format!(
+            "{}\n{}",
+            m.global_arguments.join("\n"),
+            m.sections
+                .iter()
+                .map(|sec| sec.arguments.join(" "))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        assert!(
+            !removed(&everything),
+            "в объединённом пресете не должно быть Telegram, Steam, Riot"
+        );
         // Нет повторов: ни секций (имя не учитывается), ни общих аргументов.
         let mut seen = std::collections::BTreeSet::new();
         for s in &m.sections {

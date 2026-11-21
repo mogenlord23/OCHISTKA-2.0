@@ -4,9 +4,9 @@
  "license": "MIT (NetZapret © 2026 RixyPow)",
  "applied_counts": {
   "shield": 3,
-  "direct": 12,
-  "vpn-only": 14,
-  "preset": 46,
+  "direct": 9,
+  "vpn-only": 13,
+  "preset": 44,
   "catalog": 55
  },
  "routes": [
@@ -719,15 +719,6 @@
   },
   {
    "kind": "hostlist",
-   "file": "lists/nz-riot-valorant.txt",
-   "source_list": "riot-valorant.txt",
-   "lines": 11,
-   "category": "game",
-   "mode": "catalog",
-   "applied": "preset"
-  },
-  {
-   "kind": "hostlist",
    "file": "lists/nz-roblox-cdn.txt",
    "source_list": "roblox-cdn.txt",
    "lines": 1,
@@ -862,35 +853,6 @@
    "category": "domain",
    "mode": "catalog",
    "applied": "catalog"
-  },
-  {
-   "kind": "hostlist",
-   "file": "lists/nz-steam-web.txt",
-   "source_list": "steam-web.txt",
-   "lines": 2,
-   "category": "game",
-   "mode": "direct",
-   "applied": "direct",
-   "note": "не вмешиваться"
-  },
-  {
-   "kind": "hostlist",
-   "file": "lists/nz-steam.txt",
-   "source_list": "steam.txt",
-   "lines": 15,
-   "category": "game",
-   "mode": "direct",
-   "applied": "direct",
-   "note": "не вмешиваться"
-  },
-  {
-   "kind": "hostlist",
-   "file": "lists/nz-telegram.txt",
-   "source_list": "telegram.txt",
-   "lines": 12,
-   "category": "app",
-   "mode": "catalog",
-   "applied": "preset"
   },
   {
    "kind": "hostlist",
@@ -1131,16 +1093,6 @@
   },
   {
    "kind": "ipset",
-   "file": "lists/nz-ipset-telegram.txt",
-   "source_list": "ipset-telegram.txt",
-   "lines": 14,
-   "category": "app",
-   "mode": "proxy",
-   "applied": "vpn-only",
-   "note": "нужен VPN; «Обход блокировок» VPN не использует"
-  },
-  {
-   "kind": "ipset",
    "file": "lists/nz-ipset-twitter.txt",
    "source_list": "ipset-twitter.txt",
    "lines": 15,
@@ -1165,16 +1117,6 @@
    "category": "game",
    "mode": "catalog",
    "applied": "catalog"
-  },
-  {
-   "kind": "ipset",
-   "file": "lists/nz-riot-network.txt",
-   "source_list": "riot-network.txt",
-   "lines": 22,
-   "category": "game",
-   "mode": "direct",
-   "applied": "direct",
-   "note": "не вмешиваться"
   },
   {
    "kind": "ipset",

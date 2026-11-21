@@ -41,6 +41,13 @@ RUNTIME = os.path.join(REPO, "assets/desync/runtime")
 EXTRA = os.path.join(REPO, "assets/desync/runtime-extra")
 MERGED_PRESET = os.path.join(REPO, "assets/desync/presets/OCHISTKA Merged.txt")
 ROUTES_FILE = os.path.join(REPO, "assets/desync/routes/OCHISTKA Routes.json")
+# Решения владельца: убрать из обхода целиком (слово в имени списка, домена или секции -> причина).
+OWNER_EXCLUDED = {
+    "telegram": "Telegram: прокси в программе нет, записи удалены (решение владельца)",
+    "steam": "Steam: исключён по решению владельца",
+    "riot": "Riot / Valorant: исключён по решению владельца",
+    "valorant": "Riot / Valorant: исключён по решению владельца",
+}
 
 
 def our_resources() -> set[str]:
@@ -113,6 +120,96 @@ def render_rust_assets(files: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
+def removal_markdown(result: merge.Result, rt: routes.Result, src: str) -> str:
+    out = [
+        "# Удаление Telegram, Steam и Riot / Valorant из «Обхода блокировок»",
+        "",
+        f"Источник данных: {src}. Решение владельца; создано `tools/bypass-merge/merge_presets.py`, вручную не правится.",
+        "",
+        "Правило: секция убирается, только если весь её охват (списки адресов и домены) — это удаляемый сервис. "
+        "Если секция нужна ещё и другим сервисам, она остаётся и записывается ниже.",
+        "",
+    ]
+    groups = {"Telegram": "telegram", "Steam": "steam", "Riot / Valorant": "riot|valorant"}
+    for title, pat in groups.items():
+        rx = re.compile(pat)
+        secs = [x for x in result.section_records if x.status == "removed" and rx.search(x.detail.lower())]
+        out += [f"## {title}", "", f"Удалено секций пресетов: {len(secs)}.", ""]
+        base = [x for x in secs if x.preset == result.base]
+        if base:
+            out.append("Из основы (Universal V13 Lite, в самом исходном файле остаётся без изменений): "
+                       + ", ".join(f"№{x.index + 1} «{x.name}»" for x in base) + ".")
+        others = [x for x in secs if x.preset != result.base]
+        if others:
+            out.append(f"Из других пресетов: {len(others)} секций (подробно в `bypass-merge-coverage.json`, статус `removed`).")
+        gl = [x for x in result.global_records if x.status == "removed" and rx.search(x.arg.lower())]
+        if gl:
+            out.append(f"Образцы, объявленные, но не используемые ни одной оставшейся секцией: {len(gl)} (например `{gl[0].arg}`).")
+        rl = [x for x in rt.removed if rx.search(x["source"].lower())]
+        if rl:
+            out.append("Маршруты и списки: " + ", ".join(f"`{x['source']}`" for x in rl) + ".")
+        out.append("")
+    out += [
+        "## Общее использование (проверка перед удалением)",
+        "",
+        (f"Оставлено секций, затрагивающих удаляемые сервисы вместе с другими: {len(result.shared)}."
+         if result.shared else
+         "Секций, которые одновременно нужны другим сервисам, не найдено: удалены только секции, "
+         "целиком относящиеся к удаляемым сервисам."),
+    ]
+    for x in result.shared:
+        out.append(f"- {x.preset} №{x.index + 1} «{x.name}»: {x.detail}")
+    out += [
+        "",
+        "## Что НЕ менялось",
+        "",
+        "- 135 закреплённых файлов NetZapret (в том числе `lists/ipset-telegram.txt`, `lists/steam.txt`, `lists/riot-valorant.txt`, "
+        "`lists/russia-blacklist.txt`) и их SHA-256: файлы остаются встроенными, но объединённый пресет на них больше не ссылается.",
+        "- `assets/desync/presets/Universal V13 Lite.txt` (SHA-256 `e679901475d9…`).",
+        "- Маршруты Claude и других сервисов «только через VPN» (`vpn-only`) оставлены как есть; отдельного обхода Claude нет.",
+    ]
+    return "\n".join(out) + "\n"
+
+
+STATUS_TEXT = {
+    "preset": "в пресете обхода",
+    "shield": "щит pass (обход не вмешивается)",
+    "direct": "напрямую (обход не вмешивается)",
+    "vpn-only": "только через VPN (этим переключателем не применяется)",
+    "catalog": "справочно: действие не задано",
+}
+
+
+def routes_status_markdown(rt: routes.Result, sections: list, src: str) -> str:
+    out = [
+        "# Статус маршрутов «Обхода блокировок»",
+        "",
+        f"Источник: {src}. Создано `tools/bypass-merge/merge_presets.py`. **Не проверено на Windows у провайдера:** "
+        "ни один сервис не объявляется работающим.",
+        "",
+        "## Сервис → статус (решения владельца)",
+        "",
+        "| Сервис | Статус |",
+        "|---|---|",
+        "| Steam | исключён по решению владельца (секции, списки и маршруты удалены) |",
+        "| Riot / Valorant | исключён по решению владельца (секции, списки и маршруты удалены) |",
+        "| Telegram | исключён: прокси в программе нет, записи удалены |",
+        "| Claude | только через VPN (`vpn-only`), отдельного обхода нет |",
+        "",
+        f"## Все маршруты ({len(rt.entries)})",
+        "",
+        "| Сервис / адрес | Вид | Категория | Режим RixyPow | Статус |",
+        "|---|---|---|---|---|",
+    ]
+    for e in rt.entries:
+        name = (e.get("source_list") or e.get("value") or e.get("file", "")).removesuffix(".txt")
+        out.append(f"| {name} | {e['kind']} | {e['category']} | {e['mode']} | {STATUS_TEXT[e['applied']]} |")
+    out += ["", f"## Секции итогового пресета ({len(sections)})", "",
+            "Основа Universal V13 Lite (без удалённых сервисов) + секции из других пресетов + щиты pass. "
+            "Состав по секциям: `assets/desync/presets/OCHISTKA Merged.txt`; причины исключений: `bypass-merge-conflicts.md`."]
+    return "\n".join(out) + "\n"
+
+
 def cmd_merge(args: argparse.Namespace) -> None:
     src = source_id(args.source)
     loaded = dict(inventory.load_presets(args.source))
@@ -132,7 +229,8 @@ def cmd_merge(args: argparse.Namespace) -> None:
         path = os.path.join(RUNTIME, rel) if rel in ours else (os.path.join(args.source, sf) if sf else None)
         if path and os.path.isfile(path) and sum(1 for _ in open(path, encoding="utf-8", errors="ignore")) > BROAD_LIST_LINES:
             broad.add(rel)
-    result = merge.merge(inputs, base=BASE, available=available, defined_funcs=defined_functions(), broad_lists=broad)
+    result = merge.merge(inputs, base=BASE, available=available, defined_funcs=defined_functions(), broad_lists=broad,
+                         owner_excluded=OWNER_EXCLUDED)
     description = [
         f"Объединённый пресет OCHISTKA: основа {BASE[:-4]} без изменений + секции из других пресетов {src}.",
         "Создан tools/bypass-merge/merge_presets.py; конфликты и исключения: docs/status/bypass-merge-conflicts.md.",
@@ -158,7 +256,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
             if zpreset.key_of(a) in ("hostlist", "ipset", "hostlist-exclude", "ipset-exclude"):
                 used_lists.add(zpreset.value_of(a))
     rules = routes.parse_rules(open(os.path.join(args.source, "config/rules.yaml"), encoding="utf-8").read())
-    rt = routes.build(rules, config_lists, existing_by_sha, used_lists, kinds)
+    rt = routes.build(rules, config_lists, existing_by_sha, used_lists, kinds, exclude=OWNER_EXCLUDED)
     final_sections = result.sections + rt.sections
     text = zpreset.render("OCHISTKA Merged", description, result.globals, final_sections)
     with open(MERGED_PRESET, "w", encoding="utf-8", newline="\n") as fh:
@@ -183,6 +281,10 @@ def cmd_merge(args: argparse.Namespace) -> None:
         json.dump({"schema_version": 1, "source": src, "license": "MIT (NetZapret © 2026 RixyPow)",
                    "applied_counts": counts_applied, "routes": rt.entries}, fh, ensure_ascii=False, indent=1)
         fh.write("\n")
+    with open(os.path.join(REPO, "docs/status/bypass-remove-steam-riot.md"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(removal_markdown(result, rt, src))
+    with open(os.path.join(REPO, "docs/status/bypass-routes-status.md"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(routes_status_markdown(rt, final_sections, src))
     cov = result.coverage()
     cov["source"] = src
     cov["route_sections"] = len(rt.sections)

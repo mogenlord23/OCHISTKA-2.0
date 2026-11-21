@@ -354,11 +354,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "1b2743a5d60fe2c8bf93cf550dc9521bb950654bc1e281a9f4a1bba267e5fde4",
     ),
     (
-        "lists/nz-ipset-telegram.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-ipset-telegram.txt"),
-        "437d614a2e9fab7fbd0ae78fddb4d76da53da49e9e845ad6cafcf9d0cfbcf97c",
-    ),
-    (
         "lists/nz-ipset-twitter.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-ipset-twitter.txt"),
         "f8db25688a6f80fed323641253f4904da7de231dff1a6e2ddd08762cdaf313ae",
@@ -474,16 +469,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "dd85bd6438982940a577b922d17222c98694ba3d2f76f5e2e3aabcd1fbb7603b",
     ),
     (
-        "lists/nz-riot-network.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-riot-network.txt"),
-        "007a0c4c1bb7fb3bdda8b6afb9688de1c672a0293683a69b29a0aba715cace02",
-    ),
-    (
-        "lists/nz-riot-valorant.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-riot-valorant.txt"),
-        "b96caf450093705223f3407e6579f2858e37a5aacb7ea3b5523fbb22022af2f3",
-    ),
-    (
         "lists/nz-roblox-cdn.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-roblox-cdn.txt"),
         "4ada015e9b39af20a4b8d840bd4347c5d449a1cb199d78de3171f093d41c56d9",
@@ -547,21 +532,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "lists/nz-stackoverflow.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-stackoverflow.txt"),
         "36c6e2be87a2a78deab3aeecb3c254cf091509fe955b87cf02a550fb9ccc89bd",
-    ),
-    (
-        "lists/nz-steam-web.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-steam-web.txt"),
-        "22667c03d519ed771a771ee1f44c3a8ae64bf8dc2149c62630c8cbd4114da87c",
-    ),
-    (
-        "lists/nz-steam.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-steam.txt"),
-        "ae04dbe124a419011843dc1a8f287cf07ac21fc4697ad92a5f8d8cd2749de2cc",
-    ),
-    (
-        "lists/nz-telegram.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/nz-telegram.txt"),
-        "1735124c851f2a9d7914c7d387ce2c45fffd24afdafcf9a9e4e35c73a5385c79",
     ),
     (
         "lists/nz-tiktok.txt",
@@ -664,11 +634,6 @@ pub(crate) static MERGED_EXTRA_RESOURCES: &[(&str, &[u8], &str)] = &[
         "lists/tankix.txt",
         include_bytes!("../../../../assets/desync/runtime-extra/lists/tankix.txt"),
         "e1e32a5f19a70771c1161de02dad27b5aa844f960591c2d7f856dca869025099",
-    ),
-    (
-        "lists/telegram.txt",
-        include_bytes!("../../../../assets/desync/runtime-extra/lists/telegram.txt"),
-        "ed0d58e4ba5af9bc70b901e0943cfb3fd96e102ae7b42aaf05539ebc8d33bcfd",
     ),
     (
         "lists/tiktok.txt",

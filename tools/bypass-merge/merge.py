@@ -50,6 +50,7 @@ class Result:
     section_records: list[SectionRecord]
     global_records: list[GlobalRecord]
     resources: set[str] = field(default_factory=set)
+    shared: list[SectionRecord] = field(default_factory=list)  # секции, где решение владельца затрагивает не всё
 
     def coverage(self) -> dict:
         return {
@@ -92,13 +93,38 @@ def _only_broad(sec: Section, broad: set[str]) -> bool:
     return bool(scope) and all(v in broad for v in scope)
 
 
+def _scope_items(sec: Section) -> list[str]:
+    items = [v.rsplit("/", 1)[-1] for v in sec.values("hostlist") + sec.values("ipset")
+             + sec.values("hostlist-exclude") + sec.values("ipset-exclude")]
+    for v in sec.values("hostlist-domains"):
+        items += [d for d in v.split(",") if d]
+    return items
+
+
+def owner_match(sec: Section, rules: dict[str, str]) -> tuple[str, str, bool] | None:
+    """Решение владельца для секции: (слово, причина, целиком?). `целиком` = весь охват секции — это сервис."""
+    if not rules:
+        return None
+    items = [i.lower() for i in _scope_items(sec)]
+    for word, reason in rules.items():
+        hit = [i for i in items if word in i]
+        if hit:
+            return word, reason, len(hit) == len(items)
+        if not items and word in sec.name.lower():
+            return word, reason, True
+    return None
+
+
 def _funcs(sec: Section) -> set[str]:
     return {v.split(":", 1)[0] for v in sec.values("lua-desync")}
 
 
 def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defined_funcs: set[str],
-          title: str = "OCHISTKA Merged", broad_lists: set[str] | None = None) -> Result:
+          title: str = "OCHISTKA Merged", broad_lists: set[str] | None = None,
+          owner_excluded: dict[str, str] | None = None) -> Result:
     broad_lists = broad_lists or set()
+    owner_excluded = owner_excluded or {}
+    shared: list[SectionRecord] = []
     by_id = dict(inputs)
     base_preset = by_id[base]
     order = [base] + [i for i, _ in inputs if i != base]
@@ -123,10 +149,19 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
 
     # Основа целиком.
     for i, sec in enumerate(base_preset.sections):
+        hit = owner_match(sec, owner_excluded)
+        if hit and hit[2]:
+            rec = SectionRecord(base, i, sec.name, sec.identity(), "removed", item_id=next_id(),
+                                detail=f"{hit[1]} (слово «{hit[0]}»)")
+            srecs.append(rec)
+            continue
         merged_sections.append(sec)
         seen_identity.setdefault(sec.identity(), len(merged_sections) - 1)
         seen_selector.setdefault(sec.selector(), len(merged_sections) - 1)
         srecs.append(SectionRecord(base, i, sec.name, sec.identity(), "base", target=len(merged_sections) - 1))
+        if hit:
+            shared.append(SectionRecord(base, i, sec.name, sec.identity(), "base",
+                                        detail=f"оставлена: затрагивает и другие сервисы ({hit[0]})"))
     for a in base_preset.globals:
         grecs.append(GlobalRecord(base, a, "base"))
     base_funcs = set().union(*(_funcs(s) for s in base_preset.sections)) if base_preset.sections else set()
@@ -141,6 +176,11 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
             ident = sec.identity()
             rec = SectionRecord(pid, i, sec.name, ident, "excluded")
             srecs.append(rec)
+            hit = owner_match(sec, owner_excluded)
+            if hit and hit[2]:
+                rec.status, rec.item_id = "removed", next_id()
+                rec.detail = f"{hit[1]} (слово «{hit[0]}»)"
+                continue
             if ident in seen_identity:
                 rec.status, rec.target = "duplicate", seen_identity[ident]
                 continue
@@ -199,6 +239,22 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
             seen_selector[sel] = idx
             rec.status, rec.target = "added", idx
 
+    # Образцы (blob) удалённых сервисов, которые не использует ни одна оставшаяся секция.
+    if owner_excluded:
+        used_now: set[str] = set()
+        for sec in merged_sections:
+            used_now |= _used_blobs(sec, _blobs(merged_globals))
+        for a in list(merged_globals):
+            if key_of(a) == "blob":
+                name, _, file = value_of(a).partition(":")
+                word = next((w for w in owner_excluded if w in name.lower() or w in file.lower()), None)
+                if word and name not in used_now:
+                    merged_globals.remove(a)
+                    for rec in grecs:
+                        if rec.arg == a and rec.status == "base":
+                            rec.status, rec.item_id = "removed", next_id()
+                            rec.detail = f"{owner_excluded[word]}: образец объявлен, но не используется"
+
     # Общие аргументы остальных пресетов: повтор, конфликт значения или не нужен.
     have = set(merged_globals)
     for pid in order[1:]:
@@ -208,7 +264,10 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
                     grecs.append(GlobalRecord(pid, a, "duplicate"))
                 continue
             k = key_of(a)
-            if k in SINGLE_VALUE:
+            word = next((w for w in owner_excluded if w in a.lower()), None) if k == "blob" else None
+            if word:
+                rec = GlobalRecord(pid, a, "removed", item_id=next_id(), detail=f"{owner_excluded[word]}: образец не нужен")
+            elif k in SINGLE_VALUE:
                 kept = next((x for x in merged_globals if key_of(x) == k), None)
                 rec = GlobalRecord(pid, a, "conflict", item_id=next_id())
                 rec.detail = f"оставлено значение основы: {kept}" if kept else "в основе опции нет; не добавлена (перехват и настройки как в основе)"
@@ -223,7 +282,7 @@ def merge(inputs: list[tuple[str, Preset]], base: str, available: set[str], defi
                 rec = GlobalRecord(pid, a, "excluded", item_id=next_id(), detail="не нужен включённым секциям; перехват как в основе")
             grecs.append(rec)
 
-    return Result(title, base, merged_globals, merged_sections, srecs, grecs, resources)
+    return Result(title, base, merged_globals, merged_sections, srecs, grecs, resources, shared)
 
 
 def conflicts_markdown(r: Result, source: str) -> str:
@@ -247,6 +306,13 @@ def conflicts_markdown(r: Result, source: str) -> str:
         "Каждый пункт ниже имеет номер Xnnn; тот же номер стоит в `docs/status/bypass-merge-coverage.json`.",
         "",
     ]
+    rem = [x for x in r.section_records if x.status == "removed"] + [x for x in r.global_records if x.status == "removed"]
+    out += [f"## Исключено по решению владельца ({len(rem)})", "",
+            "Telegram, Steam и Riot / Valorant убраны из обхода; подробности: `docs/status/bypass-remove-steam-riot.md`.", ""]
+    for x in rem:
+        label = getattr(x, "name", None) or f"`{x.arg}`"
+        out.append(f"- {x.item_id}: {x.preset} — {label}: {x.detail}")
+    out.append("")
     secs = [x for x in r.section_records if x.status in ("conflict", "excluded")]
     out += [f"## Секции ({len(secs)})", "", "| № | Пресет | Секция | Вид | Что выбрано и почему |", "|---|---|---|---|---|"]
     for x in secs:
@@ -270,7 +336,7 @@ def check_coverage(cov: dict, sections: list[Section], globals_: list[str]) -> l
         elif rec["status"] == "duplicate":
             if rec["identity"] not in ids:
                 problems.append(f"{rec['preset']}#{rec['index']}: дубль без оригинала")
-        elif rec["status"] in ("conflict", "excluded"):
+        elif rec["status"] in ("conflict", "excluded", "removed"):
             if not rec["item_id"]:
                 problems.append(f"{rec['preset']}#{rec['index']}: нет номера записи")
         else:
@@ -279,7 +345,7 @@ def check_coverage(cov: dict, sections: list[Section], globals_: list[str]) -> l
     for rec in cov["globals"]:
         if rec["status"] in ("base", "added", "duplicate") and rec["arg"] not in gset:
             problems.append(f"общий аргумент {rec['arg']}: нет в итоговом пресете")
-        if rec["status"] in ("conflict", "excluded") and not rec["item_id"]:
+        if rec["status"] in ("conflict", "excluded", "removed") and not rec["item_id"]:
             problems.append(f"общий аргумент {rec['arg']}: нет номера записи")
     if len(ids) != len(set(ids)):
         problems.append("в итоговом пресете есть повторяющиеся секции")

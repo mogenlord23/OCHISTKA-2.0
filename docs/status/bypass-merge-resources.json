@@ -425,12 +425,6 @@
    "size_bytes": 11112
   },
   {
-   "destination": "lists/nz-ipset-telegram.txt",
-   "source_path": "config/lists/ipset-telegram.txt",
-   "sha256": "437d614a2e9fab7fbd0ae78fddb4d76da53da49e9e845ad6cafcf9d0cfbcf97c",
-   "size_bytes": 740
-  },
-  {
    "destination": "lists/nz-ipset-twitter.txt",
    "source_path": "config/lists/ipset-twitter.txt",
    "sha256": "f8db25688a6f80fed323641253f4904da7de231dff1a6e2ddd08762cdaf313ae",
@@ -569,18 +563,6 @@
    "size_bytes": 292
   },
   {
-   "destination": "lists/nz-riot-network.txt",
-   "source_path": "config/lists/riot-network.txt",
-   "sha256": "007a0c4c1bb7fb3bdda8b6afb9688de1c672a0293683a69b29a0aba715cace02",
-   "size_bytes": 1243
-  },
-  {
-   "destination": "lists/nz-riot-valorant.txt",
-   "source_path": "config/lists/riot-valorant.txt",
-   "sha256": "b96caf450093705223f3407e6579f2858e37a5aacb7ea3b5523fbb22022af2f3",
-   "size_bytes": 501
-  },
-  {
    "destination": "lists/nz-roblox-cdn.txt",
    "source_path": "config/lists/roblox-cdn.txt",
    "sha256": "4ada015e9b39af20a4b8d840bd4347c5d449a1cb199d78de3171f093d41c56d9",
@@ -657,24 +639,6 @@
    "source_path": "config/lists/stackoverflow.txt",
    "sha256": "36c6e2be87a2a78deab3aeecb3c254cf091509fe955b87cf02a550fb9ccc89bd",
    "size_bytes": 173
-  },
-  {
-   "destination": "lists/nz-steam-web.txt",
-   "source_path": "config/lists/steam-web.txt",
-   "sha256": "22667c03d519ed771a771ee1f44c3a8ae64bf8dc2149c62630c8cbd4114da87c",
-   "size_bytes": 842
-  },
-  {
-   "destination": "lists/nz-steam.txt",
-   "source_path": "config/lists/steam.txt",
-   "sha256": "ae04dbe124a419011843dc1a8f287cf07ac21fc4697ad92a5f8d8cd2749de2cc",
-   "size_bytes": 815
-  },
-  {
-   "destination": "lists/nz-telegram.txt",
-   "source_path": "config/lists/telegram.txt",
-   "sha256": "1735124c851f2a9d7914c7d387ce2c45fffd24afdafcf9a9e4e35c73a5385c79",
-   "size_bytes": 910
   },
   {
    "destination": "lists/nz-tiktok.txt",
@@ -795,12 +759,6 @@
    "source_path": "vendor/zapret-gui/lists/tankix.txt",
    "sha256": "e1e32a5f19a70771c1161de02dad27b5aa844f960591c2d7f856dca869025099",
    "size_bytes": 54
-  },
-  {
-   "destination": "lists/telegram.txt",
-   "source_path": "vendor/zapret-gui/lists/telegram.txt",
-   "sha256": "ed0d58e4ba5af9bc70b901e0943cfb3fd96e102ae7b42aaf05539ebc8d33bcfd",
-   "size_bytes": 122
   },
   {
    "destination": "lists/tiktok.txt",
