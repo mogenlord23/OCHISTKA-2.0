@@ -9,6 +9,7 @@ on:
       - crates/ochistka-core/src/desync.rs
       - crates/ochistka-core/src/desync/**
       - crates/platform/src/desync.rs
+      - crates/platform/src/desync/**
       - assets/desync/**
       - tools/desync-core/external_dpi_probe.py
       - tools/desync-core/test_external_dpi_probe.py
