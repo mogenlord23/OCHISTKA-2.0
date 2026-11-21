@@ -6,7 +6,6 @@ const ALLOWED_DRIVER = 'Драйвер не остановлен, перезаг
 
 const base: TrialStatus = {
   active: false,
-  remainingSecs: 0,
   message: 'Выключено',
   unavailable: null,
 };
@@ -24,16 +23,11 @@ describe('texts of the bypass switch', () => {
       bypassView(base, null, null),
       bypassView(base, 'on', null),
       bypassView(base, 'off', null),
-      bypassView(
-        { ...base, active: true, remainingSecs: 118, phase: 'measuringAfter' },
-        null,
-        null,
-      ),
+      bypassView({ ...base, active: true, phase: 'measuringAfter' }, null, null),
       bypassView(
         {
           ...base,
           active: true,
-          remainingSecs: 118,
           speedNote: 'Сайты отвечают быстрее или так же',
         },
         null,

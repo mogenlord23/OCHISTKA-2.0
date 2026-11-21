@@ -602,8 +602,8 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
   });
 });
 
-const IDLE = { active: false, remainingSecs: 0, message: 'Выключено', unavailable: null };
-const RUNNING = { active: true, remainingSecs: 65, message: 'Пробный запуск', unavailable: null };
+const IDLE = { active: false, message: 'Выключено', unavailable: null };
+const RUNNING = { active: true, message: 'Пробный запуск', unavailable: null };
 
 describe('VpnPage: «Обход блокировок» — один переключатель', () => {
   it('does not start anything when the tab opens; start needs a real press with consent=true', async () => {
@@ -617,11 +617,10 @@ describe('VpnPage: «Обход блокировок» — один перекл
     await waitFor(() => expect(sw.disabled).toBe(false));
     expect(calls('desync_trial_start')).toHaveLength(0);
     expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText(/Временный тестовый режим/)).toBeTruthy();
     await fireEvent.click(sw);
     await waitFor(() => expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true }));
     await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
-    expect(sw.closest('.switch-row')?.textContent).toContain('Включено · осталось 1:05');
+    expect(sw.closest('.switch-row')?.textContent).toContain('Включено');
   });
 
   it('a second press stops it through desync_trial_stop', async () => {
@@ -705,7 +704,6 @@ describe('VpnPage: «Обход блокировок» — один перекл
       desync_trial_status: () => ({
         ...IDLE,
         active: true,
-        remainingSecs: 30,
         error: 'Драйвер не остановлен, перезагрузите компьютер',
       }),
       desync_trial_stop: () => IDLE,

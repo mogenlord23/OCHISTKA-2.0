@@ -22,7 +22,6 @@ pub struct TrialNoteDto {
 #[serde(rename_all = "camelCase")]
 pub struct TrialDto {
     pub active: bool,
-    pub remaining_secs: u64,
     pub message: String,
     /// Почему запуск сейчас невозможен; `None` — можно запускать.
     pub unavailable: Option<String>,
@@ -57,7 +56,6 @@ fn verdict_name(v: TrialVerdict) -> &'static str {
 fn to_dto(st: TrialStatus) -> TrialDto {
     TrialDto {
         active: st.active,
-        remaining_secs: st.remaining_secs,
         message: st.message,
         unavailable: st.unavailable,
         error: st.error,

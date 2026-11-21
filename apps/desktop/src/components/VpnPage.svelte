@@ -650,10 +650,6 @@
                   >{item.id === 'bypass' ? bypass.text : toolStateText(tool)}</span
                 >
                 <span class="note">{item.description}</span>{#if item.id === 'bypass'}
-                  <span class="note">
-                    Временный тестовый режим: выключится сам через 2 минуты, пока эффективность не
-                    подтверждена.
-                  </span>
                   {#if bypass.hint}<span
                       class="note"
                       role={bypass.status === 'error' ? 'alert' : 'status'}>{bypass.hint}</span

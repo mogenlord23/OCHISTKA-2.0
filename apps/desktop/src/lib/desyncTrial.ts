@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 
 export interface TrialStatus {
   active: boolean;
-  remainingSecs: number;
   message: string;
   /** Причина, по которой запуск сейчас невозможен; null — можно запускать. */
   unavailable: string | null;
@@ -20,12 +19,6 @@ export const desyncTrialStatus = () => invoke<TrialStatus>('desync_trial_status'
 export const desyncTrialStart = (consent: boolean) =>
   invoke<TrialStatus>('desync_trial_start', { consent });
 export const desyncTrialStop = () => invoke<TrialStatus>('desync_trial_stop');
-
-/** Оставшееся время как «1:05». */
-export function formatRemaining(secs: number): string {
-  const s = Math.max(0, Math.floor(secs));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
 
 export function trialErrorText(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -94,7 +87,7 @@ export function bypassView(
       checked: true,
       busy: false,
       available: true,
-      text: `${checking ? 'Проверяем… · ' : ''}Включено · осталось ${formatRemaining(trial.remainingSecs)}`,
+      text: checking ? 'Проверяем… · Включено' : 'Включено',
       hint: trial.speedNote ?? null,
     };
   }

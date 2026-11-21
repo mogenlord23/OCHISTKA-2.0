@@ -44,7 +44,8 @@ pub const URLS: [&str; 3] = [YOUTUBE_URL, DISCORD_URL, CONTROL_URL];
 /// Сообщения пользователю: простые слова, без технических терминов.
 pub const NOT_SLOWER_MESSAGE: &str =
     "Сайты отвечают быстрее или так же; это не доказывает работу у провайдера";
-pub const NO_COMPARE_MESSAGE: &str = "Без обхода сайты не открываются, сравнить нельзя. Обход включён на 120 секунд — проверьте сайты сами";
+pub const NO_COMPARE_MESSAGE: &str =
+    "Без обхода сайты не открываются, сравнить нельзя. Проверьте сайты сами";
 pub const NO_INTERNET_MESSAGE: &str = "Нет подключения к интернету";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,9 +181,9 @@ fn seconds(d: Duration) -> String {
     format!("{:.1}", d.as_secs_f64()).replace('.', ",")
 }
 
-/// Причина отката простыми словами: «Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо
-/// 0,8 с). Обход выключен».
-pub fn rollback_message(findings: &[Finding]) -> String {
+/// Результат замера простыми словами: «Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо
+/// 0,8 с)». Только текст: обход замер не выключает.
+pub fn slower_message(findings: &[Finding]) -> String {
     let slower: Vec<String> = findings
         .iter()
         .filter_map(|f| match &f.kind {
@@ -210,7 +211,7 @@ pub fn rollback_message(findings: &[Finding]) -> String {
     if !broken.is_empty() {
         parts.push(format!("С обходом не открывается: {}", broken.join(", ")));
     }
-    format!("{}. Обход выключен", parts.join(". "))
+    parts.join(". ")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -523,13 +524,16 @@ mod tests {
                 kind: FindingKind::NotOpening,
             },
         ];
-        let text = rollback_message(&f);
+        let text = slower_message(&f);
         assert!(
             text.starts_with("Сайты с обходом открываются медленнее (YouTube: 3,2 с вместо 0,8 с)"),
             "{text}"
         );
         assert!(text.contains("С обходом не открывается: Discord"), "{text}");
-        assert!(text.ends_with("Обход выключен"));
+        assert!(
+            !text.contains("выключен"),
+            "замер обход не выключает: {text}"
+        );
         let t = text.to_lowercase();
         for bad in [
             "замер",

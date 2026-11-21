@@ -390,7 +390,6 @@ pub struct DesyncService {
     recheck_delay: Duration,
     /// Пробный режим: срок, номер запуска (старый таймер сам завершается) и пометки пользователя.
     trial: Mutex<TrialInner>,
-    trial_limit: Duration,
     /// Сколько раз и как часто проверять, что процесс действительно завершился после остановки.
     stop_wait: (u32, Duration),
     /// Сколько раз подряд повторять `kill()` за одну остановку.
@@ -404,9 +403,6 @@ const MAX_FAILED_STOPS: u32 = 5;
 
 /// Отключение VPN: `Err(причина)`, если отключить не удалось.
 pub type VpnStopper = Box<dyn Fn() -> Result<(), String> + Send + Sync>;
-
-/// Максимальная длительность пробного запуска полного профиля.
-pub const TRIAL_LIMIT: Duration = Duration::from_secs(120);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TrialVerdict {
@@ -442,7 +438,8 @@ pub enum TrialPhase {
 
 #[derive(Default)]
 struct TrialInner {
-    deadline: Option<std::time::Instant>,
+    /// Когда включён обход (`None` — выключен). Таймера выключения нет (ADR 0016).
+    started: Option<std::time::Instant>,
     generation: u64,
     /// Сколько раз подряд таймер не смог остановить процесс (ограничивает повторы).
     failed_stops: u32,
@@ -462,7 +459,6 @@ struct TrialInner {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrialStatus {
     pub active: bool,
-    pub remaining_secs: u64,
     pub message: String,
     /// Причина, по которой пробный запуск сейчас невозможен (если невозможен).
     pub unavailable: Option<String>,
@@ -505,7 +501,6 @@ impl DesyncService {
             speed_async: true,
             recheck_delay: speed::RECHECK_AFTER,
             trial: Mutex::new(TrialInner::default()),
-            trial_limit: TRIAL_LIMIT,
             stop_wait: (25, Duration::from_millis(40)),
             kill_attempts: 3,
             candidate,
@@ -753,16 +748,15 @@ impl DesyncService {
     }
 
     /// Замер с обходом (в фоне, ≤ 10 с) и сравнение только по адресам, которые открылись без обхода.
-    /// Медленнее или перестал открываться — обход выключается (тем же надёжным путём остановки,
-    /// включая драйвер); иначе остаётся до конца 120 с. Если без обхода не открылось ничего,
-    /// откат не делается. Если пробный запуск уже остановлен (кнопка, таймер), результат не применяется.
+    /// Результат — только текст в интерфейсе («медленнее…», «быстрее или так же…»): обход замер
+    /// НЕ выключает. Если обход уже выключен (кнопка), результат не применяется.
     pub(crate) fn run_speed_check(&self, generation: u64, baseline: &speed::Measurement) {
         let Some(probe) = lock(&self.speed).clone() else {
             return;
         };
         {
             let mut t = lock(&self.trial);
-            if t.generation != generation || t.deadline.is_none() {
+            if t.generation != generation || t.started.is_none() {
                 return;
             }
             t.phase = TrialPhase::MeasuringAfter;
@@ -777,7 +771,7 @@ impl DesyncService {
             std::thread::sleep(self.recheck_delay);
             {
                 let t = lock(&self.trial);
-                if t.generation != generation || t.deadline.is_none() {
+                if t.generation != generation || t.started.is_none() {
                     drop(t);
                     self.set_phase(TrialPhase::Idle);
                     return;
@@ -790,7 +784,7 @@ impl DesyncService {
             verdict = confirmed;
         }
         let (note, rollback): (String, bool) = match verdict {
-            speed::Verdict::Slower(found) => (speed::rollback_message(&found), true),
+            speed::Verdict::Slower(found) => (speed::slower_message(&found), false),
             speed::Verdict::NotSlower => (speed::NOT_SLOWER_MESSAGE.into(), false),
             speed::Verdict::NothingToCompare {
                 opened_with_bypass: true,
@@ -808,9 +802,8 @@ impl DesyncService {
             }
             t.speed_note = Some(note);
         }
-        if rollback {
-            let _ = self.stop_trial();
-        }
+        // Замер только показывает текст: обход он не выключает (ADR 0016).
+        let _ = rollback;
     }
 
     /// Строка в журнал проверки скорости (папка данных обхода): что намерили и чем кончилось.
@@ -1077,15 +1070,11 @@ impl DesyncService {
                     let mut t = lock(&self.trial);
                     t.generation += 1;
                     t.notes.clear();
-                    t.deadline = Some(std::time::Instant::now() + self.trial_limit);
+                    t.started = Some(std::time::Instant::now());
                     t.generation
                 };
-                lock(&self.inner).message = format!(
-                    "Пробный запуск · {} · не более {} с",
-                    profile.title,
-                    self.trial_limit.as_secs()
-                );
-                self.spawn_trial_timer(generation);
+                lock(&self.inner).message = "Включено".into();
+                self.spawn_watcher(generation);
                 let baseline = lock(&self.trial).pending_baseline.clone();
                 if let Some(baseline) = baseline {
                     self.spawn_speed_check(generation, baseline);
@@ -1112,7 +1101,7 @@ impl DesyncService {
     }
 
     /// Таймер в Rust: следит за сроком и за самим процессом. Держит только `Weak`.
-    fn spawn_trial_timer(self: &Arc<Self>, generation: u64) {
+    fn spawn_watcher(self: &Arc<Self>, generation: u64) {
         let weak = Arc::downgrade(self);
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(250));
@@ -1122,20 +1111,20 @@ impl DesyncService {
             if lock(&service.trial).generation != generation {
                 break;
             }
-            if service.tick(std::time::Instant::now()) {
+            if service.tick() {
                 break;
             }
         });
     }
 
-    /// Один шаг контроля. Останавливает при истёкшем сроке, при самостоятельном завершении
-    /// процесса и при предыдущей неудачной остановке (процесс не остаётся без наблюдения).
-    /// Возвращает `true`, когда контроль больше не нужен: остановка подтверждена либо исчерпан
+    /// Один шаг наблюдения (таймера выключения нет): если процесс завершился сам или прошлая
+    /// остановка не удалась, останавливает и очищает (процесс не остаётся без наблюдения).
+    /// Возвращает `true`, когда наблюдение больше не нужно: остановка подтверждена либо исчерпан
     /// лимит повторов (тогда процесс остаётся учтённым, состояние — ошибка, запуск заблокирован).
-    pub(crate) fn tick(&self, now: std::time::Instant) -> bool {
-        let Some(deadline) = lock(&self.trial).deadline else {
+    pub(crate) fn tick(&self) -> bool {
+        if lock(&self.trial).started.is_none() {
             return true;
-        };
+        }
         let (failed_before, died) = {
             let mut inner = lock(&self.inner);
             let died = inner.process.as_mut().is_some_and(|p| p.has_exited());
@@ -1144,18 +1133,12 @@ impl DesyncService {
                 died,
             )
         };
-        let expired = now >= deadline;
-        if !expired && !died && !failed_before {
+        if !died && !failed_before {
             return false;
         }
-        let why = if expired {
-            "Обход выключился: прошло 120 секунд"
-        } else {
-            "Обход остановился сам"
-        };
         match self.stop_trial() {
             Ok(()) => {
-                lock(&self.inner).message = why.into();
+                lock(&self.inner).message = "Обход остановился сам".into();
                 true
             }
             Err(_) => {
@@ -1231,7 +1214,7 @@ impl DesyncService {
         let _op = lock(&self.op);
         self.stop_process()?;
         let mut t = lock(&self.trial);
-        t.deadline = None;
+        t.started = None;
         t.generation += 1;
         t.failed_stops = 0;
         Ok(())
@@ -1241,7 +1224,7 @@ impl DesyncService {
     /// Это только его наблюдение: подтверждением работы сервиса оно не становится.
     pub fn note_trial(&self, service: Coverage, verdict: TrialVerdict) -> Result<(), DesyncError> {
         let mut t = lock(&self.trial);
-        if t.deadline.is_none() {
+        if t.started.is_none() {
             return Err(DesyncError::NotAllowed(
                 "Пометки доступны только во время пробного запуска".into(),
             ));
@@ -1253,13 +1236,10 @@ impl DesyncService {
         Ok(())
     }
 
-    pub fn trial_status(&self, now: std::time::Instant) -> TrialStatus {
+    pub fn trial_status(&self, _now: std::time::Instant) -> TrialStatus {
         let t = lock(&self.trial);
-        // Пока остановка не подтверждена, срок сохраняется: испытание считается идущим.
-        let active = t.deadline.is_some();
-        let remaining_secs = t
-            .deadline
-            .map_or(0, |d| d.saturating_duration_since(now).as_secs());
+        // Пока остановка не подтверждена, обход считается включённым (не «Выключено»).
+        let active = t.started.is_some();
         let notes = t.notes.clone();
         let (phase, speed_note) = (t.phase, t.speed_note.clone());
         drop(t);
@@ -1285,7 +1265,6 @@ impl DesyncService {
         };
         TrialStatus {
             active,
-            remaining_secs,
             message: {
                 let inner = lock(&self.inner);
                 inner.message.clone()
@@ -1307,7 +1286,7 @@ impl DesyncService {
         let _ = self.stop_process();
         let mut t = lock(&self.trial);
         if lock(&self.inner).process.is_none() {
-            t.deadline = None;
+            t.started = None;
             t.generation += 1;
         }
     }
@@ -1420,7 +1399,7 @@ impl DesyncService {
         let result = self.stop_process();
         if result.is_ok() {
             let mut t = lock(&self.trial);
-            t.deadline = None;
+            t.started = None;
             t.generation += 1;
         }
         result
@@ -2233,7 +2212,7 @@ mod tests {
         s.start_trial(true, &mut |_| {}).unwrap();
         assert!(s.is_running());
         let st = s.trial_status(std::time::Instant::now());
-        assert!(st.active && st.remaining_secs > 0 && st.remaining_secs <= 120);
+        assert!(st.active);
         // Повторный вызов второй экземпляр не создаёт.
         assert!(s.start_trial(true, &mut |_| {}).is_err());
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
@@ -2247,36 +2226,21 @@ mod tests {
     }
 
     #[test]
-    fn trial_stops_by_itself_after_the_time_limit() {
+    fn the_bypass_stays_on_without_any_timer() {
         let flags = Arc::new(Flags::default());
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
-        let soon = std::time::Instant::now() + Duration::from_secs(60);
-        assert!(!s.tick(soon));
+        // Наблюдатель работает (каждые 250 мс), но выключать по времени нечего: обход держится.
+        std::thread::sleep(Duration::from_millis(700));
+        assert!(!s.tick(), "наблюдатель ничего не останавливает");
         assert!(s.is_running());
-        let late = std::time::Instant::now() + Duration::from_secs(121);
-        assert!(s.tick(late));
+        assert!(!flags.killed.load(Ordering::SeqCst));
+        let st = s.trial_status(std::time::Instant::now());
+        assert!(st.active && st.error.is_none());
+        assert_eq!(st.message, "Включено");
+        // Выключает только кнопка (или выход, или откат состояния).
+        s.stop_trial().unwrap();
         assert!(!s.is_running() && flags.killed.load(Ordering::SeqCst));
-        assert!(s.trial_status(late).message.contains("прошло 120 секунд"));
-        s.coord.begin(coordinator::Owner::Vpn).unwrap();
-    }
-
-    #[test]
-    fn real_rust_timer_stops_a_short_trial_without_the_ui() {
-        let flags = Arc::new(Flags::default());
-        flags.present.store(true, Ordering::SeqCst);
-        let mut s = make(&flags, good, true, false);
-        s.candidate = profile();
-        s.trial_limit = Duration::from_millis(20);
-        let s = Arc::new(s);
-        s.start_trial(true, &mut |_| {}).unwrap();
-        for _ in 0..100 {
-            if !s.is_running() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        assert!(!s.is_running(), "таймер Rust должен остановить испытание");
     }
 
     #[test]
@@ -2363,24 +2327,25 @@ mod tests {
     }
 
     #[test]
-    fn timer_keeps_watching_after_a_failed_stop_with_bounded_retries() {
+    fn watcher_keeps_watching_after_a_failed_stop_with_bounded_retries() {
         let flags = Arc::new(Flags::default());
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
         flags.ignore_kill.store(true, Ordering::SeqCst);
-        let late = std::time::Instant::now() + Duration::from_secs(121);
-        // Неудачи не прекращают контроль, пока не исчерпан лимит повторов.
+        assert!(s.stop_trial().is_err());
+        let now = std::time::Instant::now();
+        // Неудачи не прекращают наблюдение, пока не исчерпан лимит повторов.
         for attempt in 1..MAX_FAILED_STOPS {
-            assert!(!s.tick(late), "попытка {attempt}");
+            assert!(!s.tick(), "попытка {attempt}");
             assert!(
-                s.trial_status(late).active,
+                s.trial_status(now).active,
                 "процесс не должен остаться без наблюдения"
             );
         }
         // Лимит исчерпан: поток прекращает повторы, но процесс учтён, запуск заблокирован.
-        assert!(s.tick(late));
+        assert!(s.tick());
         assert_eq!(s.status().0, DesyncState::Error);
-        assert!(s.trial_status(late).active);
+        assert!(s.trial_status(now).active);
         assert!(s.start_trial(true, &mut |_| {}).is_err());
         assert_eq!(flags.spawned.load(Ordering::SeqCst), 1);
         // Ручная остановка после исправления причины работает.
@@ -2390,17 +2355,33 @@ mod tests {
     }
 
     #[test]
-    fn timer_retry_succeeds_when_the_process_finally_exits() {
+    fn watcher_retry_succeeds_when_the_process_finally_exits() {
         let flags = Arc::new(Flags::default());
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
         flags.ignore_kill.store(true, Ordering::SeqCst);
-        let late = std::time::Instant::now() + Duration::from_secs(121);
-        assert!(!s.tick(late));
+        assert!(s.stop_trial().is_err());
+        assert!(!s.tick());
         flags.exited.store(true, Ordering::SeqCst);
-        assert!(s.tick(late));
+        assert!(s.tick());
         assert_eq!(s.status().0, DesyncState::Off);
-        assert!(!s.trial_status(late).active);
+        assert!(!s.trial_status(std::time::Instant::now()).active);
+        s.coord.begin(coordinator::Owner::Vpn).unwrap();
+    }
+
+    #[test]
+    fn a_process_that_ends_by_itself_is_cleaned_up_by_the_watcher() {
+        let flags = driver_flags(DriverState::Stopped);
+        let s = trial_service(&flags, false);
+        s.start_trial(true, &mut |_| {}).unwrap();
+        flags.exited.store(true, Ordering::SeqCst);
+        assert!(s.tick());
+        assert_eq!(s.status().0, DesyncState::Off);
+        assert_eq!(driver_now(&flags), DriverState::Stopped);
+        assert_eq!(
+            s.trial_status(std::time::Instant::now()).message,
+            "Обход остановился сам"
+        );
         s.coord.begin(coordinator::Owner::Vpn).unwrap();
     }
 
@@ -2858,12 +2839,13 @@ mod tests {
     }
 
     #[test]
-    fn timer_and_exit_paths_also_stop_the_driver_and_exit_reports_failure() {
+    fn watcher_and_exit_paths_also_stop_the_driver_and_exit_reports_failure() {
         let flags = driver_flags(DriverState::Stopped);
         let s = trial_service(&flags, false);
         s.start_trial(true, &mut |_| {}).unwrap();
-        let late = std::time::Instant::now() + Duration::from_secs(121);
-        assert!(s.tick(late));
+        flags.exited.store(true, Ordering::SeqCst);
+        assert!(s.tick());
+        flags.exited.store(false, Ordering::SeqCst);
         assert_eq!(driver_now(&flags), DriverState::Stopped);
         assert!(!s.driver_marked());
         // Выход из программы: остановка службы удалась / не удалась.
@@ -2963,7 +2945,7 @@ mod tests {
     }
 
     #[test]
-    fn slower_than_the_baseline_turns_the_bypass_off_with_the_reason() {
+    fn slower_than_the_baseline_only_shows_the_reason_and_keeps_the_bypass_on() {
         let flags = driver_flags(DriverState::Stopped);
         let s = speed_service(
             &flags,
@@ -2975,20 +2957,17 @@ mod tests {
         s.start_trial(true, &mut |_| {}).unwrap();
         assert!(s.is_running());
         finish_speed_check(&s);
-        assert!(!s.is_running(), "обход выключен");
-        assert_eq!(
-            driver_now(&flags),
-            DriverState::Stopped,
-            "откат прошёл через общий путь остановки"
-        );
+        assert!(s.is_running(), "замер обход не выключает");
+        assert_eq!(driver_now(&flags), DriverState::Running);
         let st = s.trial_status(std::time::Instant::now());
         let note = st.speed_note.clone().unwrap();
         assert!(
             note.starts_with("Сайты с обходом открываются медленнее (YouTube: 3,0 с вместо 0,9 с"),
             "{note}"
         );
-        assert!(note.ends_with("Обход выключен"));
-        assert!(!st.active && st.error.is_none());
+        assert!(!note.contains("выключен"), "{note}");
+        assert!(st.active && st.error.is_none());
+        s.stop_trial().unwrap();
         s.coord.begin(coordinator::Owner::Vpn).unwrap();
     }
 
@@ -3015,7 +2994,7 @@ mod tests {
     }
 
     #[test]
-    fn a_timeout_with_the_bypass_rolls_back() {
+    fn a_timeout_with_the_bypass_is_only_reported_not_rolled_back() {
         let flags = Arc::new(Flags::default());
         let s = speed_service(
             &flags,
@@ -3026,15 +3005,14 @@ mod tests {
         );
         s.start_trial(true, &mut |_| {}).unwrap();
         finish_speed_check(&s);
-        assert!(!s.is_running());
+        assert!(s.is_running());
         let note = s
             .trial_status(std::time::Instant::now())
             .speed_note
             .unwrap();
-        assert!(
-            note.contains("С обходом не открывается") && note.ends_with("Обход выключен"),
-            "{note}"
-        );
+        assert!(note.contains("С обходом не открывается"), "{note}");
+        assert!(!note.contains("выключен"), "{note}");
+        s.stop_trial().unwrap();
     }
 
     /// Ответы по каждому адресу: без обхода, с обходом, повторный замер.
@@ -3047,7 +3025,7 @@ mod tests {
     }
 
     #[test]
-    fn a_one_off_spike_does_not_roll_back_but_a_sustained_slowdown_does() {
+    fn a_one_off_spike_is_not_reported_but_a_sustained_slowdown_is_shown_and_never_rolls_back() {
         let base = Timing::done(ms(300), ms(900));
         let slow = Timing::done(ms(300), ms(3200));
         let flags = Arc::new(Flags::default());
@@ -3066,16 +3044,17 @@ mod tests {
         let s = speed_service(&flags, speed_fake3(base, slow, slow));
         s.start_trial(true, &mut |_| {}).unwrap();
         finish_speed_check(&s);
-        assert!(!s.is_running());
+        assert!(s.is_running(), "обход остаётся включённым");
         let note = s
             .trial_status(std::time::Instant::now())
             .speed_note
             .unwrap();
         assert!(note.contains("YouTube: 3,2 с вместо 0,9 с"), "{note}");
+        s.stop_trial().unwrap();
     }
 
     #[test]
-    fn a_single_failure_does_not_roll_back_but_a_repeated_one_does() {
+    fn a_single_failure_is_ignored_and_a_repeated_one_is_only_shown() {
         let base = Timing::done(ms(300), ms(900));
         let down = Timing::timeout(speed::AFTER.per_request);
         let flags = Arc::new(Flags::default());
@@ -3088,7 +3067,13 @@ mod tests {
         let s = speed_service(&flags, speed_fake3(base, down, down));
         s.start_trial(true, &mut |_| {}).unwrap();
         finish_speed_check(&s);
-        assert!(!s.is_running(), "повторный сбой откатывает");
+        assert!(s.is_running(), "повторный сбой только показывается");
+        assert!(s
+            .trial_status(std::time::Instant::now())
+            .speed_note
+            .unwrap()
+            .contains("С обходом не открывается"));
+        s.stop_trial().unwrap();
     }
 
     #[test]
@@ -3428,7 +3413,7 @@ mod tests {
     }
 
     #[test]
-    fn full_cycle_enable_then_rollback_stops_the_process_and_the_driver() {
+    fn full_cycle_a_bad_speed_result_keeps_the_bypass_and_the_button_stops_everything() {
         let flags = driver_flags(DriverState::Stopped);
         let base = Timing::done(ms(300), ms(900));
         let s = speed_service(
@@ -3438,6 +3423,8 @@ mod tests {
         s.start_trial(true, &mut |_| {}).unwrap();
         assert_eq!(driver_now(&flags), DriverState::Running);
         finish_speed_check(&s);
+        assert!(s.is_running(), "замер обход не выключает");
+        s.stop_trial().unwrap();
         assert!(!s.is_running());
         assert_eq!(driver_now(&flags), DriverState::Stopped);
         assert!(!s.driver_marked());
@@ -3548,9 +3535,10 @@ mod tests {
         s.start_trial(true, &mut |_| {}).unwrap();
         assert_plain(&s.start_trial(true, &mut |_| {}).unwrap_err().to_string());
         assert_plain(&s.trial_status(std::time::Instant::now()).message);
-        let late = std::time::Instant::now() + Duration::from_secs(121);
-        assert!(s.tick(late));
-        assert_plain(&s.trial_status(late).message);
+        flags.exited.store(true, Ordering::SeqCst);
+        assert!(s.tick());
+        flags.exited.store(false, Ordering::SeqCst);
+        assert_plain(&s.trial_status(std::time::Instant::now()).message);
         // Не Windows и неготовый адаптер.
         let unavailable = DesyncService::new(
             temp_dir(),
