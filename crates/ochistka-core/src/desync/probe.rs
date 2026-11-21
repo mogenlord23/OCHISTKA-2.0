@@ -57,6 +57,8 @@ pub struct ProbeResult {
     pub note: String,
     /// Всегда `false`: проверен только веб-адрес.
     pub functional_confirmed: bool,
+    /// Для `Sites` — проверенный адрес: результат одного сайта не относится к другому.
+    pub site: Option<String>,
     pub at: Instant,
 }
 
@@ -66,6 +68,7 @@ fn unchecked(service: Coverage, note: &str, at: Instant) -> ProbeResult {
         reachability: Reachability::Unchecked,
         note: note.into(),
         functional_confirmed: false,
+        site: None,
         at,
     }
 }
@@ -159,35 +162,105 @@ pub fn run(transport: &dyn ProbeTransport, targets: &[Target], now: Instant) -> 
                 reachability,
                 note: note.into(),
                 functional_confirmed: false,
+                site: (service == Coverage::Sites).then(|| url.clone()),
                 at: now,
             }
         })
         .collect()
 }
 
-/// Последние результаты. Устаревшие не попадают в наблюдения маршрутизатора.
+/// Что известно о сервисе на данный момент (для понятного ответа пользователю).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Evidence {
+    NotChecked,
+    Stale,
+    /// Свежий результат есть, но проверен только веб-адрес: подтверждения недостаточно.
+    Insufficient(Reachability, String),
+    /// Работа сервиса подтверждена функциональной проверкой (пока таких проверок нет).
+    Confirmed(Reachability),
+}
+
+struct Entry {
+    ticket: u64,
+    result: ProbeResult,
+}
+
+/// Последние результаты. Для маршрутизатора годятся только актуальные результаты с
+/// подтверждённой работой сервиса; диагностика веб-адреса маршрут не определяет.
 #[derive(Default)]
 pub struct ObservationStore {
-    results: Vec<ProbeResult>,
+    next: u64,
+    entries: Vec<Entry>,
 }
 
 impl ObservationStore {
-    pub fn record(&mut self, results: &[ProbeResult]) {
+    /// Номер начатой проверки. Берётся ДО запроса: более поздний номер — более свежая проверка.
+    pub fn begin(&mut self) -> u64 {
+        self.next += 1;
+        self.next
+    }
+
+    /// Записывает результаты проверки с номером `ticket`. Запоздавшая старая проверка не
+    /// перезаписывает результат более новой.
+    pub fn record(&mut self, ticket: u64, results: &[ProbeResult]) {
         for r in results {
-            match self.results.iter_mut().find(|e| e.service == r.service) {
-                Some(entry) => *entry = r.clone(),
-                None => self.results.push(r.clone()),
+            match self
+                .entries
+                .iter_mut()
+                .find(|e| e.result.service == r.service && e.result.site == r.site)
+            {
+                Some(entry) if entry.ticket > ticket => {}
+                Some(entry) => {
+                    entry.ticket = ticket;
+                    entry.result = r.clone();
+                }
+                None => self.entries.push(Entry {
+                    ticket,
+                    result: r.clone(),
+                }),
             }
         }
     }
 
-    /// Только актуальные результаты; всё остальное — `Unchecked`.
-    pub fn fresh(&self, now: Instant) -> ServiceObservations {
+    fn find(&self, service: Coverage, site: Option<&str>) -> Option<&ProbeResult> {
+        self.entries.iter().map(|e| &e.result).find(|r| {
+            r.service == service && (service != Coverage::Sites || r.site.as_deref() == site)
+        })
+    }
+
+    fn is_fresh(r: &ProbeResult, now: Instant) -> bool {
+        now.checked_duration_since(r.at)
+            .is_some_and(|age| age <= FRESH_FOR)
+    }
+
+    pub fn evidence(&self, service: Coverage, site: Option<&str>, now: Instant) -> Evidence {
+        let Some(r) = self.find(service, site) else {
+            return Evidence::NotChecked;
+        };
+        if !Self::is_fresh(r, now) {
+            Evidence::Stale
+        } else if r.functional_confirmed {
+            Evidence::Confirmed(r.reachability)
+        } else if r.reachability == Reachability::Unchecked {
+            Evidence::NotChecked
+        } else {
+            Evidence::Insufficient(r.reachability, r.note.clone())
+        }
+    }
+
+    /// Наблюдения для маршрутизатора: только актуальные И функционально подтверждённые.
+    /// Диагностика HTTPS сюда не попадает; всё остальное — `Unchecked`.
+    pub fn fresh(&self, now: Instant, site: Option<&str>) -> ServiceObservations {
         let mut out = ServiceObservations::new();
-        for r in &self.results {
-            let age = now.checked_duration_since(r.at);
-            if age.is_some_and(|a| a <= FRESH_FOR) {
-                out.set(r.service, r.reachability);
+        for service in [
+            Coverage::Sites,
+            Coverage::Youtube,
+            Coverage::Discord,
+            Coverage::Telegram,
+            Coverage::Games,
+        ] {
+            if let Evidence::Confirmed(r) = self.evidence(service, site, now) {
+                out.set(service, r);
             }
         }
         out
@@ -337,23 +410,119 @@ mod tests {
         );
     }
 
+    fn stored(f: &Fake, targets: &[Target], t: Instant) -> ObservationStore {
+        let mut store = ObservationStore::default();
+        let ticket = store.begin();
+        store.record(ticket, &run(f, targets, t));
+        store
+    }
+
     #[test]
-    fn stale_results_are_not_observations() {
+    fn https_reply_alone_never_becomes_a_routing_observation() {
         let t0 = Instant::now();
         let f = Fake::online().with(YOUTUBE_URL, vec![Reply::Answered(204)]);
+        let store = stored(&f, &[Target::Youtube], t0);
+        // Для диагностики результат есть…
+        assert!(matches!(
+            store.evidence(Coverage::Youtube, None, t0),
+            Evidence::Insufficient(Reachability::Reachable, _)
+        ));
+        // …но маршрутизатор получает «не проверено».
+        assert_eq!(
+            store.fresh(t0, None).get(Coverage::Youtube),
+            Reachability::Unchecked
+        );
+    }
+
+    #[test]
+    fn functionally_confirmed_fresh_result_reaches_the_router_and_goes_stale() {
+        let t0 = Instant::now();
+        let f = Fake::online().with(YOUTUBE_URL, vec![Reply::Answered(204)]);
+        let mut results = run(&f, &[Target::Youtube], t0);
+        results[0].functional_confirmed = true; // только в тесте: искусственный источник
         let mut store = ObservationStore::default();
-        store.record(&run(&f, &[Target::Youtube], t0));
-        let fresh = store.fresh(t0 + Duration::from_secs(60));
-        assert_eq!(fresh.get(Coverage::Youtube), Reachability::Reachable);
-        assert_eq!(fresh.get(Coverage::Discord), Reachability::Unchecked);
-        let old = store.fresh(t0 + FRESH_FOR + Duration::from_secs(1));
-        assert_eq!(old.get(Coverage::Youtube), Reachability::Unchecked);
+        let ticket = store.begin();
+        store.record(ticket, &results);
+        let soon = t0 + Duration::from_secs(60);
+        assert_eq!(
+            store.fresh(soon, None).get(Coverage::Youtube),
+            Reachability::Reachable
+        );
+        assert_eq!(
+            store.fresh(soon, None).get(Coverage::Discord),
+            Reachability::Unchecked
+        );
+        let late = t0 + FRESH_FOR + Duration::from_secs(1);
+        assert_eq!(
+            store.fresh(late, None).get(Coverage::Youtube),
+            Reachability::Unchecked
+        );
+        assert_eq!(
+            store.evidence(Coverage::Youtube, None, late),
+            Evidence::Stale
+        );
+    }
+
+    #[test]
+    fn stale_and_missing_results_are_not_checked() {
+        let t0 = Instant::now();
+        let f = Fake::online().with(YOUTUBE_URL, vec![Reply::Answered(204)]);
+        let store = stored(&f, &[Target::Youtube], t0);
+        let late = t0 + FRESH_FOR + Duration::from_secs(1);
+        assert_eq!(
+            store.evidence(Coverage::Youtube, None, late),
+            Evidence::Stale
+        );
+        assert_eq!(
+            store.evidence(Coverage::Discord, None, t0),
+            Evidence::NotChecked
+        );
         // Время «до» записи тоже не считается актуальным.
         if let Some(before) = t0.checked_sub(Duration::from_secs(1)) {
             assert_eq!(
-                store.fresh(before).get(Coverage::Youtube),
-                Reachability::Unchecked
+                store.evidence(Coverage::Youtube, None, before),
+                Evidence::Stale
             );
+        }
+    }
+
+    #[test]
+    fn result_for_site_a_does_not_describe_site_b() {
+        let t0 = Instant::now();
+        let a = "https://a.example.com/";
+        let f = Fake::online().with(a, vec![Reply::Answered(200)]);
+        let store = stored(&f, &[Target::Site(a.into())], t0);
+        assert!(matches!(
+            store.evidence(Coverage::Sites, Some(a), t0),
+            Evidence::Insufficient(..)
+        ));
+        assert_eq!(
+            store.evidence(Coverage::Sites, Some("https://b.example.com/"), t0),
+            Evidence::NotChecked
+        );
+        assert_eq!(
+            store.evidence(Coverage::Sites, None, t0),
+            Evidence::NotChecked
+        );
+    }
+
+    #[test]
+    fn a_late_older_check_does_not_overwrite_a_newer_one() {
+        let t0 = Instant::now();
+        let ok = Fake::online().with(DISCORD_URL, vec![Reply::Answered(200)]);
+        let bad = Fake::online().with(DISCORD_URL, vec![Reply::Timeout]);
+        let mut store = ObservationStore::default();
+        let old = store.begin();
+        let new = store.begin();
+        store.record(
+            new,
+            &run(&bad, &[Target::Discord], t0 + Duration::from_secs(5)),
+        );
+        // Старая проверка закончилась позже и пытается записаться.
+        store.record(old, &run(&ok, &[Target::Discord], t0));
+        match store.evidence(Coverage::Discord, None, t0 + Duration::from_secs(6)) {
+            Evidence::Insufficient(r, _) => assert_eq!(r, Reachability::Unreachable),
+            other => panic!("{other:?}"),
         }
     }
 

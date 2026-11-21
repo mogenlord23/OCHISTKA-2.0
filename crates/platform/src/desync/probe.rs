@@ -8,6 +8,7 @@ const TIMEOUT_SECS: u64 = 8;
 const MAX_BODY: u64 = 64 * 1024;
 
 /// Определяет вид ошибки по признакам и тексту цепочки причин.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn classify(is_timeout: bool, is_connect: bool, chain: &str) -> Reply {
     let text = chain.to_lowercase();
     if is_timeout || text.contains("timed out") {

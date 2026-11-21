@@ -109,6 +109,7 @@ pub fn run() {
             speedtest::speedtest_start,
             speedtest::speedtest_cancel,
             service_check::service_check,
+            service_check::service_access_plan,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
