@@ -499,7 +499,6 @@
     grid-template-columns: clamp(200px, 26%, 320px) minmax(0, 1fr);
     gap: 20px;
     min-height: 0;
-    padding-bottom: 4px;
   }
 
   /* Постер во всю высоту колонки, как на эталоне old-01: сверху полоса с двумя

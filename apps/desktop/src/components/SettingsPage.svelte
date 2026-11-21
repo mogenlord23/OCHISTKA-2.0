@@ -207,6 +207,11 @@
     margin-bottom: 6px;
   }
 
+  /* Конец страницы: нижний отступ задаёт общая система (22 px), без добавки от последней группы. */
+  .group:last-child {
+    margin-bottom: 0;
+  }
+
   .group-head {
     display: flex;
     align-items: center;

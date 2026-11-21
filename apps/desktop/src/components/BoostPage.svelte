@@ -289,6 +289,10 @@
     margin-bottom: 16px;
   }
 
+  .rows:last-child {
+    margin-bottom: 0;
+  }
+
   .error,
   .admin {
     margin: 8px 0 0;
