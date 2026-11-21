@@ -39,7 +39,7 @@
     "resources": {
       "resources/wallpapers/*.jpg": "wallpapers/",
       "resources/vpn-core/*": "vpn-core/",
-      "resources/sonicdpi/*": "sonicdpi/"
+      "resources/ochistkadpi/*": "ochistkadpi/"
     }
   }
 }

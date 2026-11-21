@@ -1,4 +1,4 @@
-//! Подготовка второго движка обхода — SonicDPI v0.2.2 (`sonicdpi.exe`). Модуль НЕ подключён к кнопке
+//! Движок обхода — переименованный SonicDPI v0.2.2 (`ochistkadpi.exe`, код движка не изменён). Модуль НЕ подключён к кнопке
 //! «Обход блокировок» и не вызывается приложением: это адаптер запуска и остановки с тестами.
 //! Команды взяты из README SonicDPI (см. `docs/status/sonicdpi-integration.md`).
 //!
@@ -11,7 +11,7 @@ use crate::vpn::spawn_logged;
 use crate::windows::process_guard::{self, GuardedProcess};
 
 /// Файл движка внутри папки ресурсов.
-pub const SONICDPI_EXE: &str = "sonicdpi.exe";
+pub const SONICDPI_EXE: &str = "ochistkadpi.exe";
 /// Релиз, для которого проверена контрольная сумма архива (этап 3).
 pub const RELEASE_TAG: &str = "v0.2.2";
 pub const RELEASE_ZIP: &str = "SonicDPI-windows-x64.zip";
@@ -33,7 +33,7 @@ pub struct SonicDpiEngine {
 }
 
 impl SonicDpiEngine {
-    /// `dir` — абсолютная папка, где лежат `sonicdpi.exe` и `WinDivert.dll`/`WinDivert64.sys`.
+    /// `dir` — абсолютная папка, где лежат `ochistkadpi.exe` и `WinDivert.dll`/`WinDivert64.sys`.
     pub fn new(dir: PathBuf) -> Self {
         Self { dir }
     }
@@ -80,7 +80,7 @@ impl SonicDpiEngine {
         }
         match std::fs::symlink_metadata(&exe) {
             Ok(meta) if meta.is_file() => {}
-            _ => return Err("файл sonicdpi.exe отсутствует или не обычный файл".into()),
+            _ => return Err("файл ochistkadpi.exe отсутствует или не обычный файл".into()),
         }
         let refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let process = spawn_logged(&exe, &refs, &self.dir, log)?;
@@ -88,7 +88,7 @@ impl SonicDpiEngine {
         Ok(GuardedProcess::new(process, SONICDPI_EXE))
     }
 
-    /// Останавливает процесс по PID, только если имя `sonicdpi.exe` и файл из папки движка.
+    /// Останавливает процесс по PID, только если имя `ochistkadpi.exe` и файл из папки движка.
     /// `true` — процесса с таким PID и именем больше нет (чужой процесс не трогается).
     pub fn stop_by_pid(&self, pid: u32) -> bool {
         process_guard::terminate_named(pid, SONICDPI_EXE, Some(&self.exe_path()))
@@ -159,7 +159,7 @@ mod tests {
     fn spawn_passes_the_arguments_and_stop_checks_the_name() {
         use std::os::unix::fs::PermissionsExt;
         let dir = temp("fake");
-        // Фейковый «sonicdpi.exe»: записывает свои аргументы и ждёт.
+        // Фейковый «ochistkadpi.exe»: записывает свои аргументы и ждёт.
         let script = "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/args.txt\"\nsleep 30 &\nwait\n";
         let exe = dir.join(SONICDPI_EXE);
         std::fs::write(&exe, script).unwrap();
@@ -191,10 +191,10 @@ mod tests {
         }
         let dir = temp("foreign");
         let mut foreign = spawn_logged(&sleeper, &["30"], &dir, &dir.join("f.log")).unwrap();
-        // Имя «sleep» не sonicdpi.exe: не наш, не трогаем.
+        // Имя «sleep» не ochistkadpi.exe: не наш, не трогаем.
         assert!(SonicDpiEngine::new(dir.clone()).stop_by_pid(foreign.pid()));
         assert!(!foreign.has_exited(), "чужой процесс жив");
-        // Одноимённый sonicdpi.exe из ДРУГОЙ папки тоже не наш.
+        // Одноимённый ochistkadpi.exe из ДРУГОЙ папки тоже не наш.
         let other = temp("other");
         std::fs::copy(&sleeper, other.join(SONICDPI_EXE)).unwrap();
         let mut same_name = spawn_logged(

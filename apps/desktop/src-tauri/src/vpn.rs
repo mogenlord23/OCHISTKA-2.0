@@ -56,27 +56,27 @@ pub fn core_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     dirs
 }
 
-/// Папки, где ищется SonicDPI: ресурсы приложения (`resource_dir/sonicdpi`, установщик кладёт файлы
+/// Папки, где ищется движок обхода: ресурсы приложения (`resource_dir/ochistkadpi`, установщик кладёт файлы
 /// туда), рядом с exe и (в разработке) папка исходников. Текущая папка не используется.
-pub fn sonicdpi_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
+pub fn ochistkadpi_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     let plain = |p: PathBuf| PathBuf::from(crate::appearance::plain_path(&p));
     if let Some(res) = resource_dir {
-        dirs.push(plain(res.join("sonicdpi")));
-        dirs.push(plain(res.join("resources").join("sonicdpi")));
+        dirs.push(plain(res.join("ochistkadpi")));
+        dirs.push(plain(res.join("resources").join("ochistkadpi")));
     }
     if let Some(exe_dir) = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(PathBuf::from))
     {
-        dirs.push(exe_dir.join("sonicdpi"));
-        dirs.push(exe_dir.join("resources").join("sonicdpi"));
+        dirs.push(exe_dir.join("ochistkadpi"));
+        dirs.push(exe_dir.join("resources").join("ochistkadpi"));
     }
     #[cfg(debug_assertions)]
     dirs.push(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("resources")
-            .join("sonicdpi"),
+            .join("ochistkadpi"),
     );
     dirs
 }
@@ -195,13 +195,13 @@ mod tests {
     }
 
     #[test]
-    fn sonicdpi_dirs_come_from_the_resource_folder_and_never_from_the_current_folder() {
-        let dirs = sonicdpi_dirs(Some(PathBuf::from("/app/res")));
-        assert_eq!(dirs[0], PathBuf::from("/app/res/sonicdpi"));
-        assert!(dirs.iter().any(|d| d.ends_with("resources/sonicdpi")));
+    fn ochistkadpi_dirs_come_from_the_resource_folder_and_never_from_the_current_folder() {
+        let dirs = ochistkadpi_dirs(Some(PathBuf::from("/app/res")));
+        assert_eq!(dirs[0], PathBuf::from("/app/res/ochistkadpi"));
+        assert!(dirs.iter().any(|d| d.ends_with("resources/ochistkadpi")));
         assert!(dirs.iter().all(|d| d.is_absolute()), "{dirs:?}");
         // Без папки ресурсов остаются только соседи exe и папка исходников (в разработке).
-        assert!(!sonicdpi_dirs(None).contains(&PathBuf::from("sonicdpi")));
+        assert!(!ochistkadpi_dirs(None).contains(&PathBuf::from("ochistkadpi")));
     }
 
     #[test]
@@ -227,7 +227,7 @@ pub fn build_desync(
     let desync = Arc::new(
         DesyncService::new(
             dir.clone(),
-            ochistka_platform::desync::adapter_for_current_os(sonicdpi_dirs(resource_dir)),
+            ochistka_platform::desync::adapter_for_current_os(ochistkadpi_dirs(resource_dir)),
             vpn_signal_source(Arc::downgrade(&vpn.0)),
         )
         .with_coordinator(coord),

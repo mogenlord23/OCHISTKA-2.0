@@ -1,11 +1,11 @@
-//! Windows-адаптер «Обхода блокировок»: SonicDPI (`sonicdpi.exe`) + WinDivert за общим
+//! Windows-адаптер «Обхода блокировок»: SonicDPI (`ochistkadpi.exe`) + WinDivert за общим
 //! `DesyncAdapter` ядра.
 //!
-//! Что реализовано: поиск `sonicdpi.exe` в папке компонентов, проверка прав администратора,
+//! Что реализовано: поиск `ochistkadpi.exe` в папке компонентов, проверка прав администратора,
 //! запуск без окна по абсолютному пути (через `SonicDpiEngine`), остановка только СВОЕГО
 //! процесса (по номеру из файла, с проверкой имени и пути), состояние и остановка службы WinDivert.
 //!
-//! Чего нет: `sonicdpi.exe` пока не входит в установщик и не скачивается, поэтому без файла в папке
+//! Чего нет: `ochistkadpi.exe` пока не входит в установщик и не скачивается, поэтому без файла в папке
 //! компонентов кнопка сообщает, что не хватает файлов. Работа движка на Windows и у провайдера не
 //! проверена.
 
@@ -21,7 +21,7 @@ pub mod probe;
 pub const ENGINE_EXE: &str = SONICDPI_EXE;
 
 pub struct WindowsDesyncAdapter {
-    /// Папки, где может лежать `sonicdpi.exe` (ресурсы приложения; порядок = приоритет). Рабочая
+    /// Папки, где может лежать `ochistkadpi.exe` (ресурсы приложения; порядок = приоритет). Рабочая
     /// (текущая) папка не используется.
     dirs: Vec<PathBuf>,
 }
@@ -32,7 +32,7 @@ impl WindowsDesyncAdapter {
         Self { dirs }
     }
 
-    /// Первая папка, где `sonicdpi.exe` есть и это обычный файл (не ссылка и не папка).
+    /// Первая папка, где `ochistkadpi.exe` есть и это обычный файл (не ссылка и не папка).
     fn engine(&self) -> Option<SonicDpiEngine> {
         self.dirs.iter().find_map(|dir| {
             let engine = SonicDpiEngine::new(dir.clone());
@@ -114,7 +114,7 @@ impl DesyncAdapter for WindowsDesyncAdapter {
     }
 
     /// Завершает движок от прошлого запуска по сохранённому PID: только процесс с именем
-    /// `sonicdpi.exe` из нашей папки; чужой процесс с тем же PID не трогается.
+    /// `ochistkadpi.exe` из нашей папки; чужой процесс с тем же PID не трогается.
     fn kill_stale(&self, pid: u32) {
         for dir in &self.dirs {
             let _ = SonicDpiEngine::new(dir.clone()).stop_by_pid(pid);

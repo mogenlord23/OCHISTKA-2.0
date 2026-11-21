@@ -40,7 +40,7 @@
 
 ## Обход блокировок (ADR 0018)
 
-- SonicDPI v0.2.2 (`by-sonic/sonicdpi`, MIT OR Apache-2.0: LICENSE-MIT и LICENSE-APACHE в архиве релиза). Архив `SonicDPI-windows-x64.zip`, SHA-256 `ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0` (проверен, `docs/status/sonicdpi-verify.md`). В установщик пока не входит.
+- ochistkadpi — переименованный SonicDPI v0.2.2 (MIT/Apache-2.0), авторы by-sonic, код не изменён (`by-sonic/sonicdpi`; LICENSE-MIT, LICENSE-APACHE и THIRD_PARTY_LICENSES.md лежат рядом с файлом). Архив `SonicDPI-windows-x64.zip`, SHA-256 `ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0`; `sonicdpi.exe` из архива (SHA-256 `3d6451021f390f8302b3aa1d790b86e626d7f925f7e1a2ba9c51ec91afa35351`) в сборке сохраняется как `ochistkadpi.exe`. Журнал пишет сам движок: `%LOCALAPPDATA%\SonicDPI\sonicdpi.log`. Не входит в git: скачивается на сборке.
 - WinDivert 2.2.2 (basil00/WinDivert, LGPL v3 / GPL v2) идёт внутри архива SonicDPI отдельными файлами DLL и драйвера, без статической линковки.
 - Zapret 2 (winws2) и пресеты NetZapret удалены из репозитория (ADR 0018); история — в git.
 

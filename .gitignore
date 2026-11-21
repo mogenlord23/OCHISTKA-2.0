@@ -10,9 +10,9 @@ Thumbs.db
 apps/desktop/src-tauri/resources/vpn-core/*
 !apps/desktop/src-tauri/resources/vpn-core/README.txt
 
-# SonicDPI v0.2.2 скачивается на сборке (GitHub), проверяется по SHA-256 и в git не хранится
-apps/desktop/src-tauri/resources/sonicdpi/*
-!apps/desktop/src-tauri/resources/sonicdpi/README.txt
+# ochistkadpi (переименованный SonicDPI v0.2.2) скачивается на сборке (GitHub), проверяется по SHA-256 и в git не хранится
+apps/desktop/src-tauri/resources/ochistkadpi/*
+!apps/desktop/src-tauri/resources/ochistkadpi/README.txt
 
 # Python: автоматически создаваемые файлы тестов
 __pycache__/
