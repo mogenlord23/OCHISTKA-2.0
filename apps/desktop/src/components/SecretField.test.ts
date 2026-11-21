@@ -106,4 +106,34 @@ describe('SecretField', () => {
     const { container } = render(SecretField, { value: '' });
     expect(container.querySelector('.overlay')).toBeNull();
   });
+
+  it('shows exactly as many decoys as hidden characters, with no extra slash', () => {
+    for (const n of [5, 12, 28, 35, 64]) {
+      const { container, unmount } = render(SecretField, {
+        value: `https://ultimate.app/${'x'.repeat(n)}`,
+      });
+      expect(container.querySelector('.open')?.textContent).toBe('https://ultimate.app/');
+      expect(container.querySelectorAll('.secret .ch')).toHaveLength(n);
+      unmount();
+    }
+  });
+
+  it('hides the secret at once on blur: decoys are there on the first frame and do not fade in', async () => {
+    const { container } = render(SecretField, { value: URL_TEXT });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await fireEvent.focus(input);
+    expect(container.querySelector('.overlay')).toBeNull();
+    await fireEvent.blur(input);
+    expect(container.querySelectorAll('.secret .ch').length).toBeGreaterThan(0);
+    expect(container.querySelector('.ch.fresh')).toBeNull();
+  });
+
+  it('uses one font for the whole line (no separate monospace for the decoys)', () => {
+    const { container } = render(SecretField, { value: URL_TEXT });
+    const css = Array.from(document.querySelectorAll('style'))
+      .map((e) => e.textContent)
+      .join('');
+    expect(css).not.toMatch(/monospace/);
+    expect(container.querySelector('.line')).not.toBeNull();
+  });
 });

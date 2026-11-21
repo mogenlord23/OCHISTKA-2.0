@@ -5,24 +5,26 @@
  * их число (с потолком). Это оформление, а не защита от снимка экрана. Настоящая ссылка не меняется.
  */
 const URL_PARTS = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/is;
-const DECOY_ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const MAX_SECRET = 28;
-const MIN_SECRET = 8;
+/** Без самых узких и самых широких знаков (i, j, m, r, t, w, M, W): ячейки ровной ширины выглядят цельно. */
+const DECOY_ALPHABET = 'abcdefghknpqsuvxyzABCDEFGHJKLNPQRSTUVXYZ23456789';
+/** Сколько приманок рисуется самое большее: дальше поле всё равно обрезает строку. */
+export const MAX_RENDERED = 160;
 
-/** Безопасное начало (схема и сервер) и число символов, которые нужно спрятать. */
+/** Безопасное начало (схема и сервер) и точное число символов, которые нужно спрятать. */
 export function splitSecret(raw: string): { open: string; secretLength: number } {
   const text = raw.trim();
   if (text === '') return { open: '', secretLength: 0 };
   const match = URL_PARTS.exec(text);
-  if (!match) return { open: '', secretLength: Math.min(Math.max(text.length, MIN_SECRET), 40) };
+  if (!match) return { open: '', secretLength: Array.from(text).length };
   const [, scheme, authority, rest] = match;
   const at = authority.lastIndexOf('@');
   const host = at >= 0 ? authority.slice(at + 1) : authority;
-  const hidden = (at >= 0 ? at + 1 : 0) + rest.length;
-  return {
-    open: `${scheme}${host}${hidden > 0 ? '/' : ''}`,
-    secretLength: hidden > 0 ? Math.min(Math.max(hidden, MIN_SECRET), MAX_SECRET) : 0,
-  };
+  // Логин и пароль (до «@») скрыты целиком и считаются в скрытой части.
+  const userinfo = at >= 0 ? Array.from(authority.slice(0, at + 1)).length : 0;
+  // Слеш сразу после сервера входит в открытую часть и в скрытую не считается.
+  const slash = rest.startsWith('/');
+  const hidden = userinfo + Array.from(slash ? rest.slice(1) : rest).length;
+  return { open: `${scheme}${host}${slash ? '/' : ''}`, secretLength: hidden };
 }
 
 /** Случайные символы-приманки; `random` можно подменить в тестах. */
@@ -53,13 +55,15 @@ export function segments(text: string, count: number): string[] {
 export interface DecoyChar {
   id: number;
   ch: string;
+  /** Символ только что заменён: нужен для мягкого появления (у начального набора его нет). */
+  fresh?: boolean;
 }
 
 let nextId = 1;
 
-/** Начальный набор приманок длиной `length`. */
+/** Начальный набор приманок длиной `length` (не больше MAX_RENDERED). */
 export function decoyChars(length: number, random: () => number = Math.random): DecoyChar[] {
-  return Array.from(decoy(length, random), (ch) => ({ id: nextId++, ch }));
+  return Array.from(decoy(Math.min(length, MAX_RENDERED), random), (ch) => ({ id: nextId++, ch }));
 }
 
 /** Заменяет `count` случайных позиций новыми приманками, остальные остаются теми же объектами. */
@@ -74,7 +78,7 @@ export function mutateDecoy(
     const at = Math.floor(random() * next.length);
     let ch = decoy(1, random);
     if (ch === next[at].ch) ch = decoy(1, random);
-    next[at] = { id: nextId++, ch };
+    next[at] = { id: nextId++, ch, fresh: true };
   }
   return next;
 }

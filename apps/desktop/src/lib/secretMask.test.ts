@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { decoy, decoyChars, mutateDecoy, segments, splitSecret, visualLine } from './secretMask';
+import {
+  decoy,
+  decoyChars,
+  MAX_RENDERED,
+  mutateDecoy,
+  segments,
+  splitSecret,
+  visualLine,
+} from './secretMask';
 
 const SECRET = 'SECRET-TOKEN-123';
 
@@ -27,8 +35,32 @@ describe('splitSecret', () => {
     });
   });
 
-  it('caps how much the visible length can tell about the secret', () => {
-    expect(splitSecret('https://h.test/' + 'a'.repeat(500)).secretLength).toBe(28);
+  it('counts the hidden characters exactly, with no minimum and no cap', () => {
+    for (const n of [1, 5, 12, 28, 35, 64, 500]) {
+      expect(splitSecret(`https://h.test/${'a'.repeat(n)}`).secretLength).toBe(n);
+    }
+  });
+
+  it('does not count the slash after the host in the hidden part', () => {
+    expect(splitSecret('https://h.test/abc')).toEqual({ open: 'https://h.test/', secretLength: 3 });
+    expect(splitSecret('https://h.test/')).toEqual({ open: 'https://h.test/', secretLength: 0 });
+    expect(splitSecret('https://h.test')).toEqual({ open: 'https://h.test', secretLength: 0 });
+  });
+
+  it('counts query, user info and any characters (including non-ASCII) one by one', () => {
+    expect(splitSecret('https://h.test?a=1')).toEqual({ open: 'https://h.test', secretLength: 4 });
+    expect(splitSecret('https://u:p@h.test/ab')).toEqual({
+      open: 'https://h.test/',
+      secretLength: 6,
+    });
+    expect(splitSecret('https://h.test/пр-1_?x=%20').secretLength).toBe(11);
+    expect(splitSecret('просто').secretLength).toBe(6);
+  });
+
+  it('renders at most MAX_RENDERED decoys for very long links', () => {
+    const { secretLength } = splitSecret('https://h.test/' + 'a'.repeat(5000));
+    expect(secretLength).toBe(5000);
+    expect(decoyChars(secretLength)).toHaveLength(MAX_RENDERED);
   });
 });
 
@@ -43,7 +75,7 @@ describe('visualLine', () => {
 
   it('draws decoy characters from the random source only', () => {
     expect(decoy(4, () => 0)).toBe('aaaa');
-    expect(visualLine('https://h.test/xyz', () => 0)).toBe('https://h.test/aaaaaaaa');
+    expect(visualLine('https://h.test/xyz', () => 0)).toBe('https://h.test/aaa');
   });
 });
 
@@ -68,7 +100,10 @@ describe('decoyChars / mutateDecoy', () => {
     const changed = after.filter((c, i) => c !== before[i]);
     expect(changed.length).toBeGreaterThanOrEqual(1);
     expect(changed.length).toBeLessThanOrEqual(2);
-    changed.forEach((c) => expect(/^[A-Za-z0-9]$/.test(c.ch)).toBe(true));
+    changed.forEach((c) => {
+      expect(/^[A-Za-z0-9]$/.test(c.ch)).toBe(true);
+      expect(c.fresh).toBe(true);
+    });
   });
 
   it('gives a changed position a new id and never equals the old letter', () => {
