@@ -9,6 +9,7 @@ pub mod geo;
 pub mod icon_image;
 pub mod icon_store;
 pub mod os_status;
+pub mod sonicdpi;
 pub mod speedtest;
 pub mod vpn;
 
