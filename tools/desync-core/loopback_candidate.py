@@ -22,8 +22,8 @@ from loopback_smoke import Handler, inspect_log, request_local_http, wait_ready
 def main() -> int:
     if sys.platform != "win32":
         raise RuntimeError("Only permitted on a disposable Windows CI runner")
-    if len(sys.argv) != 3 or sys.argv[2] not in ("fake", "full"):
-        raise RuntimeError("Usage: loopback_candidate.py VERIFIED_RELEASE_DIRECTORY fake|full")
+    if len(sys.argv) != 3 or sys.argv[2] not in ("noop", "fake", "full"):
+        raise RuntimeError("Usage: loopback_candidate.py VERIFIED_RELEASE_DIRECTORY noop|fake|full")
     mode = sys.argv[2]
     exe = pathlib.Path(sys.argv[1]).resolve() / "winws2.exe"
     for name in ("winws2.exe", "zapret-lib.lua", "zapret-antidpi.lua"):
@@ -51,8 +51,13 @@ def main() -> int:
         f"--filter-tcp={port}",
         "--filter-l7=http",
         "--payload=http_req",
-        "--lua-desync=fake:blob=fake_default_http:tcp_md5",
     ]
+    if mode == "noop":
+        # Upstream luaexec() demonstrates live Lua packet callbacks while
+        # leaving packets unchanged (no fake packets or altered segments).
+        args.append("--lua-desync=luaexec:code=DLOG('OCHISTKA_DESYNC_CALLBACK')")
+    else:
+        args.append("--lua-desync=fake:blob=fake_default_http:tcp_md5")
     if mode == "full":
         args.extend([
             "--payload=http_req",
@@ -81,10 +86,21 @@ def main() -> int:
                     captured = "packet: id=" in log_text
                     # These messages are emitted from the ORIGINAL upstream
                     # Lua functions only when called for the HTTP payload.
-                    fake_executed = "fake: " in log_text
-                    multisplit_executed = "multisplit:" in log_text
-                    if captured and fake_executed and (mode == "fake" or multisplit_executed):
-                        label = "fake()" if mode == "fake" else "fake() + multisplit()"
+                    fake_executed = "LUA: fake:" in log_text
+                    multisplit_executed = "LUA: multisplit:" in log_text
+                    noop_executed = "LUA: OCHISTKA_DESYNC_CALLBACK" in log_text
+                    reinjected = "reinject unmodified" in log_text
+                    confirmed = (
+                        (mode == "noop" and noop_executed and reinjected)
+                        or (mode == "fake" and fake_executed)
+                        or (mode == "full" and fake_executed and multisplit_executed)
+                    )
+                    if captured and confirmed:
+                        label = {
+                            "noop": "luaexec() no-op callback",
+                            "fake": "fake()",
+                            "full": "fake() + multisplit()",
+                        }[mode]
                         print(
                             f"PASS: localhost HTTP succeeded; WinDivert captured "
                             f"packets; upstream {label} was executed.",
