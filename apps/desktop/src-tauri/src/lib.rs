@@ -67,7 +67,10 @@ pub fn run() {
             app.manage(appearance::AppearanceState::new(
                 registry, wallpaper, files, refresh, resources,
             ));
-            app.manage(vpn::build_service(app.path().resource_dir().ok()));
+            let vpn_state = vpn::build_service(app.path().resource_dir().ok());
+            let desync_state = vpn::build_desync(&vpn_state);
+            app.manage(vpn_state);
+            app.manage(desync_state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -115,6 +118,10 @@ pub fn run() {
         Ok(app) => app.run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
                 use tauri::Manager;
+                // Сначала останавливаем перехват, затем VPN.
+                if let Some(state) = handle.try_state::<vpn::DesyncState>() {
+                    state.0.shutdown();
+                }
                 if let Some(state) = handle.try_state::<vpn::VpnState>() {
                     state.0.shutdown();
                 }

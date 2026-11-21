@@ -172,3 +172,22 @@ mod tests {
         assert!(dirs.iter().any(|d| d.ends_with("resources/vpn-core")));
     }
 }
+
+/// Общий сервис обхода блокировок. Пользовательской команды включения нет: до подтверждения
+/// на реальной сети профиль заблокирован планом доступа.
+pub struct DesyncState(pub Arc<ochistka_core::desync::DesyncService>);
+
+/// Создаёт `DesyncService` и связывает его с VPN в обе стороны через `Weak` (без циклов владения).
+pub fn build_desync(vpn: &VpnState) -> DesyncState {
+    use ochistka_core::desync::{desync_conflict_guard, vpn_signal_source, DesyncService};
+    let dir = ochistka_platform::desync::desync_data_dir();
+    let desync = Arc::new(DesyncService::new(
+        dir.clone(),
+        ochistka_platform::desync::adapter_for_current_os(dir),
+        vpn_signal_source(Arc::downgrade(&vpn.0)),
+    ));
+    vpn.0
+        .set_conflict_guard(desync_conflict_guard(Arc::downgrade(&desync)));
+    desync.recover_on_start();
+    DesyncState(desync)
+}

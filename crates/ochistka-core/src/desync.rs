@@ -15,14 +15,14 @@ pub mod preset;
 pub mod routing;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
 use thiserror::Error;
 
 use crate::vpn::engine::{PinnedEngine, PrepareError, PrepareProgress};
 use crate::vpn::mask::mask_secrets;
-use crate::vpn::service::CoreProcess;
+use crate::vpn::service::{ConflictGuard, CoreProcess, VpnService};
 
 /// Официальные источники и лицензии (подтверждаются на Windows скриптом `tools/desync-core/verify-sources.ps1`).
 pub const SOURCES: &[(&str, &str, &str)] = &[
@@ -543,6 +543,33 @@ impl DesyncService {
     }
 }
 
+/// Источник состояния VPN для `DesyncService::new`: читает настоящий `VpnService::status()`.
+/// Держит только `Weak`, поэтому два сервиса не владеют друг другом. Если VPN недоступен —
+/// считаем его активным и непроверенным (безопасный отказ, а не «можно запускать»).
+pub fn vpn_signal_source(
+    vpn: Weak<VpnService>,
+) -> Box<dyn Fn() -> routing::VpnSignal + Send + Sync> {
+    Box::new(move || match vpn.upgrade() {
+        Some(vpn) => routing::VpnSignal::from_status(&vpn.status()),
+        None => routing::VpnSignal {
+            active: true,
+            verified: false,
+        },
+    })
+}
+
+/// Защита для `VpnService::set_conflict_guard`: VPN не подключается, пока работает перехват.
+/// Если сервис обхода недоступен или состояние неизвестно — отказ.
+/// Внимание: проверка и последующий запуск не атомарны; до включения функции нужен общий
+/// атомарный механизм (одна блокировка на оба сервиса).
+pub fn desync_conflict_guard(desync: Weak<DesyncService>) -> ConflictGuard {
+    Box::new(move || match desync.upgrade() {
+        Some(d) if !d.is_running() => None,
+        Some(_) => Some("Работает обход блокировок. Сначала остановите его".into()),
+        None => Some("Состояние обхода блокировок недоступно".into()),
+    })
+}
+
 /// Адаптер-заглушка для ОС, где системная часть ещё не написана или механизма нет. Ничего не
 /// запускает и не скачивает; честно сообщает причину. Используется приложением, пока нет настоящего.
 pub struct UnavailableAdapter {
@@ -1015,6 +1042,32 @@ mod tests {
             o.set(*w, Reachability::Unreachable);
         }
         o
+    }
+
+    #[test]
+    fn link_helpers_fail_safe_and_follow_real_state() {
+        // VPN недоступен → считается активным и непроверенным.
+        let sig = vpn_signal_source(Weak::new())();
+        assert!(sig.active && !sig.verified);
+        // Сервис обхода недоступен → VPN запускать нельзя.
+        assert!(desync_conflict_guard(Weak::new())().is_some());
+        // Реальный сервис: пока не работает — разрешено, работает — отказ.
+        let flags = Arc::new(Flags::default());
+        let s = Arc::new(make_confirmed(&flags, false));
+        let guard = desync_conflict_guard(Arc::downgrade(&s));
+        assert!(guard().is_none());
+        s.start_planned(
+            &[Coverage::Sites],
+            &blocked(&[Coverage::Sites]),
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(guard().is_some());
+        s.shutdown();
+        assert!(guard().is_none());
+        // Нет циклов владения: после удаления сервиса защита отказывает.
+        drop(s);
+        assert!(guard().is_some());
     }
 
     #[test]

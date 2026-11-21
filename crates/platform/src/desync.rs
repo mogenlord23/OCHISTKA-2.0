@@ -372,6 +372,15 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Папка данных обхода: `%LOCALAPPDATA%\\OCHISTKA\\desync`, иначе временная.
+pub fn desync_data_dir() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("OCHISTKA")
+        .join("desync")
+}
+
 /// Адаптер для текущей ОС. Ядро (`ochistka-core`) об ОС ничего не знает.
 pub fn adapter_for_current_os(dir: PathBuf) -> Box<dyn DesyncAdapter> {
     if cfg!(windows) {
