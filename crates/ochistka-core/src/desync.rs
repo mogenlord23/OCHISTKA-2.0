@@ -12,6 +12,7 @@
 //! Системный прокси, DNS, hosts и маршруты здесь не трогаются.
 
 pub mod preset;
+pub mod routing;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
@@ -302,6 +303,31 @@ impl DesyncService {
             }),
             op: Mutex::new(()),
         }
+    }
+
+    /// Пассивный план единой кнопки. Возвращает direct/VPN/Zapret без запуска
+    /// или скачивания чего-либо. Неподтверждённый Universal V13 Lite не выбирается.
+    /// Общее состояние VPN берётся из уже существующего сервисного порта.
+    pub fn plan_access(
+        &self,
+        wanted: &[Coverage],
+        direct_reachable: Option<bool>,
+        vpn_verified: bool,
+    ) -> routing::RoutePlan {
+        let candidate = if self.adapter.platform() == Platform::Windows {
+            windows_netzapret_v13_lite_candidate_profile().ok()
+        } else {
+            None
+        };
+        routing::choose_access_path(
+            wanted,
+            direct_reachable,
+            (self.vpn_active)(),
+            vpn_verified,
+            &self.adapter.readiness(),
+            self.adapter.platform(),
+            candidate.as_ref(),
+        )
     }
 
     fn pid_file(&self) -> PathBuf {
@@ -876,6 +902,24 @@ mod tests {
                 args: vec![],
             },
         ]
+    }
+
+    #[test]
+    fn live_service_plan_stays_off_for_unverified_profile() {
+        let flags = Arc::new(Flags::default());
+        let service = make(&flags, good, true, false);
+        // Tests use an adapter claiming Ready to ensure the proof gate still
+        // prevents a dry-run-only profile from appearing as verified.
+        assert_eq!(
+            service.plan_access(&[Coverage::Sites], Some(false), false),
+            routing::RoutePlan::Block(routing::RouteBlock::UnverifiedCoverage)
+        );
+        assert_eq!(
+            service.plan_access(&[Coverage::Sites], Some(true), false),
+            routing::RoutePlan::Use(routing::AccessPath::Direct)
+        );
+        assert_eq!(flags.spawned.load(Ordering::SeqCst), 0);
+        assert!(!flags.installed.load(Ordering::SeqCst));
     }
 
     #[test]
