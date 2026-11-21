@@ -6,7 +6,7 @@
   import Subtabs from './Subtabs.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import { SECTIONS } from '../lib/sections';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
   import cheLime from '../assets/che-lime.png';
@@ -97,6 +97,8 @@
   let importNote = $state<string | null>(null);
   let importing = $state(false);
   let measuring = $state(false);
+  /** Растёт после каждого успешного импорта: запускает новую первую проверку. */
+  let importTick = $state(0);
   let requesting = $state(false);
   let actionNote = $state<string | null>(null);
   let nowMs = $state(Date.now());
@@ -105,6 +107,8 @@
   let retry = $state(false);
 
   const servers = $derived(snapshot?.servers ?? []);
+  /** Число, а не сам список: замер задержек не перезапускает таймер проверок. */
+  const serverCount = $derived(servers.length);
   const ui = $derived(connectUi(snapshot, requesting || importing, { preparing, retry }));
   const elapsedSeconds = $derived(
     snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
@@ -191,6 +195,8 @@
       const summary = await vpnImport(prepared.input);
       importNote = importMessage(summary.count, summary.skipped, summary.issues);
       await refresh();
+      measuredAt = 0;
+      importTick += 1;
     } catch (err) {
       importNote = errorMessage(err);
     } finally {
@@ -230,16 +236,50 @@
     }
   }
 
+  /** Автоматическая проверка задержек: первая сразу после появления списка, затем раз в минуту. */
+  const LATENCY_INTERVAL_MS = 60_000;
+  let measuredAt = 0;
+
+  /** Один замер за раз. Сбой одной проверки не ломает список: прежние значения остаются. */
   async function onMeasure() {
+    if (measuring) return;
     measuring = true;
     try {
       snapshot = await vpnMeasureLatency();
-    } catch (err) {
-      actionNote = errorMessage(err);
+    } catch {
+      // Тихо: следующая проверка через минуту, показанные значения сохраняются.
     } finally {
+      measuredAt = Date.now();
       measuring = false;
     }
   }
+
+  $effect(() => {
+    importTick;
+    if (subsection !== 'vpn' || serverCount === 0) return;
+    const lastAt = untrack(() => measuredAt);
+    const visibleNow = () => document.visibilityState !== 'hidden';
+    const run = () => {
+      if (visibleNow()) void onMeasure();
+    };
+    // Значения уже есть (вернулись на вкладку): ждём остаток минуты, а не меряем снова сразу.
+    const wait = lastAt > 0 ? Math.max(0, LATENCY_INTERVAL_MS - (Date.now() - lastAt)) : 400;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const first = setTimeout(() => {
+      run();
+      timer = setInterval(run, LATENCY_INTERVAL_MS);
+    }, wait);
+    // Окно снова видно, а замеру больше минуты: обновляем (скрытое окно не мерили).
+    const onVisible = () => {
+      if (visibleNow() && Date.now() - measuredAt >= LATENCY_INTERVAL_MS) run();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(first);
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  });
 
   async function onConnect() {
     if (ui.disabled || requesting) return;
@@ -463,11 +503,6 @@
           <h2 class="sr-only">Серверы / {servers.length}</h2>
           <section class="card servers-card">
             {#if servers.length > 0}
-              <div class="list-head">
-                <button type="button" class="small" disabled={measuring} onclick={onMeasure}
-                  >{measuring ? 'Проверяем…' : 'Проверить задержку'}</button
-                >
-              </div>
               <ul class="servers" aria-label="Серверы">
                 {#each servers as server (server.id)}
                   <li>
@@ -777,24 +812,6 @@
     color: var(--ink);
   }
 
-  .list-head {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin: 0 0 8px;
-    /* Кнопка остаётся наверху карточки при прокрутке списка серверов. */
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--surface-alt);
-  }
-
-  button.small {
-    min-height: 30px;
-    padding: 4px 12px;
-  }
-
   button:disabled {
     opacity: 0.6;
     cursor: default;
@@ -989,17 +1006,12 @@
     min-height: 120px;
     padding: 6px 6px 6px 6px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent) transparent;
+    /* Прокрутка работает (колесо, тачпад, клавиши), полоса не показывается. */
+    scrollbar-width: none;
   }
 
   .servers-card::-webkit-scrollbar {
-    width: 10px;
-  }
-
-  .servers-card::-webkit-scrollbar-thumb {
-    border-radius: var(--radius-sm);
-    background: var(--accent);
+    display: none;
   }
 
   .servers {

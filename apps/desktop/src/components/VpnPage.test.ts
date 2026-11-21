@@ -393,7 +393,7 @@ describe('VpnPage: подключение и серверы', () => {
     expect(calls('vpn_select')[0]?.[1]).toEqual({ id: 's2' });
   });
 
-  it('measures latency and shows milliseconds or «нет ответа»', async () => {
+  it('has no manual latency button and measures on its own when the list appears', async () => {
     const measured = makeSnapshot({
       servers: [
         { ...SERVERS[0], latencyMs: 42, measured: true },
@@ -407,9 +407,31 @@ describe('VpnPage: подключение и серверы', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Проверить задержку' }));
-    expect(await screen.findByText('42 мс')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /задержку/i })).toBeNull();
+    expect(await screen.findByText('42 мс', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('нет ответа')).toBeTruthy();
+  });
+
+  it('repeats about once a minute and pauses when the VPN tab is left', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    try {
+      backend({
+        vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+        vpn_measure_latency: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+      });
+      const view = render(VpnPage, { props: { subsection: 'vpn' } });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(calls('vpn_measure_latency')).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(calls('vpn_measure_latency')).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(calls('vpn_measure_latency')).toHaveLength(2);
+      await view.rerender({ subsection: 'advanced' });
+      await vi.advanceTimersByTimeAsync(180_000);
+      expect(calls('vpn_measure_latency')).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

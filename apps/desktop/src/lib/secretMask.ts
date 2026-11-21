@@ -6,7 +6,7 @@
  */
 const URL_PARTS = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/is;
 /** Только знаки средней ширины (0,5–0,68 em): без узких (i, j, l, r, t, f) и широких (m, w, C, D, G, H, M, N, O, Q, U, W). */
-const DECOY_ALPHABET = 'abdeghknopqsuvxyzABEFKLPRSTVXYZ23456789';
+export const DECOY_ALPHABET = 'abdeghknopqsuvxyzABEFKLPRSTVXYZ23456789';
 /** Сколько приманок рисуется самое большее: дальше поле всё равно обрезает строку. */
 export const MAX_RENDERED = 160;
 
@@ -66,18 +66,23 @@ export function decoyChars(length: number, random: () => number = Math.random): 
   return Array.from(decoy(Math.min(length, MAX_RENDERED), random), (ch) => ({ id: nextId++, ch }));
 }
 
-/** Заменяет `count` случайных позиций новыми приманками, остальные остаются теми же объектами. */
+/** Заменяет `count` случайных позиций новыми приманками, остальные остаются теми же объектами.
+    `pool(ch)` может вернуть знаки такой же ширины, как `ch`: тогда замена не сдвигает строку. */
 export function mutateDecoy(
   chars: DecoyChar[],
   count = 1,
   random: () => number = Math.random,
+  pool?: (ch: string) => string,
 ): DecoyChar[] {
   if (chars.length === 0) return chars;
   const next = chars.slice();
   for (let n = 0; n < count; n++) {
     const at = Math.floor(random() * next.length);
-    let ch = decoy(1, random);
-    if (ch === next[at].ch) ch = decoy(1, random);
+    const old = next[at].ch;
+    const same = pool?.(old);
+    const source = same && same.length > 1 ? same : DECOY_ALPHABET;
+    let ch = source[Math.floor(random() * source.length)];
+    if (ch === old) ch = source[(source.indexOf(ch) + 1) % source.length];
     next[at] = { id: nextId++, ch, fresh: true };
   }
   return next;

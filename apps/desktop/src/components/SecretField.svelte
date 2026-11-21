@@ -1,6 +1,7 @@
 <script lang="ts">
   import FloatingField from './FloatingField.svelte';
   import {
+    DECOY_ALPHABET,
     decoyChars,
     MAX_RENDERED,
     mutateDecoy,
@@ -22,8 +23,8 @@
 
   /** Пауза между заменами: одна-две буквы раз в ~0,7 с. */
   const TICK_MS = 700;
-  /** Ширина ячейки вымышленного знака в em: ровные ячейки того же шрифта, строка не «плывёт». */
-  const CELL_EM = 0.72;
+  /** Средняя ширина знака в em: сколько знаков примерно видно в поле (меняем только их). */
+  const CELL_EM = 0.55;
 
   let focused = $state(false);
   let visible = $state(true);
@@ -47,6 +48,27 @@
     return () => document.removeEventListener('visibilitychange', onVisibility);
   });
 
+  /** Знаки одной ширины в шрифте поля: замена внутри группы не сдвигает хвост строки. */
+  let groups: Record<string, string> | null = null;
+  function sameWidth(ch: string): string {
+    if (!groups && line) {
+      const cs = getComputedStyle(line);
+      const ctx = document.createElement('canvas').getContext('2d');
+      groups = {};
+      if (ctx) {
+        ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const em = parseFloat(cs.fontSize) || 16;
+        const buckets = new Map<number, string>();
+        for (const c of DECOY_ALPHABET) {
+          const key = Math.round(ctx.measureText(c).width / em / 0.02);
+          buckets.set(key, (buckets.get(key) ?? '') + c);
+        }
+        for (const list of buckets.values()) for (const c of list) groups[c] = list;
+      }
+    }
+    return groups?.[ch] ?? '';
+  }
+
   /** Сколько знаков сейчас помещается в поле: меняем только их, остальные скрыты краем поля. */
   function reachable(): number {
     if (!line) return rendered;
@@ -62,7 +84,12 @@
     const key = rendered;
     const timer = setInterval(() => {
       const base = swapped && swapped.key === key ? swapped.chars : secret;
-      const head = mutateDecoy(base.slice(0, reachable()), Math.random() < 0.3 ? 2 : 1);
+      const head = mutateDecoy(
+        base.slice(0, reachable()),
+        Math.random() < 0.3 ? 2 : 1,
+        Math.random,
+        sameWidth,
+      );
       swapped = { key, chars: [...head, ...base.slice(head.length)] };
     }, TICK_MS);
     return () => clearInterval(timer);
@@ -89,13 +116,6 @@
     overflow: hidden;
     white-space: pre;
     mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
-  }
-
-  /* Ячейка фиксированной ширины: замена знака не сдвигает строку. */
-  .ch {
-    display: inline-block;
-    width: 0.72em;
-    text-align: center;
   }
 
   /* Мягко появляется только заменённый знак; начальная приманка видна сразу, без мигания. */
