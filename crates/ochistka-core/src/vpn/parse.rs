@@ -630,7 +630,7 @@ fn parse_json(body: &str) -> ImportReport {
                     .to_ascii_lowercase();
                 if !matches!(
                     protocol.as_str(),
-                    "vless" | "vmess" | "trojan" | "shadowsocks"
+                    "vless" | "vmess" | "trojan" | "shadowsocks" | "hysteria" | "hysteria2"
                 ) {
                     if !matches!(
                         protocol.as_str(),
