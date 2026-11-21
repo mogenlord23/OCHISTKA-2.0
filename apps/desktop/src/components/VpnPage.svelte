@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SecretField from './SecretField.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
   import { onMount } from 'svelte';
@@ -330,12 +331,7 @@
           <section class="card">
             <h2>Ссылка подписки / импорта</h2>
             <div class="row">
-              <input
-                bind:value={urlInput}
-                placeholder="https://…"
-                aria-label="Ссылка подписки"
-                onkeydown={(e) => e.key === 'Enter' && onImport()}
-              />
+              <SecretField bind:value={urlInput} onenter={onImport} />
               <button type="button" disabled={importing} onclick={onImport}
                 >{importing ? 'Загрузка…' : 'Импорт'}</button
               >

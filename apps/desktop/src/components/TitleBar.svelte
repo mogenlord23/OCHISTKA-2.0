@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { t } from '../lib/i18n.svelte';
+  import BrandMark from './BrandMark.svelte';
 
   let { maximized = false }: { maximized?: boolean } = $props();
 
@@ -9,7 +10,7 @@
 
 <header class="titlebar" data-tauri-drag-region>
   <div class="brand" data-tauri-drag-region>
-    <strong data-tauri-drag-region>OCHISTKA</strong>
+    <BrandMark />
   </div>
   <div class="controls">
     <button type="button" aria-label={t('minimize')} onclick={() => win.minimize()}>
@@ -53,15 +54,6 @@
     display: flex;
     align-items: center;
     height: 100%;
-  }
-
-  strong {
-    font-family: var(--font-heading);
-    font-size: 28px;
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: var(--black);
   }
 
   .controls {

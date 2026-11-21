@@ -22,7 +22,7 @@ afterEach(() => {
 describe('TitleBar', () => {
   it('shows the app name and no author credit line', () => {
     render(TitleBar);
-    expect(screen.getByText('OCHISTKA')).toBeTruthy();
+    expect(screen.getByLabelText('OCHISTKA')).toBeTruthy();
     expect(screen.queryByText(/Create/)).toBeNull();
     expect(screen.queryByText(/Slava/)).toBeNull();
   });
@@ -48,7 +48,7 @@ describe('TitleBar', () => {
   it('lets the frameless window be dragged by the bar and brand, but not by the buttons', () => {
     const { container } = render(TitleBar);
     const header = container.querySelector('header');
-    const name = screen.getByText('OCHISTKA');
+    const name = screen.getByLabelText('OCHISTKA');
     const brand = name.parentElement;
 
     expect(header?.hasAttribute('data-tauri-drag-region')).toBe(true);
