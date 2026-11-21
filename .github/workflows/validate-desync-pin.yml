@@ -8,6 +8,7 @@ on:
     paths:
       - crates/ochistka-core/src/desync.rs
       - crates/platform/src/desync.rs
+      - assets/desync/**
       - .github/workflows/validate-desync-pin.yml
 
 permissions:

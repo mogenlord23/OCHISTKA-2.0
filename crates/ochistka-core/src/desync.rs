@@ -605,8 +605,14 @@ mod tests {
         assert_eq!(candidate.args[0], "--wf-tcp-out=80,443");
         assert_eq!(candidate.args[1], "--lua-init=@zapret-lib.lua");
         assert_eq!(candidate.args[2], "--lua-init=@zapret-antidpi.lua");
-        assert!(candidate.args.iter().any(|arg| arg.starts_with("--lua-desync=fake:")));
-        assert!(candidate.args.iter().any(|arg| arg.starts_with("--lua-desync=multisplit:")));
+        assert!(candidate
+            .args
+            .iter()
+            .any(|arg| arg.starts_with("--lua-desync=fake:")));
+        assert!(candidate
+            .args
+            .iter()
+            .any(|arg| arg.starts_with("--lua-desync=multisplit:")));
         assert!(!candidate.args.iter().any(|arg| arg.starts_with("--wf-udp")));
         assert!(site_discord_profile(Platform::Windows).is_none());
     }

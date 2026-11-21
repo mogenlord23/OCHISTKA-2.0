@@ -40,8 +40,7 @@ const LUA_ASSETS: [(&str, &[u8]); 2] = [
 
 fn lua_assets_valid(dir: &Path) -> bool {
     LUA_ASSETS.iter().all(|(name, data)| {
-        std::fs::read(dir.join(name))
-            .is_ok_and(|file| file.as_slice() == *data)
+        std::fs::read(dir.join(name)).is_ok_and(|file| file.as_slice() == *data)
     })
 }
 
@@ -64,7 +63,9 @@ fn install_lua_assets(dir: &Path) -> Result<(), PrepareError> {
         std::fs::rename(&tmp, &path).map_err(|err| PrepareError::disk(err.to_string()))?;
     }
     if !lua_assets_valid(dir) {
-        return Err(PrepareError::integrity("Lua-скрипты не прошли проверку целостности"));
+        return Err(PrepareError::integrity(
+            "Lua-скрипты не прошли проверку целостности",
+        ));
     }
     Ok(())
 }
@@ -349,7 +350,7 @@ mod tests {
         install_lua_assets(&dir).unwrap();
         assert_eq!(adapter.locate().unwrap(), dir.join(ENGINE_EXE));
         std::fs::write(dir.join("WinDivert.dll"), b"tampered").unwrap();
-        assert!(adapter.locate().unwrap_err().contains("хэши не совпали"));
+        assert!(adapter.locate().unwrap_err().contains("изменены"));
     }
 
     #[test]
