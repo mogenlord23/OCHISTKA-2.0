@@ -1,0 +1,11 @@
+# Встроенный список сайтов для «Обхода сайтов»: по одному домену в строке.
+# Совпадает сам домен и все его поддомены. Владелец расширяет список.
+youtube.com
+youtu.be
+googlevideo.com
+ytimg.com
+discord.com
+discord.gg
+discordapp.com
+x.com
+twitter.com
