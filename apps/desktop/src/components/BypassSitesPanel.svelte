@@ -69,7 +69,7 @@
         bind:value={draft}
         rows="3"
         aria-label="Адреса сайтов"
-        placeholder="example.com"
+        placeholder="Адрес сайта, например example.com"
         spellcheck="false"
       ></textarea>
       <button type="button" class="add" disabled={busy || draft.trim() === ''} onclick={add}
@@ -151,28 +151,50 @@
     font-weight: 700;
   }
 
+  /* Поле как остальные поля приложения: видимая рамка, фон из токенов, рамка цвета раздела в фокусе. */
   textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--black);
     color: var(--ink);
     font: inherit;
     resize: vertical;
+    transition: border-color 160ms ease;
+  }
+
+  textarea:hover {
+    border-color: #5a5a5a;
+  }
+
+  textarea:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  textarea::placeholder {
+    color: var(--muted);
   }
 
   .add {
     align-self: flex-start;
-    padding: 6px 14px;
+    min-height: 40px;
+    padding: 8px 18px;
     border: 0;
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    border-radius: var(--radius-sm);
+    background: var(--btn-bg);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
     color: var(--ink);
     font: inherit;
+    font-size: var(--text-caption);
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .add:hover:not(:disabled) {
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
 
   .add:disabled {
