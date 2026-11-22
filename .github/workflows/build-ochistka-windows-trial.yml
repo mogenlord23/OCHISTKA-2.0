@@ -51,6 +51,20 @@ jobs:
           cargo check --locked -p ochistka-desktop
           if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
 
+      - name: Build the bypass service host
+        shell: pwsh
+        run: |
+          cargo build --release --locked -p bypass-host
+          if ($LASTEXITCODE -ne 0) { throw 'bypass-host build failed' }
+
+      - name: Fetch ochistkadpi (SonicDPI v0.2.2) with SHA-256 checks and stage the service files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/resources/ochistkadpi'
+          & "$env:GITHUB_WORKSPACE/scripts/windows/fetch-ochistkadpi.ps1" -Destination $dest
+          Copy-Item target/release/ochistka-bypass-host.exe (Join-Path $dest 'ochistka-bypass-host.exe')
+
       - name: Build the NSIS installer (Tauri)
         shell: pwsh
         run: |
@@ -88,6 +102,19 @@ jobs:
           }
           if ($uiMissing.Count -gt 0) { throw "Missing in frontend bundle: $($uiMissing -join ', ')" }
 
+          # Служба обхода: файлы в папке ресурсов установщика, хук установки и режим «для всех пользователей».
+          $res = 'apps/desktop/src-tauri/resources/ochistkadpi'
+          foreach ($need in @('ochistkadpi.exe','WinDivert64.sys','WinDivert.dll','ochistka-bypass-host.exe','bypass-service.ps1')) {
+            $f = Join-Path $res $need
+            if (-not (Test-Path $f) -or (Get-Item $f).Length -eq 0) { throw "Missing in bundle resources: $need" }
+          }
+          $conf = Get-Content 'apps/desktop/src-tauri/tauri.conf.json' -Raw
+          foreach ($needle in @('resources/ochistkadpi/*','installerHooks','perMachine')) {
+            if (-not $conf.Contains($needle)) { throw "tauri.conf.json: missing $needle" }
+          }
+          $files = Get-ChildItem $res -File | Where-Object { $_.Name -ne 'README.txt' } | ForEach-Object { '{0}  {1}  {2}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Length, $_.Name }
+          $files | Set-Content -Encoding utf8 out/ochistkadpi-files.txt
+
           @(
             "OCHISTKA: установщик Windows 10/11 x64 для ручного испытания",
             "Исходный коммит: $($env:SOURCE_SHA)",
@@ -97,6 +124,8 @@ jobs:
             "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
             "В приложении: VPN и кнопка «Обход сайтов» (локальный прокси и системный прокси, ADR 0020); работа у провайдера не проверена.",
             "В CI проверено: сборка, svelte-check, vitest, cargo check.",
+            "Служба OchistkaBypass: ochistka-bypass-host.exe + ochistkadpi (переименованный SonicDPI v0.2.2, код не изменён; архив SHA-256 ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0, sonicdpi.exe SHA-256 3d6451021f390f8302b3aa1d790b86e626d7f925f7e1a2ba9c51ec91afa35351). Права администратора запрашиваются один раз при установке; хеши файлов: ochistkadpi-files.txt.",
+            "Драйвер WinDivert из SonicDPI не подписан нами (подпись WinDivert — его автора).",
             "В CI НЕ проверено: запуск GUI, права администратора, сеть. Это делает пользователь вручную."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
           Get-Content out/BUILD-INFO.txt

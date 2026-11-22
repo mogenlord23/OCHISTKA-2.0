@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ochistka-core", "crates/platform", "crates/proxy-bypass", "apps/desktop/src-tauri"]
+members = ["crates/ochistka-core", "crates/platform", "crates/proxy-bypass", "crates/bypass-host", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

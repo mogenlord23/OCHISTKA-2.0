@@ -10,6 +10,11 @@ Thumbs.db
 apps/desktop/src-tauri/resources/vpn-core/*
 !apps/desktop/src-tauri/resources/vpn-core/README.txt
 
+# ochistkadpi (переименованный SonicDPI v0.2.2) и служба скачиваются/собираются в CI, в git не хранятся
+apps/desktop/src-tauri/resources/ochistkadpi/*
+!apps/desktop/src-tauri/resources/ochistkadpi/README.txt
+!apps/desktop/src-tauri/resources/ochistkadpi/bypass-service.ps1
+
 # Python: автоматически создаваемые файлы тестов
 __pycache__/
 *.py[cod]

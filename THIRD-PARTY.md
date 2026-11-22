@@ -37,3 +37,9 @@
 ## Флаги стран — flag-icons (lipis)
 
 Папка `apps/desktop/src/assets/flags`: SVG-флаги 4×3 из проекта flag-icons (https://github.com/lipis/flag-icons), лицензия MIT, © 2013 Panayiotis Lipiridis. Файлы rs, mx, es, hr, md заменены упрощёнными трёхполосными версиями (без гербов) ради размера.
+
+## Обход сайтов на Windows: служба (ADR 0021)
+
+- ochistkadpi — переименованный SonicDPI v0.2.2 (MIT/Apache-2.0), авторы by-sonic, код не изменён (`by-sonic/sonicdpi`; LICENSE-MIT, LICENSE-APACHE и THIRD_PARTY_LICENSES.md лежат рядом с файлом). Архив `SonicDPI-windows-x64.zip`, SHA-256 `ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0`; `sonicdpi.exe` из архива (SHA-256 `3d6451021f390f8302b3aa1d790b86e626d7f925f7e1a2ba9c51ec91afa35351`) сохраняется как `ochistkadpi.exe`. Не входит в git: скачивается на сборке.
+- WinDivert 2.2.2 (basil00/WinDivert, LGPL v3 / GPL v2) идёт внутри того же архива отдельными файлами DLL и драйвера, без статической линковки; драйвер подписан его автором, не нами.
+
