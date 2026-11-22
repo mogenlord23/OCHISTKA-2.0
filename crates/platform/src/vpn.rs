@@ -276,7 +276,7 @@ impl VpnHost for SingBoxHost {
 
     fn free_port(&self) -> Result<u16, String> {
         let listener = TcpListener::bind(("127.0.0.1", 0))
-            .map_err(|e| format!("Нет свободного порта: {e}"))?;
+            .map_err(|e| format!("Не удалось подготовить VPN: {e}"))?;
         listener
             .local_addr()
             .map(|a| a.port())
@@ -350,7 +350,7 @@ impl Dialer for TcpDialer {
     fn connect(&self, host: &str, port: u16, timeout: Duration) -> Result<(), String> {
         let addrs = (host, port)
             .to_socket_addrs()
-            .map_err(|e| format!("DNS: {e}"))?;
+            .map_err(|e| format!("Не удалось найти сервер: {e}"))?;
         let mut last = "нет адреса".to_string();
         for addr in addrs.take(2) {
             match TcpStream::connect_timeout(&addr, timeout) {

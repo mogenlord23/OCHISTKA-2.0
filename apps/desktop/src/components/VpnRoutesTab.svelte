@@ -71,7 +71,7 @@
   <p class="state" role="status">Читаем сохранённые правила…</p>
 {:else}
   <section class="card block" aria-labelledby="vpn-routes-title">
-    <h2 id="vpn-routes-title" class="block-title">Маршруты</h2>
+    <h2 id="vpn-routes-title" class="block-title">Через VPN</h2>
     <p class="note lead">
       Что идёт через VPN. Всё, что вы впишете сюда, будет открываться через выбранный сервер, а
       остальное идёт обычным путём.

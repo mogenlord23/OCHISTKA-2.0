@@ -669,9 +669,7 @@ impl VpnService {
         }
         if !ready {
             process.kill();
-            return Err(VpnError::Engine(
-                "VPN не открыл локальный порт за 15 секунд".into(),
-            ));
+            return Err(VpnError::Engine("VPN не запустился за 15 секунд".into()));
         }
         if uses_proxy {
             // «Подключено» только после того, как прокси записан и проверен чтением.

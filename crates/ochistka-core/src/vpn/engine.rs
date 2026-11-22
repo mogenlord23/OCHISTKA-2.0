@@ -115,7 +115,7 @@ impl PrepareError {
             DownloadFailure::Http(code) => format!("сервер загрузки ответил кодом {code}"),
             DownloadFailure::Timeout => "время ожидания загрузки истекло".into(),
             DownloadFailure::Tls => "ошибка защищённого соединения (TLS) при загрузке".into(),
-            DownloadFailure::Dns => "не удалось найти адрес сервера загрузки (DNS)".into(),
+            DownloadFailure::Dns => "не удалось найти сервер загрузки, проверьте интернет".into(),
             DownloadFailure::Connect => {
                 "нет соединения с сервером загрузки, проверьте интернет".into()
             }
@@ -218,7 +218,9 @@ pub fn install(
     report(0, None);
     let archive = downloader.download(spec.url, spec.url_prefix, MAX_ARCHIVE_BYTES, &mut report)?;
     if sha256_hex(&archive) != spec.archive_sha256 {
-        return Err(PrepareError::integrity("SHA-256 архива не совпал"));
+        return Err(PrepareError::integrity(
+            "загруженный файл повреждён или подменён",
+        ));
     }
     let files = unpack(spec, &archive)?;
     std::fs::create_dir_all(dir).map_err(|e| PrepareError::disk(e.to_string()))?;
@@ -266,7 +268,9 @@ fn unpack(spec: &PinnedEngine, archive: &[u8]) -> Result<HashMap<String, Vec<u8>
             .get(*name)
             .ok_or_else(|| PrepareError::integrity(format!("в архиве нет {name}")))?;
         if sha256_hex(bytes) != *hash {
-            return Err(PrepareError::integrity(format!("SHA-256 {name} не совпал")));
+            return Err(PrepareError::integrity(format!(
+                "файл {name} повреждён или подменён"
+            )));
         }
     }
     Ok(found)
@@ -401,7 +405,7 @@ mod tests {
         assert!(reason(DownloadFailure::Http(404)).contains("404"));
         assert!(reason(DownloadFailure::Timeout).contains("ожидания"));
         assert!(reason(DownloadFailure::Tls).contains("TLS"));
-        assert!(reason(DownloadFailure::Dns).contains("DNS"));
+        assert!(reason(DownloadFailure::Dns).contains("найти сервер"));
         assert!(reason(DownloadFailure::Connect).contains("интернет"));
     }
 

@@ -547,10 +547,10 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
   });
 });
 
-describe('VpnPage: «Дополнительно», блоки «Маршруты» и «Исключения»', () => {
+describe('VpnPage: «Дополнительно», блоки «Через VPN» и «Исключения»', () => {
   it('shows the two blocks with plain explanations on the Advanced tab', async () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
-    expect(await screen.findByRole('heading', { name: 'Маршруты' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Через VPN' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Исключения' })).toBeTruthy();
     expect(screen.getByText(/Что идёт через VPN/)).toBeTruthy();
     expect(screen.getByText(/Что идёт напрямую, мимо VPN/)).toBeTruthy();
@@ -646,42 +646,15 @@ describe('VpnPage: «Дополнительно», блоки «Маршруты
   });
 });
 
-describe('VpnPage: маршруты и «Дополнительно»', () => {
-  it('shows «DNS» as one switch, off with status text', async () => {
+describe('VpnPage: «Дополнительно»', () => {
+  it('has has no technical words', async () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
-    // Порядок: DNS, Маршруты и исключения; имя в кнопке не дублируется.
-    await screen.findByText('Маршруты');
-    const order = ['DNS', 'Маршруты'].map((text) => screen.getAllByText(text, { exact: true })[0]);
-    for (let i = 0; i < order.length - 1; i++) {
-      expect(
-        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
-    expect(screen.getAllByText('DNS', { exact: true })).toHaveLength(1);
-    // Telegram не отдельная возможность: только упоминание внутри одной карточки.
-    expect(screen.queryByRole('switch', { name: /Telegram/ })).toBeNull();
-    expect(screen.queryByText(/Zapret|Xbox/)).toBeNull();
-    // Отдельной панели пробной проверки, галочки согласия и оценок больше нет.
-    expect(screen.queryByText(/Пробная проверка/)).toBeNull();
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Работает' })).toBeNull();
-    const sw = screen.getByRole('switch', { name: 'DNS' });
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
-  });
-
-  it('does not show GoodbyeDPI', () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    expect(screen.queryByText(/GoodbyeDPI/i)).toBeNull();
-  });
-
-  it('has no confirmation dialog and the tools are disabled with a reason', () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    expect((screen.getByRole('switch', { name: 'DNS' }) as HTMLButtonElement).disabled).toBe(true);
+    await screen.findByText('Через VPN');
+    expect(screen.queryByText(/DNS|Маршрут|маршрут/)).toBeNull();
+    expect(screen.queryByText(/Zapret|Xbox|GoodbyeDPI/i)).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
-    // Только DNS.
-    expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(1);
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 });
 
@@ -708,41 +681,19 @@ describe('VpnPage: список сайтов', () => {
   });
 });
 
-describe('VpnPage: DNS — выбор провайдера', () => {
-  it('opens the brand menu with Automatic checked and providers shown as not yet available', async () => {
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Выбрать DNS-провайдера' }));
-    const auto = screen.getByRole('menuitemradio', { name: 'Автоматически' });
-    expect(auto.getAttribute('aria-checked')).toBe('true');
-    for (const name of ['Cloudflare', 'Google', 'OpenDNS', 'Quad9']) {
-      const item = screen.getByRole('menuitemradio', { name }) as HTMLButtonElement;
-      expect(item.disabled).toBe(true);
-      expect(item.getAttribute('aria-checked')).toBe('false');
-    }
-    await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(
-      (screen.getByRole('switch', { name: 'DNS' }) as HTMLButtonElement).getAttribute(
-        'aria-checked',
-      ),
-    ).toBe('false');
-  });
-});
-
 describe('VpnPage: вкладки', () => {
   it('shows four tabs, the first selected, with the lead line and big title', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     expect(tabs).toEqual(['VPN', 'Дополнительно', 'Сеть', 'Соединения']);
     expect(screen.getByRole('tab', { name: 'VPN' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByText('Подписка, серверы, маршруты · сеть и соединения')).toBeTruthy();
+    expect(screen.getByText('Подписка, серверы и сайты · сеть и соединения')).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('VPN');
   });
 
   it('clicking a tab switches the content and the title', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await fireEvent.click(screen.getByRole('tab', { name: 'Дополнительно' }));
-    expect(screen.getByRole('switch', { name: 'DNS' })).toBeTruthy();
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
     expect(screen.queryByText('Ссылка подписки / импорта')).toBeNull();
   });

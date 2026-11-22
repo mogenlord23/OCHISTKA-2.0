@@ -6,7 +6,6 @@
   import { serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
-  import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import { SECTIONS } from '../lib/sections';
   import { onMount, untrack } from 'svelte';
   import poster from '../assets/pop-art.png';
@@ -29,10 +28,6 @@
     isSubscriptionUrl,
     normalizePasted,
     prepareImport,
-    NETWORK_CHANGE_REASON,
-    TOOL_UNAVAILABLE,
-    toolStateText,
-    type ToolModel,
     statusLine,
     NO_SERVERS_REASON,
   } from '../lib/vpn';
@@ -84,51 +79,8 @@
     },
   ];
 
-  /** Сетевые возможности (VPN → Дополнительно): одна карточка на понятную задачу, сложное скрыто. */
-  const ADVANCED = [
-    {
-      id: 'dns',
-      label: 'DNS',
-      description: 'Свой DNS-сервер для сайтов и игр',
-      scope: null,
-    },
-  ] as const;
-
   /** Панель «Мои сайты» открыта. */
   let sitesOpen = $state(false);
-
-  /** DNS пока не реализован: переключатель выключен и недоступен, без имитации. */
-  const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
-    dns: TOOL_UNAVAILABLE,
-  };
-
-  /** Провайдеры DNS: выбор появится вместе с работой переключателя; «Автоматически» — по умолчанию. */
-  const DNS_ITEMS: MenuItem[] = [
-    { id: 'auto', label: 'Автоматически', checked: true },
-    ...['Cloudflare', 'Google', 'OpenDNS', 'Quad9'].map((name) => ({
-      id: name.toLowerCase(),
-      label: name,
-      checked: false,
-      disabled: true,
-      reason: NETWORK_CHANGE_REASON,
-    })),
-  ];
-  let dnsMenu = $state<{ x: number; y: number; width: number } | null>(null);
-  let dnsButton = $state<HTMLElement | null>(null);
-
-  function openDnsMenu(event: MouseEvent) {
-    if (dnsMenu) {
-      closeDnsMenu();
-      return;
-    }
-    const target = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    dnsMenu = { x: target.right - 180, y: target.bottom + 4, width: 180 };
-  }
-
-  function closeDnsMenu() {
-    dnsMenu = null;
-    dnsButton?.querySelector('button')?.focus();
-  }
 
   /** Размер файла подписки не больше 5 МБ (так же ограничивает Rust). */
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -443,7 +395,7 @@
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
-      <p class="tagline">Подписка, серверы, маршруты · сеть и соединения</p>
+      <p class="tagline">Подписка, серверы и сайты · сеть и соединения</p>
     </header>
 
     <Subtabs
@@ -579,50 +531,6 @@
             {/if}
           </section>
         {:else if tab === 'advanced'}
-          {#each ADVANCED as item (item.id)}
-            {@const tool = TOOLS[item.id]}
-            <section class="card tool switch-row">
-              <button
-                type="button"
-                role="switch"
-                class="power tool-power"
-                aria-checked={tool.status === 'on'}
-                aria-label={item.label}
-                disabled={!tool.available}
-              >
-                <span class="power-knob" aria-hidden="true"></span>
-              </button>
-              <div class="tool-text">
-                <span class="switch-title">{item.label}</span>
-                <span class="tool-state">{toolStateText(tool)}</span>
-                <span class="note">{item.description}</span>{#if tool.reason}<span class="sr-only"
-                    >{tool.reason}</span
-                  >{/if}
-              </div>
-              <span class="tool-action" bind:this={dnsButton}>
-                <ExpandButton
-                  icon="M4 7h16M4 12h16M4 17h10"
-                  label="Выбрать"
-                  width={96}
-                  name="Выбрать DNS-провайдера"
-                  aria-haspopup="menu"
-                  aria-expanded={dnsMenu !== null}
-                  onclick={openDnsMenu}
-                />
-              </span>
-            </section>
-          {/each}
-          {#if dnsMenu}
-            <ContextMenu
-              items={DNS_ITEMS}
-              x={dnsMenu.x}
-              y={dnsMenu.y}
-              minWidth={dnsMenu.width}
-              label="DNS-провайдер"
-              onselect={closeDnsMenu}
-              onclose={closeDnsMenu}
-            />
-          {/if}
           <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
         {:else if tab === 'network'}
           <VpnNetworkTab />
