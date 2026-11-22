@@ -111,7 +111,9 @@
     }),
   );
   const elapsedSeconds = $derived(
-    snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
+    snapshot?.connection.state === 'connected' || snapshot?.connection.state === 'switching'
+      ? elapsedSince(snapshot.connection.since, nowMs)
+      : 0,
   );
   const status = $derived(
     actionNote ??
@@ -141,7 +143,9 @@
 
   /** Только пока VPN включён: секундомер и проверка раз в 3 секунды, что он жив. Когда VPN выключен,
       ни таймеров, ни запросов к ядру нет: следующий запрос — по нажатию. */
-  const isConnected = $derived(snapshot?.connection?.state === 'connected');
+  const isConnected = $derived(
+    snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching',
+  );
   $effect(() => {
     if (!isConnected) return;
     nowMs = Date.now();
@@ -208,10 +212,19 @@
     if (!snapshot || modeBusy || picked === snapshot.rules.mode) return;
     modeBusy = true;
     actionNote = null;
-    snapshot = { ...snapshot, rules: { ...snapshot.rules, mode: picked } };
+    const wasOn = snapshot.connection.state === 'connected';
+    // Обводка и «Переключаем…» появляются в тот же кадр, не дожидаясь ядра.
+    snapshot = {
+      ...snapshot,
+      rules: { ...snapshot.rules, mode: picked },
+      connection: wasOn
+        ? { ...snapshot.connection, state: 'switching', message: 'Переключаем…' }
+        : snapshot.connection,
+    };
     try {
-      const connection = await vpnSetMode(picked);
-      if (snapshot && connection) snapshot = { ...snapshot, connection };
+      await vpnSetMode(picked);
+      // Ответ ядра — единственный источник правды: при откате область вернётся на прежнюю.
+      await refresh();
     } catch (err) {
       actionNote = errorMessage(err);
       await refresh();

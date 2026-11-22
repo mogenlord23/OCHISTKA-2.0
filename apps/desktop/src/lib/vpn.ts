@@ -90,6 +90,10 @@ export function connectUi(
     };
   }
   // Переключатель меняется в тот же кадр: при включении сразу «включён», при выключении сразу «выключен».
+  // Смена области при включённом VPN: переключатель остаётся «включён», ждём без изменений вида.
+  if (state === 'switching') {
+    return { label: 'Переключаем…', pressed: true, busy: true, disabled: true, reason: null };
+  }
   if (state === 'connecting' || (busy && state !== 'connected')) {
     return { label: 'Включаем…', pressed: true, busy: true, disabled: true, reason: null };
   }

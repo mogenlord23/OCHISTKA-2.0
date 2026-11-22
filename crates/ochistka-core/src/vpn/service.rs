@@ -64,6 +64,8 @@ pub enum ConnState {
     Disconnected,
     Connecting,
     Connected,
+    /// Меняется область при включённом VPN: переключатель не меняется, ядро перезапускается.
+    Switching,
     Error,
 }
 
@@ -157,6 +159,8 @@ struct Conn {
     message: String,
     verified: bool,
     process: Option<Box<dyn CoreProcess>>,
+    /// Ядро останавливают прямо сейчас (замок `conn` при этом не держим).
+    stopping: bool,
 }
 
 impl Conn {
@@ -169,6 +173,7 @@ impl Conn {
             message: "Не подключено".into(),
             verified: false,
             process: None,
+            stopping: false,
         }
     }
 }
@@ -192,6 +197,10 @@ pub struct VpnService {
     coord: Arc<NetCoordinator>,
     /// Список сайтов из панели «Сайты» (нужен только режиму «только сайты из списка»).
     site_list: Mutex<Option<SiteListFn>>,
+    /// Идёт смена области: `Some(since)` — время включения, чтобы секундомер не сбрасывался.
+    switching: Mutex<Option<Option<u64>>>,
+    /// Одна смена области за раз: повторное нажатие во время смены игнорируется.
+    switch_gate: Mutex<()>,
 }
 
 /// Возвращает сайты из панели «Сайты».
@@ -232,6 +241,8 @@ impl VpnService {
             op: Mutex::new(()),
             conflict_guard: Mutex::new(None),
             site_list: Mutex::new(None),
+            switching: Mutex::new(None),
+            switch_gate: Mutex::new(()),
             coord: Arc::new(NetCoordinator::new()),
         }
     }
@@ -309,7 +320,7 @@ impl VpnService {
 
     pub fn status(&self) -> ConnectionStatus {
         let mut conn = lock(&self.conn);
-        if conn.state == ConnState::Connected {
+        if conn.state == ConnState::Connected && !conn.stopping {
             let died = conn.process.as_mut().is_none_or(|p| p.has_exited());
             if died {
                 let tail = self.log_tail();
@@ -324,6 +335,17 @@ impl VpnService {
                     );
                 }
             }
+        }
+        if let Some(since) = *lock(&self.switching) {
+            // Смена области: наружу всегда «переключаем», что бы ни происходило внутри.
+            return ConnectionStatus {
+                state: ConnState::Switching,
+                server_id: conn.server_id.clone(),
+                server_name: conn.server_name.clone(),
+                since,
+                message: "Переключаем…".into(),
+                verified: conn.verified,
+            };
         }
         ConnectionStatus {
             state: conn.state,
@@ -406,29 +428,60 @@ impl VpnService {
     /// Выбирает область VPN. При включённом VPN переподключает с новыми правилами; при выключенном
     /// только запоминает выбор.
     pub fn set_mode(&self, mode: RouteMode) -> Result<ConnectionStatus, VpnError> {
-        {
+        // Повторное нажатие во время смены области ничего не делает.
+        let Ok(_gate) = self.switch_gate.try_lock() else {
+            return Ok(self.status());
+        };
+        let prev = {
             let mut data = lock(&self.data);
             if data.rules.mode == mode {
                 return Ok(self.status());
             }
+            let prev = data.rules.mode;
             data.rules.mode = mode;
             self.save(&data)?;
+            prev
+        };
+        let since = {
+            let conn = lock(&self.conn);
+            if conn.state != ConnState::Connected {
+                drop(conn);
+                return Ok(self.status());
+            }
+            conn.since
+        };
+        *lock(&self.switching) = Some(since);
+        let outcome = self.reconnect(prev);
+        *lock(&self.switching) = None;
+        outcome.map(|()| self.status())
+    }
+
+    /// Выключает ядро прежней области и включает новое. При ошибке возвращает прежнюю область;
+    /// если и это не вышло, остаётся устойчивое состояние «ошибка» с понятным текстом.
+    fn reconnect(&self, prev: RouteMode) -> Result<(), VpnError> {
+        self.disconnect();
+        let first = self.connect();
+        if matches!(first, Ok(_)) && lock(&self.conn).state == ConnState::Connected {
+            return Ok(());
         }
-        if lock(&self.conn).state != ConnState::Connected {
-            return Ok(self.status());
+        let err = first
+            .err()
+            .unwrap_or_else(|| VpnError::Engine("VPN не запустился".into()));
+        {
+            let mut data = lock(&self.data);
+            data.rules.mode = prev;
+            let _ = self.save(&data);
         }
-        // Сначала полностью снимаем прежнюю область (ядро, туннель, системный прокси). Если откат
-        // не удался, новую не ставим поверх: пользователь увидит ошибку отката.
-        let was_tunnel = lock(&self.data).rules.mode == RouteMode::ListOnly;
-        if self.disconnect().state != ConnState::Disconnected {
-            return Ok(self.status());
+        let back = self.connect();
+        if matches!(back, Ok(_)) && lock(&self.conn).state == ConnState::Connected {
+            lock(&self.conn).message = "Не удалось переключить область. Работает прежняя".into();
+            return Ok(());
         }
-        if was_tunnel {
-            // Прежняя область — весь компьютер: даём системе убрать адаптер и маршруты туннеля
-            // до проверки связи новой областью.
-            std::thread::sleep(Duration::from_millis(700));
-        }
-        self.connect()
+        let mut conn = lock(&self.conn);
+        conn.state = ConnState::Error;
+        conn.message =
+            "Не удалось переключить область и вернуть прежнюю. Включите VPN заново".into();
+        Err(err)
     }
 
     /// Мерит задержку всех серверов (TCP). Подключению не мешает.
@@ -648,11 +701,21 @@ impl VpnService {
 
     pub fn disconnect(&self) -> ConnectionStatus {
         let _op = lock(&self.op);
-        {
+        // Ядро останавливаем без замка `conn`: остановка службы занимает секунды, а экран в это время
+        // запрашивает состояние и не должен ждать.
+        let process = {
             let mut conn = lock(&self.conn);
             self.coord.begin_stop(Owner::Vpn);
+            conn.stopping = true;
+            conn.process.take()
+        };
+        if let Some(mut p) = process {
+            p.kill();
+        }
+        {
+            let mut conn = lock(&self.conn);
             let outcome = self.cleanup_locked(&mut conn);
-            // Право свободно только после успешного возврата прокси.
+            // Право свободно только после успешной остановки.
             if outcome.is_ok() {
                 self.coord.release(Owner::Vpn);
             } else {
@@ -744,6 +807,8 @@ mod tests {
         stale: Arc<Mutex<Vec<u32>>>,
         /// Ядро запускали как службу туннеля (а не обычным процессом).
         tunnel: Arc<AtomicBool>,
+        /// Сколько ближайших запусков ядра должны завершиться ошибкой.
+        spawn_failures: Arc<std::sync::atomic::AtomicU32>,
     }
 
     struct FakeProcess(Flags);
@@ -830,6 +895,11 @@ mod tests {
             self.probe_ok
         }
         fn spawn_tunnel(&self, _: &Path, log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+            let left = self.flags.spawn_failures.load(Ordering::SeqCst);
+            if left > 0 {
+                self.flags.spawn_failures.store(left - 1, Ordering::SeqCst);
+                return Err("не запустилось".into());
+            }
             self.flags.tunnel.store(true, Ordering::SeqCst);
             std::fs::write(log, "INFO started\nERROR something broke").unwrap();
             Ok(Box::new(FakeProcess(self.flags.clone())))
@@ -1261,6 +1331,99 @@ mod tests {
             Some(V::S("corp:8080".into()))
         );
         assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(0)));
+    }
+
+    fn stable(s: &VpnService) -> ConnState {
+        let state = s.status().state;
+        assert!(
+            matches!(
+                state,
+                ConnState::Disconnected | ConnState::Connected | ConnState::Error
+            ),
+            "состояние не устойчиво: {state:?}"
+        );
+        state
+    }
+
+    #[test]
+    fn every_area_transition_ends_in_a_stable_state() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        // Выключено: смена области только запоминается.
+        assert_eq!(
+            s.set_mode(RouteMode::All).unwrap().state,
+            ConnState::Disconnected
+        );
+        assert_eq!(
+            s.set_mode(RouteMode::ListOnly).unwrap().state,
+            ConnState::Disconnected
+        );
+        // Выкл → только сайты.
+        assert_eq!(s.connect().unwrap().state, ConnState::Connected);
+        // Только сайты → весь компьютер.
+        assert_eq!(
+            s.set_mode(RouteMode::All).unwrap().state,
+            ConnState::Connected
+        );
+        assert_eq!(s.snapshot().rules.mode, RouteMode::All);
+        // Весь компьютер → только сайты.
+        assert_eq!(
+            s.set_mode(RouteMode::ListOnly).unwrap().state,
+            ConnState::Connected
+        );
+        // Двойное нажатие на ту же область: ничего не происходит.
+        assert_eq!(
+            s.set_mode(RouteMode::ListOnly).unwrap().state,
+            ConnState::Connected
+        );
+        // Выключение при включённом VPN.
+        assert_eq!(s.disconnect().state, ConnState::Disconnected);
+        assert_eq!(stable(&s), ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+    }
+
+    #[test]
+    fn an_error_in_the_middle_of_a_switch_returns_to_the_last_working_area() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        // Новое ядро не запускается: прежняя область возвращается, текст понятный.
+        flags.spawn_failures.store(1, Ordering::SeqCst);
+        let st = s.set_mode(RouteMode::All).unwrap();
+        assert_eq!(st.state, ConnState::Connected);
+        assert!(st.message.contains("Работает прежняя"), "{}", st.message);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        // Не запускается ничего: устойчивая «ошибка», а не промежуточное состояние.
+        flags.spawn_failures.store(2, Ordering::SeqCst);
+        assert!(s.set_mode(RouteMode::All).is_err());
+        assert_eq!(stable(&s), ConnState::Error);
+        assert!(!s.status().message.contains("Переключаем"));
+        // Из ошибки можно включить заново.
+        assert_eq!(s.connect().unwrap().state, ConnState::Connected);
+        s.disconnect();
+    }
+
+    #[test]
+    fn while_switching_the_screen_sees_switching_and_a_second_press_is_ignored() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        *lock(&s.switching) = Some(Some(7));
+        let st = s.status();
+        assert_eq!(st.state, ConnState::Switching);
+        assert_eq!(st.message, "Переключаем…");
+        assert_eq!(st.since, Some(7));
+        // Занятый затвор: второе нажатие не меняет область.
+        let _held = s.switch_gate.lock().unwrap();
+        assert_eq!(
+            s.set_mode(RouteMode::All).unwrap().state,
+            ConnState::Switching
+        );
+        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
     }
 
     #[test]
