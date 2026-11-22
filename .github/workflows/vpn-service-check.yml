@@ -1,0 +1,153 @@
+# Проверка установки службы VPN на настоящем Windows (windows-2022, права администратора в раннере):
+# собрать установщик, тихо установить (NSIS /S), проверить службу «OchistkaVpn» (установлена, запуск
+# «вручную», права для пользователей, запуск → RUNNING через 5 секунд, отказ на чужую конфигурацию,
+# остановка → STOPPED), удалить программу и убедиться, что службы нет. Журнал установки и итог — в артефакт.
+# Запускается только вручную (Actions → Run workflow). Владелец его не запускает.
+name: vpn-service-check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/optimistic-hypatia-hgstjj]
+    paths: ['.github/workflows/vpn-service-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  vpn-service-check:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install JS dependencies
+        shell: pwsh
+        run: npm ci
+
+      - name: Stage the VPN core and the VPN service
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/scripts/windows/stage-vpn-service.ps1"
+
+      - name: Build the NSIS installer
+        shell: pwsh
+        run: |
+          npm run tauri -w apps/desktop -- build --bundles nsis
+          if ($LASTEXITCODE -ne 0) { throw 'tauri build failed' }
+
+      - name: Install silently, check the service, uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $logDir = Join-Path $env:GITHUB_WORKSPACE 'service-check-logs'
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          $log = Join-Path $logDir 'service-check.log'
+          function Log([string]$m) { $line = "{0:HH:mm:ss}  {1}" -f (Get-Date), $m; Write-Host $line; Add-Content -Path $log -Value $line }
+          $sc = Join-Path $env:SystemRoot 'System32\sc.exe'
+          $name = 'OchistkaVpn'
+          $failures = @()
+          function State([string]$n) { $o = & $sc query $n 2>&1 | Out-String; if ($LASTEXITCODE -ne 0) { return 'NOT_INSTALLED' }; if ($o -match 'STATE\s*:\s*\d+\s+(\w+)') { return $Matches[1] }; return 'UNKNOWN' }
+          function WaitState([string]$n, [string]$want, [int]$sec) { for ($i = 0; $i -lt $sec * 4; $i++) { if ((State $n) -eq $want) { return $true }; Start-Sleep -Milliseconds 250 }; return $false }
+          $programData = Join-Path $env:ProgramData 'OCHISTKA'
+          Remove-Item -Recurse -Force $programData -ErrorAction SilentlyContinue
+          $appDir = Join-Path $env:ProgramFiles 'OCHISTKA'
+          try {
+            $installer = Get-ChildItem -Path target/release/bundle/nsis -Filter *.exe | Select-Object -First 1
+            if (-not $installer) { throw 'установщик не найден' }
+            Log ("Установщик: {0}, {1} байт, SHA-256 {2}" -f $installer.Name, $installer.Length, (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant())
+
+            Log 'Тихая установка (/S)'
+            $p = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+            Log "Код выхода установщика: $($p.ExitCode)"
+            if ($p.ExitCode -ne 0) { $failures += "установщик вернул код $($p.ExitCode)" }
+            Log ("Папка программы: {0}" -f (Test-Path $appDir))
+            if (Test-Path $appDir) { Get-ChildItem $appDir -Recurse -File | Where-Object { $_.FullName -match 'vpn-' } | ForEach-Object { Log ("  {0}  {1}" -f $_.FullName.Substring($appDir.Length), $_.Length) } }
+            $installLog = Join-Path $programData 'install.log'
+            if (Test-Path $installLog) { Copy-Item $installLog (Join-Path $logDir 'install.log'); Log '--- install.log ---'; Get-Content $installLog | ForEach-Object { Log $_ }; Log '--- конец install.log ---' } else { $failures += 'журнал установки install.log не создан' }
+
+            $state = State $name
+            Log "После установки: $state"
+            if ($state -ne 'STOPPED') { $failures += "после установки состояние $state, ожидалось STOPPED" }
+            $qc = (& $sc qc $name | Out-String)
+            Log $qc
+            if ($qc -notmatch 'DEMAND_START') { $failures += 'тип запуска не «вручную»' }
+            $sd = (& $sc sdshow $name | Out-String).Trim()
+            Log "Права службы: $sd"
+            if ($sd -notmatch ';;;AU\)') { $failures += 'в правах службы нет записи для обычных пользователей (AU)' }
+
+            Log 'Отказ на чужую конфигурацию (должна остановиться сразу)'
+            try { (Get-Service $name).Start(@('{"experimental":{"clash_api":{}}}')) } catch { Log "Запуск отклонён: $($_.Exception.Message)" }
+            Start-Sleep -Seconds 3
+            $bad = State $name
+            Log "После чужой конфигурации: $bad"
+            if ($bad -eq 'RUNNING') { $failures += 'служба приняла недопустимую конфигурацию' }
+            [void](WaitState $name 'STOPPED' 10)
+
+            $port = 20899
+            $config = @{ log = @{ level = 'warn' }; inbounds = @(@{ type = 'mixed'; tag = 'm'; listen = '127.0.0.1'; listen_port = $port }); outbounds = @(@{ type = 'direct'; tag = 'direct' }); route = @{ final = 'direct' } } | ConvertTo-Json -Depth 6 -Compress
+            Log 'Запуск службы (проверочная конфигурация без туннеля)'
+            try { (Get-Service $name).Start(@($config)) } catch { Log "Ошибка запуска: $($_.Exception.Message)"; $failures += "запуск не удался: $($_.Exception.Message)" }
+            Start-Sleep -Seconds 5
+            $state = State $name
+            Log "Через 5 секунд: $state"
+            Log ((& $sc query $name | Out-String))
+            if ($state -ne 'RUNNING') { $failures += "через 5 секунд состояние $state, ожидалось RUNNING" }
+            $open = $false
+            try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1', $port); $open = $c.Connected; $c.Close() } catch { }
+            Log "Локальный вход ядра отвечает: $open"
+            if (-not $open) { $failures += 'ядро не открыло локальный вход' }
+            Log ('Процесс sing-box: ' + [bool](Get-Process -Name 'sing-box' -ErrorAction SilentlyContinue))
+            $cfgFile = Join-Path $appDir 'vpn-service\run\config.json'
+            Start-Sleep -Seconds 2
+            Log ("Файл конфигурации стёрт после запуска: {0}" -f (-not (Test-Path $cfgFile)))
+            if (Test-Path $cfgFile) { $failures += 'файл конфигурации с ключами не стёрт' }
+
+            Log 'Остановка службы'
+            & $sc stop $name *>&1 | ForEach-Object { Log "sc stop: $_" }
+            $stopped = WaitState $name 'STOPPED' 20
+            Log "STOPPED достигнуто: $stopped"
+            if (-not $stopped) { $failures += 'служба не достигла STOPPED за 20 секунд' }
+            if (Get-Process -Name 'sing-box' -ErrorAction SilentlyContinue) { $failures += 'процесс sing-box остался' }
+          }
+          catch { $failures += "исключение: $($_.Exception.Message)"; Log ($_ | Out-String) }
+          finally {
+            Log 'Удаление программы'
+            $uninst = Join-Path $appDir 'uninstall.exe'
+            if (Test-Path $uninst) {
+              Start-Process -FilePath $uninst -ArgumentList '/S' -Wait | Out-Null
+              for ($i = 0; $i -lt 120; $i++) { if (-not (Test-Path $uninst)) { break }; Start-Sleep -Milliseconds 500 }
+            } else { $failures += 'uninstall.exe не найден' }
+            $after = State $name
+            Log "После удаления: $after"
+            if ($after -ne 'NOT_INSTALLED') { $failures += "после удаления состояние $after" }
+            $installLog = Join-Path $programData 'install.log'
+            if (Test-Path $installLog) { Copy-Item $installLog (Join-Path $logDir 'install-after-uninstall.log') -Force }
+          }
+          if ($failures.Count -gt 0) {
+            Log ('ОШИБКИ: ' + ($failures -join '; '))
+            Set-Content -Path (Join-Path $logDir 'RESULT.txt') -Value ('FAILED: ' + ($failures -join '; '))
+            exit 1
+          }
+          Log 'ВСЁ ПРОШЛО'
+          Set-Content -Path (Join-Path $logDir 'RESULT.txt') -Value 'PASSED'
+          exit 0
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vpn-service-check-logs
+          path: service-check-logs/*
+          if-no-files-found: warn
