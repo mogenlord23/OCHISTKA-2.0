@@ -1,8 +1,0 @@
-[package]
-name = "proxy-bypass"
-version.workspace = true
-edition.workspace = true
-publish.workspace = true
-
-# Только стандартная библиотека: без драйверов, перехвата пакетов и внешних программ.
-[dependencies]

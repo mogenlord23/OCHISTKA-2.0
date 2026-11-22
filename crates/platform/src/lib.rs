@@ -10,7 +10,6 @@ pub mod icon_image;
 pub mod icon_store;
 pub mod os_status;
 pub mod speedtest;
-pub mod sys_proxy;
 pub mod vpn;
 
 /// Очистка дисков Windows: файловый адаптер и раскладка. Файл лежит в `windows/`, но модуль

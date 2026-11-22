@@ -29,12 +29,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "windows": {
-      "nsis": {
-        "installMode": "perMachine",
-        "installerHooks": "windows/hooks.nsh"
-      }
-    },
     "icon": [
       "icons/icon.ico",
       "icons/icon.png",
@@ -44,8 +38,7 @@
     ],
     "resources": {
       "resources/wallpapers/*.jpg": "wallpapers/",
-      "resources/vpn-core/*": "vpn-core/",
-      "resources/ochistkadpi/*": "ochistkadpi/"
+      "resources/vpn-core/*": "vpn-core/"
     }
   }
 }

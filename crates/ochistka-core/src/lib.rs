@@ -20,7 +20,6 @@ pub mod readonly;
 pub mod reveal;
 pub mod scan;
 pub mod services;
-pub mod site_bypass;
 pub mod speedtest;
 pub mod system;
 pub mod tweaks;

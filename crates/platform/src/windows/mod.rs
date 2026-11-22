@@ -1,7 +1,6 @@
 //! Адаптеры Windows: sysinfo (только чтение), реестр и движок ClamAV (libclamav, см. ADR 0004).
 
 pub mod appearance;
-pub mod bypass_service;
 pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;

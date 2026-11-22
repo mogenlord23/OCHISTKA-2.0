@@ -59,7 +59,7 @@
 
 <div class="sites" class:open aria-hidden={!open} inert={!open}>
   <div class="inner">
-    <section class="card" aria-label="Сайты для обхода">
+    <section class="card" aria-label="Список сайтов">
       <div class="head">
         <span class="title">Мои сайты</span>
         <button type="button" class="icon-btn" aria-label="Закрыть" onclick={onclose}>✕</button>

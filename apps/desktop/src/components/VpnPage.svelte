@@ -14,15 +14,6 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
-  import {
-    bypassView,
-    errorText,
-    siteBypassStart,
-    siteBypassStatus,
-    siteBypassStop,
-    type SiteBypassStatus,
-    type Want,
-  } from '../lib/siteBypass';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -85,12 +76,6 @@
   /** Сетевые возможности (VPN → Дополнительно): одна карточка на понятную задачу, сложное скрыто. */
   const ADVANCED = [
     {
-      id: 'bypass',
-      label: 'Обход сайтов',
-      description: 'Помогает открывать сайты в браузере',
-      scope: 'YouTube · Discord · X',
-    },
-    {
       id: 'dns',
       label: 'DNS',
       description: 'Свой DNS-сервер для сайтов и игр',
@@ -98,49 +83,13 @@
     },
   ] as const;
 
-  /** Обход сайтов: одна кнопка включает и выключает. Состояние запрашивается один раз, без опроса. */
-  let bypassStatus = $state<SiteBypassStatus | null>(null);
-  /** Желаемое положение, пока Rust работает в фоне (кнопка меняется сразу). */
-  let bypassWant = $state<Want>(null);
-  let bypassError = $state<string | null>(null);
-  /** Панель «Мои сайты» открыта (кнопка сбоку у «Обхода сайтов»). */
+  /** Панель «Мои сайты» открыта. */
   let sitesOpen = $state(false);
-  const bypass = $derived(bypassView(bypassStatus, bypassWant, bypassError));
 
   /** DNS пока не реализован: переключатель выключен и недоступен, без имитации. */
   const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
-    bypass: { status: 'off', available: true, reason: null },
     dns: TOOL_UNAVAILABLE,
   };
-
-  async function refreshBypass() {
-    try {
-      bypassStatus = (await siteBypassStatus()) ?? null;
-    } catch (err) {
-      bypassError = errorText(err);
-    }
-  }
-
-  /** Нажатие — явное действие пользователя. Кнопка меняется в тот же кадр и откатывается при ошибке. */
-  async function toggleBypass() {
-    if (bypassWant !== null) return;
-    const stopping = bypassStatus?.active === true;
-    bypassWant = stopping ? 'off' : 'on';
-    bypassError = null;
-    try {
-      const next = (stopping ? await siteBypassStop() : await siteBypassStart()) ?? null;
-      bypassStatus = next;
-    } catch (err) {
-      bypassError = errorText(err);
-    } finally {
-      bypassWant = null;
-    }
-  }
-
-  $effect(() => {
-    if (tab !== 'advanced') return;
-    void refreshBypass();
-  });
 
   /** Провайдеры DNS: выбор появится вместе с работой переключателя; «Автоматически» — по умолчанию. */
   const DNS_ITEMS: MenuItem[] = [
@@ -624,57 +573,49 @@
                 type="button"
                 role="switch"
                 class="power tool-power"
-                class:on={item.id === 'bypass' ? bypass.checked : tool.status === 'on'}
-                aria-checked={item.id === 'bypass' ? bypass.checked : tool.status === 'on'}
-                aria-busy={item.id === 'bypass' ? bypass.busy : tool.status === 'pending'}
+                aria-checked={tool.status === 'on'}
                 aria-label={item.label}
-                disabled={item.id === 'bypass' ? false : !tool.available}
-                onclick={item.id === 'bypass' ? toggleBypass : undefined}
+                disabled={!tool.available}
               >
                 <span class="power-knob" aria-hidden="true"></span>
               </button>
               <div class="tool-text">
                 <span class="switch-title">{item.label}</span>
-                <span
-                  class="tool-state"
-                  role={item.id === 'bypass' && bypass.error ? 'alert' : undefined}
-                  >{item.id === 'bypass' ? bypass.text : toolStateText(tool)}</span
-                >
-                <span class="note">{item.description}</span
-                >{#if item.id !== 'bypass' && tool.reason}<span class="sr-only">{tool.reason}</span
+                <span class="tool-state">{toolStateText(tool)}</span>
+                <span class="note">{item.description}</span>{#if tool.reason}<span class="sr-only"
+                    >{tool.reason}</span
                   >{/if}
-                {#if item.scope}<span class="note scope">{item.scope}</span>{/if}
               </div>
-              {#if item.id === 'bypass'}
-                <span class="tool-action">
-                  <ExpandButton
-                    icon="M12 5v14M5 12h14"
-                    label="Сайты"
-                    width={96}
-                    name="Добавить сайты для обхода"
-                    aria-expanded={sitesOpen}
-                    onclick={() => (sitesOpen = !sitesOpen)}
-                  />
-                </span>
-              {/if}
-              {#if item.id === 'dns'}
-                <span class="tool-action" bind:this={dnsButton}>
-                  <ExpandButton
-                    icon="M4 7h16M4 12h16M4 17h10"
-                    label="Выбрать"
-                    width={96}
-                    name="Выбрать DNS-провайдера"
-                    aria-haspopup="menu"
-                    aria-expanded={dnsMenu !== null}
-                    onclick={openDnsMenu}
-                  />
-                </span>
-              {/if}
+              <span class="tool-action" bind:this={dnsButton}>
+                <ExpandButton
+                  icon="M4 7h16M4 12h16M4 17h10"
+                  label="Выбрать"
+                  width={96}
+                  name="Выбрать DNS-провайдера"
+                  aria-haspopup="menu"
+                  aria-expanded={dnsMenu !== null}
+                  onclick={openDnsMenu}
+                />
+              </span>
             </section>
-            {#if item.id === 'bypass'}
-              <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
-            {/if}
           {/each}
+          <section class="card tool switch-row">
+            <div class="tool-text">
+              <span class="switch-title">Список сайтов</span>
+              <span class="note">Свои сайты для режима «Только сайты из списка через VPN»</span>
+            </div>
+            <span class="tool-action">
+              <ExpandButton
+                icon="M12 5v14M5 12h14"
+                label="Сайты"
+                width={96}
+                name="Добавить сайты"
+                aria-expanded={sitesOpen}
+                onclick={() => (sitesOpen = !sitesOpen)}
+              />
+            </span>
+          </section>
+          <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
           {#if dnsMenu}
             <ContextMenu
               items={DNS_ITEMS}
@@ -1241,11 +1182,6 @@
 
   .tool-text .note {
     margin: 0;
-  }
-
-  .tool-text .scope {
-    color: var(--ink);
-    font-weight: 600;
   }
 
   .tool-action {

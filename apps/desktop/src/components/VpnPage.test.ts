@@ -557,20 +557,17 @@ describe('VpnPage: «Дополнительно», блоки «Маршруты
 });
 
 describe('VpnPage: маршруты и «Дополнительно»', () => {
-  it('shows «Обход блокировок» and «DNS» as one switch each, both off with status text', async () => {
+  it('shows «DNS» as one switch, off with status text', async () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     expect(screen.getByTestId('vpn-title').textContent).toBe('Дополнительно');
-    // Порядок: Обход блокировок, DNS, Маршруты и исключения; имя в кнопке не дублируется.
+    // Порядок: DNS, Маршруты и исключения; имя в кнопке не дублируется.
     await screen.findByText('Маршруты');
-    const order = ['Обход сайтов', 'DNS', 'Маршруты'].map(
-      (text) => screen.getAllByText(text, { exact: true })[0],
-    );
+    const order = ['DNS', 'Маршруты'].map((text) => screen.getAllByText(text, { exact: true })[0]);
     for (let i = 0; i < order.length - 1; i++) {
       expect(
         order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
-    expect(screen.getAllByText('Обход сайтов', { exact: true })).toHaveLength(1);
     expect(screen.getAllByText('DNS', { exact: true })).toHaveLength(1);
     // Telegram не отдельная возможность: только упоминание внутри одной карточки.
     expect(screen.queryByRole('switch', { name: /Telegram/ })).toBeNull();
@@ -579,11 +576,9 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.queryByText(/Пробная проверка/)).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Работает' })).toBeNull();
-    for (const name of ['Обход сайтов', 'DNS']) {
-      const sw = screen.getByRole('switch', { name });
-      expect(sw.getAttribute('aria-checked')).toBe('false');
-      expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
-    }
+    const sw = screen.getByRole('switch', { name: 'DNS' });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
   });
 
   it('does not show GoodbyeDPI', () => {
@@ -594,82 +589,20 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
   it('has no confirmation dialog and the tools are disabled with a reason', () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
     expect((screen.getByRole('switch', { name: 'DNS' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(
-      (screen.getByRole('switch', { name: 'Обход сайтов' }) as HTMLButtonElement).disabled,
-    ).toBe(false);
     expect(screen.queryByRole('dialog')).toBeNull();
     // Только DNS.
     expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(1);
   });
 });
 
-const OFF = { active: false, error: false, message: 'Выключено' };
-const ON = { active: true, error: false, message: 'Сайты открываются через обход' };
-
-describe('VpnPage: «Обход сайтов» — одна кнопка', () => {
-  it('only reads the status when the tab opens and starts nothing', async () => {
-    backend({ vpn_snapshot: () => makeSnapshot(), site_bypass_status: () => OFF });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await waitFor(() => expect(calls('site_bypass_status')).toHaveLength(1));
-    expect(calls('site_bypass_start')).toHaveLength(0);
-    expect(calls('site_bypass_stop')).toHaveLength(0);
-  });
-
-  it('flips at once, shows the plain texts and a second press turns it off', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      site_bypass_status: () => OFF,
-      site_bypass_start: () => ON,
-      site_bypass_stop: () => OFF,
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход сайтов' });
-    await waitFor(() => expect(calls('site_bypass_status')).toHaveLength(1));
-    await fireEvent.click(sw);
-    expect(sw.getAttribute('aria-checked')).toBe('true');
-    await screen.findByText('Сайты открываются через обход');
-    await fireEvent.click(sw);
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    await waitFor(() => expect(calls('site_bypass_stop')).toHaveLength(1));
-    await screen.findAllByText('Выключено');
-  });
-
-  it('goes back with one reason when the proxy could not start', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      site_bypass_status: () => OFF,
-      site_bypass_start: () => {
-        throw { kind: 'siteBypass', message: 'не удалось включить обход' };
-      },
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход сайтов' });
-    await fireEvent.click(sw);
-    await screen.findByText('Ошибка: не удалось включить обход');
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-  });
-
-  it('shows the error from Rust instead of «Выключено»', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      site_bypass_status: () => ({
-        active: false,
-        error: true,
-        message: 'Ошибка: Не удалось вернуть прежние настройки прокси',
-      }),
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await screen.findByText('Ошибка: Не удалось вернуть прежние настройки прокси');
-  });
-
+describe('VpnPage: список сайтов', () => {
   it('has a side button that opens and closes the sites panel, same button again closes', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
-      site_bypass_status: () => OFF,
       bypass_sites_list: () => ['example.com'],
     });
     const { container } = render(VpnPage, { props: { subsection: 'advanced' } });
-    const side = screen.getByRole('button', { name: 'Добавить сайты для обхода' });
+    const side = screen.getByRole('button', { name: 'Добавить сайты' });
     const panel = () => container.querySelector('.sites') as HTMLElement;
     expect(panel().getAttribute('aria-hidden')).toBe('true');
     expect(side.getAttribute('aria-expanded')).toBe('false');
