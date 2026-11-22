@@ -3,6 +3,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import type { ConnectionStatus } from './generated/VpnConnection';
 import type { ImportSummary } from './generated/VpnImportSummary';
 import type { RoutingRules } from './generated/VpnRules';
+import type { RouteMode } from './generated/VpnRouteMode';
 import type { PrepareProgress } from './generated/VpnPrepareProgress';
 import type { VpnSnapshot } from './generated/VpnSnapshot';
 
@@ -18,6 +19,7 @@ export const vpnImport = (input: string) => invoke<ImportSummary>('vpn_import', 
 export const vpnSelect = (id: string) => invoke<void>('vpn_select', { id });
 export const vpnSetRules = (rules: RoutingRules) =>
   invoke<RoutingRules>('vpn_set_rules', { rules });
+export const vpnSetMode = (mode: RouteMode) => invoke<ConnectionStatus>('vpn_set_mode', { mode });
 export const vpnMeasureLatency = () => invoke<VpnSnapshot>('vpn_measure_latency');
 /** Подключение. При первом запуске VPN сам готовит файлы; ход в процентах приходит в `onProgress`. */
 export function vpnConnect(onProgress: (percent: number) => void = () => {}) {

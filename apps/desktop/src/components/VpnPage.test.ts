@@ -42,7 +42,14 @@ function makeSnapshot(over: Record<string, unknown> = {}) {
     servers: [],
     selected: null,
     subscriptionUrl: '',
-    rules: { directDomains: [], proxyDomains: [], directApps: [], proxyApps: [], presets: [] },
+    rules: {
+      directDomains: [],
+      proxyDomains: [],
+      directApps: [],
+      proxyApps: [],
+      presets: [],
+      mode: 'all',
+    },
     presets: [
       { id: 'ru-direct', title: 'Российские сайты напрямую', description: 'Зоны .ru, Яндекс, VK' },
     ],
@@ -120,11 +127,12 @@ describe('VpnPage: постер', () => {
 });
 
 describe('VpnPage: подписка и импорт', () => {
-  it('shows the subscription card with an enabled import button', async () => {
+  it('shows the subscription field with «Из файла…» in place of the old import button', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     expect(screen.getByText('Ссылка подписки / импорта')).toBeTruthy();
-    const importButton = screen.getByRole('button', { name: 'Импорт' }) as HTMLButtonElement;
-    expect(importButton.disabled).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Импорт' })).toBeNull();
+    const fileButton = screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement;
+    expect(fileButton.disabled).toBe(false);
     await waitFor(() => expect(calls('vpn_snapshot').length).toBeGreaterThan(0));
   });
 
@@ -132,8 +140,7 @@ describe('VpnPage: подписка и импорт', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: 'http://example.com/sub' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
-    expect(screen.getByText('Разрешены только ссылки https://')).toBeTruthy();
+    expect(await screen.findByText('Разрешены только ссылки https://')).toBeTruthy();
     expect(calls('vpn_import')).toHaveLength(0);
   });
 
@@ -151,7 +158,6 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x?t=1' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
     expect(
       await screen.findByText(
         'Импорт завершён: серверов 2. Часть записей пропущена (1): wireguard: не поддерживается.',
@@ -172,7 +178,9 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'vless://a@h:1#A trojan://b@h:2#B' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
+    // Список ссылок серверов (не https-подписка) импортируется по Enter.
+    expect(calls('vpn_import')).toHaveLength(0);
+    await fireEvent.keyDown(screen.getByLabelText('Ссылка подписки'), { key: 'Enter' });
     await screen.findByText('Импорт завершён: серверов 2.');
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'vless://a@h:1#A\ntrojan://b@h:2#B' });
   });
@@ -187,14 +195,13 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
     expect(await screen.findByText('Сервис подписки ответил HTTP 403')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Импорт' }) as HTMLButtonElement).disabled).toBe(
+    expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
       false,
     );
   });
 
-  it('shows a loading state on the button while the import runs', async () => {
+  it('shows a loading state while the auto-import runs', async () => {
     let finish: (v: unknown) => void = () => {};
     backend({
       vpn_snapshot: () => makeSnapshot(),
@@ -204,11 +211,31 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x' },
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
-    const busy = (await screen.findByRole('button', { name: 'Загрузка…' })) as HTMLButtonElement;
-    expect(busy.disabled).toBe(true);
+    expect((await screen.findAllByText('Загружаем подписку…')).length).toBeGreaterThan(0);
+    expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
     finish({ count: 1, skipped: 0, issues: [] });
     await screen.findByText('Импорт завершён: серверов 1.');
+  });
+
+  it('imports a valid https link by itself once, and typing it letter by letter imports nothing', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      vpn_import: () => ({ count: 1, skipped: 0, issues: [] }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const input = screen.getByLabelText('Ссылка подписки');
+    const typed = 'https://sub.example.com';
+    for (let i = 1; i <= typed.length; i++) {
+      await fireEvent.input(input, { target: { value: typed.slice(0, i) } });
+    }
+    expect(calls('vpn_import')).toHaveLength(0);
+    // Вставка целиком: импорт один раз.
+    await fireEvent.input(input, { target: { value: '' } });
+    await fireEvent.input(input, { target: { value: 'https://sub.example.com/token' } });
+    await screen.findByText('Импорт завершён: серверов 1.');
+    expect(calls('vpn_import')).toHaveLength(1);
   });
 
   it('imports a chosen file as text', async () => {
@@ -253,6 +280,8 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(field, { target: { value: 'https://new.example/sub' } });
     await fireEvent.keyDown(field, { key: 'Enter' });
     await waitFor(() => expect(calls('vpn_import').length).toBe(1));
+    // Enter после автоимпорта той же ссылки второй загрузки не делает.
+    expect(calls('vpn_import')).toHaveLength(1);
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'https://new.example/sub' });
   });
 });
@@ -260,7 +289,7 @@ describe('VpnPage: подписка и импорт', () => {
 describe('VpnPage: подключение и серверы', () => {
   it('without servers the connect button is disabled; the reason is a tooltip, not clutter', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
-    const toggle = await screen.findByRole('button', { name: 'Подключить' });
+    const toggle = await screen.findByRole('button', { name: 'Включить VPN' });
     expect(toggle.getAttribute('title')).toBe(NO_SERVERS_REASON);
     expect(screen.queryByText(NO_SERVERS_REASON)).toBeNull();
     expect(toggle.getAttribute('aria-disabled')).toBe('true');
@@ -300,7 +329,7 @@ describe('VpnPage: подключение и серверы', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     expect(document.body.textContent).not.toMatch(/ядр/i);
-    const button = screen.getByRole('button', { name: 'Подключить' });
+    const button = screen.getByRole('button', { name: 'Включить VPN' });
     expect(button.getAttribute('aria-disabled')).toBe('false');
     await fireEvent.click(button);
     expect(await screen.findByRole('button', { name: 'Подготовка VPN…' })).toBeTruthy();
@@ -308,7 +337,7 @@ describe('VpnPage: подключение и серверы', () => {
     expect(await screen.findByRole('button', { name: 'Подготовка VPN… 42%' })).toBeTruthy();
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('42');
     finish(connected);
-    expect(await screen.findByRole('button', { name: 'Отключить' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Выключить VPN' })).toBeTruthy();
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
@@ -324,7 +353,7 @@ describe('VpnPage: подключение и серверы', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
     expect(await screen.findByText('Не удалось подготовить VPN: проверьте интернет')).toBeTruthy();
     const retry = await screen.findByRole('button', { name: 'Повторить' });
     expect(retry.getAttribute('aria-disabled')).toBe('false');
@@ -347,13 +376,13 @@ describe('VpnPage: подключение и серверы', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
-    const off = await screen.findByRole('button', { name: 'Отключить' });
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
+    const off = await screen.findByRole('button', { name: 'Выключить VPN' });
     expect(off.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText('Подключено · Латвия · передача данных проверена')).toBeTruthy();
     expect(screen.getByLabelText('Время подключения').textContent).toMatch(/^00:01:0\d$/);
     await fireEvent.click(off);
-    const on = await screen.findByRole('button', { name: 'Подключить' });
+    const on = await screen.findByRole('button', { name: 'Включить VPN' });
     expect(on.getAttribute('aria-pressed')).toBe('false');
     expect(calls('vpn_disconnect')).toHaveLength(1);
   });
@@ -366,9 +395,9 @@ describe('VpnPage: подключение и серверы', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
     expect(await screen.findByText('VPN не принял параметры сервера')).toBeTruthy();
-    const again = await screen.findByRole('button', { name: 'Подключить' });
+    const again = await screen.findByRole('button', { name: 'Включить VPN' });
     expect(again.getAttribute('aria-disabled')).toBe('false');
   });
 
@@ -380,11 +409,11 @@ describe('VpnPage: подключение и серверы', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Подключить' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
     const busy = await screen.findByRole('button', { name: 'Подключаем…' });
     expect(busy.getAttribute('aria-busy')).toBe('true');
     finish(makeSnapshot().connection);
-    await screen.findByRole('button', { name: 'Подключить' });
+    await screen.findByRole('button', { name: 'Включить VPN' });
   });
 
   it('keeps TUN unavailable with its reason, system proxy is the working mode', async () => {
@@ -497,6 +526,7 @@ describe('VpnPage: «Дополнительно», блоки «Маршруты
         directApps: [],
         proxyApps: ['chrome.exe'],
         presets: ['ru-direct'],
+        mode: 'all',
       },
     });
   });
@@ -601,8 +631,8 @@ describe('VpnPage: список сайтов', () => {
       vpn_snapshot: () => makeSnapshot(),
       bypass_sites_list: () => ['example.com'],
     });
-    const { container } = render(VpnPage, { props: { subsection: 'advanced' } });
-    const side = screen.getByRole('button', { name: 'Добавить сайты' });
+    const { container } = render(VpnPage, { props: { subsection: 'vpn' } });
+    const side = screen.getByRole('button', { name: 'Список сайтов' });
     const panel = () => container.querySelector('.sites') as HTMLElement;
     expect(panel().getAttribute('aria-hidden')).toBe('true');
     expect(side.getAttribute('aria-expanded')).toBe('false');
@@ -749,5 +779,79 @@ describe('VpnPage: вкладка «Соединения»', () => {
     });
     render(VpnPage, { props: { subsection: 'connections' } });
     expect((await screen.findByRole('alert')).textContent).toContain('macOS');
+  });
+});
+
+describe('VpnPage: режимы маршрутов', () => {
+  const withMode = (mode: string) =>
+    makeSnapshot({
+      servers: SERVERS,
+      selected: 's1',
+      rules: {
+        directDomains: [],
+        proxyDomains: [],
+        directApps: [],
+        proxyApps: [],
+        presets: [],
+        mode,
+      },
+    } as never);
+
+  it('shows the three modes, highlights the chosen one and keeps «Включить VPN» disabled for «Напрямую»', async () => {
+    backend({ vpn_snapshot: () => withMode('direct') });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const group = await screen.findByRole('radiogroup', { name: 'Маршруты' });
+    const names = within(group)
+      .getAllByRole('radio')
+      .map((r) => r.textContent);
+    expect(names).toEqual(['Напрямую', 'Только сайты из списка через VPN', 'Все сайты через VPN']);
+    expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    const power = screen.getByRole('button', { name: 'Включить VPN' });
+    expect(power.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      await screen.findByText('Выбери режим: только сайты из списка или все сайты'),
+    ).toBeTruthy();
+  });
+
+  it('picks a mode at once, sends it, and a second press of the same mode returns to «Напрямую»', async () => {
+    backend({
+      vpn_snapshot: () => withMode('direct'),
+      vpn_set_mode: () => ({ state: 'disconnected', message: 'Не подключено', since: null }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    const all = screen.getByRole('radio', { name: 'Все сайты через VPN' });
+    await fireEvent.click(all);
+    expect(all.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
+      'false',
+    );
+    await waitFor(() => expect(calls('vpn_set_mode')[0]?.[1]).toEqual({ mode: 'all' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled'),
+      ).toBe('false'),
+    );
+    await fireEvent.click(all);
+    await waitFor(() => expect(calls('vpn_set_mode')[1]?.[1]).toEqual({ mode: 'direct' }));
+  });
+
+  it('goes back to the previous mode and says why when the mode could not be set', async () => {
+    backend({
+      vpn_snapshot: () => withMode('direct'),
+      vpn_set_mode: () => Promise.reject({ kind: 'probe', message: 'Не удалось сохранить' }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    const list = screen.getByRole('radio', { name: 'Только сайты из списка через VPN' });
+    await fireEvent.click(list);
+    expect(await screen.findByText('Не удалось сохранить')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
+        'true',
+      ),
+    );
   });
 });

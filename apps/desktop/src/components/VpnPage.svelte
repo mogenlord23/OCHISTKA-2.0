@@ -14,6 +14,7 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
+  import type { RouteMode } from '../lib/generated/VpnRouteMode';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -26,6 +27,7 @@
     formatElapsed,
     formatLatency,
     importMessage,
+    isSubscriptionUrl,
     normalizePasted,
     prepareImport,
     NETWORK_CHANGE_REASON,
@@ -39,6 +41,7 @@
     vpnConnect,
     vpnDisconnect,
     vpnImport,
+    vpnSetMode,
     vpnMeasureLatency,
     vpnSelect,
     vpnSnapshot,
@@ -72,6 +75,12 @@
   });
   const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
   let fileInput: HTMLInputElement | undefined = $state();
+  let modeBusy = $state(false);
+  const ROUTE_MODES: { id: RouteMode; label: string }[] = [
+    { id: 'direct', label: 'Напрямую' },
+    { id: 'listOnly', label: 'Только сайты из списка через VPN' },
+    { id: 'all', label: 'Все сайты через VPN' },
+  ];
 
   /** Сетевые возможности (VPN → Дополнительно): одна карточка на понятную задачу, сложное скрыто. */
   const ADVANCED = [
@@ -139,6 +148,7 @@
   const servers = $derived(snapshot?.servers ?? []);
   /** Число, а не сам список: замер задержек не перезапускает таймер проверок. */
   const serverCount = $derived(servers.length);
+  const routeMode = $derived<RouteMode>(snapshot?.rules.mode ?? 'direct');
   const ui = $derived(connectUi(snapshot, requesting || importing, { preparing, retry }));
   const elapsedSeconds = $derived(
     snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
@@ -234,7 +244,50 @@
     }
   }
 
+  /** Автоимпорт: как только вставлена корректная ссылка https:// (длина выросла сразу на много знаков),
+      подписка импортируется сама. Побуквенный набор не импортирует недописанный адрес. */
+  let lastAutoLink = '';
+  let previousLength = 0;
+  $effect(() => {
+    const raw = urlInput;
+    if (raw === '') lastAutoLink = '';
+    const pasted = raw.length - previousLength >= 8;
+    previousLength = raw.length;
+    if (pasted && !importing && /^http:\/\/\S+$/i.test(raw.trim())) {
+      untrack(() => (importNote = 'Разрешены только ссылки https://'));
+      return;
+    }
+    if (!pasted || importing || !isSubscriptionUrl(normalizePasted(raw))) return;
+    const link = raw.trim();
+    if (link === lastAutoLink) return;
+    lastAutoLink = link;
+    untrack(() => void runImport(raw));
+  });
+
+  /** Выбор режима маршрутов: подсветка меняется в тот же кадр, при ошибке возвращается. Повторное
+      нажатие выбранного режима «через VPN» возвращает «Напрямую». */
+  async function onMode(picked: RouteMode) {
+    if (!snapshot || modeBusy) return;
+    const before = snapshot.rules.mode;
+    const mode: RouteMode = picked === before && picked !== 'direct' ? 'direct' : picked;
+    if (mode === before) return;
+    modeBusy = true;
+    actionNote = null;
+    snapshot = { ...snapshot, rules: { ...snapshot.rules, mode } };
+    try {
+      const connection = await vpnSetMode(mode);
+      if (snapshot) snapshot = { ...snapshot, connection };
+    } catch (err) {
+      actionNote = errorMessage(err);
+      await refresh();
+    } finally {
+      modeBusy = false;
+    }
+  }
+
   function onImport() {
+    // Ссылка уже импортирована автоматически: повторно не грузим.
+    if (urlInput.trim() !== '' && urlInput.trim() === lastAutoLink) return;
     void runImport(urlInput);
   }
 
@@ -443,11 +496,6 @@
             <h2 class="sr-only">Ссылка подписки / импорта</h2>
             <div class="row">
               <SecretField bind:value={urlInput} onenter={onImport} />
-              <button type="button" disabled={importing} onclick={onImport}
-                >{importing ? 'Загрузка…' : 'Импорт'}</button
-              >
-            </div>
-            <div class="row tight">
               <button type="button" disabled={importing} onclick={() => fileInput?.click()}
                 >Из файла…</button
               >
@@ -466,6 +514,29 @@
           </section>
 
           <section class="card connect">
+            <div class="route-modes" role="radiogroup" aria-label="Маршруты">
+              {#each ROUTE_MODES as item (item.id)}
+                <button
+                  type="button"
+                  role="radio"
+                  class="route-mode"
+                  class:selected={routeMode === item.id}
+                  aria-checked={routeMode === item.id}
+                  onclick={() => onMode(item.id)}>{item.label}</button
+                >
+              {/each}
+              <span class="route-sites">
+                <ExpandButton
+                  icon="M12 5v14M5 12h14"
+                  label="Сайты"
+                  width={96}
+                  name="Список сайтов"
+                  aria-expanded={sitesOpen}
+                  onclick={() => (sitesOpen = !sitesOpen)}
+                />
+              </span>
+            </div>
+            <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
             <div class="power-row">
               <button
                 type="button"
@@ -599,23 +670,6 @@
               </span>
             </section>
           {/each}
-          <section class="card tool switch-row">
-            <div class="tool-text">
-              <span class="switch-title">Список сайтов</span>
-              <span class="note">Свои сайты для режима «Только сайты из списка через VPN»</span>
-            </div>
-            <span class="tool-action">
-              <ExpandButton
-                icon="M12 5v14M5 12h14"
-                label="Сайты"
-                width={96}
-                name="Добавить сайты"
-                aria-expanded={sitesOpen}
-                onclick={() => (sitesOpen = !sitesOpen)}
-              />
-            </span>
-          </section>
-          <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
           {#if dnsMenu}
             <ContextMenu
               items={DNS_ITEMS}
@@ -902,10 +956,6 @@
     gap: 8px;
   }
 
-  .row.tight {
-    margin-top: 8px;
-  }
-
   input {
     flex: 1;
     min-width: 0;
@@ -941,10 +991,6 @@
 
   .row > button {
     min-height: 48px;
-  }
-
-  .row.tight > button {
-    min-height: 38px;
   }
 
   .power-row {
@@ -1182,6 +1228,40 @@
 
   .tool-text .note {
     margin: 0;
+  }
+
+  .route-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .route-mode {
+    flex: 1 1 160px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+    font-weight: 600;
+    text-align: center;
+    transition: background-color 120ms ease;
+  }
+
+  .route-mode:hover {
+    background: #1a1a1a;
+  }
+
+  .route-mode.selected {
+    background: #222;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .route-sites {
+    margin-left: auto;
   }
 
   .tool-action {

@@ -42,7 +42,14 @@ function snapshot(
     ],
     selected: 'a',
     subscriptionUrl: '',
-    rules: { directDomains: [], proxyDomains: [], directApps: [], proxyApps: [], presets: [] },
+    rules: {
+      directDomains: [],
+      proxyDomains: [],
+      directApps: [],
+      proxyApps: [],
+      presets: [],
+      mode: 'all',
+    },
     presets: [],
     core: { available: true },
     connection: {
@@ -125,7 +132,7 @@ describe('connectUi', () => {
 
   it('stays available when the files are missing: the app fetches them on connect', () => {
     const ui = connectUi(snapshot({ core: { available: false } }), false);
-    expect(ui).toMatchObject({ disabled: false, label: 'Подключить', reason: null });
+    expect(ui).toMatchObject({ disabled: false, label: 'Включить VPN', reason: null });
   });
 
   it('shows the preparation percent on the button and the retry label after a failure', () => {
@@ -143,7 +150,7 @@ describe('connectUi', () => {
 
   it('is ready to connect when a server is selected and the core is present', () => {
     expect(connectUi(snapshot(), false)).toEqual({
-      label: 'Подключить',
+      label: 'Включить VPN',
       pressed: false,
       busy: false,
       disabled: false,
@@ -162,7 +169,7 @@ describe('connectUi', () => {
 
   it('offers to disconnect when connected', () => {
     expect(connectUi(snapshot({}, 'connected'), false)).toMatchObject({
-      label: 'Отключить',
+      label: 'Выключить VPN',
       pressed: true,
       disabled: false,
     });

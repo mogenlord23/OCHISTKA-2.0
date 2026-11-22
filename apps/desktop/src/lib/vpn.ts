@@ -2,6 +2,7 @@
 import type { ConnectionStatus, ServerView, VpnSnapshot } from './vpnApi';
 
 export const NO_SERVERS_REASON = 'Сначала импортируй подписку и выбери сервер';
+export const NO_MODE_REASON = 'Выбери режим: только сайты из списка или все сайты';
 export const TUN_MODE_REASON =
   'Режим TUN (весь компьютер) пока не поддерживается: нужны права администратора и драйвер';
 export const IMPORTING_LABEL = 'Загружаем подписку…';
@@ -46,6 +47,12 @@ export function prepareImport(input: string): { ok: true; input: string } | Stub
   return { ok: true, input: value };
 }
 
+/** Корректная ссылка подписки: одна ссылка https:// с адресом сайта (для автоимпорта при вставке). */
+export function isSubscriptionUrl(input: string): boolean {
+  const value = input.trim();
+  return /^https:\/\/[^\s/?#]+\.[^\s/?#]+\S*$/i.test(value);
+}
+
 /** Строка из вставленного поля: между ссылками серверов оставляем переводы строк. */
 export function normalizePasted(input: string): string {
   return input.replace(/\s+(?=(vless|vmess|trojan|ss|hysteria2|hy2|tuic):\/\/)/gi, '\n');
@@ -69,7 +76,7 @@ export interface ConnectUi {
   reason: string | null;
 }
 
-/** Состояние главной кнопки «Подключить» по снимку и занятости (импорт, ожидание ответа). */
+/** Состояние главной кнопки «Включить VPN» по снимку и занятости (импорт, ожидание ответа). */
 export function connectUi(
   snapshot: VpnSnapshot | null,
   busy: boolean,
@@ -89,11 +96,14 @@ export function connectUi(
     return { label: 'Подключаем…', pressed: false, busy: true, disabled: true, reason: null };
   }
   if (state === 'connected') {
-    return { label: 'Отключить', pressed: true, busy, disabled: busy, reason: null };
+    return { label: 'Выключить VPN', pressed: true, busy, disabled: busy, reason: null };
   }
-  const base = { label: options.retry ? RETRY_LABEL : 'Подключить', pressed: false, busy: false };
+  const base = { label: options.retry ? RETRY_LABEL : 'Включить VPN', pressed: false, busy: false };
   if (!snapshot || snapshot.servers.length === 0 || snapshot.selected === null) {
     return { ...base, disabled: true, reason: NO_SERVERS_REASON };
+  }
+  if (snapshot.rules.mode === 'direct') {
+    return { ...base, disabled: true, reason: NO_MODE_REASON };
   }
   // Файлы VPN, если их ещё нет, приложение скачивает само при нажатии: кнопка доступна.
   return { ...base, disabled: false, reason: null };
