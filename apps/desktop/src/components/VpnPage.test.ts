@@ -107,9 +107,14 @@ describe('VpnPage: подпись поля ссылки с печатным эф
   }
 
   function importBackend() {
+    let imported = false;
     backend({
-      vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
-      vpn_import: () => ({ count: 2, skipped: 0, issues: [] }),
+      vpn_snapshot: () =>
+        imported ? makeSnapshot({ servers: SERVERS, selected: 's1' }) : makeSnapshot(),
+      vpn_import: () => {
+        imported = true;
+        return { count: 2, skipped: 0, issues: [] };
+      },
     });
   }
 
@@ -158,6 +163,27 @@ describe('VpnPage: подпись поля ссылки с печатным эф
     await vi.advanceTimersByTimeAsync(45 * 20);
     expect(labelText()).toBe('Подписка сохранена');
     await vi.advanceTimersByTimeAsync(10_000);
+    expect(labelText()).toBe('Ссылка подписки');
+  });
+
+  it('opening with a saved subscription shows «Подписка сохранена» at once, then the label after 3 s, with no effect', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }) });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await flush();
+    expect(labelText()).toBe('Подписка сохранена');
+    await vi.advanceTimersByTimeAsync(2900);
+    expect(labelText()).toBe('Подписка сохранена');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(labelText()).toBe('Ссылка подписки');
+    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
+  });
+
+  it('opening without a saved subscription keeps the label and starts no timers', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot() });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await flush();
+    expect(labelText()).toBe('Ссылка подписки');
+    await vi.advanceTimersByTimeAsync(5000);
     expect(labelText()).toBe('Ссылка подписки');
   });
 

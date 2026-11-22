@@ -16,6 +16,9 @@ export interface LabelTypewriter {
   /** После успешной вставки ссылки: стереть подпись, напечатать «Подписка сохранена», через 3 с
       вернуть «Ссылка подписки». */
   play(): void;
+  /** При открытии с уже сохранённой подпиской: сразу «Подписка сохранена», без эффекта; через 3 с
+      так же сразу «Ссылка подписки». */
+  showSaved(): void;
   /** Остановить всё и вернуть обычную подпись. */
   reset(): void;
 }
@@ -66,6 +69,14 @@ export function createLabelTypewriter(set: (text: string) => void): LabelTypewri
           replace(SAVED, LABEL, token, () => {});
         }, HOLD_MS);
       });
+    },
+    showSaved() {
+      cancel();
+      const token = run;
+      set(SAVED);
+      timer = setTimeout(() => {
+        if (token === run) set(LABEL);
+      }, HOLD_MS);
     },
     reset() {
       cancel();

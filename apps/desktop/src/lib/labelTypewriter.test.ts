@@ -39,6 +39,17 @@ describe('createLabelTypewriter', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('showSaved shows the saved text at once and the label after 3 s, with no typing', () => {
+    const { seen, tw } = setup();
+    tw.showSaved();
+    expect(seen).toEqual([SAVED]);
+    vi.advanceTimersByTime(HOLD_MS - 1);
+    expect(seen).toEqual([SAVED]);
+    vi.advanceTimersByTime(2);
+    expect(seen).toEqual([SAVED, LABEL]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('reset stops everything and shows the plain label', () => {
     const { seen, tw } = setup();
     tw.play();

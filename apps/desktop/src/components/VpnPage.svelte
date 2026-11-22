@@ -143,7 +143,12 @@
   }
 
   onMount(() => {
-    void refresh();
+    // Подписка уже сохранена (серверы есть до вставки ссылки): подпись сразу «Подписка сохранена».
+    void refresh().then(() => {
+      if ((snapshot?.servers?.length ?? 0) > 0 && fieldLabel === LABEL && !importing) {
+        labelEffect.showSaved();
+      }
+    });
   });
 
   /** Только пока VPN включён: секундомер и проверка раз в 3 секунды, что он жив. Когда VPN выключен,
