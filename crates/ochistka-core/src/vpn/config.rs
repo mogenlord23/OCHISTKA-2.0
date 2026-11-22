@@ -152,13 +152,16 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
         (to_dns_rules(list, "remote"), "local")
     } else {
         let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
-        direct.push(json!({"domain_suffix": RUSSIAN_ZONES, "outbound": "direct"}));
         for id in &rules.presets {
             if let Some(list) = preset_suffixes(id) {
                 direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
             }
         }
-        (to_dns_rules(direct, "local"), "remote")
+        // Зоны резолвятся через тот же DoH, что и остальные сайты туннеля: локальный резолвер
+        // в туннеле не находит имена (DNS_PROBE_STARTED у vk.ru). Маршрут при этом остаётся прямым.
+        let mut list = vec![json!({"domain_suffix": RUSSIAN_ZONES, "server": "remote"})];
+        list.extend(to_dns_rules(direct, "local"));
+        (list, "remote")
     };
     dns_rules.extend(via_vpn);
     json!({
@@ -230,7 +233,7 @@ mod tests {
             ],
             "rules": [
               {"domain": ["tr.example.com"], "server": "local"},
-              {"domain_suffix": ["ru", "xn--p1ai"], "server": "local"}
+              {"domain_suffix": ["ru", "xn--p1ai"], "server": "remote"}
             ],
             "final": "remote",
             "reverse_mapping": true,
@@ -544,7 +547,7 @@ mod tests {
         assert!(proxy_at < zone_at);
         let dns = cfg["dns"]["rules"].to_string();
         assert!(
-            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"local""#),
+            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"remote""#),
             "{dns}"
         );
     }
