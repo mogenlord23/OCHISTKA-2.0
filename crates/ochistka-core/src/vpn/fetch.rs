@@ -16,23 +16,23 @@ pub trait HttpFetch: Send + Sync {
     fn get(&self, url: &str, user_agent: &str, max_bytes: usize) -> Result<FetchResponse, String>;
 }
 
-/// Имена клиента, как в OCHISTKA 0.5.5: сначала v2rayN, затем v2rayTun. Часть сервисов отдаёт
-/// список только известным клиентам. Личных данных (идентификатор устройства) не отправляем.
-pub const USER_AGENTS: [&str; 2] = ["v2rayN/7.0 OCHISTKA", "v2rayTun/1.0 OCHISTKA"];
+/// Имя клиента: только общее имя приложения, без выдачи себя за другую программу. Запасное имя —
+/// короткая форма: часть сервисов по-разному принимает запись с версией. Личных данных не отправляем.
+pub const USER_AGENTS: [&str; 2] = ["OCHISTKA/1.0", "OCHISTKA"];
 
 pub const LINK_GONE: &str = "Ссылка больше не действует. Обновите её в личном кабинете сервиса";
 
-/// Человеческий текст по коду ответа сервиса подписки. Кода на экране нет.
-pub fn status_message(status: u16) -> &'static str {
+/// Короткий текст по коду ответа сервиса подписки. «Ссылка больше не действует» — только для явных
+/// 404 и 410; в остальных случаях называем номер ответа.
+pub fn status_message(status: u16) -> String {
     match status {
-        410 => LINK_GONE,
-        401 | 403 => {
-            "Сервис не выдал список серверов этому приложению. Проверьте ссылку в личном кабинете сервиса"
+        404 | 410 => LINK_GONE.into(),
+        401 | 403 => format!("Провайдер не отдал подписку (код {status}). Попробуйте позже"),
+        429 => format!("Провайдер просит подождать (код {status}). Повторите импорт чуть позже"),
+        500..=599 => format!("Сервис подписки недоступен (код {status}). Повторите чуть позже"),
+        _ => {
+            format!("Провайдер ответил ошибкой (код {status}). Проверьте ссылку в личном кабинете")
         }
-        404 => "Ссылка не найдена. Проверьте её в личном кабинете сервиса",
-        429 => "Сервис просит подождать. Повторите импорт чуть позже",
-        500..=599 => "Сервис подписки сейчас недоступен. Повторите чуть позже",
-        _ => "Сервис не отдал список серверов. Проверьте ссылку в личном кабинете сервиса",
     }
 }
 
@@ -114,6 +114,7 @@ fn unwrap_link(link: &str) -> Result<String, VpnError> {
 pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportReport, VpnError> {
     let url = validate_https_url(url)?;
     let mut last = VpnError::Fetch("Подписка не загрузилась".into());
+    let mut first_status: Option<u16> = None;
     for agent in USER_AGENTS {
         match fetcher.get(&url, agent, MAX_BODY) {
             Err(why) => {
@@ -140,7 +141,14 @@ pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportRepor
                 }
             }
             Ok(r) => {
-                last = VpnError::Fetch(status_message(r.status).into());
+                let mut text = status_message(r.status);
+                // Результат повторной попытки показываем честно: если первая закончилась другим
+                // кодом, называем и его.
+                if let Some(first) = first_status.filter(|f| *f != r.status) {
+                    text = format!("{text} Первая попытка: код {first}.");
+                }
+                first_status.get_or_insert(r.status);
+                last = VpnError::Fetch(text);
                 // Другое имя клиента помогает при отказах и сбоях сервиса; при прочих кодах нет.
                 if !matches!(
                     r.status,
@@ -250,10 +258,7 @@ mod tests {
         let fake = Fake::new(vec![ok("dHJvamFuOi8vcEBiLmV4YW1wbGUuY29tOjQ0MyNC")]);
         let r = import_input(&fake, "https://s.example/sub").unwrap();
         assert_eq!(r.servers.len(), 1);
-        assert_eq!(
-            fake.agents.lock().unwrap().as_slice(),
-            ["v2rayN/7.0 OCHISTKA"]
-        );
+        assert_eq!(fake.agents.lock().unwrap().as_slice(), ["OCHISTKA/1.0"]);
     }
 
     #[test]
@@ -304,28 +309,51 @@ mod tests {
     }
 
     #[test]
-    fn other_statuses_are_human_and_have_no_code() {
-        for (status, needle) in [(403, "не выдал"), (404, "не найдена"), (503, "недоступен")]
-        {
-            let reply = || {
-                Ok(FetchResponse {
-                    status,
-                    body: vec![],
-                })
-            };
-            let fake = Fake::new(vec![reply(), reply()]);
-            let text = import_input(&fake, "https://s.example/sub")
-                .unwrap_err()
-                .to_string();
-            assert!(text.contains(needle), "{text}");
-            assert!(!text.contains("HTTP") && !text.contains(&status.to_string()));
-        }
+    fn an_unknown_code_is_named_and_not_retried() {
         let fake = Fake::new(vec![Ok(FetchResponse {
             status: 418,
             body: vec![],
         })]);
-        assert!(import_input(&fake, "https://s.example/sub").is_err());
+        let text = import_input(&fake, "https://s.example/sub")
+            .unwrap_err()
+            .to_string();
+        assert!(text.contains("код 418"), "{text}");
+        assert!(!text.contains("больше не действует"));
         assert_eq!(fake.agents.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn the_client_name_is_generic_and_never_another_program() {
+        for agent in USER_AGENTS {
+            assert!(agent.starts_with("OCHISTKA"), "{agent}");
+            assert!(!agent.to_lowercase().contains("v2ray"), "{agent}");
+        }
+    }
+
+    #[test]
+    fn the_second_attempt_result_is_shown_honestly() {
+        let reply = |status| {
+            Ok(FetchResponse {
+                status,
+                body: vec![],
+            })
+        };
+        let fake = Fake::new(vec![reply(403), reply(429)]);
+        let text = import_from_url(&fake, "https://s.example/sub")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            text.contains("код 429") && text.contains("Первая попытка: код 403"),
+            "{text}"
+        );
+        let fake = Fake::new(vec![reply(403), reply(403)]);
+        let text = import_from_url(&fake, "https://s.example/sub")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            text.contains("код 403") && !text.contains("Первая"),
+            "{text}"
+        );
     }
 
     #[test]
@@ -352,32 +380,43 @@ mod tests {
     }
 
     #[test]
-    fn http_errors_have_short_human_messages_without_codes_or_links() {
+    fn every_code_has_its_own_text_and_only_404_and_410_say_the_link_is_gone() {
         for (status, needle) in [
+            (404, "больше не действует"),
             (410, "больше не действует"),
-            (403, "не выдал список"),
-            (404, "не найдена"),
-            (429, "подождать"),
-            (503, "недоступен"),
+            (401, "не отдал подписку (код 401)"),
+            (403, "не отдал подписку (код 403)"),
+            (429, "подождать (код 429)"),
+            (500, "недоступен (код 500)"),
+            (503, "недоступен (код 503)"),
+            (418, "ошибкой (код 418)"),
         ] {
-            let fake = Fake::new(vec![
+            let reply = || {
                 Ok(FetchResponse {
                     status,
                     body: vec![],
-                }),
-                Ok(FetchResponse {
-                    status,
-                    body: vec![],
-                }),
-            ]);
-            let err = import_from_url(&fake, "https://sub.example.com/s/TOKEN123")
+                })
+            };
+            let fake = Fake::new(vec![reply(), reply()]);
+            let err = import_from_url(&fake, "https://sub.example.com/s/TOKEN123?k=v")
                 .unwrap_err()
                 .to_string();
             assert!(err.contains(needle), "{status}: {err}");
-            assert!(
-                !err.contains("TOKEN123") && !err.contains(&status.to_string()),
-                "{err}"
+            assert_eq!(
+                err.contains("больше не действует"),
+                matches!(status, 404 | 410),
+                "{status}: {err}"
             );
+            for secret in [
+                "TOKEN123",
+                "k=v",
+                "sub.example.com",
+                "HTTP",
+                "токен",
+                "агент",
+            ] {
+                assert!(!err.contains(secret), "{err}");
+            }
         }
     }
 
