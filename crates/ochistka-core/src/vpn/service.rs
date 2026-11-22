@@ -472,14 +472,39 @@ impl VpnService {
         self.save(&data)
     }
 
+    /// Сохраняет правила. При включённом VPN они применяются сразу: ядро переподключается с новыми
+    /// правилами (как при смене области); при выключенном только запоминаются. Если переподключение
+    /// не удалось, возвращаются прежние правила и показывается понятный текст.
     pub fn set_rules(&self, rules: &RoutingRules) -> Result<RoutingRules, VpnError> {
         let mut clean = rules.sanitized()?;
-        let mut data = lock(&self.data);
-        // Режим меняется только через `set_mode`: правки списков его не сбрасывают.
-        clean.mode = data.rules.mode;
-        data.rules = clean.clone();
-        self.save(&data)?;
-        Ok(clean)
+        // Одна смена за раз: повторное нажатие во время применения ничего не делает.
+        let Ok(_gate) = self.switch_gate.try_lock() else {
+            return Ok(lock(&self.data).rules.clone());
+        };
+        let prev = {
+            let mut data = lock(&self.data);
+            // Режим меняется только через `set_mode`: правки списков его не сбрасывают.
+            clean.mode = data.rules.mode;
+            let prev = data.rules.clone();
+            data.rules = clean.clone();
+            self.save(&data)?;
+            prev
+        };
+        if prev == clean {
+            return Ok(clean);
+        }
+        let since = {
+            let conn = lock(&self.conn);
+            if conn.state != ConnState::Connected {
+                return Ok(clean);
+            }
+            conn.since
+        };
+        *lock(&self.switching) = Some(since);
+        let outcome = self.reconnect(prev, "Не удалось применить исключения. Работают прежние");
+        *lock(&self.switching) = None;
+        outcome?;
+        Ok(lock(&self.data).rules.clone())
     }
 
     /// Выбирает область VPN. При включённом VPN переподключает с новыми правилами; при выключенном
@@ -494,7 +519,7 @@ impl VpnService {
             if data.rules.mode == mode {
                 return Ok(self.status());
             }
-            let prev = data.rules.mode;
+            let prev = data.rules.clone();
             data.rules.mode = mode;
             self.save(&data)?;
             prev
@@ -508,14 +533,14 @@ impl VpnService {
             conn.since
         };
         *lock(&self.switching) = Some(since);
-        let outcome = self.reconnect(prev);
+        let outcome = self.reconnect(prev, "Не удалось переключить область. Работает прежняя");
         *lock(&self.switching) = None;
         outcome.map(|()| self.status())
     }
 
     /// Выключает ядро прежней области и включает новое. При ошибке возвращает прежнюю область;
     /// если и это не вышло, остаётся устойчивое состояние «ошибка» с понятным текстом.
-    fn reconnect(&self, prev: RouteMode) -> Result<(), VpnError> {
+    fn reconnect(&self, prev: RoutingRules, fallback_note: &str) -> Result<(), VpnError> {
         self.disconnect();
         let first = self.connect();
         if first.is_ok() && lock(&self.conn).state == ConnState::Connected {
@@ -526,18 +551,18 @@ impl VpnService {
             .unwrap_or_else(|| VpnError::Engine("VPN не запустился".into()));
         {
             let mut data = lock(&self.data);
-            data.rules.mode = prev;
+            data.rules = prev;
             let _ = self.save(&data);
         }
         let back = self.connect();
         if back.is_ok() && lock(&self.conn).state == ConnState::Connected {
-            lock(&self.conn).message = "Не удалось переключить область. Работает прежняя".into();
+            lock(&self.conn).message = fallback_note.into();
             return Ok(());
         }
         let mut conn = lock(&self.conn);
         conn.state = ConnState::Error;
         conn.message =
-            "Не удалось переключить область и вернуть прежнюю. Включите VPN заново".into();
+            "Не удалось применить настройки и вернуть прежние. Включите VPN заново".into();
         Err(err)
     }
 
@@ -1796,6 +1821,74 @@ mod tests {
             .unwrap()
             .contains("Нет прав"));
         assert!(explain_tunnel_failure("something else").is_none());
+    }
+
+    fn with_preset() -> RoutingRules {
+        RoutingRules {
+            presets: vec!["ru-direct".into()],
+            direct_apps: vec!["steam.exe".into()],
+            ..RoutingRules::default()
+        }
+    }
+
+    #[test]
+    fn saving_rules_with_the_vpn_on_reconnects_with_the_new_rules() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.set_mode(RouteMode::All).unwrap();
+        s.connect().unwrap();
+        assert!(!written_config(&s).to_string().contains("ya.ru"));
+        flags.killed.store(false, Ordering::SeqCst);
+        let saved = s.set_rules(&with_preset()).unwrap();
+        assert_eq!(saved.presets, vec!["ru-direct"]);
+        assert_eq!(s.status().state, ConnState::Connected);
+        assert!(
+            flags.killed.load(Ordering::SeqCst),
+            "старое ядро остановлено"
+        );
+        let cfg = written_config(&s);
+        assert!(cfg["route"]["rules"].to_string().contains("ya.ru"));
+        assert!(cfg["route"]["rules"].to_string().contains("steam.exe"));
+        assert_eq!(
+            s.snapshot().rules.mode,
+            RouteMode::All,
+            "область не сброшена"
+        );
+        s.disconnect();
+    }
+
+    #[test]
+    fn saving_the_same_rules_or_saving_while_off_does_not_touch_the_core() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        // Выключено: только запоминаем.
+        s.set_rules(&with_preset()).unwrap();
+        assert!(!flags.tunnel.load(Ordering::SeqCst));
+        assert!(!flags.killed.load(Ordering::SeqCst));
+        s.connect().unwrap();
+        flags.killed.store(false, Ordering::SeqCst);
+        // Те же правила: ядро не перезапускается.
+        s.set_rules(&with_preset()).unwrap();
+        assert!(!flags.killed.load(Ordering::SeqCst));
+        s.disconnect();
+    }
+
+    #[test]
+    fn a_failed_rules_switch_returns_the_previous_rules_with_a_plain_message() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        flags.spawn_failures.store(1, Ordering::SeqCst);
+        let saved = s.set_rules(&with_preset()).unwrap();
+        assert!(saved.presets.is_empty(), "прежние правила вернулись");
+        assert!(s.snapshot().rules.presets.is_empty());
+        let st = s.status();
+        assert_eq!(st.state, ConnState::Connected);
+        assert!(st.message.contains("Работают прежние"), "{}", st.message);
+        s.disconnect();
     }
 
     #[test]
