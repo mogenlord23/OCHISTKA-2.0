@@ -7,14 +7,15 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Не больше стольких адресов.
-pub const MAX_SITES: usize = 200;
+/// Внутренний предел списка: пользователю не показывается.
+pub const MAX_SITES: usize = 10_000;
 const FILE: &str = "user-sites.json";
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SiteError {
     #[error("Введите адрес сайта, например example.com")]
     Invalid,
-    #[error("Можно добавить не больше {MAX_SITES} сайтов")]
+    #[error("Список сайтов слишком большой")]
     TooMany,
     #[error("Не удалось сохранить список сайтов")]
     Save,
@@ -107,7 +108,7 @@ impl UserSites {
         let Ok(meta) = std::fs::symlink_metadata(&self.path) else {
             return Vec::new();
         };
-        if !meta.is_file() || meta.len() > 256 * 1024 {
+        if !meta.is_file() || meta.len() > 1024 * 1024 {
             return Vec::new();
         }
         let sites: Vec<String> = std::fs::read_to_string(&self.path)
@@ -117,9 +118,10 @@ impl UserSites {
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default();
         let mut out: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         for s in sites {
             if let Ok(d) = normalize(&s) {
-                if !out.contains(&d) && out.len() < MAX_SITES {
+                if out.len() < MAX_SITES && seen.insert(d.clone()) {
                     out.push(d);
                 }
             }
@@ -147,8 +149,9 @@ impl UserSites {
     pub fn add(&self, text: &str) -> Result<Vec<String>, SiteError> {
         let new = parse_input(text)?;
         let mut all = self.load();
+        let mut seen: std::collections::HashSet<String> = all.iter().cloned().collect();
         for d in new {
-            if !all.contains(&d) {
+            if seen.insert(d.clone()) {
                 all.push(d);
             }
         }
@@ -283,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn at_most_200_addresses() {
+    fn the_internal_limit_rejects_without_a_number_in_the_text() {
         let dir = temp();
         let s = UserSites::new(&dir);
         let many: String = (0..MAX_SITES)
@@ -298,6 +301,8 @@ mod tests {
             .map(|i| format!("o{i}.example.org\n"))
             .collect();
         assert_eq!(UserSites::new(&temp()).add(&over), Err(SiteError::TooMany));
+        let text = SiteError::TooMany.to_string();
+        assert!(!text.chars().any(|c| c.is_ascii_digit()), "{text}");
     }
 
     #[test]

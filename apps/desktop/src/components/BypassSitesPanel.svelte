@@ -4,7 +4,6 @@
     bypassSitesList,
     bypassSitesRemove,
     errorText,
-    MAX_SITES,
   } from '../lib/bypassSites';
 
   let {
@@ -90,7 +89,6 @@
             </li>
           {/each}
         </ul>
-        <p class="note count">{sites.length} из {MAX_SITES}</p>
       {/if}
     </section>
   </div>
