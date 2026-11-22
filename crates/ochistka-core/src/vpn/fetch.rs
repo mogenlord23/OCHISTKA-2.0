@@ -16,10 +16,14 @@ pub trait HttpFetch: Send + Sync {
     fn get(&self, url: &str, user_agent: &str, max_bytes: usize) -> Result<FetchResponse, String>;
 }
 
-/// Имена клиента. Сначала общее имя приложения. Запасное — известное имя клиента: часть
-/// провайдеров отдаёт список серверов только знакомым клиентам (решение владельца, этап 20). Запасное
-/// имя используется один раз, только после отказа 403, 404 или 410. Личных данных не отправляем.
-pub const USER_AGENTS: [&str; 2] = ["OCHISTKA/1.0", "v2rayN/7.0 OCHISTKA"];
+/// Имена клиента. Сначала общее имя приложения, затем известные клиенты по очереди (как в рабочей
+/// версии 0c46358): часть провайдеров отдаёт список серверов только знакомым клиентам. Следующее
+/// имя пробуется после отказа 403, 404 или 410 на любом шаге. Личных данных не отправляем.
+pub const USER_AGENTS: [&str; 3] = [
+    "OCHISTKA/1.0",
+    "v2rayN/7.0 OCHISTKA",
+    "v2rayTun/1.0 OCHISTKA",
+];
 
 pub const LINK_GONE: &str = "Ссылка больше не действует. Обновите её в личном кабинете сервиса";
 
@@ -182,7 +186,18 @@ mod tests {
     impl HttpFetch for Fake {
         fn get(&self, _: &str, agent: &str, _: usize) -> Result<FetchResponse, String> {
             self.agents.lock().unwrap().push(agent.to_string());
-            self.replies.lock().unwrap().remove(0)
+            // Последний ответ повторяется: провайдер отвечает одинаково на все имена клиента.
+            let mut replies = self.replies.lock().unwrap();
+            if replies.len() > 1 {
+                return replies.remove(0);
+            }
+            match &replies[0] {
+                Ok(r) => Ok(FetchResponse {
+                    status: r.status,
+                    body: r.body.clone(),
+                }),
+                Err(e) => Err(e.clone()),
+            }
         }
     }
 
@@ -294,8 +309,8 @@ mod tests {
             .to_string();
         assert_eq!(text, LINK_GONE);
         assert!(!text.contains("410") && !text.contains("HTTP"));
-        // Второй запрос с другим именем клиента сделан, как в 0.5.5.
-        assert_eq!(fake.agents.lock().unwrap().len(), 2);
+        // Вся цепочка имён клиента пройдена.
+        assert_eq!(fake.agents.lock().unwrap().len(), USER_AGENTS.len());
     }
 
     #[test]
@@ -360,6 +375,67 @@ mod tests {
         let fake = Fake::new(vec![reply(429)]);
         assert!(import_from_url(&fake, "https://s.example/sub").is_err());
         assert_eq!(fake.agents.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn the_chain_is_generic_then_v2rayn_then_v2raytun() {
+        assert_eq!(
+            USER_AGENTS,
+            [
+                "OCHISTKA/1.0",
+                "v2rayN/7.0 OCHISTKA",
+                "v2rayTun/1.0 OCHISTKA"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_404_on_the_first_two_names_is_rescued_by_the_third() {
+        let not_found = || {
+            Ok(FetchResponse {
+                status: 404,
+                body: vec![],
+            })
+        };
+        let fake = Fake::new(vec![not_found(), not_found(), ok(LINK)]);
+        let report = import_from_url(&fake, "https://s.example/sub/TOKEN123").unwrap();
+        assert_eq!(report.servers.len(), 1);
+        assert_eq!(
+            *fake.agents.lock().unwrap(),
+            vec![USER_AGENTS[0], USER_AGENTS[1], USER_AGENTS[2]]
+        );
+    }
+
+    #[test]
+    fn three_404_answers_say_the_link_is_gone_without_secrets() {
+        let fake = Fake::new(vec![Ok(FetchResponse {
+            status: 404,
+            body: vec![],
+        })]);
+        let text = import_from_url(&fake, "https://sub.example.com/s/TOKEN123?k=v")
+            .unwrap_err()
+            .to_string();
+        assert!(text.contains("больше не действует"), "{text}");
+        assert_eq!(fake.agents.lock().unwrap().len(), 3);
+        for secret in ["TOKEN123", "k=v", "sub.example.com"] {
+            assert!(!text.contains(secret), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_429_or_5xx_on_any_step_ends_the_chain_at_once() {
+        let reply = |status| {
+            Ok(FetchResponse {
+                status,
+                body: vec![],
+            })
+        };
+        let fake = Fake::new(vec![reply(404), reply(503)]);
+        let text = import_from_url(&fake, "https://s.example/sub")
+            .unwrap_err()
+            .to_string();
+        assert!(text.contains("код 503"), "{text}");
+        assert_eq!(fake.agents.lock().unwrap().len(), 2);
     }
 
     #[test]
