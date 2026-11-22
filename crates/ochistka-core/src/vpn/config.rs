@@ -171,7 +171,7 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
             {"type": "local", "tag": "local"},
             {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
             // Российский DNS напрямую (мимо туннеля): для сайтов зоны геоадреса нужны российские.
-            {"type": "udp", "tag": "ru-dns", "server": RU_DNS, "detour": "direct"},
+            {"type": "udp", "tag": "ru-dns", "server": RU_DNS},
         ],
         "rules": dns_rules,
         "final": final_server,
@@ -234,7 +234,7 @@ mod tests {
             "servers": [
               {"type": "local", "tag": "local"},
               {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
-              {"type": "udp", "tag": "ru-dns", "server": "77.88.8.8", "detour": "direct"}
+              {"type": "udp", "tag": "ru-dns", "server": "77.88.8.8"}
             ],
             "rules": [
               {"domain": ["tr.example.com"], "server": "local"},
