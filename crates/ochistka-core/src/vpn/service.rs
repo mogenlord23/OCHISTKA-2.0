@@ -314,7 +314,7 @@ impl VpnService {
                 conn.since = None;
                 if let Err(err) = outcome {
                     conn.message = format!(
-                        "{} Не удалось вернуть прежние настройки прокси Windows: {err}",
+                        "{} Не удалось вернуть прежние настройки сети: {err}",
                         conn.message
                     );
                 }
@@ -566,7 +566,7 @@ impl VpnService {
                 conn.message = err.to_string();
                 if let Err(restore) = outcome {
                     conn.message = format!(
-                        "{} Не удалось вернуть прежние настройки прокси Windows: {restore}",
+                        "{} Не удалось вернуть прежние настройки сети: {restore}",
                         conn.message
                     );
                 }
@@ -706,12 +706,12 @@ impl VpnService {
             Err(err) => {
                 conn.state = ConnState::Error;
                 conn.message = format!(
-                    "Не удалось вернуть прежние настройки прокси Windows: {err}. Повторите отключение или перезапустите OCHISTKA: оно вернёт их при запуске"
+                    "Не удалось вернуть прежние настройки сети: {err}. Повторите отключение или перезапустите OCHISTKA: оно вернёт их при запуске"
                 );
             }
             Ok(Restored::ForeignKept) => {
                 conn.message =
-                    "Отключено. Системный прокси уже изменила другая программа, мы его не трогали"
+                    "Отключено. Настройки сети уже изменила другая программа, мы их не трогали"
                         .into();
             }
             Ok(_) => {}

@@ -32,7 +32,7 @@ pub enum VpnError {
     Prepare(String),
     #[error("{0}")]
     Engine(String),
-    #[error("Не удалось изменить системный прокси: {0}")]
+    #[error("Не удалось изменить настройки сети: {0}")]
     Proxy(String),
     #[error("{0}")]
     ProxyConflict(String),

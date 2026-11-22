@@ -47,7 +47,7 @@
         directApps: splitEntries(directApps),
         proxyApps: splitEntries(proxyApps),
         presets,
-        mode: snapshot?.rules.mode ?? 'direct',
+        mode: snapshot?.rules.mode ?? 'listOnly',
       });
       directDomains = joinEntries(saved.directDomains);
       proxyDomains = joinEntries(saved.proxyDomains);

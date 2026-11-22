@@ -21,7 +21,6 @@
   import {
     IMPORTING_LABEL,
     PREPARE_FAILED_PREFIX,
-    TUN_MODE_REASON,
     connectUi,
     elapsedSince,
     formatElapsed,
@@ -76,10 +75,13 @@
   const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
   let fileInput: HTMLInputElement | undefined = $state();
   let modeBusy = $state(false);
-  const ROUTE_MODES: { id: RouteMode; label: string }[] = [
-    { id: 'direct', label: 'Напрямую' },
-    { id: 'listOnly', label: 'Только сайты из списка через VPN' },
-    { id: 'all', label: 'Все сайты через VPN' },
+  const ROUTE_MODES: { id: RouteMode; label: string; caption: string }[] = [
+    { id: 'all', label: 'Весь компьютер', caption: 'Все приложения и сайты через VPN' },
+    {
+      id: 'listOnly',
+      label: 'Только нужные сайты',
+      caption: 'Российские сервисы работают как обычно',
+    },
   ];
 
   /** Сетевые возможности (VPN → Дополнительно): одна карточка на понятную задачу, сложное скрыто. */
@@ -148,8 +150,14 @@
   const servers = $derived(snapshot?.servers ?? []);
   /** Число, а не сам список: замер задержек не перезапускает таймер проверок. */
   const serverCount = $derived(servers.length);
-  const routeMode = $derived<RouteMode>(snapshot?.rules.mode ?? 'direct');
-  const ui = $derived(connectUi(snapshot, requesting || importing, { preparing, retry }));
+  const routeMode = $derived<RouteMode>(snapshot?.rules.mode ?? 'listOnly');
+  const ui = $derived(
+    connectUi(snapshot, requesting || importing, {
+      preparing,
+      retry,
+      disconnecting: requesting && snapshot?.connection.state === 'connected',
+    }),
+  );
   const elapsedSeconds = $derived(
     snapshot?.connection.state === 'connected' ? elapsedSince(snapshot.connection.since, nowMs) : 0,
   );
@@ -164,34 +172,6 @@
               ui.reason === NO_SERVERS_REASON ? null : ui.reason,
             )),
   );
-
-  /** Режим подключения: работает только системный прокси; TUN выключен и объяснён. */
-  let modeMenu = $state<{ x: number; y: number; width: number } | null>(null);
-  let modeButton = $state<HTMLButtonElement | null>(null);
-  const MODE_ITEMS: MenuItem[] = [
-    { id: 'proxy', label: 'Системный прокси · совместимые приложения', checked: true },
-    {
-      id: 'tun',
-      label: 'TUN · весь компьютер (скоро)',
-      checked: false,
-      disabled: true,
-      reason: TUN_MODE_REASON,
-    },
-  ];
-
-  function openModeMenu() {
-    if (modeMenu) {
-      closeModeMenu();
-      return;
-    }
-    const rect = modeButton?.getBoundingClientRect();
-    if (rect) modeMenu = { x: rect.left, y: rect.bottom + 4, width: rect.width };
-  }
-
-  function closeModeMenu() {
-    modeMenu = null;
-    modeButton?.focus();
-  }
 
   async function refresh() {
     try {
@@ -264,19 +244,16 @@
     untrack(() => void runImport(raw));
   });
 
-  /** Выбор режима маршрутов: подсветка меняется в тот же кадр, при ошибке возвращается. Повторное
-      нажатие выбранного режима «через VPN» возвращает «Напрямую». */
+  /** Выбор области VPN: обводка меняется в тот же кадр, при ошибке возвращается. Область можно
+      менять и при выключенном VPN, и при включённом (тогда VPN переподключается). */
   async function onMode(picked: RouteMode) {
-    if (!snapshot || modeBusy) return;
-    const before = snapshot.rules.mode;
-    const mode: RouteMode = picked === before && picked !== 'direct' ? 'direct' : picked;
-    if (mode === before) return;
+    if (!snapshot || modeBusy || picked === snapshot.rules.mode) return;
     modeBusy = true;
     actionNote = null;
-    snapshot = { ...snapshot, rules: { ...snapshot.rules, mode } };
+    snapshot = { ...snapshot, rules: { ...snapshot.rules, mode: picked } };
     try {
-      const connection = await vpnSetMode(mode);
-      if (snapshot) snapshot = { ...snapshot, connection };
+      const connection = await vpnSetMode(picked);
+      if (snapshot && connection) snapshot = { ...snapshot, connection };
     } catch (err) {
       actionNote = errorMessage(err);
       await refresh();
@@ -514,7 +491,7 @@
           </section>
 
           <section class="card connect">
-            <div class="route-modes" role="radiogroup" aria-label="Маршруты">
+            <div class="route-modes" role="radiogroup" aria-label="Область VPN">
               {#each ROUTE_MODES as item (item.id)}
                 <button
                   type="button"
@@ -522,8 +499,13 @@
                   class="route-mode"
                   class:selected={routeMode === item.id}
                   aria-checked={routeMode === item.id}
-                  onclick={() => onMode(item.id)}>{item.label}</button
+                  aria-label={item.label}
+                  aria-describedby={`route-${item.id}`}
+                  onclick={() => onMode(item.id)}
                 >
+                  <span class="route-title">{item.label}</span>
+                  <span class="route-caption" id={`route-${item.id}`}>{item.caption}</span>
+                </button>
               {/each}
               <span class="route-sites">
                 <ExpandButton
@@ -570,35 +552,6 @@
                 <span class="status-line" role="status">{status}</span>
               </div>
             </div>
-            <div class="select">
-              <button
-                type="button"
-                class="mode"
-                bind:this={modeButton}
-                aria-haspopup="menu"
-                aria-expanded={modeMenu !== null}
-                aria-label="Режим"
-                aria-describedby="vpn-tun-reason"
-                onclick={openModeMenu}
-              >
-                <span>Системный прокси · совместимые приложения</span>
-                <span class="chev" class:open={modeMenu !== null} aria-hidden="true"></span>
-              </button>
-            </div>
-            {#if modeMenu}
-              <ContextMenu
-                items={MODE_ITEMS}
-                x={modeMenu.x}
-                y={modeMenu.y}
-                minWidth={modeMenu.width}
-                label="Режим подключения"
-                onselect={closeModeMenu}
-                onclose={closeModeMenu}
-              />
-            {/if}
-            <p class="note" id="vpn-tun-reason">
-              {TUN_MODE_REASON}. Прежние настройки прокси Windows возвращаются при отключении.
-            </p>
           </section>
 
           <h2 class="sr-only">Серверы / {servers.length}</h2>
@@ -1076,46 +1029,6 @@
     color: var(--ink);
   }
 
-  .select {
-    position: relative;
-    display: block;
-  }
-
-  .mode {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 10px 12px;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--black);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-    color: var(--ink);
-    font: inherit;
-    font-size: var(--text-caption);
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .chev {
-    position: absolute;
-    right: 16px;
-    top: 13px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid var(--accent);
-    border-bottom: 2px solid var(--accent);
-    transform: rotate(45deg);
-    transition: transform 0.2s;
-  }
-
-  .chev.open {
-    top: 17px;
-    transform: rotate(-135deg);
-  }
-
   .servers-card {
     flex: 1;
     min-height: 120px;
@@ -1258,6 +1171,18 @@
   .route-mode.selected {
     background: #222;
     box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .route-title {
+    display: block;
+  }
+
+  .route-caption {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.7;
   }
 
   .route-sites {
