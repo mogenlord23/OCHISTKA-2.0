@@ -461,7 +461,7 @@ impl VpnService {
     fn reconnect(&self, prev: RouteMode) -> Result<(), VpnError> {
         self.disconnect();
         let first = self.connect();
-        if matches!(first, Ok(_)) && lock(&self.conn).state == ConnState::Connected {
+        if first.is_ok() && lock(&self.conn).state == ConnState::Connected {
             return Ok(());
         }
         let err = first
@@ -473,7 +473,7 @@ impl VpnService {
             let _ = self.save(&data);
         }
         let back = self.connect();
-        if matches!(back, Ok(_)) && lock(&self.conn).state == ConnState::Connected {
+        if back.is_ok() && lock(&self.conn).state == ConnState::Connected {
             lock(&self.conn).message = "Не удалось переключить область. Работает прежняя".into();
             return Ok(());
         }

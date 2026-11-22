@@ -837,8 +837,8 @@ describe('VpnPage: области VPN', () => {
     let mode = 'listOnly';
     backend({
       vpn_snapshot: () => withMode(mode),
-      vpn_set_mode: (args: { mode: string }) => {
-        mode = args.mode;
+      vpn_set_mode: (args) => {
+        mode = String(args?.mode);
         return { state: 'disconnected', message: 'Не подключено', since: null };
       },
     });
@@ -869,9 +869,9 @@ describe('VpnPage: области VPN', () => {
     };
     backend({
       vpn_snapshot: () => ({ ...withMode(mode), connection: on }) as never,
-      vpn_set_mode: async (args: { mode: string }) => {
+      vpn_set_mode: async (args) => {
         await gate;
-        mode = args.mode;
+        mode = String(args?.mode);
         return on;
       },
     });
