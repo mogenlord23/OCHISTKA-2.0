@@ -101,6 +101,8 @@ pub const TUN_MTU: u32 = 1400;
 pub const TUN_NAME: &str = "OCHISTKA-VPN";
 /// Российские зоны: имена в них разрешаются локально и идут напрямую, мимо VPN. `xn--p1ai` — «рф».
 pub const RUSSIAN_ZONES: [&str; 2] = ["ru", "xn--p1ai"];
+/// Российский публичный DNS (Яндекс): отвечает российскими адресами сайтов зоны.
+pub const RU_DNS: &str = "77.88.8.8";
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 /// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
 pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
@@ -157,9 +159,9 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
                 direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
             }
         }
-        // Зоны резолвятся через тот же DoH, что и остальные сайты туннеля: локальный резолвер
-        // в туннеле не находит имена (DNS_PROBE_STARTED у vk.ru). Маршрут при этом остаётся прямым.
-        let mut list = vec![json!({"domain_suffix": RUSSIAN_ZONES, "server": "remote"})];
+        // Зоны резолвятся российским DNS напрямую: через DoH адреса сайтов зоны могут быть не теми
+        // (ERR_CONNECTION_RESET у ya.ru при DoH). Маршрут при этом прямой.
+        let mut list = vec![json!({"domain_suffix": RUSSIAN_ZONES, "server": "ru-dns"})];
         list.extend(to_dns_rules(direct, "local"));
         (list, "remote")
     };
@@ -168,6 +170,8 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
         "servers": [
             {"type": "local", "tag": "local"},
             {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
+            // Российский DNS напрямую (мимо туннеля): для сайтов зоны геоадреса нужны российские.
+            {"type": "udp", "tag": "ru-dns", "server": RU_DNS, "detour": "direct"},
         ],
         "rules": dns_rules,
         "final": final_server,
@@ -229,11 +233,12 @@ mod tests {
           "dns": {
             "servers": [
               {"type": "local", "tag": "local"},
-              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"}
+              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
+              {"type": "udp", "tag": "ru-dns", "server": "77.88.8.8", "detour": "direct"}
             ],
             "rules": [
               {"domain": ["tr.example.com"], "server": "local"},
-              {"domain_suffix": ["ru", "xn--p1ai"], "server": "remote"}
+              {"domain_suffix": ["ru", "xn--p1ai"], "server": "ru-dns"}
             ],
             "final": "remote",
             "reverse_mapping": true,
@@ -547,7 +552,7 @@ mod tests {
         assert!(proxy_at < zone_at);
         let dns = cfg["dns"]["rules"].to_string();
         assert!(
-            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"remote""#),
+            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"ru-dns""#),
             "{dns}"
         );
     }
