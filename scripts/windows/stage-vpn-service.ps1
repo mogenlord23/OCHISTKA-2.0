@@ -3,7 +3,8 @@
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 & (Join-Path $root 'tools\vpn-core\fetch.ps1')
-if ($LASTEXITCODE -ne 0) { throw 'не удалось подготовить VPN-ядро' }
+$core = Join-Path $root 'apps\desktop\src-tauri\resources\vpn-core\sing-box.exe'
+if (-not (Test-Path $core)) { throw 'не удалось подготовить VPN-ядро' }
 Push-Location $root
 try {
     cargo build --release --locked -p vpn-host
