@@ -61,8 +61,6 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
         route_rules.push(json!({"process_name": rules.proxy_apps, "outbound": "proxy"}));
     }
     route_rules.extend(domain_rules(&rules.proxy_domains, "proxy"));
-    // Российские зоны мимо VPN: сайты вроде vk.ru видят обычный адрес, как без VPN.
-    route_rules.push(json!({"domain_suffix": RUSSIAN_ZONES, "outbound": "direct"}));
     route_rules.extend(domain_rules(&rules.direct_domains, "direct"));
     for id in &rules.presets {
         if let Some(list) = preset_suffixes(id) {
@@ -99,10 +97,6 @@ fn tunnel_inbounds(port: u16) -> Value {
 pub const TUN_MTU: u32 = 1400;
 /// Имя адаптера туннеля: по нему приложение находит и снимает только свои остатки.
 pub const TUN_NAME: &str = "OCHISTKA-VPN";
-/// Российские зоны: имена в них разрешаются локально и идут напрямую, мимо VPN. `xn--p1ai` — «рф».
-pub const RUSSIAN_ZONES: [&str; 2] = ["ru", "xn--p1ai"];
-/// Российский публичный DNS (Яндекс): отвечает российскими адресами сайтов зоны.
-pub const RU_DNS: &str = "77.88.8.8";
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 /// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
 pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
@@ -159,19 +153,13 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
                 direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
             }
         }
-        // Зоны резолвятся российским DNS напрямую: через DoH адреса сайтов зоны могут быть не теми
-        // (ERR_CONNECTION_RESET у ya.ru при DoH). Маршрут при этом прямой.
-        let mut list = vec![json!({"domain_suffix": RUSSIAN_ZONES, "server": "ru-dns"})];
-        list.extend(to_dns_rules(direct, "local"));
-        (list, "remote")
+        (to_dns_rules(direct, "local"), "remote")
     };
     dns_rules.extend(via_vpn);
     json!({
         "servers": [
             {"type": "local", "tag": "local"},
             {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
-            // Российский DNS напрямую (мимо туннеля): для сайтов зоны геоадреса нужны российские.
-            {"type": "udp", "tag": "ru-dns", "server": RU_DNS},
         ],
         "rules": dns_rules,
         "final": final_server,
@@ -233,12 +221,10 @@ mod tests {
           "dns": {
             "servers": [
               {"type": "local", "tag": "local"},
-              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
-              {"type": "udp", "tag": "ru-dns", "server": "77.88.8.8"}
+              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"}
             ],
             "rules": [
-              {"domain": ["tr.example.com"], "server": "local"},
-              {"domain_suffix": ["ru", "xn--p1ai"], "server": "ru-dns"}
+              {"domain": ["tr.example.com"], "server": "local"}
             ],
             "final": "remote",
             "reverse_mapping": true,
@@ -258,8 +244,7 @@ mod tests {
               {"action": "sniff"},
               {"protocol": "dns", "action": "hijack-dns"},
               {"domain": ["tr.example.com"], "outbound": "direct"},
-              {"ip_is_private": true, "outbound": "direct"},
-              {"domain_suffix": ["ru", "xn--p1ai"], "outbound": "direct"}
+              {"ip_is_private": true, "outbound": "direct"}
             ],
             "final": "proxy",
             "default_domain_resolver": "local",
@@ -303,23 +288,19 @@ mod tests {
         );
         assert_eq!(
             list[6],
-            json!({"domain_suffix": ["ru", "xn--p1ai"], "outbound": "direct"})
-        );
-        assert_eq!(
-            list[7],
             json!({"domain_suffix": ["example.com"], "outbound": "direct"})
         );
-        assert_eq!(list[8], json!({"domain": ["a.b.c"], "outbound": "direct"}));
+        assert_eq!(list[7], json!({"domain": ["a.b.c"], "outbound": "direct"}));
         assert_eq!(
-            list[9],
+            list[8],
             json!({"ip_cidr": ["10.0.0.0/8"], "outbound": "direct"})
         );
-        assert!(list[10]["domain_suffix"]
+        assert!(list[9]["domain_suffix"]
             .as_array()
             .unwrap()
             .iter()
             .any(|d| d == "ru"));
-        assert_eq!(list.len(), 11);
+        assert_eq!(list.len(), 10);
         assert_eq!(cfg["route"]["find_process"], true);
         assert_eq!(cfg["route"]["final"], "proxy");
     }
@@ -537,27 +518,6 @@ mod tests {
     }
 
     #[test]
-    fn whole_computer_sends_russian_zones_direct_for_routes_and_names() {
-        let mut r = rules(RouteMode::All);
-        r.proxy_domains = vec!["example.org".into()];
-        let cfg = build_config(&server(), 1, &r, &[]);
-        let route = cfg["route"]["rules"].to_string();
-        assert!(
-            route.contains(r#""domain_suffix":["ru","xn--p1ai"]"#),
-            "{route}"
-        );
-        // Явное «через VPN» для домена сильнее зоны: его правило стоит раньше.
-        let proxy_at = route.find("example.org").unwrap();
-        let zone_at = route.find("xn--p1ai").unwrap();
-        assert!(proxy_at < zone_at);
-        let dns = cfg["dns"]["rules"].to_string();
-        assert!(
-            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"ru-dns""#),
-            "{dns}"
-        );
-    }
-
-    #[test]
     fn both_areas_use_the_tunnel() {
         let all = build_config(&server(), 7, &rules(RouteMode::All), &[]);
         let inbounds = all["inbounds"].as_array().unwrap();
@@ -612,8 +572,7 @@ mod tests {
             all["route"]["rules"][2],
             json!({"ip_cidr": ["203.0.113.7/32"], "outbound": "direct"})
         );
-        // В DNS остаётся только правило российских зон (локальные имена).
-        assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 1);
+        assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 0);
     }
 
     #[test]
