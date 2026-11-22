@@ -6,15 +6,6 @@
   let { maximized = false }: { maximized?: boolean } = $props();
 
   const win = getCurrentWindow();
-
-  async function controlWindow(action: () => Promise<void>) {
-    try {
-      await action();
-    } catch (error) {
-      console.error('Window control failed:', error);
-      window.alert(t('windowControlError'));
-    }
-  }
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
@@ -22,18 +13,14 @@
     <BrandMark />
   </div>
   <div class="controls">
-    <button
-      type="button"
-      aria-label={t('minimize')}
-      onclick={() => controlWindow(() => win.minimize())}
-    >
+    <button type="button" aria-label={t('minimize')} onclick={() => win.minimize()}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12h11" /></svg>
     </button>
     <button
       type="button"
       class="maximize"
-      aria-label={t(maximized ? 'restoreWindow' : 'maximize')}
-      onclick={() => controlWindow(() => win.toggleMaximize())}
+      aria-label={t('maximize')}
+      onclick={() => win.toggleMaximize()}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         {#if maximized}
@@ -44,12 +31,7 @@
         {/if}
       </svg>
     </button>
-    <button
-      type="button"
-      class="close"
-      aria-label={t('close')}
-      onclick={() => controlWindow(() => win.close())}
-    >
+    <button type="button" class="close" aria-label={t('close')} onclick={() => win.close()}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" /></svg>
     </button>
   </div>
