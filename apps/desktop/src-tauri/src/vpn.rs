@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use ochistka_core::vpn::engine::PrepareProgress;
-use ochistka_core::vpn::routes::RoutingRules;
+use ochistka_core::vpn::routes::{RouteMode, RoutingRules};
 use ochistka_core::vpn::service::{ConnectionStatus, ImportSummary, VpnService, VpnSnapshot};
 use ochistka_core::vpn::sysproxy::SystemProxy;
 use ochistka_core::vpn::VpnError;
@@ -22,7 +22,9 @@ impl From<VpnError> for CommandError {
         let kind = match err {
             VpnError::CoreMissing(_) => "engineMissing",
             VpnError::Prepare(_) => "prepare",
-            VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) => "invalidTarget",
+            VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) | VpnError::NoMode => {
+                "invalidTarget"
+            }
             _ => "probe",
         };
         CommandError {
@@ -73,6 +75,11 @@ pub fn build_service(
         ochistka_platform::vpn::current_dialer(),
     )
     .with_coordinator(coord);
+    // Список сайтов из панели «Сайты» нужен только режиму «только сайты из списка».
+    let sites_dir = ochistka_platform::desync::desync_data_dir();
+    service.set_site_list(Box::new(move || {
+        ochistka_core::desync::user_sites::UserSites::new(&sites_dir).load()
+    }));
     service.recover_on_start();
     VpnState(Arc::new(service))
 }
@@ -120,6 +127,15 @@ pub async fn vpn_set_rules(
     rules: RoutingRules,
 ) -> Result<RoutingRules, CommandError> {
     blocking(&state, move |s| s.set_rules(&rules)).await
+}
+
+/// Выбор режима маршрутов. При включённом VPN: «напрямую» отключает его, другой режим переподключает.
+#[tauri::command]
+pub async fn vpn_set_mode(
+    state: State<'_, VpnState>,
+    mode: RouteMode,
+) -> Result<ConnectionStatus, CommandError> {
+    blocking(&state, move |s| s.set_mode(mode)).await
 }
 
 #[tauri::command]

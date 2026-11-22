@@ -17,7 +17,7 @@ use super::fetch::{import_input, HttpFetch, Input};
 use super::latency::{measure, Dialer, PARALLEL, TIMEOUT};
 use super::mask::mask_secrets;
 use super::parse::{ImportReport, Server};
-use super::routes::{RoutingRules, PRESETS};
+use super::routes::{RouteMode, RoutingRules, PRESETS};
 use super::sysproxy::{Restored, SystemProxy};
 use super::VpnError;
 use crate::desync::coordinator::{NetCoordinator, Owner};
@@ -180,7 +180,12 @@ pub struct VpnService {
     conflict_guard: Mutex<Option<ConflictGuard>>,
     /// Общее право на сетевой режим (одно на VPN и обход).
     coord: Arc<NetCoordinator>,
+    /// Список сайтов из панели «Сайты» (нужен только режиму «только сайты из списка»).
+    site_list: Mutex<Option<SiteListFn>>,
 }
+
+/// Возвращает сайты из панели «Сайты».
+pub type SiteListFn = Box<dyn Fn() -> Vec<String> + Send + Sync>;
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
@@ -216,6 +221,7 @@ impl VpnService {
             conn: Mutex::new(Conn::idle()),
             op: Mutex::new(()),
             conflict_guard: Mutex::new(None),
+            site_list: Mutex::new(None),
             coord: Arc::new(NetCoordinator::new()),
         }
     }
@@ -227,6 +233,10 @@ impl VpnService {
     }
 
     /// Задаёт действие «выключить обход блокировок» перед подключением: два механизма одновременно не работают.
+    pub fn set_site_list(&self, list: SiteListFn) {
+        *lock(&self.site_list) = Some(list);
+    }
+
     pub fn set_conflict_guard(&self, guard: ConflictGuard) {
         *lock(&self.conflict_guard) = Some(guard);
     }
@@ -379,11 +389,34 @@ impl VpnService {
     }
 
     pub fn set_rules(&self, rules: &RoutingRules) -> Result<RoutingRules, VpnError> {
-        let clean = rules.sanitized()?;
+        let mut clean = rules.sanitized()?;
         let mut data = lock(&self.data);
+        // Режим меняется только через `set_mode`: правки списков его не сбрасывают.
+        clean.mode = data.rules.mode;
         data.rules = clean.clone();
         self.save(&data)?;
         Ok(clean)
+    }
+
+    /// Выбирает режим маршрутов. При включённом VPN: «напрямую» отключает его, другой режим
+    /// переподключает с новыми правилами.
+    pub fn set_mode(&self, mode: RouteMode) -> Result<ConnectionStatus, VpnError> {
+        {
+            let mut data = lock(&self.data);
+            if data.rules.mode == mode {
+                return Ok(self.status());
+            }
+            data.rules.mode = mode;
+            self.save(&data)?;
+        }
+        if lock(&self.conn).state != ConnState::Connected {
+            return Ok(self.status());
+        }
+        let status = self.disconnect();
+        if mode == RouteMode::Direct {
+            return Ok(status);
+        }
+        self.connect()
     }
 
     /// Мерит задержку всех серверов (TCP). Подключению не мешает.
@@ -413,6 +446,10 @@ impl VpnService {
         &self,
         progress: &mut dyn FnMut(PrepareProgress),
     ) -> Result<ConnectionStatus, VpnError> {
+        // Режим «напрямую»: VPN для сайтов не нужен, включать нечего.
+        if lock(&self.data).rules.mode == RouteMode::Direct {
+            return Err(VpnError::NoMode);
+        }
         // Включение VPN выключает «Обход блокировок»: делается ДО блокировки `op`, чтобы два
         // сервиса не ждали друг друга. При неудаче VPN не включается.
         if lock(&self.conn).state != ConnState::Connected {
@@ -569,7 +606,11 @@ impl VpnService {
         std::fs::create_dir_all(&session)
             .map_err(|e| VpnError::Engine(format!("Папка сеанса недоступна: {e}")))?;
         let port = self.host.free_port().map_err(VpnError::Engine)?;
-        let config = build_config(server, port, rules);
+        let sites = lock(&self.site_list)
+            .as_ref()
+            .map(|list| list())
+            .unwrap_or_default();
+        let config = build_config(server, port, rules, &sites);
         let config_path = session.join("config.json");
         let text =
             serde_json::to_string_pretty(&config).map_err(|e| VpnError::Engine(e.to_string()))?;
@@ -840,16 +881,16 @@ mod tests {
     ) -> (VpnService, Arc<FakeRegistry>) {
         let reg = Arc::new(FakeRegistry::default());
         let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
-        (
-            VpnService::new(
-                dir.to_path_buf(),
-                Box::new(host),
-                proxy,
-                fetcher,
-                Box::new(OkDialer),
-            ),
-            reg,
-        )
+        let service = VpnService::new(
+            dir.to_path_buf(),
+            Box::new(host),
+            proxy,
+            fetcher,
+            Box::new(OkDialer),
+        );
+        // Режим «напрямую» VPN не включает: тесты подключения идут в режиме «все сайты».
+        service.set_mode(RouteMode::All).unwrap();
+        (service, reg)
     }
 
     fn ready(flags: &Flags, dir: &Path) -> (VpnService, Arc<FakeRegistry>) {
@@ -1094,6 +1135,78 @@ mod tests {
         assert_eq!(s.status().state, ConnState::Disconnected);
     }
 
+    fn written_config(s: &VpnService) -> serde_json::Value {
+        let text = std::fs::read_to_string(s.session_dir().join("config.json")).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
+    #[test]
+    fn direct_mode_does_not_connect_and_the_mode_survives_rule_edits() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.set_mode(RouteMode::Direct).unwrap();
+        assert!(matches!(s.connect(), Err(VpnError::NoMode)));
+        assert_eq!(s.status().state, ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        // Правка списков маршрутов режим не сбрасывает.
+        s.set_mode(RouteMode::ListOnly).unwrap();
+        let rules = RoutingRules {
+            direct_domains: vec!["example.com".into()],
+            ..RoutingRules::default()
+        };
+        assert_eq!(s.set_rules(&rules).unwrap().mode, RouteMode::ListOnly);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        assert_eq!(
+            s.snapshot().rules.direct_domains,
+            vec!["example.com".to_string()]
+        );
+    }
+
+    #[test]
+    fn list_only_connects_with_the_sites_list_and_all_ignores_it() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
+        s.set_mode(RouteMode::ListOnly).unwrap();
+        s.connect().unwrap();
+        let cfg = written_config(&s);
+        assert_eq!(cfg["route"]["final"], "direct");
+        assert!(cfg["route"]["rules"].to_string().contains("youtube.com"));
+        s.disconnect();
+        s.set_mode(RouteMode::All).unwrap();
+        s.connect().unwrap();
+        let cfg = written_config(&s);
+        assert_eq!(cfg["route"]["final"], "proxy");
+        assert!(!cfg.to_string().contains("youtube.com"));
+        s.disconnect();
+    }
+
+    #[test]
+    fn changing_the_mode_while_connected_reconnects_or_disconnects() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
+        s.connect().unwrap();
+        assert_eq!(written_config(&s)["route"]["final"], "proxy");
+        // Другой режим: переподключение с новыми правилами.
+        let status = s.set_mode(RouteMode::ListOnly).unwrap();
+        assert_eq!(status.state, ConnState::Connected);
+        assert_eq!(written_config(&s)["route"]["final"], "direct");
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        // Тот же режим: ничего не происходит.
+        assert_eq!(
+            s.set_mode(RouteMode::ListOnly).unwrap().state,
+            ConnState::Connected
+        );
+        // «Напрямую»: VPN отключается.
+        let status = s.set_mode(RouteMode::Direct).unwrap();
+        assert_eq!(status.state, ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+    }
+
     #[test]
     fn config_check_failure_rolls_back() {
         let dir = temp_dir();
@@ -1138,13 +1251,15 @@ mod tests {
 
     fn service_on(reg: &Arc<FakeRegistry>, flags: &Flags, dir: &Path) -> VpnService {
         let proxy = SystemProxy::new(reg.clone(), Arc::new(NoRefresh));
-        VpnService::new(
+        let service = VpnService::new(
             dir.to_path_buf(),
             Box::new(FakeHost::good(flags)),
             proxy,
             Box::new(NoNet),
             Box::new(OkDialer),
-        )
+        );
+        service.set_mode(RouteMode::All).unwrap();
+        service
     }
 
     #[test]

@@ -7,6 +7,20 @@ use ts_rs::TS;
 
 use super::VpnError;
 
+/// Режим маршрутов: что идёт через VPN. Выбирается до включения VPN.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "VpnRouteMode.ts")]
+pub enum RouteMode {
+    /// Напрямую: VPN для сайтов не используется (включить VPN нельзя).
+    #[default]
+    Direct,
+    /// Через VPN только сайты из списка («Сайты»), всё остальное напрямую.
+    ListOnly,
+    /// Всё через VPN, кроме локальных адресов и исключений пользователя.
+    All,
+}
+
 /// Правила пользователя. Пустые списки допустимы.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -22,6 +36,8 @@ pub struct RoutingRules {
     pub proxy_apps: Vec<String>,
     /// Включённые наборы (`id` из `PRESETS`).
     pub presets: Vec<String>,
+    /// Режим маршрутов (меняется только через `VpnService::set_mode`).
+    pub mode: RouteMode,
 }
 
 /// Готовый набор доменов, которые идут напрямую.
@@ -304,6 +320,7 @@ impl RoutingRules {
                 .filter(|p| preset_suffixes(p).is_some())
                 .cloned()
                 .collect(),
+            mode: self.mode,
         };
         if errors.is_empty() {
             Ok(rules)

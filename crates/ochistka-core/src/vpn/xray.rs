@@ -322,7 +322,7 @@ pub(crate) mod tests {
     fn imported_servers_build_a_core_config_with_the_chosen_outbound() {
         let report = crate::vpn::parse::parse_subscription(&fictional_subscription()).unwrap();
         for server in [&report.servers[0], &report.servers[6], &report.servers[9]] {
-            let cfg = crate::vpn::config::build_config(server, 17890, &Default::default());
+            let cfg = crate::vpn::config::build_config(server, 17890, &Default::default(), &[]);
             let text = cfg.to_string();
             assert!(text.contains(&server.host));
             let proxy = cfg["outbounds"]

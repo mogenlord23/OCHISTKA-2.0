@@ -118,6 +118,7 @@ pub fn run() {
             vpn::vpn_import,
             vpn::vpn_select,
             vpn::vpn_set_rules,
+            vpn::vpn_set_mode,
             vpn::vpn_measure_latency,
             vpn::vpn_connect,
             vpn::vpn_disconnect
