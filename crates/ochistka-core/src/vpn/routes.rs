@@ -7,18 +7,33 @@ use ts_rs::TS;
 
 use super::VpnError;
 
-/// Режим маршрутов: что идёт через VPN. Выбирается до включения VPN.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+/// Область VPN: что идёт через него. Выбирается и меняется в любой момент; «выключено» — это сам
+/// VPN выключен (всё напрямую), отдельного режима «напрямую» нет.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "VpnRouteMode.ts")]
 pub enum RouteMode {
-    /// Напрямую: VPN для сайтов не используется (включить VPN нельзя).
+    /// «Только нужные сайты»: через VPN сайты из панели «Сайты», остальное напрямую. Работает через
+    /// локальный вход и системный прокси (права администратора не нужны). Старое сохранённое
+    /// значение `direct` читается как это.
     #[default]
-    Direct,
-    /// Через VPN только сайты из списка («Сайты»), всё остальное напрямую.
     ListOnly,
-    /// Всё через VPN, кроме локальных адресов и исключений пользователя.
+    /// «Весь компьютер»: всё через VPN (туннель TUN), кроме локальных адресов и исключений
+    /// пользователя. Системный прокси не используется.
     All,
+}
+
+impl<'de> Deserialize<'de> for RouteMode {
+    /// Читает `listOnly` и `all`; старое значение `direct` (режима «напрямую» больше нет) — как
+    /// `listOnly`, неизвестное — тоже (область по умолчанию).
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Ok(if text == "all" {
+            RouteMode::All
+        } else {
+            RouteMode::ListOnly
+        })
+    }
 }
 
 /// Правила пользователя. Пустые списки допустимы.

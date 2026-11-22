@@ -38,8 +38,8 @@ pub enum VpnError {
     ProxyConflict(String),
     #[error("Сначала выбери сервер")]
     NoServer,
-    #[error("Выбери режим: только сайты из списка или все сайты")]
-    NoMode,
+    #[error("Для всего компьютера нужны права администратора")]
+    NeedsAdmin,
     #[error("Сначала отключи VPN")]
     Busy,
     #[error("{0}")]

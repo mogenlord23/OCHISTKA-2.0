@@ -22,9 +22,8 @@ impl From<VpnError> for CommandError {
         let kind = match err {
             VpnError::CoreMissing(_) => "engineMissing",
             VpnError::Prepare(_) => "prepare",
-            VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) | VpnError::NoMode => {
-                "invalidTarget"
-            }
+            VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) => "invalidTarget",
+            VpnError::NeedsAdmin => "needsAdmin",
             _ => "probe",
         };
         CommandError {

@@ -45,6 +45,11 @@ pub trait VpnHost: Send + Sync {
     fn probe_via_proxy(&self, port: u16) -> bool;
     /// Останавливает процесс ядра, оставшийся от прошлого запуска (если это действительно ядро).
     fn kill_stale(&self, pid: u32);
+    /// Можно ли поднять туннель на весь компьютер (на Windows нужны права администратора).
+    /// `Err` — короткая причина. По умолчанию можно.
+    fn can_tunnel(&self) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -398,8 +403,8 @@ impl VpnService {
         Ok(clean)
     }
 
-    /// Выбирает режим маршрутов. При включённом VPN: «напрямую» отключает его, другой режим
-    /// переподключает с новыми правилами.
+    /// Выбирает область VPN. При включённом VPN переподключает с новыми правилами; при выключенном
+    /// только запоминает выбор.
     pub fn set_mode(&self, mode: RouteMode) -> Result<ConnectionStatus, VpnError> {
         {
             let mut data = lock(&self.data);
@@ -412,10 +417,7 @@ impl VpnService {
         if lock(&self.conn).state != ConnState::Connected {
             return Ok(self.status());
         }
-        let status = self.disconnect();
-        if mode == RouteMode::Direct {
-            return Ok(status);
-        }
+        self.disconnect();
         self.connect()
     }
 
@@ -446,9 +448,12 @@ impl VpnService {
         &self,
         progress: &mut dyn FnMut(PrepareProgress),
     ) -> Result<ConnectionStatus, VpnError> {
-        // Режим «напрямую»: VPN для сайтов не нужен, включать нечего.
-        if lock(&self.data).rules.mode == RouteMode::Direct {
-            return Err(VpnError::NoMode);
+        // Весь компьютер идёт через туннель: на Windows нужны права администратора. Проверяем до
+        // любых действий, чтобы отказ ничего не менял.
+        if lock(&self.conn).state != ConnState::Connected
+            && lock(&self.data).rules.mode == RouteMode::All
+        {
+            self.host.can_tunnel().map_err(|_| VpnError::NeedsAdmin)?;
         }
         // Включение VPN выключает «Обход блокировок»: делается ДО блокировки `op`, чтобы два
         // сервиса не ждали друг друга. При неудаче VPN не включается.
@@ -490,7 +495,13 @@ impl VpnService {
             conn.message = err.to_string();
             return Err(err);
         }
-        if let Err(err) = self.prepare_system_proxy() {
+        // Туннель на весь компьютер системный прокси не использует.
+        let uses_proxy = rules.mode == RouteMode::ListOnly;
+        if let Err(err) = if uses_proxy {
+            self.prepare_system_proxy()
+        } else {
+            Ok(())
+        } {
             // Не вернули прежний прокси — право не освобождаем.
             if matches!(err, VpnError::Proxy(_)) {
                 self.coord.mark_unclean(Owner::Vpn);
@@ -525,7 +536,7 @@ impl VpnService {
                 }
             },
         };
-        match self.start(&core, &server, &rules) {
+        match self.start(&core, &server, &rules, uses_proxy) {
             Ok((process, verified)) => {
                 self.coord.activate(Owner::Vpn);
                 let mut conn = lock(&self.conn);
@@ -601,6 +612,7 @@ impl VpnService {
         core: &Path,
         server: &Server,
         rules: &RoutingRules,
+        uses_proxy: bool,
     ) -> Result<(Box<dyn CoreProcess>, bool), VpnError> {
         let session = self.session_dir();
         std::fs::create_dir_all(&session)
@@ -648,9 +660,11 @@ impl VpnService {
                 "VPN не открыл локальный порт за 15 секунд".into(),
             ));
         }
-        if let Err(err) = self.proxy.enable(port) {
-            process.kill();
-            return Err(err);
+        if uses_proxy {
+            if let Err(err) = self.proxy.enable(port) {
+                process.kill();
+                return Err(err);
+            }
         }
         let verified = (0..3).any(|_| self.host.probe_via_proxy(port));
         Ok((process, verified))
@@ -782,6 +796,8 @@ mod tests {
         check_fails: bool,
         port_opens: bool,
         probe_ok: bool,
+        /// Нет прав администратора для туннеля.
+        no_admin: bool,
     }
 
     impl FakeHost {
@@ -794,6 +810,7 @@ mod tests {
                 check_fails: false,
                 port_opens: true,
                 probe_ok: true,
+                no_admin: false,
             }
         }
     }
@@ -840,6 +857,13 @@ mod tests {
         }
         fn probe_via_proxy(&self, _: u16) -> bool {
             self.probe_ok
+        }
+        fn can_tunnel(&self) -> Result<(), String> {
+            if self.no_admin {
+                Err("нет прав".into())
+            } else {
+                Ok(())
+            }
         }
         fn kill_stale(&self, pid: u32) {
             self.flags.stale.lock().unwrap().push(pid);
@@ -888,8 +912,6 @@ mod tests {
             fetcher,
             Box::new(OkDialer),
         );
-        // Режим «напрямую» VPN не включает: тесты подключения идут в режиме «все сайты».
-        service.set_mode(RouteMode::All).unwrap();
         (service, reg)
     }
 
@@ -1141,22 +1163,20 @@ mod tests {
     }
 
     #[test]
-    fn direct_mode_does_not_connect_and_the_mode_survives_rule_edits() {
+    fn the_area_is_remembered_and_rule_edits_keep_it() {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
-        s.set_mode(RouteMode::Direct).unwrap();
-        assert!(matches!(s.connect(), Err(VpnError::NoMode)));
+        // По умолчанию: только нужные сайты. VPN выключен — это и есть «напрямую».
+        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
         assert_eq!(s.status().state, ConnState::Disconnected);
-        assert_eq!(s.coord.mode(), Some(Mode::Idle));
-        // Правка списков маршрутов режим не сбрасывает.
-        s.set_mode(RouteMode::ListOnly).unwrap();
+        s.set_mode(RouteMode::All).unwrap();
         let rules = RoutingRules {
             direct_domains: vec!["example.com".into()],
             ..RoutingRules::default()
         };
-        assert_eq!(s.set_rules(&rules).unwrap().mode, RouteMode::ListOnly);
-        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        assert_eq!(s.set_rules(&rules).unwrap().mode, RouteMode::All);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::All);
         assert_eq!(
             s.snapshot().rules.direct_domains,
             vec!["example.com".to_string()]
@@ -1164,46 +1184,95 @@ mod tests {
     }
 
     #[test]
-    fn list_only_connects_with_the_sites_list_and_all_ignores_it() {
+    fn vpn_can_be_turned_on_in_any_area() {
+        for mode in [RouteMode::ListOnly, RouteMode::All] {
+            let dir = temp_dir();
+            let flags = Flags::default();
+            let (s, _reg) = ready(&flags, &dir);
+            s.set_mode(mode).unwrap();
+            assert_eq!(s.connect().unwrap().state, ConnState::Connected, "{mode:?}");
+            s.disconnect();
+        }
+    }
+
+    #[test]
+    fn needed_sites_use_the_local_entry_and_the_system_proxy_the_whole_computer_uses_a_tunnel() {
         let dir = temp_dir();
         let flags = Flags::default();
-        let (s, _reg) = ready(&flags, &dir);
+        let (s, reg) = ready(&flags, &dir);
         s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
-        s.set_mode(RouteMode::ListOnly).unwrap();
         s.connect().unwrap();
         let cfg = written_config(&s);
         assert_eq!(cfg["route"]["final"], "direct");
         assert!(cfg["route"]["rules"].to_string().contains("youtube.com"));
+        assert!(!cfg.to_string().contains("\"tun\""));
+        assert!(
+            reg.get(INTERNET_KEY, "ProxyServer").is_some(),
+            "системный прокси включён"
+        );
         s.disconnect();
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+        // Весь компьютер: туннель, список сайтов не нужен, системный прокси не трогается.
         s.set_mode(RouteMode::All).unwrap();
         s.connect().unwrap();
         let cfg = written_config(&s);
         assert_eq!(cfg["route"]["final"], "proxy");
+        assert_eq!(cfg["inbounds"][1]["type"], "tun");
         assert!(!cfg.to_string().contains("youtube.com"));
+        assert!(
+            reg.get(INTERNET_KEY, "ProxyServer").is_none(),
+            "прокси Windows не менялся"
+        );
+        assert_eq!(s.disconnect().state, ConnState::Disconnected);
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+    }
+
+    #[test]
+    fn the_whole_computer_without_admin_rights_is_a_short_refusal_that_changes_nothing() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let host = FakeHost {
+            no_admin: true,
+            ..FakeHost::good(&flags)
+        };
+        let (s, reg) = make(host, Box::new(NoNet), &dir);
+        s.import(LIST).unwrap();
+        s.set_mode(RouteMode::All).unwrap();
+        assert!(matches!(s.connect(), Err(VpnError::NeedsAdmin)));
+        assert_eq!(s.status().state, ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
+        // «Только нужные сайты» права не требуют.
+        s.set_mode(RouteMode::ListOnly).unwrap();
+        assert_eq!(s.connect().unwrap().state, ConnState::Connected);
         s.disconnect();
     }
 
     #[test]
-    fn changing_the_mode_while_connected_reconnects_or_disconnects() {
+    fn changing_the_area_while_connected_reconnects_and_while_off_only_remembers() {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
+        // Выключен: смена области ничего не запускает.
+        assert_eq!(
+            s.set_mode(RouteMode::All).unwrap().state,
+            ConnState::Disconnected
+        );
+        s.set_mode(RouteMode::ListOnly).unwrap();
         s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
         s.connect().unwrap();
-        assert_eq!(written_config(&s)["route"]["final"], "proxy");
-        // Другой режим: переподключение с новыми правилами.
-        let status = s.set_mode(RouteMode::ListOnly).unwrap();
-        assert_eq!(status.state, ConnState::Connected);
         assert_eq!(written_config(&s)["route"]["final"], "direct");
+        // Другая область: переподключение с новыми правилами.
+        let status = s.set_mode(RouteMode::All).unwrap();
+        assert_eq!(status.state, ConnState::Connected);
+        assert_eq!(written_config(&s)["route"]["final"], "proxy");
         assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
-        // Тот же режим: ничего не происходит.
+        // Та же область: ничего не происходит.
         assert_eq!(
-            s.set_mode(RouteMode::ListOnly).unwrap().state,
+            s.set_mode(RouteMode::All).unwrap().state,
             ConnState::Connected
         );
-        // «Напрямую»: VPN отключается.
-        let status = s.set_mode(RouteMode::Direct).unwrap();
-        assert_eq!(status.state, ConnState::Disconnected);
+        s.disconnect();
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
     }
 
@@ -1258,7 +1327,6 @@ mod tests {
             Box::new(NoNet),
             Box::new(OkDialer),
         );
-        service.set_mode(RouteMode::All).unwrap();
         service
     }
 

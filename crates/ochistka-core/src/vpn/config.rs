@@ -1,5 +1,5 @@
-//! Конфигурация sing-box для режима системного прокси: локальный вход `mixed` на 127.0.0.1,
-//! выбранный сервер как `proxy`, правила маршрутов пользователя. Системный прокси Windows
+//! Конфигурация sing-box: локальный вход `mixed` на 127.0.0.1, выбранный сервер как `proxy`, правила
+//! маршрутов пользователя; для области «весь компьютер» ещё и туннель TUN. Системный прокси Windows
 //! выставляет само приложение (с резервной копией), а не ядро.
 
 use serde_json::{json, Map, Value};
@@ -8,31 +8,30 @@ use super::parse::Server;
 use super::routes::{parse_domain_entry, preset_suffixes, DomainRule, RouteMode, RoutingRules};
 
 /// Строит конфигурацию. `rules` ожидаются очищенными (`RoutingRules::sanitized`); `sites` — список
-/// из панели «Сайты» (используется только в режиме «только сайты из списка»).
+/// из панели «Сайты» (используется только в области «только нужные сайты»).
 ///
-/// - `All`: всё через VPN, кроме локальных адресов и исключений пользователя.
-/// - `ListOnly`: через VPN только сайты из списка (и явные «через VPN» пользователя), остальное напрямую.
-/// - `Direct`: ничего через VPN.
+/// - `All` («весь компьютер»): туннель TUN, всё через VPN, кроме локальных адресов и исключений
+///   пользователя. Локальный вход `mixed` остаётся для проверки связи, системный прокси не ставится.
+/// - `ListOnly` («только нужные сайты»): через VPN только сайты из списка (и явные «через VPN»
+///   пользователя), остальное напрямую; ядро слушает локальный вход, на него смотрит системный прокси.
 pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[String]) -> Value {
     let mut proxy = server.outbound.clone();
     if let Some(map) = proxy.as_object_mut() {
         map.insert("tag".into(), json!("proxy"));
     }
     let mut route_rules: Vec<Value> = vec![json!({"ip_is_private": true, "outbound": "direct"})];
-    if rules.mode != RouteMode::All {
-        if rules.mode == RouteMode::ListOnly {
-            if !rules.proxy_apps.is_empty() {
-                route_rules.push(json!({"process_name": rules.proxy_apps, "outbound": "proxy"}));
-            }
-            route_rules.extend(domain_rules(&rules.proxy_domains, "proxy"));
-            route_rules.extend(domain_rules(sites, "proxy"));
+    if rules.mode == RouteMode::ListOnly {
+        if !rules.proxy_apps.is_empty() {
+            route_rules.push(json!({"process_name": rules.proxy_apps, "outbound": "proxy"}));
         }
+        route_rules.extend(domain_rules(&rules.proxy_domains, "proxy"));
+        route_rules.extend(domain_rules(sites, "proxy"));
         let mut route = Map::new();
         route.insert("rules".into(), Value::Array(route_rules));
         route.insert("final".into(), json!("direct"));
         route.insert("default_domain_resolver".into(), json!("local"));
         route.insert("auto_detect_interface".into(), json!(true));
-        if rules.mode == RouteMode::ListOnly && !rules.proxy_apps.is_empty() {
+        if !rules.proxy_apps.is_empty() {
             route.insert("find_process".into(), json!(true));
         }
         return json!({
@@ -43,6 +42,8 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
             "route": Value::Object(route),
         });
     }
+    // Весь компьютер: DNS-запросы из туннеля обрабатывает ядро, затем локальные адреса напрямую.
+    route_rules.insert(0, json!({"protocol": "dns", "action": "hijack-dns"}));
     // Порядок важен: приложения, затем явные домены пользователя, затем наборы.
     if !rules.direct_apps.is_empty() {
         route_rules.push(json!({"process_name": rules.direct_apps, "outbound": "direct"}));
@@ -68,11 +69,17 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
     json!({
         "log": {"level": "warn", "timestamp": true},
         "dns": {"servers": [{"type": "local", "tag": "local"}], "final": "local"},
-        "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port}],
+        "inbounds": [
+            {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port},
+            {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS], "auto_route": true, "strict_route": true, "stack": "mixed"},
+        ],
         "outbounds": [proxy, {"type": "direct", "tag": "direct"}],
         "route": Value::Object(route),
     })
 }
+
+/// Адрес туннельного адаптера (частная сеть, не пересекается с домашними 192.168.*).
+pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 
 fn domain_rules(entries: &[String], outbound: &str) -> Vec<Value> {
     let (mut suffix, mut full, mut keyword, mut cidr) = (vec![], vec![], vec![], vec![]);
@@ -122,14 +129,20 @@ mod tests {
         let expected = json!({
           "log": {"level": "warn", "timestamp": true},
           "dns": {"servers": [{"type": "local", "tag": "local"}], "final": "local"},
-          "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 20808}],
+          "inbounds": [
+            {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 20808},
+            {"type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30"], "auto_route": true, "strict_route": true, "stack": "mixed"}
+          ],
           "outbounds": [
             {"type": "trojan", "server": "tr.example.com", "server_port": 443, "password": "pw",
              "tls": {"enabled": true, "server_name": "tr.example.com"}, "tag": "proxy"},
             {"type": "direct", "tag": "direct"}
           ],
           "route": {
-            "rules": [{"ip_is_private": true, "outbound": "direct"}],
+            "rules": [
+              {"protocol": "dns", "action": "hijack-dns"},
+              {"ip_is_private": true, "outbound": "direct"}
+            ],
             "final": "proxy",
             "default_domain_resolver": "local",
             "auto_detect_interface": true
@@ -156,34 +169,35 @@ mod tests {
         .unwrap();
         let cfg = build_config(&server(), 1080, &rules, &[]);
         let list = cfg["route"]["rules"].as_array().unwrap();
-        assert_eq!(list[0]["ip_is_private"], true);
+        assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
+        assert_eq!(list[1]["ip_is_private"], true);
         assert_eq!(
-            list[1],
+            list[2],
             json!({"process_name": ["steam.exe"], "outbound": "direct"})
         );
         assert_eq!(
-            list[2],
+            list[3],
             json!({"process_name": ["chrome.exe"], "outbound": "proxy"})
         );
         assert_eq!(
-            list[3],
+            list[4],
             json!({"domain_keyword": ["news"], "outbound": "proxy"})
         );
         assert_eq!(
-            list[4],
+            list[5],
             json!({"domain_suffix": ["example.com"], "outbound": "direct"})
         );
-        assert_eq!(list[5], json!({"domain": ["a.b.c"], "outbound": "direct"}));
+        assert_eq!(list[6], json!({"domain": ["a.b.c"], "outbound": "direct"}));
         assert_eq!(
-            list[6],
+            list[7],
             json!({"ip_cidr": ["10.0.0.0/8"], "outbound": "direct"})
         );
-        assert!(list[7]["domain_suffix"]
+        assert!(list[8]["domain_suffix"]
             .as_array()
             .unwrap()
             .iter()
             .any(|d| d == "ru"));
-        assert_eq!(list.len(), 8);
+        assert_eq!(list.len(), 9);
         assert_eq!(cfg["route"]["find_process"], true);
         assert_eq!(cfg["route"]["final"], "proxy");
     }
@@ -200,16 +214,6 @@ mod tests {
             mode,
             ..RoutingRules::default()
         }
-    }
-
-    #[test]
-    fn direct_mode_sends_nothing_through_the_vpn() {
-        let sites = vec!["youtube.com".to_string()];
-        let cfg = build_config(&server(), 1, &rules(RouteMode::Direct), &sites);
-        assert_eq!(cfg["route"]["final"], "direct");
-        let list = cfg["route"]["rules"].as_array().unwrap();
-        assert_eq!(list.len(), 1, "только локальные адреса");
-        assert!(!cfg.to_string().contains("youtube.com"));
     }
 
     #[test]
@@ -248,11 +252,34 @@ mod tests {
         assert_eq!(cfg["route"]["final"], "proxy");
         let text = cfg["route"]["rules"].to_string();
         assert!(text.contains("example.org") && !text.contains("youtube.com"));
-        assert_eq!(cfg["route"]["rules"][0]["ip_is_private"], true);
+        assert_eq!(cfg["route"]["rules"][1]["ip_is_private"], true);
     }
 
     #[test]
-    fn the_default_mode_is_direct() {
-        assert_eq!(RoutingRules::default().mode, RouteMode::Direct);
+    fn the_default_area_is_only_the_needed_sites_and_the_old_direct_value_reads_as_that() {
+        assert_eq!(RoutingRules::default().mode, RouteMode::ListOnly);
+        let old: RoutingRules = serde_json::from_str(r#"{"mode":"direct"}"#).unwrap();
+        assert_eq!(old.mode, RouteMode::ListOnly);
+        let all: RoutingRules = serde_json::from_str(r#"{"mode":"all"}"#).unwrap();
+        assert_eq!(all.mode, RouteMode::All);
+    }
+
+    #[test]
+    fn the_whole_computer_uses_a_tun_tunnel_and_the_needed_sites_do_not() {
+        let all = build_config(&server(), 7, &rules(RouteMode::All), &[]);
+        let inbounds = all["inbounds"].as_array().unwrap();
+        assert_eq!(inbounds.len(), 2);
+        assert_eq!(inbounds[0]["type"], "mixed");
+        assert_eq!(inbounds[0]["listen"], "127.0.0.1");
+        assert_eq!(inbounds[1]["type"], "tun");
+        assert_eq!(inbounds[1]["auto_route"], true);
+        assert_eq!(inbounds[1]["address"], json!([TUN_ADDRESS]));
+        assert_eq!(
+            all["route"]["rules"][0],
+            json!({"protocol": "dns", "action": "hijack-dns"})
+        );
+        let sites = build_config(&server(), 7, &rules(RouteMode::ListOnly), &[]);
+        assert_eq!(sites["inbounds"].as_array().unwrap().len(), 1);
+        assert!(!sites.to_string().contains("\"tun\""));
     }
 }

@@ -212,6 +212,23 @@ impl VpnHost for SingBoxHost {
         }
     }
 
+    /// Туннель на весь компьютер создаёт сетевой адаптер: на Windows это возможно только с правами
+    /// администратора. Права проверяются без изменений (открытие системного ключа на запись).
+    fn can_tunnel(&self) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_WRITE};
+            winreg::RegKey::predef(HKEY_LOCAL_MACHINE)
+                .open_subkey_with_flags(r"SYSTEM\CurrentControlSet\Services", KEY_WRITE)
+                .map(|_| ())
+                .map_err(|e| format!("нужны права администратора: {e}"))
+        }
+        #[cfg(not(windows))]
+        {
+            Ok(())
+        }
+    }
+
     fn free_port(&self) -> Result<u16, String> {
         let listener = TcpListener::bind(("127.0.0.1", 0))
             .map_err(|e| format!("Нет свободного порта: {e}"))?;
