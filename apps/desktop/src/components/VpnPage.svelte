@@ -927,7 +927,8 @@
   .servers-card {
     flex: 1;
     min-height: 120px;
-    padding: 6px 6px 6px 6px;
+    /* Как у всех карточек раздела: одинаковый отступ со всех сторон (16 px, как в «Дополнительно»). */
+    padding: 16px;
     overflow-y: auto;
     /* Прокрутка работает (колесо, тачпад, клавиши), полоса не показывается. */
     scrollbar-width: none;
@@ -949,7 +950,7 @@
     gap: 10px;
     width: 100%;
     min-height: 44px;
-    padding: 6px 12px;
+    padding: 10px 12px;
     border-radius: var(--radius-sm);
     background: transparent;
     box-shadow: none;
