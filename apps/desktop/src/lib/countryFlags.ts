@@ -25,7 +25,7 @@ export function flagUrl(code: string | null | undefined): string | null {
 }
 
 /** Привычные короткие русские названия вместо длинных официальных. */
-const RU_SHORT: Record<string, string> = { US: 'США', AE: 'ОАЭ' };
+const RU_SHORT: Record<string, string> = { US: 'США', AE: 'ОАЭ', EU: 'Европа' };
 
 /** Название страны на языке интерфейса (`LV` → «Латвия»); `null`, если код не распознан. */
 export function countryName(code: string | null | undefined, lang: string): string | null {

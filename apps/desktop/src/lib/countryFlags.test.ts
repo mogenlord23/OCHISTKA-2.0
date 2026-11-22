@@ -18,6 +18,7 @@ describe('flags and country names', () => {
     expect(countryName('FI', 'ru')).toBe('Финляндия');
     expect(countryName('LV', 'en')).toBe('Latvia');
     expect(countryName('ZZ', 'ru')).toBeNull();
+    expect(countryName('EU', 'ru')).toBe('Европа');
   });
 
   it('does not repeat the flag or the country and keeps what tells servers apart', () => {
@@ -38,5 +39,15 @@ describe('flags and country names', () => {
   it('keeps the original name when the country is unknown', () => {
     expect(serverLabel('Mystery 7', null, 'ru')).toBe('Mystery 7');
     expect(serverLabel('Mystery 7', 'ZZ', 'ru')).toBe('Mystery 7');
+  });
+});
+
+describe('флаги', () => {
+  it('every server country has a flag, including Europe; an unknown code has none', () => {
+    for (const code of ['EU', 'DE', 'LV', 'NL', 'US', 'GB', 'JP', 'BR', 'AE', 'XK', 'UN']) {
+      expect(flagUrl(code), code).not.toBeNull();
+    }
+    expect(flagUrl('XX')).toBeNull();
+    expect(flagUrl('ZZ')).toBeNull();
   });
 });

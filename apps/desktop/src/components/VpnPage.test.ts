@@ -346,9 +346,9 @@ describe('VpnPage: подписка и импорт', () => {
     });
     // Во время загрузки никакого «Загружаем подписку…» не показываем; кнопка файла занята.
     await waitFor(() =>
-      expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
-        true,
-      ),
+      expect(
+        (screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled,
+      ).toBe(true),
     );
     expect(screen.queryByText(/Загружаем подписку/)).toBeNull();
     finish({ count: 1, skipped: 0, issues: [] });
@@ -586,7 +586,7 @@ describe('VpnPage: подключение и серверы', () => {
     expect(calls('vpn_select')[0]?.[1]).toEqual({ id: 's2' });
   });
 
-  it('has no manual latency button and measures once right after an import', async () => {
+  it('has no manual latency button and measures when the screen opens and after an import', async () => {
     const measured = makeSnapshot({
       servers: [
         { ...SERVERS[0], latencyMs: 42, measured: true },
@@ -594,37 +594,44 @@ describe('VpnPage: подключение и серверы', () => {
       ],
       selected: 's1',
     });
+    let imported = false;
     backend({
       vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
-      vpn_import: () => ({ count: 2, skipped: 0, issues: [] }),
-      vpn_measure_latency: () => measured,
+      vpn_import: () => {
+        imported = true;
+        return { count: 2, skipped: 0, issues: [] };
+      },
+      vpn_measure_latency: () =>
+        imported ? measured : makeSnapshot({ servers: SERVERS, selected: 's1' }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     expect(screen.queryByRole('button', { name: /задержку/i })).toBeNull();
-    // Сам по себе, при открытии, замера нет.
-    expect(calls('vpn_measure_latency')).toHaveLength(0);
+    // При открытии раздела замер сразу, без кнопки.
+    await waitFor(() => expect(calls('vpn_measure_latency').length).toBeGreaterThanOrEqual(1));
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x?t=1' },
     });
     expect(await screen.findByText('42 мс', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('нет ответа')).toBeTruthy();
-    expect(calls('vpn_measure_latency')).toHaveLength(1);
+    // Замер при открытии и замер после импорта; никаких повторов, пока не прошло 15 секунд.
+    expect(calls('vpn_measure_latency')).toHaveLength(2);
   });
 });
 
 describe('VpnPage: без фоновой работы, пока VPN выключен', () => {
-  it('makes no requests and keeps no timers while the VPN is off, even after minutes', async () => {
+  it('asks the core for nothing while the VPN is off; only latency is refreshed on the VPN screen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     try {
-      backend({ vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }) });
+      backend({
+        vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+        vpn_measure_latency: () => ({ servers: SERVERS, selected: 's1' }),
+      });
       render(VpnPage, { props: { subsection: 'vpn' } });
       await vi.advanceTimersByTimeAsync(500);
-      const calm = calls('vpn_status').length + calls('vpn_measure_latency').length;
       await vi.advanceTimersByTimeAsync(300_000);
       expect(calls('vpn_status')).toHaveLength(0);
-      expect(calls('vpn_measure_latency')).toHaveLength(0);
-      expect(calm).toBe(0);
+      expect(calls('vpn_measure_latency').length).toBeGreaterThanOrEqual(19);
     } finally {
       vi.useRealTimers();
     }
@@ -659,13 +666,12 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
       const after = calls('vpn_status').length;
       await vi.advanceTimersByTimeAsync(120_000);
       expect(calls('vpn_status')).toHaveLength(after);
-      expect(calls('vpn_measure_latency')).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('refreshes server latency every 15 seconds only while connected', async () => {
+  it('refreshes server latency every 15 seconds on the VPN screen, connected or not', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     try {
       const connected = {
@@ -692,9 +698,7 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
       expect(calls('vpn_measure_latency').length).toBeGreaterThanOrEqual(1);
       await fireEvent.click(screen.getByRole('button', { name: 'Выключить VPN' }));
       await vi.advanceTimersByTimeAsync(100);
-      const after = calls('vpn_measure_latency').length;
-      await vi.advanceTimersByTimeAsync(60_000);
-      expect(calls('vpn_measure_latency')).toHaveLength(after);
+      expect(calls('vpn_measure_latency').length).toBeGreaterThanOrEqual(1);
     } finally {
       vi.useRealTimers();
     }
