@@ -1427,6 +1427,38 @@ mod tests {
     }
 
     #[test]
+    fn five_hundred_switches_in_a_row_leave_no_state_behind() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        let started = std::time::Instant::now();
+        let mut slowest = Duration::ZERO;
+        for i in 0..500 {
+            let mode = if i % 2 == 0 {
+                RouteMode::All
+            } else {
+                RouteMode::ListOnly
+            };
+            let one = std::time::Instant::now();
+            assert_eq!(s.set_mode(mode).unwrap().state, ConnState::Connected, "{i}");
+            slowest = slowest.max(one.elapsed());
+            assert!(lock(&s.switching).is_none(), "флаг смены снят: {i}");
+            assert!(s.switch_gate.try_lock().is_ok(), "затвор свободен: {i}");
+        }
+        let total = started.elapsed();
+        eprintln!("STRESS switches: total {total:?}, slowest {slowest:?}");
+        assert!(total < Duration::from_secs(60), "{total:?}");
+        assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
+        assert!(lock(&s.conn).process.is_some());
+        assert!(!lock(&s.conn).stopping);
+        s.disconnect();
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        assert!(!s.session_dir().join("config.json").exists());
+        assert!(reg.get(BACKUP_KEY, "Active").is_none());
+    }
+
+    #[test]
     fn a_blocked_proxy_registry_does_not_matter_any_more() {
         let dir = temp_dir();
         let flags = Flags::default();

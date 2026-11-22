@@ -306,6 +306,32 @@ mod tests {
     }
 
     #[test]
+    fn two_thousand_additions_stay_correct_and_fast() {
+        let dir = temp();
+        let s = UserSites::new(&dir);
+        let started = std::time::Instant::now();
+        for i in 0..2000 {
+            s.add(&format!("site{i}.example.com")).unwrap();
+            // Повтор не растит список.
+            if i % 100 == 0 {
+                s.add(&format!("site{i}.example.com")).unwrap();
+            }
+        }
+        let total = started.elapsed();
+        eprintln!("STRESS additions: total {total:?}");
+        assert_eq!(s.load().len(), 2000);
+        assert!(total < std::time::Duration::from_secs(60), "{total:?}");
+        assert!(
+            std::fs::metadata(dir.join("user-sites.json"))
+                .unwrap()
+                .len()
+                < 1024 * 1024
+        );
+        // Удаление тоже работает на большом списке.
+        assert_eq!(s.remove("site0.example.com").unwrap().len(), 1999);
+    }
+
+    #[test]
     fn a_damaged_or_tampered_file_loads_as_valid_domains_only_and_never_panics() {
         let dir = temp();
         std::fs::write(
