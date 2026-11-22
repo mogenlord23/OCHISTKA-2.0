@@ -4,19 +4,9 @@
 name: build-ochistka-windows-trial
 
 on:
-  push:
-    branches:
-      - claude/epic-knuth-0zhg19
-      - claude/optimistic-hypatia-hgstjj
-    paths:
-      - .github/workflows/build-ochistka-windows-trial.yml
-      - apps/desktop/**
-      - crates/**
-      - assets/desync/**
-      - Cargo.toml
-      - Cargo.lock
-      - package.json
-      - package-lock.json
+  # Автоматическая сборка при каждом push отключена: тесты и запуск идут через PowerShell.
+  # Сборка установщика запускается вручную (Actions → Run workflow), когда программа готова.
+  workflow_dispatch:
 
 permissions:
   contents: read
