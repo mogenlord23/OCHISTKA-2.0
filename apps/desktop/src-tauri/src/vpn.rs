@@ -74,10 +74,11 @@ pub fn build_service(
         ochistka_platform::vpn::current_dialer(),
     )
     .with_coordinator(coord);
-    // Список сайтов из панели «Сайты» нужен только режиму «только сайты из списка».
+    // Режим «только сайты»: встроенный список и сайты из панели «Мои сайты», без повторов.
     let sites_dir = ochistka_platform::desync::desync_data_dir();
     service.set_site_list(Box::new(move || {
-        ochistka_core::desync::user_sites::UserSites::new(&sites_dir).load()
+        let user = ochistka_core::desync::user_sites::UserSites::new(&sites_dir).load();
+        ochistka_core::vpn::sites::merged_sites(&user)
     }));
     service.recover_on_start();
     VpnState(Arc::new(service))

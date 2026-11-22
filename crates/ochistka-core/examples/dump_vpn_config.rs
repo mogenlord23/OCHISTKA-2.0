@@ -18,7 +18,7 @@ fn main() {
             "vless://11111111-2222-3333-4444-555555555555@203.0.113.7:443?security=tls&sni=cdn.example.com&type=tcp#Ip",
         ),
     ];
-    let sites = vec!["youtube.com".to_string(), "discord.gg".to_string()];
+    let sites = ochistka_core::vpn::sites::merged_sites(&["user-site.example".to_string()]);
     for (name, link) in links {
         let server = parse_link(link).expect("вымышленная ссылка разобрана");
         for (area, mode) in [("all", RouteMode::All), ("sites", RouteMode::ListOnly)] {
