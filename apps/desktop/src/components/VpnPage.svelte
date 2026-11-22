@@ -185,15 +185,21 @@
 
   onMount(() => {
     void refresh();
+  });
+
+  /** Только пока VPN включён: секундомер и проверка раз в 3 секунды, что он жив. Когда VPN выключен,
+      ни таймеров, ни запросов к ядру нет: следующий запрос — по нажатию. */
+  const isConnected = $derived(snapshot?.connection?.state === 'connected');
+  $effect(() => {
+    if (!isConnected) return;
+    nowMs = Date.now();
     const clock = setInterval(() => (nowMs = Date.now()), 1000);
-    // Пока подключено, раз в 3 секунды проверяем, что VPN жив.
     const poll = setInterval(async () => {
-      if (snapshot?.connection.state !== 'connected') return;
       try {
         const connection = await vpnStatus();
-        if (snapshot) snapshot = { ...snapshot, connection };
+        if (snapshot && connection) snapshot = { ...snapshot, connection };
       } catch {
-        // Следующий опрос повторит запрос.
+        // Следующая проверка повторит запрос.
       }
     }, 3000);
     return () => {
@@ -296,49 +302,32 @@
     }
   }
 
-  /** Автоматическая проверка задержек: первая сразу после появления списка, затем раз в минуту. */
-  const LATENCY_INTERVAL_MS = 60_000;
   let measuredAt = 0;
+  let measuredTick = 0;
 
-  /** Один замер за раз. Сбой одной проверки не ломает список: прежние значения остаются. */
+  /** Один замер за раз. Меняет только задержки серверов: выбор области и состояние VPN, которые
+      пользователь мог поменять за это время, не затираются. */
   async function onMeasure() {
     if (measuring) return;
     measuring = true;
     try {
-      snapshot = await vpnMeasureLatency();
+      const fresh = await vpnMeasureLatency();
+      if (snapshot && fresh) snapshot = { ...snapshot, servers: fresh.servers };
     } catch {
-      // Тихо: следующая проверка через минуту, показанные значения сохраняются.
+      // Тихо: показанные значения сохраняются.
     } finally {
       measuredAt = Date.now();
       measuring = false;
     }
   }
 
+  /** Задержки меряются один раз после импорта подписки (по действию пользователя), без таймеров. */
   $effect(() => {
-    importTick;
+    const tick = importTick;
     if (subsection !== 'vpn' || serverCount === 0) return;
-    const lastAt = untrack(() => measuredAt);
-    const visibleNow = () => document.visibilityState !== 'hidden';
-    const run = () => {
-      if (visibleNow()) void onMeasure();
-    };
-    // Значения уже есть (вернулись на вкладку): ждём остаток минуты, а не меряем снова сразу.
-    const wait = lastAt > 0 ? Math.max(0, LATENCY_INTERVAL_MS - (Date.now() - lastAt)) : 400;
-    let timer: ReturnType<typeof setInterval> | undefined;
-    const first = setTimeout(() => {
-      run();
-      timer = setInterval(run, LATENCY_INTERVAL_MS);
-    }, wait);
-    // Окно снова видно, а замеру больше минуты: обновляем (скрытое окно не мерили).
-    const onVisible = () => {
-      if (visibleNow() && Date.now() - measuredAt >= LATENCY_INTERVAL_MS) run();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearTimeout(first);
-      if (timer) clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    if (tick === 0 || tick === untrack(() => measuredTick)) return;
+    measuredTick = tick;
+    untrack(() => void onMeasure());
   });
 
   async function onConnect() {
@@ -355,7 +344,7 @@
             if (preparing !== null) preparing = percent;
           })
         : await vpnDisconnect();
-      if (snapshot) {
+      if (snapshot && connection) {
         snapshot = {
           ...snapshot,
           connection,

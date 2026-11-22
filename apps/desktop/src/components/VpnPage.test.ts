@@ -450,7 +450,7 @@ describe('VpnPage: подключение и серверы', () => {
     expect(calls('vpn_select')[0]?.[1]).toEqual({ id: 's2' });
   });
 
-  it('has no manual latency button and measures on its own when the list appears', async () => {
+  it('has no manual latency button and measures once right after an import', async () => {
     const measured = makeSnapshot({
       servers: [
         { ...SERVERS[0], latencyMs: 42, measured: true },
@@ -460,35 +460,90 @@ describe('VpnPage: подключение и серверы', () => {
     });
     backend({
       vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+      vpn_import: () => ({ count: 2, skipped: 0, issues: [] }),
       vpn_measure_latency: () => measured,
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     expect(screen.queryByRole('button', { name: /задержку/i })).toBeNull();
+    // Сам по себе, при открытии, замера нет.
+    expect(calls('vpn_measure_latency')).toHaveLength(0);
+    await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
+      target: { value: 'https://sub.example.com/x?t=1' },
+    });
     expect(await screen.findByText('42 мс', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('нет ответа')).toBeTruthy();
+    expect(calls('vpn_measure_latency')).toHaveLength(1);
   });
+});
 
-  it('repeats about once a minute and pauses when the VPN tab is left', async () => {
+describe('VpnPage: без фоновой работы, пока VPN выключен', () => {
+  it('makes no requests and keeps no timers while the VPN is off, even after minutes', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     try {
-      backend({
-        vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
-        vpn_measure_latency: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
-      });
-      const view = render(VpnPage, { props: { subsection: 'vpn' } });
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(calls('vpn_measure_latency')).toHaveLength(1);
-      await vi.advanceTimersByTimeAsync(30_000);
-      expect(calls('vpn_measure_latency')).toHaveLength(1);
-      await vi.advanceTimersByTimeAsync(31_000);
-      expect(calls('vpn_measure_latency')).toHaveLength(2);
-      await view.rerender({ subsection: 'advanced' });
-      await vi.advanceTimersByTimeAsync(180_000);
-      expect(calls('vpn_measure_latency')).toHaveLength(2);
+      backend({ vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }) });
+      render(VpnPage, { props: { subsection: 'vpn' } });
+      await vi.advanceTimersByTimeAsync(500);
+      const calm = calls('vpn_status').length + calls('vpn_measure_latency').length;
+      await vi.advanceTimersByTimeAsync(300_000);
+      expect(calls('vpn_status')).toHaveLength(0);
+      expect(calls('vpn_measure_latency')).toHaveLength(0);
+      expect(calm).toBe(0);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('checks the core only while connected and stops completely after turning off', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    try {
+      const connected = {
+        state: 'connected',
+        serverId: 's1',
+        serverName: 'A',
+        since: 1,
+        message: 'Подключено',
+        verified: true,
+      };
+      const off = { state: 'disconnected', message: 'Не подключено', since: null };
+      let current: Record<string, unknown> = connected;
+      backend({
+        vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1', connection: current }),
+        vpn_status: () => current,
+        vpn_disconnect: () => {
+          current = off;
+          return off;
+        },
+      });
+      render(VpnPage, { props: { subsection: 'vpn' } });
+      await vi.advanceTimersByTimeAsync(7000);
+      expect(calls('vpn_status').length).toBeGreaterThanOrEqual(2);
+      await fireEvent.click(screen.getByRole('button', { name: 'Выключить VPN' }));
+      await vi.advanceTimersByTimeAsync(100);
+      const after = calls('vpn_status').length;
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(calls('vpn_status')).toHaveLength(after);
+      expect(calls('vpn_measure_latency')).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a press does not wait for the core: the switch flips while the request is still pending', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+      vpn_connect: () => new Promise(() => {}),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
+    const flipped = await screen.findByRole('button', { name: 'Включаем…' });
+    expect(flipped.getAttribute('aria-pressed')).toBe('true');
+    // Страница при этом отзывчива: область выбирается, пока ядро ещё запускается.
+    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
+    expect(screen.getByRole('radio', { name: 'Весь компьютер' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
   });
 });
 
