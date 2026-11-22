@@ -815,12 +815,12 @@ describe('VpnPage: области VPN', () => {
     const radios = within(group).getAllByRole('radio');
     expect(radios.map((r) => r.getAttribute('aria-label'))).toEqual([
       'Весь компьютер',
-      'Только нужные сайты',
+      'Только сайты',
     ]);
     // Одна выбрана.
     expect(radios.filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
     expect(
-      screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+      screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked'),
     ).toBe('true');
     expect(screen.getByText('Российские сервисы работают как обычно')).toBeTruthy();
     // Включить VPN можно в любой области.
@@ -844,7 +844,7 @@ describe('VpnPage: области VPN', () => {
     await fireEvent.click(all);
     expect(all.getAttribute('aria-checked')).toBe('true');
     expect(
-      screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+      screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked'),
     ).toBe('false');
     await waitFor(() => expect(calls('vpn_set_mode')[0]?.[1]).toEqual({ mode: 'all' }));
     await fireEvent.click(all);
@@ -862,7 +862,7 @@ describe('VpnPage: области VPN', () => {
     expect(await screen.findByText('Не удалось сохранить')).toBeTruthy();
     await waitFor(() =>
       expect(
-        screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+        screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked'),
       ).toBe('true'),
     );
   });

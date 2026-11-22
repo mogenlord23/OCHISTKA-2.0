@@ -1274,7 +1274,7 @@ mod tests {
         assert_eq!(s.status().state, ConnState::Disconnected);
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
         assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
-        // «Только нужные сайты» права не требуют.
+        // «Только сайты» права не требуют.
         s.set_mode(RouteMode::ListOnly).unwrap();
         assert_eq!(s.connect().unwrap().state, ConnState::Connected);
         s.disconnect();
