@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE/tools/vpn-core/fetch.ps1"
-          if ($LASTEXITCODE -ne 0) { throw 'не удалось подготовить VPN-ядро' }
+          if (-not (Test-Path "$env:GITHUB_WORKSPACE/apps/desktop/src-tauri/resources/vpn-core/sing-box.exe")) { throw 'не удалось подготовить VPN-ядро' }
 
       - name: Generate the configurations and check them with the core
         shell: pwsh
