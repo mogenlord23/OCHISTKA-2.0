@@ -14,6 +14,15 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
+  import {
+    bypassView,
+    errorText,
+    siteBypassStart,
+    siteBypassStatus,
+    siteBypassStop,
+    type SiteBypassStatus,
+    type Want,
+  } from '../lib/siteBypass';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -77,9 +86,9 @@
   const ADVANCED = [
     {
       id: 'bypass',
-      label: 'Обход блокировок',
-      description: 'Помогает открывать недоступные сайты и приложения',
-      scope: 'Сайты · Telegram · Discord · игры',
+      label: 'Обход сайтов',
+      description: 'Помогает открывать сайты в браузере',
+      scope: 'YouTube · Discord · X',
     },
     {
       id: 'dns',
@@ -89,14 +98,49 @@
     },
   ] as const;
 
-  /** Панель «Мои сайты» открыта (кнопка сбоку у «Обхода блокировок»). */
+  /** Обход сайтов: одна кнопка включает и выключает. Состояние запрашивается один раз, без опроса. */
+  let bypassStatus = $state<SiteBypassStatus | null>(null);
+  /** Желаемое положение, пока Rust работает в фоне (кнопка меняется сразу). */
+  let bypassWant = $state<Want>(null);
+  let bypassError = $state<string | null>(null);
+  /** Панель «Мои сайты» открыта (кнопка сбоку у «Обхода сайтов»). */
   let sitesOpen = $state(false);
+  const bypass = $derived(bypassView(bypassStatus, bypassWant, bypassError));
 
-  /** Обход блокировок временно без кнопки (будет переписан); DNS пока не реализован. */
+  /** DNS пока не реализован: переключатель выключен и недоступен, без имитации. */
   const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
-    bypass: TOOL_UNAVAILABLE,
+    bypass: { status: 'off', available: true, reason: null },
     dns: TOOL_UNAVAILABLE,
   };
+
+  async function refreshBypass() {
+    try {
+      bypassStatus = (await siteBypassStatus()) ?? null;
+    } catch (err) {
+      bypassError = errorText(err);
+    }
+  }
+
+  /** Нажатие — явное действие пользователя. Кнопка меняется в тот же кадр и откатывается при ошибке. */
+  async function toggleBypass() {
+    if (bypassWant !== null) return;
+    const stopping = bypassStatus?.active === true;
+    bypassWant = stopping ? 'off' : 'on';
+    bypassError = null;
+    try {
+      const next = (stopping ? await siteBypassStop() : await siteBypassStart()) ?? null;
+      bypassStatus = next;
+    } catch (err) {
+      bypassError = errorText(err);
+    } finally {
+      bypassWant = null;
+    }
+  }
+
+  $effect(() => {
+    if (tab !== 'advanced') return;
+    void refreshBypass();
+  });
 
   /** Провайдеры DNS: выбор появится вместе с работой переключателя; «Автоматически» — по умолчанию. */
   const DNS_ITEMS: MenuItem[] = [
@@ -576,24 +620,25 @@
           {#each ADVANCED as item (item.id)}
             {@const tool = TOOLS[item.id]}
             <section class="card tool switch-row">
-              {#if item.id !== 'bypass'}
-                <button
-                  type="button"
-                  role="switch"
-                  class="power tool-power"
-                  class:on={tool.available && tool.status === 'on'}
-                  aria-checked={tool.available && tool.status === 'on'}
-                  aria-busy={tool.available && tool.status === 'pending'}
-                  aria-label={item.label}
-                  disabled={!tool.available || tool.status === 'pending'}
-                >
-                  <span class="power-knob" aria-hidden="true"></span>
-                </button>
-              {/if}
+              <button
+                type="button"
+                role="switch"
+                class="power tool-power"
+                class:on={item.id === 'bypass' ? bypass.checked : tool.status === 'on'}
+                aria-checked={item.id === 'bypass' ? bypass.checked : tool.status === 'on'}
+                aria-busy={item.id === 'bypass' ? bypass.busy : tool.status === 'pending'}
+                aria-label={item.label}
+                disabled={item.id === 'bypass' ? false : !tool.available}
+                onclick={item.id === 'bypass' ? toggleBypass : undefined}
+              >
+                <span class="power-knob" aria-hidden="true"></span>
+              </button>
               <div class="tool-text">
                 <span class="switch-title">{item.label}</span>
-                <span class="tool-state"
-                  >{item.id === 'bypass' ? 'Появится позже' : toolStateText(tool)}</span
+                <span
+                  class="tool-state"
+                  role={item.id === 'bypass' && bypass.error ? 'alert' : undefined}
+                  >{item.id === 'bypass' ? bypass.text : toolStateText(tool)}</span
                 >
                 <span class="note">{item.description}</span
                 >{#if item.id !== 'bypass' && tool.reason}<span class="sr-only">{tool.reason}</span

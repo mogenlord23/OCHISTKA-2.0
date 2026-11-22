@@ -19,7 +19,7 @@ impl Owner {
     fn title(self) -> &'static str {
         match self {
             Owner::Vpn => "VPN",
-            Owner::Desync => "Обход блокировок",
+            Owner::Desync => "Обход сайтов",
         }
     }
 }

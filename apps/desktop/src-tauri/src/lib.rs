@@ -10,6 +10,7 @@ pub mod network;
 pub mod processes;
 pub mod programs;
 pub mod services;
+pub mod site_bypass;
 pub mod speedtest;
 pub mod tweaks;
 pub mod vpn;
@@ -71,8 +72,10 @@ pub fn run() {
             // Одно общее право на сетевой режим для VPN и обхода.
             let coord =
                 std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
-            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord);
+            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord.clone());
+            let site_bypass_state = site_bypass::build(&vpn_state, coord);
             app.manage(vpn_state);
+            app.manage(site_bypass_state);
             app.manage(bypass_sites::BypassSitesState(
                 ochistka_core::desync::user_sites::UserSites::new(
                     &ochistka_platform::desync::desync_data_dir(),
@@ -113,6 +116,9 @@ pub fn run() {
             bypass_sites::bypass_sites_list,
             bypass_sites::bypass_sites_add,
             bypass_sites::bypass_sites_remove,
+            site_bypass::site_bypass_status,
+            site_bypass::site_bypass_start,
+            site_bypass::site_bypass_stop,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
@@ -128,6 +134,13 @@ pub fn run() {
         Ok(app) => app.run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
                 use tauri::Manager;
+                // Сначала обход: возвращает системный прокси; затем VPN.
+                if let Some(state) = handle.try_state::<site_bypass::SiteBypassState>() {
+                    let status = state.0.shutdown();
+                    if status.state == ochistka_core::site_bypass::SiteBypassState::Error {
+                        eprintln!("{}", status.message);
+                    }
+                }
                 if let Some(state) = handle.try_state::<vpn::VpnState>() {
                     state.0.shutdown();
                 }

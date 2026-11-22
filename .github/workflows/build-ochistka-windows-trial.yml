@@ -86,14 +86,14 @@ jobs:
           $bytes = [System.IO.File]::ReadAllBytes($exe.FullName)
           $text = [System.Text.Encoding]::Latin1.GetString($bytes)
           $missing = @()
-          foreach ($needle in @('vpn_snapshot','vpn_connect','vpn_disconnect','bypass_sites_list')) {
+          foreach ($needle in @('vpn_snapshot','vpn_connect','vpn_disconnect','bypass_sites_list','site_bypass_start','site_bypass_stop')) {
             if (-not $text.Contains($needle)) { $missing += $needle }
           }
           if ($missing.Count -gt 0) { throw "Missing in application binary: $($missing -join ', ')" }
           $js = (Get-ChildItem apps/desktop/dist -Recurse -Filter *.js | ForEach-Object { Get-Content $_.FullName -Raw -Encoding UTF8 }) -join "`n"
-          # Во фронтенде: карточка «Обход блокировок» с панелью сайтов и вызовы VPN.
+          # Во фронтенде: кнопка «Обход сайтов» с панелью сайтов и вызовы VPN.
           $uiMissing = @()
-          foreach ($needle in @('Обход блокировок','bypass_sites_list','vpn_snapshot')) {
+          foreach ($needle in @('Обход сайтов','site_bypass_start','bypass_sites_list','vpn_snapshot')) {
             if (-not $js.Contains($needle)) { $uiMissing += $needle }
           }
           if ($uiMissing.Count -gt 0) { throw "Missing in frontend bundle: $($uiMissing -join ', ')" }
@@ -105,7 +105,7 @@ jobs:
             "SHA-256: $hash",
             "Цифровая подпись: НЕТ (установщик не подписан; Windows SmartScreen может предупредить).",
             "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
-            "В приложении: VPN и панель «Сайты»; кнопки «Обход блокировок» пока нет (ADR 0019).",
+            "В приложении: VPN и кнопка «Обход сайтов» (локальный прокси и системный прокси, ADR 0020); работа у провайдера не проверена.",
             "В CI проверено: сборка, svelte-check, vitest, cargo check.",
             "В CI НЕ проверено: запуск GUI, права администратора, сеть. Это делает пользователь вручную."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
