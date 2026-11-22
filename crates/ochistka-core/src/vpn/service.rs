@@ -383,13 +383,8 @@ impl VpnService {
             data.subscription_url = u;
         }
         data.latencies.clear();
-        if !data
-            .selected
-            .as_ref()
-            .is_some_and(|id| data.servers.iter().any(|s| &s.id == id))
-        {
-            data.selected = data.servers.first().map(|s| s.id.clone());
-        }
+        // Новый список заменяет прежний целиком, и выбирается его первый сервер.
+        data.selected = data.servers.first().map(|s| s.id.clone());
         self.save(&data)?;
         Ok(ImportSummary {
             count: data.servers.len() as u32,
@@ -1363,6 +1358,34 @@ mod tests {
             Some(V::S("other:3128".into()))
         );
         s.disconnect();
+    }
+
+    #[test]
+    fn a_new_import_replaces_the_server_list_and_selects_the_first_server() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        let before = s.snapshot();
+        assert!(!before.servers.is_empty());
+        // Выбран не первый сервер прежнего списка.
+        if before.servers.len() > 1 {
+            s.select(&before.servers[1].id).unwrap();
+        }
+        let fresh = "trojan://pw@new-one.example.com:443?sni=new-one.example.com#Новый один\ntrojan://pw@new-two.example.com:443?sni=new-two.example.com#Новый два";
+        let summary = s.import(fresh).unwrap();
+        assert_eq!(summary.count, 2);
+        let after = s.snapshot();
+        assert_eq!(after.servers.len(), 2, "список заменён, а не дописан");
+        assert!(after.servers.iter().all(|v| v.host.starts_with("new-")));
+        assert_eq!(
+            after.selected.as_deref(),
+            Some(after.servers[0].id.as_str())
+        );
+        // Сохранённые данные при следующем старте показываются те же.
+        let again = service_on(&Arc::new(FakeRegistry::default()), &flags, &dir);
+        let restored = again.snapshot();
+        assert_eq!(restored.servers.len(), 2);
+        assert_eq!(restored.selected, after.selected);
     }
 
     #[test]
