@@ -392,7 +392,8 @@ describe('VpnPage: подписка и импорт', () => {
     await waitFor(() => expect(calls('vpn_snapshot').length).toBeGreaterThan(0));
     expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
     cleanup();
-    // Ссылка сохранена локально у пользователя: в поле она не появляется, серверы остаются.
+    // Ссылка сохранена у пользователя: она в поле (прячется анимацией, пока поле не в фокусе), импорта
+    // при запуске нет, серверы остаются.
     backend({
       vpn_snapshot: () =>
         makeSnapshot({
@@ -403,7 +404,10 @@ describe('VpnPage: подписка и импорт', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText(`Серверы / ${SERVERS.length}`);
-    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe(
+      'https://saved.example/sub',
+    );
+    expect(calls('vpn_import')).toHaveLength(0);
   });
 
   it('a manually pasted link is imported as typed', async () => {

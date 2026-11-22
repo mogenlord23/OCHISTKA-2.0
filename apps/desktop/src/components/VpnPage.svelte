@@ -122,9 +122,21 @@
     }
   }
 
+  /** Сохранённая ссылка подписки кладётся в поле. Поле прячет её анимацией, пока не в фокусе.
+      Ссылку уже импортировали, поэтому автоимпорт и повторный импорт не запускаем: она помечается
+      как обработанная. */
+  function restoreSavedLink() {
+    const saved = snapshot?.subscriptionUrl?.trim() ?? '';
+    if (!saved || urlInput !== '') return;
+    previousLength = saved.length;
+    lastAutoLink = saved;
+    urlInput = saved;
+  }
+
   onMount(() => {
     // Подписка уже сохранена (серверы есть до вставки ссылки): подпись сразу «Подписка сохранена».
     void refresh().then(() => {
+      restoreSavedLink();
       if ((snapshot?.servers?.length ?? 0) > 0 && fieldLabel === LABEL && !importing) {
         labelEffect.showSaved();
       }
