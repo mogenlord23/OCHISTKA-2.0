@@ -1,5 +1,5 @@
 # Сборка настоящего установщика OCHISTKA для Windows 10/11 x64 (NSIS) для ручного испытания.
-# Здесь НЕ запускаются WinDivert, NetZapret, сеть и приложение с правами администратора.
+# Здесь НЕ запускаются сеть и приложение с правами администратора.
 # Установщик не подписан цифровой подписью. Публичный Release не создаётся.
 name: build-ochistka-windows-trial
 
@@ -61,39 +61,6 @@ jobs:
           cargo check --locked -p ochistka-desktop
           if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
 
-      - name: Fetch SonicDPI v0.2.2, verify SHA-256, rename engine to ochistkadpi (not stored in git)
-        shell: pwsh
-        env:
-          SONIC_URL: https://github.com/by-sonic/sonicdpi/releases/download/v0.2.2/SonicDPI-windows-x64.zip
-          SONIC_SHA256: ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0
-          SONIC_EXE_SHA256: 3d6451021f390f8302b3aa1d790b86e626d7f925f7e1a2ba9c51ec91afa35351
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $zip = Join-Path $env:RUNNER_TEMP 'SonicDPI-windows-x64.zip'
-          Invoke-WebRequest -Uri $env:SONIC_URL -OutFile $zip
-          $actual = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
-          if ($actual -ne $env:SONIC_SHA256) { throw "SonicDPI archive SHA-256 mismatch: expected $($env:SONIC_SHA256), got $actual" }
-          Write-Host "SonicDPI archive SHA-256 OK: $actual"
-          $dest = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/resources/ochistkadpi'
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $wanted = @('sonicdpi.exe','WinDivert.dll','WinDivert64.sys','LICENSE-MIT','LICENSE-APACHE','THIRD_PARTY_LICENSES.md')
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
-          try {
-            foreach ($name in $wanted) {
-              $entry = $archive.Entries | Where-Object { $_.FullName -eq $name } | Select-Object -First 1
-              if (-not $entry) { throw "File missing in SonicDPI archive: $name" }
-              $target = if ($name -eq 'sonicdpi.exe') { 'ochistkadpi.exe' } else { $name }
-              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $dest $target), $true)
-            }
-          } finally { $archive.Dispose() }
-          $exeHash = (Get-FileHash (Join-Path $dest 'ochistkadpi.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($exeHash -ne $env:SONIC_EXE_SHA256) { throw "sonicdpi.exe SHA-256 mismatch: expected $($env:SONIC_EXE_SHA256), got $exeHash" }
-          Write-Host "Engine file SHA-256 OK (renamed ochistkadpi.exe): $exeHash"
-          $lines = Get-ChildItem $dest -File | Where-Object { $_.Name -ne 'README.txt' } | ForEach-Object { "{0}  {1}  {2}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Length, $_.Name }
-          $lines | Set-Content -Encoding utf8 (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt')
-          $lines | ForEach-Object { Write-Host $_ }
-
       - name: Build the NSIS installer (Tauri)
         shell: pwsh
         run: |
@@ -113,34 +80,23 @@ jobs:
           $hash = (Get-FileHash "out/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $name" | Set-Content -Encoding ascii "out/$name.sha256"
 
-          # Сохранённые пробный режим и ресурсы: команды в исполняемом файле, панель во фронтенде.
+          # Команды VPN и списка сайтов в исполняемом файле, панель во фронтенде.
           $exe = Get-ChildItem -Path target/release -Filter ochistka-desktop.exe | Select-Object -First 1
           if (-not $exe) { $exe = Get-ChildItem -Path target/release -Filter *.exe | Where-Object { $_.Name -notmatch 'setup|build' } | Select-Object -First 1 }
           $bytes = [System.IO.File]::ReadAllBytes($exe.FullName)
           $text = [System.Text.Encoding]::Latin1.GetString($bytes)
           $missing = @()
-          foreach ($needle in @('desync_trial_status','desync_trial_start','desync_trial_stop','desync_trial_note','service_access_plan','service_check')) {
+          foreach ($needle in @('vpn_snapshot','vpn_connect','vpn_disconnect','bypass_sites_list')) {
             if (-not $text.Contains($needle)) { $missing += $needle }
           }
           if ($missing.Count -gt 0) { throw "Missing in application binary: $($missing -join ', ')" }
           $js = (Get-ChildItem apps/desktop/dist -Recurse -Filter *.js | ForEach-Object { Get-Content $_.FullName -Raw -Encoding UTF8 }) -join "`n"
-          # Во фронтенде: один переключатель «Обход блокировок» и его вызовы Tauri-команд пробного режима.
+          # Во фронтенде: карточка «Обход блокировок» с панелью сайтов и вызовы VPN.
           $uiMissing = @()
-          foreach ($needle in @('Обход блокировок','desync_trial_status','desync_trial_start','desync_trial_stop')) {
+          foreach ($needle in @('Обход блокировок','bypass_sites_list','vpn_snapshot')) {
             if (-not $js.Contains($needle)) { $uiMissing += $needle }
           }
           if ($uiMissing.Count -gt 0) { throw "Missing in frontend bundle: $($uiMissing -join ', ')" }
-
-          # Компоненты SonicDPI: в папке ресурсов, из которой Tauri собирает установщик, обязательны эти файлы.
-          $res = 'apps/desktop/src-tauri/resources/ochistkadpi'
-          foreach ($need in @('ochistkadpi.exe','WinDivert64.sys','WinDivert.dll')) {
-            $f = Join-Path $res $need
-            if (-not (Test-Path $f) -or (Get-Item $f).Length -eq 0) { throw "ochistkadpi component missing in bundle resources: $need" }
-          }
-          $conf = Get-Content 'apps/desktop/src-tauri/tauri.conf.json' -Raw
-          if (-not $conf.Contains('resources/ochistkadpi/*')) { throw 'tauri.conf.json does not bundle resources/ochistkadpi' }
-          $sonicFiles = Get-Content (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt')
-          $sonicNames = ($sonicFiles | ForEach-Object { ($_ -split '\s+')[-1] }) -join ', '
 
           @(
             "OCHISTKA: установщик Windows 10/11 x64 для ручного испытания",
@@ -148,17 +104,11 @@ jobs:
             "Файл: $name",
             "SHA-256: $hash",
             "Цифровая подпись: НЕТ (установщик не подписан; Windows SmartScreen может предупредить).",
-            "В приложении: один переключатель «Обход блокировок» (как DNS), по нажатию; пробный режим 120 с, автозапуска нет. Панели испытаний нет.",
             "Доказано обход работает у провайдера: НЕТ. Нужна ручная проверка и повторяемые испытания.",
-            "В CI проверено: сборка, svelte-check, vitest, cargo check; в приложении есть команды пробного режима и переключатель.",
-            "В CI НЕ проверено: запуск GUI, права администратора, WinDivert, перехват и сеть. Это делает пользователь вручную.",
-            "ochistkadpi = переименованный SonicDPI v0.2.2 (код не изменён): архив SonicDPI-windows-x64.zip, SHA-256 ec1e9f32315bdab1989d8e78bb3d3ad6975700fe83546139eb6f21e132991fc0 (проверен в сборке); sonicdpi.exe из архива (SHA-256 3d6451021f390f8302b3aa1d790b86e626d7f925f7e1a2ba9c51ec91afa35351) положен как ochistkadpi.exe.",
-            "Файлы ochistkadpi (папка ochistkadpi в ресурсах): $sonicNames",
-            "SHA-256 и размер каждого файла: см. sonicdpi-files.txt рядом.",
-            "Драйвер WinDivert из SonicDPI, не подписан нами (подпись WinDivert — его автора).",
-            "В установщике наличие файлов проверено по папке ресурсов сборки; внутрь самого установщика (NSIS) в CI не заглядывали."
+            "В приложении: VPN и панель «Сайты»; кнопки «Обход блокировок» пока нет (ADR 0019).",
+            "В CI проверено: сборка, svelte-check, vitest, cargo check.",
+            "В CI НЕ проверено: запуск GUI, права администратора, сеть. Это делает пользователь вручную."
           ) | Set-Content -Encoding utf8 out/BUILD-INFO.txt
-          Copy-Item (Join-Path $env:RUNNER_TEMP 'sonicdpi-files.txt') out/sonicdpi-files.txt
           Get-Content out/BUILD-INFO.txt
           "installer_name=$name" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
           "installer_sha256=$hash" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
