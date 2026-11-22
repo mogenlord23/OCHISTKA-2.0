@@ -39,42 +39,30 @@ export function countryName(code: string | null | undefined, lang: string): stri
   }
 }
 
-/** Частые сокращения страны в именах серверов. */
-const ALIASES: Record<string, string[]> = {
-  US: ['USA', 'United States', 'США'],
-  GB: ['UK', 'United Kingdom', 'Britain', 'England'],
-  RU: ['Russian Federation'],
-  NL: ['Holland'],
-  DE: ['Deutschland'],
-};
-
-function escapeRe(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** Подпись сервера: «Страна» или «Страна · остаток имени» (номер, город). Флаг-эмодзи, код страны
-    и название страны (русское или английское) внутри имени не повторяются. Исходное имя не меняется. */
+/** Подпись сервера в списке: только название страны. Если у кода нет флага (например, «EU»), берётся
+    имя из подписки без флага-эмодзи и кода страны в начале. Исходное имя не меняется. */
 export function serverLabel(name: string, code: string | null | undefined, lang: string): string {
   const country = countryName(code, lang);
-  if (!country || !code) return name;
-  const words = [
-    country,
-    countryName(code, 'ru'),
-    countryName(code, 'en'),
-    iso(code),
-    code.toUpperCase(),
-    ...(ALIASES[iso(code)] ?? []),
-  ].filter((w): w is string => !!w);
-  let rest = name.replace(/[\u{1F1E6}-\u{1F1FF}]{2}/gu, ' ');
-  for (const word of new Set(words)) {
-    rest = rest.replace(
-      new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(word)}(?![\\p{L}\\p{N}])`, 'giu'),
-      '$1 ',
-    );
-  }
-  rest = rest
-    .replace(/[[\]()|·:,;]/g, ' ')
+  if (country) return country;
+  return cleanName(name);
+}
+
+/** Имя без флага-эмодзи и кода страны в начале: «ЕУ Европа» → «Европа», «[NL] Amsterdam» → «Amsterdam». */
+function cleanName(name: string): string {
+  const cleaned = name
+    .replace(/[\u{1F1E6}-\u{1F1FF}]{2}/gu, ' ')
+    .replace(/^\s*[[(]?\p{Lu}{2,3}[\])]?(?=\s|[-_·:|])\s*[-_·:|]?\s*/u, '')
     .replace(/\s+/g, ' ')
-    .replace(/^[\s\-_.#]+|[\s\-_.#]+$/g, '');
-  return rest ? `${country} · ${rest}` : country;
+    .trim();
+  return cleaned || name;
+}
+
+/** Одинаковые подписи получают номер со второго повтора: «Нидерланды», «Нидерланды 2». */
+export function numberedLabels(labels: string[]): string[] {
+  const seen = new Map<string, number>();
+  return labels.map((label) => {
+    const n = (seen.get(label) ?? 0) + 1;
+    seen.set(label, n);
+    return n === 1 ? label : `${label} ${n}`;
+  });
 }

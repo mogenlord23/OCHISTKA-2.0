@@ -3,7 +3,7 @@
   import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
-  import { serverLabel } from '../lib/countryFlags';
+  import { numberedLabels, serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
@@ -214,6 +214,11 @@
     }
     await runImport(await file.text());
   }
+
+  /** Подписи в списке: страна, а одинаковые страны получают номер (Нидерланды, Нидерланды 2). */
+  const serverLabels = $derived(
+    numberedLabels(servers.map((server) => serverLabel(server.name, server.country, i18n.lang))),
+  );
 
   /** Имя для скринридера: подпись со страной и исходное имя сервера. */
   function serverAria(name: string, country: string | null, lang: string): string {
@@ -453,7 +458,7 @@
           <section class="card servers-card">
             {#if servers.length > 0}
               <ul class="servers" aria-label="Серверы">
-                {#each servers as server (server.id)}
+                {#each servers as server, i (server.id)}
                   <li>
                     <button
                       type="button"
@@ -465,7 +470,7 @@
                     >
                       <ServerFlag code={server.country} />
                       <span class="srv-name"
-                        >{serverLabel(server.name, server.country, i18n.lang)}</span
+                        >{serverLabels[i]}</span
                       >
                       <span class="scheme">{server.protocol.toUpperCase()}</span>
                       <span

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flagUrl } from '../lib/countryFlags';
 
-  /** Флаг страны сервера: локальный SVG одного размера; неизвестная страна — нейтральный глобус. */
+  /** Флаг страны сервера: локальный SVG одного размера; без флага — заглушка в цветах приложения. */
   let { code = null }: { code?: string | null } = $props();
   const url = $derived(flagUrl(code));
 </script>
@@ -9,9 +9,10 @@
 {#if url}
   <img class="flag" src={url} alt="" width="24" height="18" draggable="false" />
 {:else}
-  <svg class="flag globe" viewBox="0 0 24 18" width="24" height="18" aria-hidden="true">
-    <circle cx="12" cy="9" r="6.2" />
-    <path d="M5.8 9h12.4M12 2.8c-2.2 1.9-2.2 10.5 0 12.4M12 2.8c2.2 1.9 2.2 10.5 0 12.4" />
+  <!-- Нет флага для кода страны (например, «EU»): нейтральная заглушка в цветах приложения. -->
+  <svg class="flag placeholder" viewBox="0 0 24 18" width="24" height="18" aria-hidden="true">
+    <path d="M0 0h24v18H0z" class="half-pink" />
+    <path d="M0 18V0h24z" class="half-accent" />
   </svg>
 {/if}
 
@@ -26,11 +27,15 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
   }
 
-  .globe {
-    box-shadow: none;
-    fill: none;
-    stroke: var(--muted);
-    stroke-width: 1.3;
-    stroke-linecap: round;
+  .placeholder {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+
+  .half-pink {
+    fill: #ff4fd8;
+  }
+
+  .half-accent {
+    fill: var(--accent);
   }
 </style>
