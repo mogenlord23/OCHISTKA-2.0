@@ -426,7 +426,17 @@ impl VpnService {
         if lock(&self.conn).state != ConnState::Connected {
             return Ok(self.status());
         }
-        self.disconnect();
+        // Сначала полностью снимаем прежнюю область (ядро, туннель, системный прокси). Если откат
+        // не удался, новую не ставим поверх: пользователь увидит ошибку отката.
+        let was_tunnel = lock(&self.data).rules.mode == RouteMode::ListOnly;
+        if self.disconnect().state != ConnState::Disconnected {
+            return Ok(self.status());
+        }
+        if was_tunnel {
+            // Прежняя область — весь компьютер: даём системе убрать адаптер и маршруты туннеля
+            // до проверки связи новой областью.
+            std::thread::sleep(Duration::from_millis(700));
+        }
         self.connect()
     }
 
@@ -1306,6 +1316,47 @@ mod tests {
         );
         s.disconnect();
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
+    }
+
+    #[test]
+    fn switching_from_the_whole_computer_to_sites_removes_the_tunnel_first_and_sets_the_proxy() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
+        reg.set_s(INTERNET_KEY, "ProxyServer", "corp:8080");
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 0);
+        s.set_mode(RouteMode::All).unwrap();
+        s.connect().unwrap();
+        assert!(flags.tunnel.load(Ordering::SeqCst));
+        flags.tunnel.store(false, Ordering::SeqCst);
+        flags.killed.store(false, Ordering::SeqCst);
+        let status = s.set_mode(RouteMode::ListOnly).unwrap();
+        assert_eq!(status.state, ConnState::Connected);
+        assert!(
+            flags.killed.load(Ordering::SeqCst),
+            "туннель снят до новой области"
+        );
+        assert!(
+            !flags.tunnel.load(Ordering::SeqCst),
+            "новая область без туннеля"
+        );
+        let port = lock(&s.conn).proxy_port.expect("порт входа ядра");
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S(format!("127.0.0.1:{port}")))
+        );
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+        assert!(written_config(&s)["route"]["rules"]
+            .to_string()
+            .contains("youtube.com"));
+        s.disconnect();
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S("corp:8080".into())),
+            "прежние значения возвращены"
+        );
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(0)));
     }
 
     #[test]
