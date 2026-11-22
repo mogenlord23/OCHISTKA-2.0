@@ -3,7 +3,6 @@
   import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
-  import BypassSitesPanel from './BypassSitesPanel.svelte';
   import { serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
@@ -14,7 +13,6 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
-  import type { RouteMode } from '../lib/generated/VpnRouteMode';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -36,7 +34,6 @@
     vpnConnect,
     vpnDisconnect,
     vpnImport,
-    vpnSetMode,
     vpnMeasureLatency,
     vpnSelect,
     vpnSnapshot,
@@ -70,19 +67,6 @@
   });
   const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
   let fileInput: HTMLInputElement | undefined = $state();
-  let modeBusy = $state(false);
-  const ROUTE_MODES: { id: RouteMode; label: string; caption: string }[] = [
-    { id: 'all', label: 'Весь компьютер', caption: 'Все приложения и сайты через VPN' },
-    {
-      id: 'listOnly',
-      label: 'Только сайты',
-      caption: 'Российские сервисы работают как обычно',
-    },
-  ];
-
-  /** Панель «Мои сайты» открыта. */
-  let sitesOpen = $state(false);
-
   /** Размер файла подписки не больше 5 МБ (так же ограничивает Rust). */
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -107,7 +91,6 @@
   const servers = $derived(snapshot?.servers ?? []);
   /** Число, а не сам список: замер задержек не перезапускает таймер проверок. */
   const serverCount = $derived(servers.length);
-  const routeMode = $derived<RouteMode>(snapshot?.rules.mode ?? 'listOnly');
   const ui = $derived(
     connectUi(snapshot, requesting || importing, {
       preparing,
@@ -216,33 +199,6 @@
     lastAutoLink = link;
     untrack(() => void runImport(raw));
   });
-
-  /** Выбор области VPN: обводка меняется в тот же кадр, при ошибке возвращается. Область можно
-      менять и при выключенном VPN, и при включённом (тогда VPN переподключается). */
-  async function onMode(picked: RouteMode) {
-    if (!snapshot || modeBusy || picked === snapshot.rules.mode) return;
-    modeBusy = true;
-    actionNote = null;
-    const wasOn = snapshot.connection.state === 'connected';
-    // Обводка и «Переключаем…» появляются в тот же кадр, не дожидаясь ядра.
-    snapshot = {
-      ...snapshot,
-      rules: { ...snapshot.rules, mode: picked },
-      connection: wasOn
-        ? { ...snapshot.connection, state: 'switching', message: 'Переключаем…' }
-        : snapshot.connection,
-    };
-    try {
-      await vpnSetMode(picked);
-      // Ответ ядра — единственный источник правды: при откате область вернётся на прежнюю.
-      await refresh();
-    } catch (err) {
-      actionNote = errorMessage(err);
-      await refresh();
-    } finally {
-      modeBusy = false;
-    }
-  }
 
   function onImport() {
     // Ссылка уже импортирована автоматически: повторно не грузим.
@@ -490,36 +446,7 @@
                   <span class="status-line" role="status">{status}</span>
                 </div>
               </div>
-              <div class="route-area">
-                <div class="route-modes" role="radiogroup" aria-label="Область VPN">
-                  {#each ROUTE_MODES as item (item.id)}
-                    <button
-                      type="button"
-                      role="radio"
-                      class="route-mode"
-                      class:selected={routeMode === item.id}
-                      aria-checked={routeMode === item.id}
-                      aria-label={item.label}
-                      aria-describedby={`route-${item.id}`}
-                      onclick={() => onMode(item.id)}
-                    >
-                      <span class="route-title">{item.label}</span>
-                      <span class="route-caption" id={`route-${item.id}`}>{item.caption}</span>
-                    </button>
-                  {/each}
-                </div>
-                <button
-                  type="button"
-                  class="route-sites"
-                  aria-label="Список сайтов"
-                  aria-expanded={sitesOpen}
-                  onclick={() => (sitesOpen = !sitesOpen)}
-                >
-                  Сайты
-                </button>
-              </div>
             </div>
-            <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
           </section>
 
           <h2 class="sr-only">Серверы / {servers.length}</h2>
@@ -1029,43 +956,11 @@
     margin: 8px;
   }
 
-  .switch-row {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 16px;
-    padding: 22px 20px;
-  }
 
-  .tool-power {
-    align-self: center;
-  }
 
-  .tool-state {
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
 
-  .tool-text {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
 
-  .switch-title {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: var(--ink);
-  }
 
-  .tool-text .note {
-    margin: 0;
-  }
 
   .connect-grid {
     display: flex;
@@ -1078,63 +973,14 @@
     margin-bottom: 0;
   }
 
-  .route-area {
-    display: flex;
-    flex: 1 1 320px;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-  }
 
-  .route-modes {
-    display: flex;
-    gap: 8px;
-  }
 
-  .route-mode {
-    flex: 1 1 160px;
-    min-height: 44px;
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    box-shadow: none;
-    color: var(--ink);
-    font-weight: 600;
-    text-align: center;
-    transition: background-color 120ms ease;
-  }
 
-  .route-mode:hover {
-    background: #1a1a1a;
-  }
 
-  .route-mode.selected {
-    background: #222;
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
 
-  .route-title {
-    display: block;
-  }
 
-  .route-caption {
-    display: block;
-    margin-top: 2px;
-    font-size: 12px;
-    font-weight: 400;
-    opacity: 0.7;
-  }
 
-  .route-sites {
-    width: 100%;
-    min-height: 40px;
-  }
 
-  .tool-action {
-    display: flex;
-    flex: none;
-    align-self: center;
-  }
 
   @media (max-width: 760px) {
     .vpn {

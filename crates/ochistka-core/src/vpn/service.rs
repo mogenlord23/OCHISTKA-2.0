@@ -1329,8 +1329,8 @@ mod tests {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
-        // По умолчанию: только нужные сайты. VPN выключен — это и есть «напрямую».
-        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        // По умолчанию: весь компьютер. VPN выключен — это и есть «напрямую».
+        assert_eq!(s.snapshot().rules.mode, RouteMode::All);
         assert_eq!(s.status().state, ConnState::Disconnected);
         s.set_mode(RouteMode::All).unwrap();
         let rules = RoutingRules {
@@ -1365,6 +1365,7 @@ mod tests {
         reg.set_s(INTERNET_KEY, "ProxyServer", "corp:8080");
         reg.set_d(INTERNET_KEY, "ProxyEnable", 1);
         s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
+        s.set_mode(RouteMode::ListOnly).unwrap();
         s.connect().unwrap();
         assert!(flags.tunnel.load(Ordering::SeqCst), "туннель запущен");
         let cfg = written_config(&s);
@@ -1525,14 +1526,14 @@ mod tests {
         s.connect().unwrap();
         // Новое ядро не запускается: прежняя область возвращается, текст понятный.
         flags.spawn_failures.store(1, Ordering::SeqCst);
-        let st = s.set_mode(RouteMode::All).unwrap();
+        let st = s.set_mode(RouteMode::ListOnly).unwrap();
         assert_eq!(st.state, ConnState::Connected);
         assert!(st.message.contains("Работает прежняя"), "{}", st.message);
-        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::All);
         assert_eq!(s.coord.mode(), Some(Mode::Active(Owner::Vpn)));
         // Не запускается ничего: устойчивая «ошибка», а не промежуточное состояние.
         flags.spawn_failures.store(2, Ordering::SeqCst);
-        assert!(s.set_mode(RouteMode::All).is_err());
+        assert!(s.set_mode(RouteMode::ListOnly).is_err());
         assert_eq!(stable(&s), ConnState::Error);
         assert!(!s.status().message.contains("Переключаем"));
         // Из ошибки можно включить заново.
@@ -1554,10 +1555,10 @@ mod tests {
         // Занятый затвор: второе нажатие не меняет область.
         let _held = s.switch_gate.lock().unwrap();
         assert_eq!(
-            s.set_mode(RouteMode::All).unwrap().state,
+            s.set_mode(RouteMode::ListOnly).unwrap().state,
             ConnState::Switching
         );
-        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::All);
     }
 
     #[test]

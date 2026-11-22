@@ -553,7 +553,7 @@ describe('VpnPage: подключение и серверы', () => {
 
   it('has no choice of connection method and no technical words on the VPN screen', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByRole('radiogroup', { name: 'Область VPN' });
+    await screen.findByRole('button', { name: 'Включить VPN' });
     expect(screen.queryByRole('button', { name: 'Режим' })).toBeNull();
     expect(screen.queryByRole('menu')).toBeNull();
     const text = document.body.textContent ?? '';
@@ -672,11 +672,6 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
     await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
     const flipped = await screen.findByRole('button', { name: 'Включаем…' });
     expect(flipped.getAttribute('aria-pressed')).toBe('true');
-    // Страница при этом отзывчива: область выбирается, пока ядро ещё запускается.
-    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
-    expect(screen.getByRole('radio', { name: 'Весь компьютер' }).getAttribute('aria-checked')).toBe(
-      'true',
-    );
   });
 });
 
@@ -791,29 +786,6 @@ describe('VpnPage: «Дополнительно»', () => {
   });
 });
 
-describe('VpnPage: список сайтов', () => {
-  it('has a side button that opens and closes the sites panel, same button again closes', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      bypass_sites_list: () => ['example.com'],
-    });
-    const { container } = render(VpnPage, { props: { subsection: 'vpn' } });
-    const side = screen.getByRole('button', { name: 'Список сайтов' });
-    const panel = () => container.querySelector('.sites') as HTMLElement;
-    expect(panel().getAttribute('aria-hidden')).toBe('true');
-    expect(side.getAttribute('aria-expanded')).toBe('false');
-    await fireEvent.click(side);
-    expect(panel().getAttribute('aria-hidden')).toBe('false');
-    expect(side.getAttribute('aria-expanded')).toBe('true');
-    expect(await within(panel()).findByText('example.com')).toBeTruthy();
-    await fireEvent.click(side);
-    expect(panel().getAttribute('aria-hidden')).toBe('true');
-    await fireEvent.click(side);
-    await fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
-    expect(panel().getAttribute('aria-hidden')).toBe('true');
-  });
-});
-
 describe('VpnPage: вкладки', () => {
   it('shows four tabs, the first selected, with the lead line and big title', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
@@ -923,132 +895,5 @@ describe('VpnPage: вкладка «Соединения»', () => {
     });
     render(VpnPage, { props: { subsection: 'connections' } });
     expect((await screen.findByRole('alert')).textContent).toContain('macOS');
-  });
-});
-
-describe('VpnPage: области VPN', () => {
-  const withMode = (mode: string) =>
-    makeSnapshot({
-      servers: SERVERS,
-      selected: 's1',
-      rules: {
-        directDomains: [],
-        proxyDomains: [],
-        directApps: [],
-        proxyApps: [],
-        presets: [],
-        mode,
-      },
-    } as never);
-
-  it('shows two areas, highlights the chosen one and lets VPN be turned on in either', async () => {
-    backend({ vpn_snapshot: () => withMode('listOnly') });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    const group = await screen.findByRole('radiogroup', { name: 'Область VPN' });
-    const radios = within(group).getAllByRole('radio');
-    expect(radios.map((r) => r.getAttribute('aria-label'))).toEqual([
-      'Весь компьютер',
-      'Только сайты',
-    ]);
-    // Одна выбрана.
-    expect(radios.filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
-    expect(screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked')).toBe(
-      'true',
-    );
-    expect(screen.getByText('Российские сервисы работают как обычно')).toBeTruthy();
-    // Включить VPN можно в любой области.
-    await screen.findByText('Серверы / 2');
-    const power = screen.getByRole('button', { name: 'Включить VPN' });
-    expect(power.getAttribute('aria-disabled')).toBe('false');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
-    expect(screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled')).toBe(
-      'false',
-    );
-  });
-
-  it('picks an area at once and sends it; pressing the chosen one again changes nothing', async () => {
-    let mode = 'listOnly';
-    backend({
-      vpn_snapshot: () => withMode(mode),
-      vpn_set_mode: (args) => {
-        mode = String(args?.mode);
-        return { state: 'disconnected', message: 'Не подключено', since: null };
-      },
-    });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 2');
-    const all = screen.getByRole('radio', { name: 'Весь компьютер' });
-    await fireEvent.click(all);
-    expect(all.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked')).toBe(
-      'false',
-    );
-    await waitFor(() => expect(calls('vpn_set_mode')[0]?.[1]).toEqual({ mode: 'all' }));
-    await fireEvent.click(all);
-    expect(calls('vpn_set_mode')).toHaveLength(1);
-  });
-
-  it('shows «Переключаем…» at once while the area changes and keeps the switch on', async () => {
-    let mode = 'listOnly';
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    const on = {
-      state: 'connected',
-      serverId: 's1',
-      serverName: 'Server 1',
-      since: 1000,
-      message: 'Подключено · Server 1',
-      verified: true,
-    };
-    backend({
-      vpn_snapshot: () => ({ ...withMode(mode), connection: on }) as never,
-      vpn_set_mode: async (args) => {
-        await gate;
-        mode = String(args?.mode);
-        return on;
-      },
-    });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
-    expect(await screen.findByText('Переключаем…')).toBeTruthy();
-    const power = screen.getByRole('button', { name: 'Переключаем…' });
-    expect(power.getAttribute('aria-pressed')).toBe('true');
-    release();
-    await waitFor(() => expect(screen.queryByText('Переключаем…')).toBeNull());
-    expect(screen.getByRole('button', { name: 'Выключить VPN' })).toBeTruthy();
-  });
-
-  it('goes back to the previous area and says why when it could not be set', async () => {
-    backend({
-      vpn_snapshot: () => withMode('listOnly'),
-      vpn_set_mode: () => Promise.reject({ kind: 'probe', message: 'Не удалось сохранить' }),
-    });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
-    expect(await screen.findByText('Не удалось сохранить')).toBeTruthy();
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: 'Только сайты' }).getAttribute('aria-checked')).toBe(
-        'true',
-      ),
-    );
-  });
-
-  it('turns the VPN switch off at once and shows a short reason when turning on fails', async () => {
-    backend({
-      vpn_snapshot: () => withMode('all'),
-      vpn_connect: () =>
-        Promise.reject({
-          kind: 'needsReinstall',
-          message: 'Для этого режима нужна переустановка программы',
-        }),
-    });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 2');
-    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
-    expect(await screen.findByText('Для этого режима нужна переустановка программы')).toBeTruthy();
-    const again = await screen.findByRole('button', { name: 'Включить VPN' });
-    expect(again.getAttribute('aria-pressed')).toBe('false');
   });
 });

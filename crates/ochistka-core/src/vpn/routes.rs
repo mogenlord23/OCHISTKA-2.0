@@ -16,23 +16,19 @@ pub enum RouteMode {
     /// «Только сайты»: через VPN сайты из панели «Сайты», остальное напрямую. Работает через
     /// локальный вход и системный прокси (права администратора не нужны). Старое сохранённое
     /// значение `direct` читается как это.
-    #[default]
     ListOnly,
-    /// «Весь компьютер»: всё через VPN (туннель TUN), кроме локальных адресов и исключений
-    /// пользователя. Системный прокси не используется.
+    /// «Весь компьютер»: всё через VPN (туннель TUN), кроме локальных адресов, российских зон
+    /// (`.ru`, `.рф`) и исключений пользователя. Системный прокси не используется.
+    #[default]
     All,
 }
 
 impl<'de> Deserialize<'de> for RouteMode {
-    /// Читает `listOnly` и `all`; старое значение `direct` (режима «напрямую» больше нет) — как
-    /// `listOnly`, неизвестное — тоже (область по умолчанию).
+    /// Единственная область в приложении — «весь компьютер». Любое сохранённое значение (`all`,
+    /// прежние `listOnly` и `direct`) читается как она же.
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let text = String::deserialize(deserializer)?;
-        Ok(if text == "all" {
-            RouteMode::All
-        } else {
-            RouteMode::ListOnly
-        })
+        let _ = String::deserialize(deserializer)?;
+        Ok(RouteMode::All)
     }
 }
 

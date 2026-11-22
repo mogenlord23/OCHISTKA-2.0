@@ -61,6 +61,8 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
         route_rules.push(json!({"process_name": rules.proxy_apps, "outbound": "proxy"}));
     }
     route_rules.extend(domain_rules(&rules.proxy_domains, "proxy"));
+    // Российские зоны мимо VPN: сайты вроде vk.ru видят обычный адрес, как без VPN.
+    route_rules.push(json!({"domain_suffix": RUSSIAN_ZONES, "outbound": "direct"}));
     route_rules.extend(domain_rules(&rules.direct_domains, "direct"));
     for id in &rules.presets {
         if let Some(list) = preset_suffixes(id) {
@@ -97,6 +99,8 @@ fn tunnel_inbounds(port: u16) -> Value {
 pub const TUN_MTU: u32 = 1400;
 /// Имя адаптера туннеля: по нему приложение находит и снимает только свои остатки.
 pub const TUN_NAME: &str = "OCHISTKA-VPN";
+/// Российские зоны: имена в них разрешаются локально и идут напрямую, мимо VPN. `xn--p1ai` — «рф».
+pub const RUSSIAN_ZONES: [&str; 2] = ["ru", "xn--p1ai"];
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 /// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
 pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
@@ -148,6 +152,7 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
         (to_dns_rules(list, "remote"), "local")
     } else {
         let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
+        direct.push(json!({"domain_suffix": RUSSIAN_ZONES, "outbound": "direct"}));
         for id in &rules.presets {
             if let Some(list) = preset_suffixes(id) {
                 direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
@@ -223,7 +228,10 @@ mod tests {
               {"type": "local", "tag": "local"},
               {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"}
             ],
-            "rules": [{"domain": ["tr.example.com"], "server": "local"}],
+            "rules": [
+              {"domain": ["tr.example.com"], "server": "local"},
+              {"domain_suffix": ["ru", "xn--p1ai"], "server": "local"}
+            ],
             "final": "remote",
             "reverse_mapping": true,
             "cache_capacity": 4096
@@ -242,7 +250,8 @@ mod tests {
               {"action": "sniff"},
               {"protocol": "dns", "action": "hijack-dns"},
               {"domain": ["tr.example.com"], "outbound": "direct"},
-              {"ip_is_private": true, "outbound": "direct"}
+              {"ip_is_private": true, "outbound": "direct"},
+              {"domain_suffix": ["ru", "xn--p1ai"], "outbound": "direct"}
             ],
             "final": "proxy",
             "default_domain_resolver": "local",
@@ -286,19 +295,23 @@ mod tests {
         );
         assert_eq!(
             list[6],
+            json!({"domain_suffix": ["ru", "xn--p1ai"], "outbound": "direct"})
+        );
+        assert_eq!(
+            list[7],
             json!({"domain_suffix": ["example.com"], "outbound": "direct"})
         );
-        assert_eq!(list[7], json!({"domain": ["a.b.c"], "outbound": "direct"}));
+        assert_eq!(list[8], json!({"domain": ["a.b.c"], "outbound": "direct"}));
         assert_eq!(
-            list[8],
+            list[9],
             json!({"ip_cidr": ["10.0.0.0/8"], "outbound": "direct"})
         );
-        assert!(list[9]["domain_suffix"]
+        assert!(list[10]["domain_suffix"]
             .as_array()
             .unwrap()
             .iter()
             .any(|d| d == "ru"));
-        assert_eq!(list.len(), 10);
+        assert_eq!(list.len(), 11);
         assert_eq!(cfg["route"]["find_process"], true);
         assert_eq!(cfg["route"]["final"], "proxy");
     }
@@ -503,12 +516,37 @@ mod tests {
     }
 
     #[test]
-    fn the_default_area_is_only_the_needed_sites_and_the_old_direct_value_reads_as_that() {
-        assert_eq!(RoutingRules::default().mode, RouteMode::ListOnly);
-        let old: RoutingRules = serde_json::from_str(r#"{"mode":"direct"}"#).unwrap();
-        assert_eq!(old.mode, RouteMode::ListOnly);
-        let all: RoutingRules = serde_json::from_str(r#"{"mode":"all"}"#).unwrap();
-        assert_eq!(all.mode, RouteMode::All);
+    fn the_only_area_is_the_whole_computer_and_old_saved_values_read_as_that() {
+        assert_eq!(RoutingRules::default().mode, RouteMode::All);
+        for old in [
+            r#"{"mode":"direct"}"#,
+            r#"{"mode":"listOnly"}"#,
+            r#"{"mode":"all"}"#,
+        ] {
+            let rules: RoutingRules = serde_json::from_str(old).unwrap();
+            assert_eq!(rules.mode, RouteMode::All, "{old}");
+        }
+    }
+
+    #[test]
+    fn whole_computer_sends_russian_zones_direct_for_routes_and_names() {
+        let mut r = rules(RouteMode::All);
+        r.proxy_domains = vec!["example.org".into()];
+        let cfg = build_config(&server(), 1, &r, &[]);
+        let route = cfg["route"]["rules"].to_string();
+        assert!(
+            route.contains(r#""domain_suffix":["ru","xn--p1ai"]"#),
+            "{route}"
+        );
+        // Явное «через VPN» для домена сильнее зоны: его правило стоит раньше.
+        let proxy_at = route.find("example.org").unwrap();
+        let zone_at = route.find("xn--p1ai").unwrap();
+        assert!(proxy_at < zone_at);
+        let dns = cfg["dns"]["rules"].to_string();
+        assert!(
+            dns.contains(r#""domain_suffix":["ru","xn--p1ai"],"server":"local""#),
+            "{dns}"
+        );
     }
 
     #[test]
@@ -566,7 +604,8 @@ mod tests {
             all["route"]["rules"][2],
             json!({"ip_cidr": ["203.0.113.7/32"], "outbound": "direct"})
         );
-        assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 0);
+        // В DNS остаётся только правило российских зон (локальные имена).
+        assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 1);
     }
 
     #[test]
