@@ -665,6 +665,41 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
     }
   });
 
+  it('refreshes server latency every 15 seconds only while connected', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    try {
+      const connected = {
+        state: 'connected',
+        serverId: 's1',
+        serverName: 'A',
+        since: 1,
+        message: 'Подключено',
+        verified: true,
+      };
+      const off = { state: 'disconnected', message: 'Не подключено', since: null };
+      let current: Record<string, unknown> = connected;
+      backend({
+        vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1', connection: current }),
+        vpn_status: () => current,
+        vpn_measure_latency: () => ({ servers: SERVERS, selected: 's1', connection: current }),
+        vpn_disconnect: () => {
+          current = off;
+          return off;
+        },
+      });
+      render(VpnPage, { props: { subsection: 'vpn' } });
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(calls('vpn_measure_latency').length).toBeGreaterThanOrEqual(1);
+      await fireEvent.click(screen.getByRole('button', { name: 'Выключить VPN' }));
+      await vi.advanceTimersByTimeAsync(100);
+      const after = calls('vpn_measure_latency').length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(calls('vpn_measure_latency')).toHaveLength(after);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a press does not wait for the core: the switch flips while the request is still pending', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),

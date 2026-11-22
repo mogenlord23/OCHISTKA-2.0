@@ -131,8 +131,9 @@
     });
   });
 
-  /** Только пока VPN включён: секундомер и проверка раз в 3 секунды, что он жив. Когда VPN выключен,
-      ни таймеров, ни запросов к ядру нет: следующий запрос — по нажатию. */
+  /** Только пока VPN включён: секундомер, проверка раз в 3 секунды, что он жив, и задержки серверов
+      раз в 15 секунд. Когда VPN выключен, ни таймеров, ни запросов к ядру нет: следующий запрос — по
+      нажатию. */
   const isConnected = $derived(
     snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching',
   );
@@ -148,9 +149,11 @@
         // Следующая проверка повторит запрос.
       }
     }, 3000);
+    const latency = setInterval(() => void onMeasure(), 15_000);
     return () => {
       clearInterval(clock);
       clearInterval(poll);
+      clearInterval(latency);
     };
   });
 
