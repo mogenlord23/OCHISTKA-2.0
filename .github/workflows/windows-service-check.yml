@@ -1,15 +1,11 @@
 # Проверка службы обхода на настоящем Windows (windows-2022, права администратора есть в раннере):
 # собрать службу, поставить ТЕМ ЖЕ скриптом, что и установщик, запустить, проверить SERVICE_RUNNING
 # через 5 секунд, остановить, проверить SERVICE_STOPPED, удалить. Логи — в артефакт.
-# Запускается вручную (Actions → Run workflow). Временный запуск по push только для этого файла
-# нужен, пока файла нет в основной ветке (GitHub не даёт запускать новый workflow из другой ветки).
+# Запускается только вручную (Actions → Run workflow). Автозапуска при push нет.
 name: windows-service-check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/optimistic-hypatia-hgstjj]
-    paths: ['.github/workflows/windows-service-check.yml']
 
 permissions:
   contents: read
