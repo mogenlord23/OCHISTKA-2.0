@@ -16,9 +16,10 @@ pub trait HttpFetch: Send + Sync {
     fn get(&self, url: &str, user_agent: &str, max_bytes: usize) -> Result<FetchResponse, String>;
 }
 
-/// Имя клиента: только общее имя приложения, без выдачи себя за другую программу. Запасное имя —
-/// короткая форма: часть сервисов по-разному принимает запись с версией. Личных данных не отправляем.
-pub const USER_AGENTS: [&str; 2] = ["OCHISTKA/1.0", "OCHISTKA"];
+/// Имена клиента. Сначала общее имя приложения. Запасное — известное имя клиента: часть
+/// провайдеров отдаёт список серверов только знакомым клиентам (решение владельца, этап 20). Запасное
+/// имя используется один раз, только после отказа 403, 404 или 410. Личных данных не отправляем.
+pub const USER_AGENTS: [&str; 2] = ["OCHISTKA/1.0", "v2rayN/7.0 OCHISTKA"];
 
 pub const LINK_GONE: &str = "Ссылка больше не действует. Обновите её в личном кабинете сервиса";
 
@@ -114,7 +115,6 @@ fn unwrap_link(link: &str) -> Result<String, VpnError> {
 pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportReport, VpnError> {
     let url = validate_https_url(url)?;
     let mut last = VpnError::Fetch("Подписка не загрузилась".into());
-    let mut first_status: Option<u16> = None;
     for agent in USER_AGENTS {
         match fetcher.get(&url, agent, MAX_BODY) {
             Err(why) => {
@@ -141,19 +141,9 @@ pub fn import_from_url(fetcher: &dyn HttpFetch, url: &str) -> Result<ImportRepor
                 }
             }
             Ok(r) => {
-                let mut text = status_message(r.status);
-                // Результат повторной попытки показываем честно: если первая закончилась другим
-                // кодом, называем и его.
-                if let Some(first) = first_status.filter(|f| *f != r.status) {
-                    text = format!("{text} Первая попытка: код {first}.");
-                }
-                first_status.get_or_insert(r.status);
-                last = VpnError::Fetch(text);
-                // Другое имя клиента помогает при отказах и сбоях сервиса; при прочих кодах нет.
-                if !matches!(
-                    r.status,
-                    400 | 401 | 403 | 404 | 406 | 410 | 422 | 429 | 500..=504
-                ) {
+                last = VpnError::Fetch(status_message(r.status));
+                // Запасное имя клиента — только после 403, 404 или 410; при прочих кодах сразу итог.
+                if !matches!(r.status, 403 | 404 | 410) {
                     return Err(last);
                 }
             }
@@ -323,37 +313,53 @@ mod tests {
     }
 
     #[test]
-    fn the_client_name_is_generic_and_never_another_program() {
-        for agent in USER_AGENTS {
-            assert!(agent.starts_with("OCHISTKA"), "{agent}");
-            assert!(!agent.to_lowercase().contains("v2ray"), "{agent}");
+    fn the_first_attempt_is_generic_and_the_fallback_is_the_known_client() {
+        assert_eq!(USER_AGENTS[0], "OCHISTKA/1.0");
+        assert!(USER_AGENTS[1].starts_with("v2rayN"));
+    }
+
+    #[test]
+    fn a_403_404_or_410_on_the_first_attempt_is_rescued_by_the_known_client() {
+        for status in [403u16, 404, 410] {
+            let fake = Fake::new(vec![
+                Ok(FetchResponse {
+                    status,
+                    body: vec![],
+                }),
+                ok(LINK),
+            ]);
+            let report = import_from_url(&fake, "https://s.example/sub/TOKEN123").unwrap();
+            assert_eq!(report.servers.len(), 1, "{status}");
+            let agents = fake.agents.lock().unwrap().clone();
+            assert_eq!(agents, vec![USER_AGENTS[0], USER_AGENTS[1]], "{status}");
         }
     }
 
     #[test]
-    fn the_second_attempt_result_is_shown_honestly() {
+    fn both_attempts_failing_show_the_code_of_the_last_answer_without_secrets() {
         let reply = |status| {
             Ok(FetchResponse {
                 status,
                 body: vec![],
             })
         };
-        let fake = Fake::new(vec![reply(403), reply(429)]);
-        let text = import_from_url(&fake, "https://s.example/sub")
+        let fake = Fake::new(vec![reply(403), reply(410)]);
+        let text = import_from_url(&fake, "https://s.example/sub/TOKEN123?k=v")
             .unwrap_err()
             .to_string();
-        assert!(
-            text.contains("код 429") && text.contains("Первая попытка: код 403"),
-            "{text}"
-        );
-        let fake = Fake::new(vec![reply(403), reply(403)]);
-        let text = import_from_url(&fake, "https://s.example/sub")
+        assert!(text.contains("больше не действует"), "{text}");
+        let fake = Fake::new(vec![reply(404), reply(403)]);
+        let text = import_from_url(&fake, "https://s.example/sub/TOKEN123?k=v")
             .unwrap_err()
             .to_string();
-        assert!(
-            text.contains("код 403") && !text.contains("Первая"),
-            "{text}"
-        );
+        assert!(text.contains("код 403"), "{text}");
+        for secret in ["TOKEN123", "k=v", "s.example"] {
+            assert!(!text.contains(secret), "{text}");
+        }
+        // Прочие коды повтора не вызывают.
+        let fake = Fake::new(vec![reply(429)]);
+        assert!(import_from_url(&fake, "https://s.example/sub").is_err());
+        assert_eq!(fake.agents.lock().unwrap().len(), 1);
     }
 
     #[test]
