@@ -125,7 +125,8 @@ pub fn run() {
         ])
         .build(tauri::generate_context!());
     match result {
-        // При выходе всегда останавливаем VPN-ядро и возвращаем системный прокси.
+        // При выходе — та же последовательность, что при выключении VPN: остановка ядра, ожидание,
+        // снятие остатков нашего адаптера (VpnService::shutdown).
         Ok(app) => app.run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
                 use tauri::Manager;
