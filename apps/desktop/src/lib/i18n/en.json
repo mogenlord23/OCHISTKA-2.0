@@ -10,6 +10,8 @@
   "subnavLabel": "Subsections",
   "minimize": "Minimize",
   "maximize": "Maximize",
+  "restoreWindow": "Restore window",
+  "windowControlError": "Could not change the window state. Please try again.",
   "close": "Close",
   "subsectionsPending": "Subsections to be defined",
   "inDevelopment": "In development",

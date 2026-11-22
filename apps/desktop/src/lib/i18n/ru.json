@@ -10,6 +10,8 @@
   "subnavLabel": "Подразделы",
   "minimize": "Свернуть",
   "maximize": "Развернуть",
+  "restoreWindow": "Восстановить окно",
+  "windowControlError": "Не удалось изменить состояние окна. Попробуйте ещё раз.",
   "close": "Закрыть",
   "subsectionsPending": "Подразделы уточняются",
   "inDevelopment": "В разработке",
