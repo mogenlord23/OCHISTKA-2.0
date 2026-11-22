@@ -432,67 +432,70 @@
           </section>
 
           <section class="card connect">
-            <div class="route-modes" role="radiogroup" aria-label="Область VPN">
-              {#each ROUTE_MODES as item (item.id)}
+            <div class="connect-grid">
+              <div class="power-row">
                 <button
                   type="button"
-                  role="radio"
-                  class="route-mode"
-                  class:selected={routeMode === item.id}
-                  aria-checked={routeMode === item.id}
-                  aria-label={item.label}
-                  aria-describedby={`route-${item.id}`}
-                  onclick={() => onMode(item.id)}
+                  class="power"
+                  class:on={ui.pressed}
+                  aria-pressed={ui.pressed}
+                  aria-busy={ui.busy}
+                  aria-label={ui.label}
+                  title={ui.reason ?? undefined}
+                  aria-disabled={ui.disabled}
+                  onclick={onConnect}
                 >
-                  <span class="route-title">{item.label}</span>
-                  <span class="route-caption" id={`route-${item.id}`}>{item.caption}</span>
+                  <span class="power-knob" aria-hidden="true"></span>
                 </button>
-              {/each}
-              <span class="route-sites">
-                <ExpandButton
-                  icon="M12 5v14M5 12h14"
-                  label="Сайты"
-                  width={96}
-                  name="Список сайтов"
+                <div class="power-text">
+                  {#if preparing !== null}
+                    <span
+                      class="prepare-bar"
+                      role="progressbar"
+                      aria-label="Подготовка VPN"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow={preparing}
+                    >
+                      <span class="prepare-fill" style:width={`${preparing}%`}></span>
+                    </span>
+                  {/if}
+                  <span class="timer" aria-label="Время подключения"
+                    >{formatElapsed(elapsedSeconds)}</span
+                  >
+                  <span class="status-line" role="status">{status}</span>
+                </div>
+              </div>
+              <div class="route-area">
+                <div class="route-modes" role="radiogroup" aria-label="Область VPN">
+                  {#each ROUTE_MODES as item (item.id)}
+                    <button
+                      type="button"
+                      role="radio"
+                      class="route-mode"
+                      class:selected={routeMode === item.id}
+                      aria-checked={routeMode === item.id}
+                      aria-label={item.label}
+                      aria-describedby={`route-${item.id}`}
+                      onclick={() => onMode(item.id)}
+                    >
+                      <span class="route-title">{item.label}</span>
+                      <span class="route-caption" id={`route-${item.id}`}>{item.caption}</span>
+                    </button>
+                  {/each}
+                </div>
+                <button
+                  type="button"
+                  class="route-sites"
+                  aria-label="Список сайтов"
                   aria-expanded={sitesOpen}
                   onclick={() => (sitesOpen = !sitesOpen)}
-                />
-              </span>
-            </div>
-            <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
-            <div class="power-row">
-              <button
-                type="button"
-                class="power"
-                class:on={ui.pressed}
-                aria-pressed={ui.pressed}
-                aria-busy={ui.busy}
-                aria-label={ui.label}
-                title={ui.reason ?? undefined}
-                aria-disabled={ui.disabled}
-                onclick={onConnect}
-              >
-                <span class="power-knob" aria-hidden="true"></span>
-              </button>
-              <div class="power-text">
-                {#if preparing !== null}
-                  <span
-                    class="prepare-bar"
-                    role="progressbar"
-                    aria-label="Подготовка VPN"
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                    aria-valuenow={preparing}
-                  >
-                    <span class="prepare-fill" style:width={`${preparing}%`}></span>
-                  </span>
-                {/if}
-                <span class="timer" aria-label="Время подключения"
-                  >{formatElapsed(elapsedSeconds)}</span
                 >
-                <span class="status-line" role="status">{status}</span>
+                  Сайты
+                </button>
               </div>
             </div>
+            <BypassSitesPanel open={sitesOpen} onclose={() => (sitesOpen = false)} />
           </section>
 
           <h2 class="sr-only">Серверы / {servers.length}</h2>
@@ -1040,12 +1043,28 @@
     margin: 0;
   }
 
-  .route-modes {
+  .connect-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
     align-items: center;
-    margin-bottom: 12px;
+    gap: 16px;
+  }
+
+  .connect-grid .power-row {
+    margin-bottom: 0;
+  }
+
+  .route-area {
+    display: flex;
+    flex: 1 1 320px;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .route-modes {
+    display: flex;
+    gap: 8px;
   }
 
   .route-mode {
@@ -1083,7 +1102,8 @@
   }
 
   .route-sites {
-    margin-left: auto;
+    width: 100%;
+    min-height: 40px;
   }
 
   .tool-action {
