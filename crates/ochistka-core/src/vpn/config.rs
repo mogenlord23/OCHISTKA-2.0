@@ -19,8 +19,16 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
     if let Some(map) = proxy.as_object_mut() {
         map.insert("tag".into(), json!("proxy"));
     }
-    let mut route_rules: Vec<Value> = vec![json!({"ip_is_private": true, "outbound": "direct"})];
+    // Обе области идут через туннель. Сначала DNS-запросы туннеля, адрес самого сервера напрямую
+    // (иначе соединение с ним попало бы в туннель), затем локальные адреса напрямую.
+    let mut route_rules: Vec<Value> = vec![
+        json!({"protocol": "dns", "action": "hijack-dns"}),
+        server_direct_rule(&server.host),
+        json!({"ip_is_private": true, "outbound": "direct"}),
+    ];
     if rules.mode == RouteMode::ListOnly {
+        // Только сайты: через VPN сайты из списка (с поддоменами) и явные «через VPN», остальное
+        // напрямую.
         if !rules.proxy_apps.is_empty() {
             route_rules.push(json!({"process_name": rules.proxy_apps, "outbound": "proxy"}));
         }
@@ -36,16 +44,12 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
         }
         return json!({
             "log": {"level": "warn", "timestamp": true},
-            "dns": {"servers": [{"type": "local", "tag": "local"}], "final": "local"},
-            "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port}],
+            "dns": tunnel_dns(server, rules, sites),
+            "inbounds": tunnel_inbounds(port),
             "outbounds": [proxy, {"type": "direct", "tag": "direct"}],
             "route": Value::Object(route),
         });
     }
-    // Весь компьютер: DNS-запросы из туннеля обрабатывает ядро, адрес самого сервера идёт напрямую
-    // (иначе соединение с ним попало бы в туннель), затем локальные адреса напрямую.
-    route_rules.insert(0, json!({"protocol": "dns", "action": "hijack-dns"}));
-    route_rules.insert(1, server_direct_rule(&server.host));
     // Порядок важен: приложения, затем явные домены пользователя, затем наборы.
     if !rules.direct_apps.is_empty() {
         route_rules.push(json!({"process_name": rules.direct_apps, "outbound": "direct"}));
@@ -70,14 +74,18 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
     }
     json!({
         "log": {"level": "warn", "timestamp": true},
-        "dns": tunnel_dns(server, rules),
-        "inbounds": [
-            {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port},
-            {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS, TUN_ADDRESS_V6], "mtu": TUN_MTU, "auto_route": true, "strict_route": true, "stack": "mixed"},
-        ],
+        "dns": tunnel_dns(server, rules, sites),
+        "inbounds": tunnel_inbounds(port),
         "outbounds": [proxy, {"type": "direct", "tag": "direct"}],
         "route": Value::Object(route),
     })
+}
+
+fn tunnel_inbounds(port: u16) -> Value {
+    json!([
+        {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port},
+        {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS, TUN_ADDRESS_V6], "mtu": TUN_MTU, "auto_route": true, "strict_route": true, "stack": "mixed"},
+    ])
 }
 
 /// Адрес туннельного адаптера (частная сеть, не пересекается с домашними 192.168.*).
@@ -105,36 +113,51 @@ fn server_direct_rule(host: &str) -> Value {
     }
 }
 
-/// Запросы имён в туннеле: обычные идут к публичному серверу ЧЕРЕЗ VPN, а имя самого сервера VPN и
-/// имена из исключений «напрямую» разрешаются локально.
-fn tunnel_dns(server: &Server, rules: &RoutingRules) -> Value {
-    let mut dns_rules: Vec<Value> = Vec::new();
-    if !is_ip(&server.host) {
-        dns_rules.push(json!({"domain": [server.host], "server": "local"}));
-    }
-    let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
-    for id in &rules.presets {
-        if let Some(list) = preset_suffixes(id) {
-            direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
-        }
-    }
-    for mut rule in direct {
+/// Правила имён из правил маршрута: те же домены, но с указанием сервера имён вместо выхода.
+fn to_dns_rules(list: Vec<Value>, server_tag: &str) -> Vec<Value> {
+    let mut out = Vec::new();
+    for mut rule in list {
         if let Some(map) = rule.as_object_mut() {
             if map.contains_key("ip_cidr") {
                 continue;
             }
             map.remove("outbound");
-            map.insert("server".into(), json!("local"));
-            dns_rules.push(rule);
+            map.insert("server".into(), json!(server_tag));
+            out.push(rule);
         }
     }
+    out
+}
+
+/// Запросы имён в туннеле. Весь компьютер: обычные идут к публичному серверу ЧЕРЕЗ VPN, а имя самого
+/// сервера VPN и имена из исключений «напрямую» разрешаются локально. Только сайты: через VPN
+/// разрешаются имена из списка, остальные — локально, как без VPN.
+fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value {
+    let mut dns_rules: Vec<Value> = Vec::new();
+    if !is_ip(&server.host) {
+        dns_rules.push(json!({"domain": [server.host], "server": "local"}));
+    }
+    let (via_vpn, final_server) = if rules.mode == RouteMode::ListOnly {
+        let mut list = domain_rules(&rules.proxy_domains, "proxy");
+        list.extend(domain_rules(sites, "proxy"));
+        (to_dns_rules(list, "remote"), "local")
+    } else {
+        let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
+        for id in &rules.presets {
+            if let Some(list) = preset_suffixes(id) {
+                direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
+            }
+        }
+        (to_dns_rules(direct, "local"), "remote")
+    };
+    dns_rules.extend(via_vpn);
     json!({
         "servers": [
             {"type": "local", "tag": "local"},
             {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
         ],
         "rules": dns_rules,
-        "final": "remote",
+        "final": final_server,
         // Ответы кэшируются: повторные запросы одного имени не идут в туннель.
         "cache_capacity": 4096,
     })
@@ -274,7 +297,7 @@ mod tests {
     fn listens_only_on_loopback() {
         let cfg = build_config(&server(), 5, &RoutingRules::default(), &[]);
         assert_eq!(cfg["inbounds"][0]["listen"], "127.0.0.1");
-        assert!(cfg["inbounds"].as_array().unwrap().len() == 1);
+        assert_eq!(cfg["inbounds"][0]["type"], "mixed");
     }
 
     fn rules(mode: RouteMode) -> RoutingRules {
@@ -295,19 +318,54 @@ mod tests {
         let cfg = build_config(&server(), 1, &r, &sites);
         assert_eq!(cfg["route"]["final"], "direct");
         let list = cfg["route"]["rules"].as_array().unwrap();
-        assert_eq!(list[0]["ip_is_private"], true);
+        assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
+        assert_eq!(list[1]["outbound"], "direct", "адрес сервера напрямую");
+        assert_eq!(list[2]["ip_is_private"], true);
+        // Домен из списка и его поддомены (domain_suffix) идут через VPN.
         assert_eq!(
-            list[1],
+            list[3],
             json!({"domain_suffix": ["youtube.com", "discord.gg"], "outbound": "proxy"})
         );
-        assert_eq!(list.len(), 2);
+        assert_eq!(list.len(), 4);
+        // Всё остальное напрямую: итоговый выход direct, других правил «через VPN» нет.
+        assert!(!cfg["route"]["rules"].to_string().contains("example.org"));
+    }
+
+    #[test]
+    fn list_only_resolves_listed_names_through_the_vpn_and_the_rest_locally() {
+        let sites = vec!["youtube.com".to_string()];
+        let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
+        assert_eq!(cfg["dns"]["final"], "local");
+        assert_eq!(cfg["dns"]["rules"][0]["server"], "local");
+        assert_eq!(
+            cfg["dns"]["rules"][1],
+            json!({"domain_suffix": ["youtube.com"], "server": "remote"})
+        );
+    }
+
+    #[test]
+    fn list_only_never_sends_the_vpn_server_itself_through_the_vpn() {
+        let sites = vec!["tr.example.com".to_string()];
+        let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
+        let list = cfg["route"]["rules"].as_array().unwrap();
+        let direct = list
+            .iter()
+            .position(|r| r["outbound"] == "direct" && r.get("domain").is_some())
+            .expect("правило адреса сервера");
+        let listed = list
+            .iter()
+            .position(|r| r["outbound"] == "proxy")
+            .expect("правило списка");
+        assert!(direct < listed, "адрес сервера раньше списка сайтов");
     }
 
     #[test]
     fn list_only_with_an_empty_list_sends_nothing_through_the_vpn() {
         let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &[]);
         assert_eq!(cfg["route"]["final"], "direct");
-        assert_eq!(cfg["route"]["rules"].as_array().unwrap().len(), 1);
+        // Только DNS, адрес сервера и локальные адреса: через VPN ничего.
+        assert_eq!(cfg["route"]["rules"].as_array().unwrap().len(), 3);
+        assert!(!cfg["route"]["rules"].to_string().contains("\"proxy\""));
     }
 
     #[test]
@@ -333,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn the_whole_computer_uses_a_tun_tunnel_and_the_needed_sites_do_not() {
+    fn both_areas_use_the_tunnel() {
         let all = build_config(&server(), 7, &rules(RouteMode::All), &[]);
         let inbounds = all["inbounds"].as_array().unwrap();
         assert_eq!(inbounds.len(), 2);
@@ -347,8 +405,9 @@ mod tests {
             json!({"protocol": "dns", "action": "hijack-dns"})
         );
         let sites = build_config(&server(), 7, &rules(RouteMode::ListOnly), &[]);
-        assert_eq!(sites["inbounds"].as_array().unwrap().len(), 1);
-        assert!(!sites.to_string().contains("\"tun\""));
+        assert_eq!(sites["inbounds"].as_array().unwrap().len(), 2);
+        assert_eq!(sites["inbounds"][1]["type"], "tun");
+        assert_eq!(sites["inbounds"][1]["auto_route"], true);
     }
 
     #[test]
