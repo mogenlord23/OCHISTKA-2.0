@@ -317,7 +317,10 @@ impl SystemProxyPort for WindowsProxy {
                 first_error.get_or_insert(e);
             }
         };
-        for (name, value) in &snapshot.0 {
+        // Сначала адрес, потом флаг: так система не остаётся «включённой» с нашим адресом.
+        let mut ordered: Vec<&(String, String)> = snapshot.0.iter().collect();
+        ordered.sort_by_key(|(name, _)| name != "ProxyServer");
+        for (name, value) in ordered {
             match name.as_str() {
                 "ProxyServer" if value == ABSENT => note(self.registry.delete("ProxyServer")),
                 "ProxyServer" => note(self.registry.set_string("ProxyServer", value)),

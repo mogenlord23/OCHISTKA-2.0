@@ -76,7 +76,19 @@ impl SiteBypassService {
     }
 
     pub fn status(&self) -> SiteBypassStatus {
-        lock(&self.status).clone()
+        self.sync_death()
+            .unwrap_or_else(|| lock(&self.status).clone())
+    }
+
+    /// Если прокси погиб после включения (настройки уже возвращены самим прокси), освобождает общее
+    /// право на сетевой режим и возвращает текст для человека. Иначе `None`.
+    fn sync_death(&self) -> Option<SiteBypassStatus> {
+        let notice = self.controller.stopped_notice()?;
+        self.coord.release(Owner::Desync);
+        Some(self.set(SiteBypassStatus {
+            state: SiteBypassState::Error,
+            message: notice.into(),
+        }))
     }
 
     pub fn is_on(&self) -> bool {
@@ -93,6 +105,7 @@ impl SiteBypassService {
         let Ok(_op) = self.op.try_lock() else {
             return error_status("подождите, идёт переключение");
         };
+        self.sync_death();
         if self.controller.is_on() {
             return self.set(SiteBypassStatus {
                 state: SiteBypassState::On,
@@ -177,6 +190,7 @@ impl SiteBypassService {
 pub fn vpn_conflict_guard(service: Weak<SiteBypassService>) -> ConflictGuard {
     Box::new(move || {
         let service = service.upgrade()?;
+        service.sync_death();
         if !service.is_on() {
             return None;
         }

@@ -23,6 +23,9 @@ const SPLIT_PAUSE: Duration = Duration::from_millis(5);
 
 struct Shared {
     stop: AtomicBool,
+    /// Только для тестов: принимающий поток «падает».
+    #[cfg(test)]
+    crash: AtomicBool,
     live_threads: AtomicUsize,
     next_id: AtomicU64,
     sockets: Mutex<Vec<(u64, TcpStream)>>,
@@ -55,10 +58,24 @@ pub struct ProxyServer {
 impl ProxyServer {
     /// Запускает прокси на свободном порту 127.0.0.1.
     pub fn start(sites: SiteList) -> io::Result<Self> {
+        Self::start_with_exit_hook(sites, None)
+    }
+
+    /// То же, но `on_dead` вызывается в принимающем потоке, если он остановился НЕ по `stop()`
+    /// (ошибка приёма или падение). Так обход узнаёт о гибели прокси без опроса и таймеров.
+    ///
+    /// Порт выбирает система: слушаем порт 0, берём назначенный и сразу используем его (тот же
+    /// сокет, поэтому порт гарантированно наш и свободен).
+    pub fn start_with_exit_hook(
+        sites: SiteList,
+        on_dead: Option<Box<dyn FnOnce() + Send + 'static>>,
+    ) -> io::Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", 0))?;
         let addr = listener.local_addr()?;
         let shared = Arc::new(Shared {
             stop: AtomicBool::new(false),
+            #[cfg(test)]
+            crash: AtomicBool::new(false),
             live_threads: AtomicUsize::new(0),
             next_id: AtomicU64::new(0),
             sockets: Mutex::new(Vec::new()),
@@ -71,7 +88,16 @@ impl ProxyServer {
             .name("proxy-bypass-accept".into())
             .spawn(move || {
                 let _guard = guard;
-                accept_loop(listener, for_accept);
+                let shared = for_accept.clone();
+                let ended = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    accept_loop(listener, for_accept)
+                }));
+                // Остановка без запроса `stop()` (ошибка или падение) — сообщаем владельцу.
+                if ended.is_err() || !shared.stop.load(Ordering::SeqCst) {
+                    if let Some(hook) = on_dead {
+                        hook();
+                    }
+                }
             })?;
         Ok(Self {
             addr,
@@ -82,6 +108,23 @@ impl ProxyServer {
 
     pub fn port(&self) -> u16 {
         self.addr.port()
+    }
+
+    /// Принимающий поток ещё работает.
+    pub fn is_alive(&self) -> bool {
+        self.accept.as_ref().is_some_and(|h| !h.is_finished())
+    }
+
+    /// Проверка: к 127.0.0.1:порт можно подключиться (сервер действительно принимает).
+    pub fn probe(&self) -> bool {
+        TcpStream::connect_timeout(&self.addr, Duration::from_secs(2)).is_ok()
+    }
+
+    /// Только для тестов: принимающий поток падает при следующем подключении.
+    #[cfg(test)]
+    pub(crate) fn crash_for_test(&self) {
+        self.shared.crash.store(true, Ordering::SeqCst);
+        let _ = TcpStream::connect_timeout(&self.addr, Duration::from_secs(2));
     }
 
     /// Сколько потоков прокси сейчас живо (после `stop()` — ноль).
@@ -130,8 +173,26 @@ fn accept_loop(listener: TcpListener, shared: Arc<Shared>) {
         if shared.stop.load(Ordering::SeqCst) {
             break;
         }
-        let Ok(client) = incoming else {
-            continue;
+        #[cfg(test)]
+        if shared.crash.load(Ordering::SeqCst) {
+            panic!("тестовое падение принимающего потока");
+        }
+        let client = match incoming {
+            Ok(client) => client,
+            // Разовые сбои отдельного подключения не останавливают приём.
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::ConnectionAborted
+                        | io::ErrorKind::ConnectionReset
+                        | io::ErrorKind::Interrupted
+                        | io::ErrorKind::TimedOut
+                ) =>
+            {
+                continue
+            }
+            // Остальное — слушающий сокет сломан: поток завершается, владелец узнает.
+            Err(_) => break,
         };
         let guard = ThreadGuard::new(&shared);
         let for_conn = shared.clone();
