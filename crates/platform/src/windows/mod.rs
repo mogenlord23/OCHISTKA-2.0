@@ -13,6 +13,7 @@ pub mod processes;
 pub mod programs;
 pub mod services;
 pub mod tweaks;
+pub mod vpn_service;
 #[cfg(windows)]
 pub mod win32_ffi;
 

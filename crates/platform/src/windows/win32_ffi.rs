@@ -132,3 +132,80 @@ pub fn notify_proxy_settings_changed() {
         InternetSetOptionW(null_mut(), INTERNET_OPTION_REFRESH, null_mut(), 0);
     }
 }
+
+// --- Управление службами (Service Control Manager) ---
+// Обычному пользователю достаточно прав на саму службу (их выдаёт установщик): запрос состояния,
+// запуск и остановка. Запроса прав и окон нет.
+
+/// Код ошибки Windows для вызова службы.
+pub type ServiceCode = u32;
+
+fn code_of(e: &::windows::core::Error) -> ServiceCode {
+    // HRESULT_FROM_WIN32: код Windows в младших 16 разрядах.
+    (e.code().0 as u32) & 0xFFFF
+}
+
+fn with_service<T>(
+    name: &str,
+    access: u32,
+    job: impl FnOnce(::windows::Win32::System::Services::SC_HANDLE) -> Result<T, ServiceCode>,
+) -> Result<T, ServiceCode> {
+    use ::windows::Win32::System::Services::{
+        CloseServiceHandle, OpenSCManagerW, OpenServiceW, SC_MANAGER_CONNECT,
+    };
+    let name = wide(name);
+    // SAFETY: имя заканчивается нулём и живёт до конца вызова; оба дескриптора закрываются ниже
+    // ровно один раз; ошибки возвращаются кодом Windows.
+    unsafe {
+        let scm = OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), SC_MANAGER_CONNECT)
+            .map_err(|e| code_of(&e))?;
+        let service = OpenServiceW(scm, PCWSTR(name.as_ptr()), access);
+        let result = match service {
+            Ok(handle) => {
+                let r = job(handle);
+                let _ = CloseServiceHandle(handle);
+                r
+            }
+            Err(e) => Err(code_of(&e)),
+        };
+        let _ = CloseServiceHandle(scm);
+        result
+    }
+}
+
+/// Состояние службы: 1 остановлена, 2 запускается, 3 останавливается, 4 работает (SERVICE_*).
+pub fn service_state(name: &str) -> Result<u32, ServiceCode> {
+    use ::windows::Win32::System::Services::{
+        QueryServiceStatus, SERVICE_QUERY_STATUS, SERVICE_STATUS,
+    };
+    with_service(name, SERVICE_QUERY_STATUS, |service| {
+        let mut status = SERVICE_STATUS::default();
+        // SAFETY: открытый дескриптор службы и корректная структура на стеке.
+        unsafe { QueryServiceStatus(service, &mut status) }.map_err(|e| code_of(&e))?;
+        Ok(status.dwCurrentState.0)
+    })
+}
+
+/// Запускает службу с аргументами (для службы VPN первым аргументом идёт конфигурация ядра).
+pub fn service_start(name: &str, args: &[String]) -> Result<(), ServiceCode> {
+    use ::windows::Win32::System::Services::{StartServiceW, SERVICE_START};
+    let wide_args: Vec<Vec<u16>> = args.iter().map(|a| wide(a)).collect();
+    let pointers: Vec<PCWSTR> = wide_args.iter().map(|a| PCWSTR(a.as_ptr())).collect();
+    with_service(name, SERVICE_START, |service| {
+        // SAFETY: открытый дескриптор службы; строки аргументов заканчиваются нулём и живут до
+        // конца вызова.
+        unsafe { StartServiceW(service, Some(&pointers)) }.map_err(|e| code_of(&e))
+    })
+}
+
+pub fn service_stop(name: &str) -> Result<(), ServiceCode> {
+    use ::windows::Win32::System::Services::{
+        ControlService, SERVICE_CONTROL_STOP, SERVICE_STATUS, SERVICE_STOP,
+    };
+    with_service(name, SERVICE_STOP, |service| {
+        let mut status = SERVICE_STATUS::default();
+        // SAFETY: открытый дескриптор службы и корректная структура на стеке.
+        unsafe { ControlService(service, SERVICE_CONTROL_STOP, &mut status) }
+            .map_err(|e| code_of(&e))
+    })
+}
