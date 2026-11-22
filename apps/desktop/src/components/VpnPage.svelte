@@ -702,11 +702,16 @@
   /* Три уровня промежутков: внутри карточки 8, между карточками и вкладками 12, между крупными
      секциями 20. Верхняя панель вкладок стоит вплотную к верху колонки, как постер слева. */
   .column :global(.subtabs) {
-    margin: 0;
+    margin: 0 calc(-1 * var(--pane-outline-bleed));
     min-height: 0;
   }
 
+  .column :global(.subtabs .track) {
+    flex: 1;
+  }
+
   .column {
+    --pane-outline-bleed: 2px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -731,8 +736,8 @@
     gap: 12px;
     min-height: 0;
     /* Обводка карточек (тень 2px) раньше обрезалась прокруткой: поле 2px внутри, минус снаружи. */
-    margin: -2px;
-    padding: 2px;
+    margin: calc(-1 * var(--pane-outline-bleed));
+    padding: var(--pane-outline-bleed);
     /* Обрезание прокручиваемого содержимого идёт по скруглённой границе, а не по прямой линии. */
     border-radius: var(--radius-lg);
     overflow-y: auto;

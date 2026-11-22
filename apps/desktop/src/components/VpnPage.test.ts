@@ -93,6 +93,14 @@ async function openLoaded(snapshot = makeSnapshot({ servers: SERVERS, selected: 
   await screen.findByText(`Серверы / ${snapshot.servers.length}`);
 }
 
+it('places the VPN tabs and content in the same column', () => {
+  const { container } = render(VpnPage, { props: { subsection: 'vpn' } });
+  const column = container.querySelector('.column');
+  expect(column).toBeTruthy();
+  expect(column?.querySelector(':scope > .subtabs [role="tablist"]')).toBeTruthy();
+  expect(column?.querySelector(':scope > .pane[role="tabpanel"]')).toBeTruthy();
+});
+
 describe('VpnPage: подпись поля ссылки с печатным эффектом', () => {
   const labelText = () => document.querySelector('.field .lbl')?.textContent ?? '';
   const paste = async (url: string) =>
