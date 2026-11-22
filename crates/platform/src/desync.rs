@@ -94,14 +94,17 @@ impl DesyncAdapter for WindowsDesyncAdapter {
         self.host.is_elevated()
     }
 
-    /// Журнал, который пишет сам движок, появился или обновился после запуска (допуск 200 мс на
-    /// точность времени файловой системы).
+    /// Признак работы движка: либо его журнал появился или обновился после запуска, либо драйвер
+    /// перехвата (WinDivert) загружен. Журнала движок может не писать (проверено на Windows:
+    /// движок работает, журнала нет), поэтому одного журнала недостаточно как условие «ошибки».
     fn start_confirmed(&self, since: std::time::SystemTime) -> bool {
-        self.host
+        let log_fresh = self
+            .host
             .engine_log()
             .and_then(|log| std::fs::metadata(log).ok())
             .and_then(|meta| meta.modified().ok())
-            .is_some_and(|modified| modified >= since - std::time::Duration::from_millis(200))
+            .is_some_and(|modified| modified >= since - std::time::Duration::from_millis(200));
+        log_fresh || matches!(self.driver_state(), desync::DriverState::Running)
     }
 
     fn spawn(
