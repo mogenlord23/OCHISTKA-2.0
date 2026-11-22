@@ -1459,6 +1459,28 @@ mod tests {
     }
 
     #[test]
+    fn the_saved_subscription_is_loaded_at_start_and_a_new_import_updates_it() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        // Без подписки список пуст.
+        let empty = service_on(&reg, &flags, &dir);
+        assert!(empty.snapshot().servers.is_empty());
+        let count = empty.import(LIST).unwrap().count as usize;
+        // Новый запуск: сохранённая подписка видна без вставки ссылки.
+        let again = service_on(&reg, &flags, &dir);
+        assert_eq!(again.snapshot().servers.len(), count);
+        // Новый импорт заменяет список, и после перезапуска он тот же.
+        let one =
+            "vless://11111111-1111-1111-1111-111111111111@new.example.com:443?security=tls#Only";
+        again.import(one).unwrap();
+        assert_eq!(again.snapshot().servers.len(), 1);
+        let third = service_on(&reg, &flags, &dir);
+        assert_eq!(third.snapshot().servers.len(), 1);
+        assert_eq!(third.snapshot().servers[0].name, "Only");
+    }
+
+    #[test]
     fn a_blocked_proxy_registry_does_not_matter_any_more() {
         let dir = temp_dir();
         let flags = Flags::default();

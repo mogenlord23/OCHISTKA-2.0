@@ -93,6 +93,47 @@ async function openLoaded(snapshot = makeSnapshot({ servers: SERVERS, selected: 
   await screen.findByText(`Серверы / ${snapshot.servers.length}`);
 }
 
+describe('VpnPage: сохранённая подписка', () => {
+  it('shows the saved subscription line under an empty link field when servers are loaded at start', async () => {
+    await openLoaded();
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(screen.getByTestId('subscription-saved').textContent?.trim()).toBe(
+      'Подписка сохранена, серверов: 2',
+    );
+    expect(document.body.textContent).not.toMatch(/https?:\/\//);
+  });
+
+  it('shows no line and no servers when there is no saved subscription', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot() });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 0');
+    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByTestId('subscription-saved')).toBeNull();
+  });
+
+  it('a pasted link replaces the list and the line shows the new count', async () => {
+    let imported = false;
+    const three = [...SERVERS, { ...SERVERS[0], id: 's3', name: '🇩🇪 Германия', country: 'DE' }];
+    backend({
+      vpn_snapshot: () =>
+        makeSnapshot({ servers: imported ? three : SERVERS, selected: imported ? 's3' : 's1' }),
+      vpn_import: () => {
+        imported = true;
+        return { count: 3, skipped: 0, issues: [] };
+      },
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    expect(screen.getByTestId('subscription-saved').textContent).toContain('серверов: 2');
+    await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
+      target: { value: 'https://sub.example.com/new?t=2' },
+    });
+    await screen.findByText('Серверы / 3');
+    expect(screen.getByTestId('subscription-saved').textContent).toContain('серверов: 3');
+  });
+});
+
 describe('VpnPage: постер', () => {
   it('one mouse press plays one animation cycle and one sound (no second one on click)', async () => {
     const heehee = vi.spyOn(sound, 'playHeehee').mockImplementation(() => {});
