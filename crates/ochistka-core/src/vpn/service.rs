@@ -34,6 +34,35 @@ pub trait CoreProcess: Send {
     }
 }
 
+/// Причина, по которой не поднялось сетевое подключение, понятными словами: нет прав, адаптер занят
+/// или другое подключение мешает настройке сети. `None` — причина не узнана.
+pub fn explain_tunnel_failure(details: &str) -> Option<&'static str> {
+    let text = details.to_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| text.contains(w));
+    if has(&[
+        "access is denied",
+        "access denied",
+        "отказано в доступе",
+        "administrator",
+        "privilege",
+    ]) {
+        Some("Нет прав на создание сетевого подключения. Установите программу заново или запустите её от администратора")
+    } else if has(&[
+        "wintun",
+        "adapter",
+        "interface is in use",
+        "already exists",
+        "cannot create a file",
+        "in use",
+    ]) {
+        Some("Сетевое подключение VPN занято другой программой. Закройте другие VPN и повторите")
+    } else if has(&["route", "conflict", "configure tun", "set dns", "elevation"]) {
+        Some("Другое подключение мешает настройке сети. Отключите другие VPN и повторите")
+    } else {
+        None
+    }
+}
+
 /// Текст после аварийного выхода, когда сеть пришлось восстанавливать.
 pub const RECOVERED: &str = "Прошлое подключение не закрылось правильно, сеть восстановлена";
 
@@ -680,15 +709,25 @@ impl VpnService {
             ))
         })?;
         let log = session.join("engine.log");
-        let mut process = self
-            .host
-            .spawn_tunnel(&config_path, &log)
-            .map_err(VpnError::Engine)?;
+        // Наш адаптер от прошлого запуска мешает новому: снимаем; не снялся — говорим понятно.
+        if self.host.tunnel_leftovers() && self.remove_leftovers().is_err() {
+            return Err(VpnError::Engine(
+                explain_tunnel_failure("adapter in use")
+                    .unwrap_or("Сетевое подключение VPN занято")
+                    .into(),
+            ));
+        }
+        let mut process = self.host.spawn_tunnel(&config_path, &log).map_err(|why| {
+            VpnError::Engine(explain_tunnel_failure(&why).map_or(why.clone(), str::to_string))
+        })?;
         let _ = std::fs::write(self.pid_file(), process.pid().to_string());
         let mut ready = false;
         for _ in 0..75 {
             if process.has_exited() {
                 let tail = self.log_tail();
+                if let Some(reason) = explain_tunnel_failure(&tail) {
+                    return Err(VpnError::Engine(reason.into()));
+                }
                 return Err(VpnError::Engine(format!(
                     "VPN завершился при запуске.{tail}"
                 )));
@@ -870,6 +909,8 @@ mod tests {
         /// Снять остатки не получается.
         removal_fails: Arc<AtomicBool>,
         removals: Arc<std::sync::atomic::AtomicU32>,
+        /// Что ядро туннеля пишет в журнал (пусто — обычный текст).
+        tunnel_log: Arc<Mutex<String>>,
     }
 
     struct FakeProcess(Flags);
@@ -966,7 +1007,13 @@ mod tests {
                 return Err("не запустилось".into());
             }
             self.flags.tunnel.store(true, Ordering::SeqCst);
-            std::fs::write(log, "INFO started\nERROR something broke").unwrap();
+            let text = self.flags.tunnel_log.lock().unwrap().clone();
+            let text = if text.is_empty() {
+                "INFO started\nERROR something broke".to_string()
+            } else {
+                text
+            };
+            std::fs::write(log, text).unwrap();
             Ok(Box::new(FakeProcess(self.flags.clone())))
         }
         fn tunnel_leftovers(&self) -> bool {
@@ -1660,6 +1707,65 @@ mod tests {
         stuck.recover_on_start();
         assert_eq!(stuck.status().state, ConnState::Error);
         assert_eq!(stuck.coord.mode(), Some(Mode::Unclean(Owner::Vpn)));
+    }
+
+    #[test]
+    fn a_tunnel_that_does_not_come_up_says_why_in_plain_words() {
+        for (log, expected) in [
+            ("FATAL start service: Access is denied.", "Нет прав"),
+            (
+                "FATAL create wintun adapter: Cannot create a file when that file already exists",
+                "занято другой программой",
+            ),
+            (
+                "FATAL configure tun interface: add route 0.0.0.0/1: conflict",
+                "мешает настройке сети",
+            ),
+        ] {
+            let dir = temp_dir();
+            let flags = Flags::default();
+            *flags.tunnel_log.lock().unwrap() = log.to_string();
+            flags.exited.store(true, Ordering::SeqCst);
+            let (s, _reg) = ready(&flags, &dir);
+            let err = s.connect().unwrap_err().to_string();
+            assert!(err.contains(expected), "{log}: {err}");
+            for word in [
+                "TUN",
+                "DNS",
+                "маршрут",
+                "драйвер",
+                "служб",
+                "порт",
+                "wintun",
+            ] {
+                assert!(
+                    !err.to_lowercase().contains(&word.to_lowercase()),
+                    "{word}: {err}"
+                );
+            }
+            assert_eq!(s.status().state, ConnState::Error);
+            assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        }
+    }
+
+    #[test]
+    fn a_leftover_adapter_that_cannot_be_removed_is_reported_as_busy_before_starting() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        flags.adapter_left.store(true, Ordering::SeqCst);
+        flags.removal_fails.store(true, Ordering::SeqCst);
+        let (s, _reg) = ready(&flags, &dir);
+        let err = s.connect().unwrap_err().to_string();
+        assert!(err.contains("занято другой программой"), "{err}");
+        assert!(!flags.tunnel.load(Ordering::SeqCst), "ядро не запускали");
+    }
+
+    #[test]
+    fn missing_rights_are_explained_instead_of_a_general_text() {
+        assert!(explain_tunnel_failure("Отказано в доступе")
+            .unwrap()
+            .contains("Нет прав"));
+        assert!(explain_tunnel_failure("something else").is_none());
     }
 
     #[test]
