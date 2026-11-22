@@ -162,7 +162,13 @@ describe('connectUi', () => {
     expect(connectUi(snapshot({}, 'connecting'), false)).toMatchObject({
       busy: true,
       disabled: true,
-      label: 'Подключаем…',
+      pressed: true,
+      label: 'Включаем…',
+    });
+    expect(connectUi(snapshot({}, 'connected'), true, { disconnecting: true })).toMatchObject({
+      busy: true,
+      pressed: false,
+      label: 'Выключаем…',
     });
     expect(connectUi(snapshot(), true)).toMatchObject({ busy: true, disabled: true });
   });

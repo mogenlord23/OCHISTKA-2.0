@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import VpnPage from './VpnPage.svelte';
 import * as sound from '../lib/sound';
-import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON, TUN_MODE_REASON } from '../lib/vpn';
+import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON } from '../lib/vpn';
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({
@@ -410,25 +410,30 @@ describe('VpnPage: подключение и серверы', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
-    const busy = await screen.findByRole('button', { name: 'Подключаем…' });
+    // Переключатель меняется в тот же кадр: сразу «включён», пока ядро запускается.
+    const busy = await screen.findByRole('button', { name: 'Включаем…' });
     expect(busy.getAttribute('aria-busy')).toBe('true');
+    expect(busy.getAttribute('aria-pressed')).toBe('true');
     finish(makeSnapshot().connection);
     await screen.findByRole('button', { name: 'Включить VPN' });
   });
 
-  it('keeps TUN unavailable with its reason, system proxy is the working mode', async () => {
+  it('has no choice of connection method and no technical words on the VPN screen', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
-    const mode = screen.getByRole('button', { name: 'Режим' });
-    expect(mode.getAttribute('aria-expanded')).toBe('false');
-    await fireEvent.click(mode);
-    expect(mode.getAttribute('aria-expanded')).toBe('true');
-    const proxy = screen.getByRole('menuitemradio', { name: /Системный прокси/ });
-    expect(proxy.getAttribute('aria-checked')).toBe('true');
-    const tun = screen.getByRole('menuitemradio', { name: /TUN/ }) as HTMLButtonElement;
-    expect(tun.disabled).toBe(true);
-    await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await screen.findByRole('radiogroup', { name: 'Область VPN' });
+    expect(screen.queryByRole('button', { name: 'Режим' })).toBeNull();
     expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.getByText(TUN_MODE_REASON, { exact: false })).toBeTruthy();
+    const text = document.body.textContent ?? '';
+    for (const word of [
+      /TUN/,
+      /системн\w* прокси/i,
+      /драйвер/i,
+      /движок/i,
+      /\bSHA\b/,
+      /Напрямую/,
+    ]) {
+      expect(text).not.toMatch(word);
+    }
   });
 
   it('shows an honest empty state when there are no servers', () => {
@@ -782,7 +787,7 @@ describe('VpnPage: вкладка «Соединения»', () => {
   });
 });
 
-describe('VpnPage: режимы маршрутов', () => {
+describe('VpnPage: области VPN', () => {
   const withMode = (mode: string) =>
     makeSnapshot({
       servers: SERVERS,
@@ -797,61 +802,79 @@ describe('VpnPage: режимы маршрутов', () => {
       },
     } as never);
 
-  it('shows the three modes, highlights the chosen one and keeps «Включить VPN» disabled for «Напрямую»', async () => {
-    backend({ vpn_snapshot: () => withMode('direct') });
+  it('shows two areas, highlights the chosen one and lets VPN be turned on in either', async () => {
+    backend({ vpn_snapshot: () => withMode('listOnly') });
     render(VpnPage, { props: { subsection: 'vpn' } });
-    const group = await screen.findByRole('radiogroup', { name: 'Маршруты' });
-    const names = within(group)
-      .getAllByRole('radio')
-      .map((r) => r.textContent);
-    expect(names).toEqual(['Напрямую', 'Только сайты из списка через VPN', 'Все сайты через VPN']);
-    expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
-      'true',
-    );
-    const power = screen.getByRole('button', { name: 'Включить VPN' });
-    expect(power.getAttribute('aria-disabled')).toBe('true');
+    const group = await screen.findByRole('radiogroup', { name: 'Область VPN' });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios.map((r) => r.getAttribute('aria-label'))).toEqual([
+      'Весь компьютер',
+      'Только нужные сайты',
+    ]);
+    // Одна выбрана.
+    expect(radios.filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
     expect(
-      await screen.findByText('Выбери режим: только сайты из списка или все сайты'),
-    ).toBeTruthy();
+      screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(screen.getByText('Российские сервисы работают как обычно')).toBeTruthy();
+    // Включить VPN можно в любой области.
+    await screen.findByText('Серверы / 2');
+    const power = screen.getByRole('button', { name: 'Включить VPN' });
+    expect(power.getAttribute('aria-disabled')).toBe('false');
+    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
+    expect(screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled')).toBe(
+      'false',
+    );
   });
 
-  it('picks a mode at once, sends it, and a second press of the same mode returns to «Напрямую»', async () => {
+  it('picks an area at once and sends it; pressing the chosen one again changes nothing', async () => {
     backend({
-      vpn_snapshot: () => withMode('direct'),
+      vpn_snapshot: () => withMode('listOnly'),
       vpn_set_mode: () => ({ state: 'disconnected', message: 'Не подключено', since: null }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    const all = screen.getByRole('radio', { name: 'Все сайты через VPN' });
+    const all = screen.getByRole('radio', { name: 'Весь компьютер' });
     await fireEvent.click(all);
     expect(all.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
-      'false',
-    );
+    expect(
+      screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+    ).toBe('false');
     await waitFor(() => expect(calls('vpn_set_mode')[0]?.[1]).toEqual({ mode: 'all' }));
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled'),
-      ).toBe('false'),
-    );
     await fireEvent.click(all);
-    await waitFor(() => expect(calls('vpn_set_mode')[1]?.[1]).toEqual({ mode: 'direct' }));
+    expect(calls('vpn_set_mode')).toHaveLength(1);
   });
 
-  it('goes back to the previous mode and says why when the mode could not be set', async () => {
+  it('goes back to the previous area and says why when it could not be set', async () => {
     backend({
-      vpn_snapshot: () => withMode('direct'),
+      vpn_snapshot: () => withMode('listOnly'),
       vpn_set_mode: () => Promise.reject({ kind: 'probe', message: 'Не удалось сохранить' }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    const list = screen.getByRole('radio', { name: 'Только сайты из списка через VPN' });
-    await fireEvent.click(list);
+    await fireEvent.click(screen.getByRole('radio', { name: 'Весь компьютер' }));
     expect(await screen.findByText('Не удалось сохранить')).toBeTruthy();
     await waitFor(() =>
-      expect(screen.getByRole('radio', { name: 'Напрямую' }).getAttribute('aria-checked')).toBe(
-        'true',
-      ),
+      expect(
+        screen.getByRole('radio', { name: 'Только нужные сайты' }).getAttribute('aria-checked'),
+      ).toBe('true'),
     );
+  });
+
+  it('turns the VPN switch off at once and shows a short reason when turning on fails', async () => {
+    backend({
+      vpn_snapshot: () => withMode('all'),
+      vpn_connect: () =>
+        Promise.reject({
+          kind: 'needsAdmin',
+          message: 'Для всего компьютера нужны права администратора',
+        }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await screen.findByText('Серверы / 2');
+    await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
+    expect(await screen.findByText('Для всего компьютера нужны права администратора')).toBeTruthy();
+    const again = await screen.findByRole('button', { name: 'Включить VPN' });
+    expect(again.getAttribute('aria-pressed')).toBe('false');
   });
 });
