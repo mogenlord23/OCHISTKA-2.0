@@ -17,7 +17,6 @@
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
-    IMPORTING_LABEL,
     PREPARE_FAILED_PREFIX,
     connectUi,
     elapsedSince,
@@ -107,12 +106,10 @@
     actionNote ??
       (preparing !== null
         ? 'Скачиваем нужные файлы: это нужно один раз'
-        : importing
-          ? IMPORTING_LABEL
-          : statusLine(
-              snapshot?.connection ?? null,
-              ui.reason === NO_SERVERS_REASON ? null : ui.reason,
-            )),
+        : statusLine(
+            snapshot?.connection ?? null,
+            ui.reason === NO_SERVERS_REASON ? null : ui.reason,
+          )),
   );
 
   async function refresh() {
@@ -165,7 +162,7 @@
     }
     importing = true;
     actionNote = null;
-    importNote = IMPORTING_LABEL;
+    importNote = null;
     try {
       const summary = await vpnImport(prepared.input);
       importNote = importMessage(summary.count, summary.skipped, summary.issues) || null;

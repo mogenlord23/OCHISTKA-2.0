@@ -2,7 +2,6 @@
 import type { ConnectionStatus, ServerView, VpnSnapshot } from './vpnApi';
 
 export const NO_SERVERS_REASON = 'Сначала импортируй подписку и выбери сервер';
-export const IMPORTING_LABEL = 'Загружаем подписку…';
 export const NETWORK_CHANGE_REASON = 'Пока недоступно: появится в одном из следующих обновлений';
 export const NETWORK_STATUS_OFF = 'выключено';
 

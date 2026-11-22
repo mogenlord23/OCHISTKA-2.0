@@ -344,10 +344,13 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x' },
     });
-    expect((await screen.findAllByText('Загружаем подписку…')).length).toBeGreaterThan(0);
-    expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
-      true,
+    // Во время загрузки никакого «Загружаем подписку…» не показываем; кнопка файла занята.
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      ),
     );
+    expect(screen.queryByText(/Загружаем подписку/)).toBeNull();
     finish({ count: 1, skipped: 0, issues: [] });
     await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
   });
