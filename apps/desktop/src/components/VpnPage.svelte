@@ -3,7 +3,7 @@
   import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
-  import { numberedLabels, serverLabel } from '../lib/countryFlags';
+  import { groupByLabel, numberedLabels, serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
@@ -166,13 +166,24 @@
     };
   });
 
-  /** Задержки серверов видны всё время, пока открыт раздел VPN (включён он или нет): сразу и потом
-      раз в 15 секунд. Уход из раздела останавливает замеры. */
+  /** Задержки серверов видны всё время, пока открыт раздел VPN (включён он или нет): замеры идут
+      непрерывно. Уход из раздела останавливает их. */
   $effect(() => {
     if (subsection !== 'vpn') return;
     untrack(() => void onMeasure());
-    const latency = setInterval(() => void onMeasure(), 15_000);
-    return () => clearInterval(latency);
+    // Замеры идут один за другим, без паузы в несколько секунд: цифры обновляются постоянно.
+    let alive = true;
+    const loop = async () => {
+      while (alive) {
+        await onMeasure();
+        if (!alive) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    };
+    untrack(() => void loop());
+    return () => {
+      alive = false;
+    };
   });
 
   async function runImport(raw: string) {
@@ -236,9 +247,15 @@
     await runImport(await file.text());
   }
 
-  /** Подписи в списке: страна, а одинаковые страны получают номер (Нидерланды, Нидерланды 2). */
+  /** Список по странам: серверы одной страны идут подряд. Подписи: страна, а повторы получают номер
+      (Европа, Европа 2, США, США 2). */
+  const groupedServers = $derived(
+    groupByLabel(servers, (server) => serverLabel(server.name, server.country, i18n.lang)),
+  );
   const serverLabels = $derived(
-    numberedLabels(servers.map((server) => serverLabel(server.name, server.country, i18n.lang))),
+    numberedLabels(
+      groupedServers.map((server) => serverLabel(server.name, server.country, i18n.lang)),
+    ),
   );
 
   /** Имя для скринридера: подпись со страной и исходное имя сервера. */
@@ -479,7 +496,7 @@
           <section class="card servers-card">
             {#if servers.length > 0}
               <ul class="servers" aria-label="Серверы">
-                {#each servers as server, i (server.id)}
+                {#each groupedServers as server, i (server.id)}
                   <li>
                     <button
                       type="button"

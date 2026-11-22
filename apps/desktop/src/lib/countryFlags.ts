@@ -66,3 +66,16 @@ export function numberedLabels(labels: string[]): string[] {
     return n === 1 ? label : `${label} ${n}`;
   });
 }
+
+/** Группирует элементы по подписи страны: все серверы одной страны идут подряд, страны — в порядке
+    первого появления в подписке, внутри страны порядок сохраняется. */
+export function groupByLabel<T>(items: T[], labelOf: (item: T) => string): T[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = labelOf(item);
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+  return [...groups.values()].flat();
+}

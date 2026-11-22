@@ -624,7 +624,7 @@ describe('VpnPage: подключение и серверы', () => {
 });
 
 describe('VpnPage: без фоновой работы, пока VPN выключен', () => {
-  it('asks the core for nothing while the VPN is off; only latency is refreshed on the VPN screen', async () => {
+  it('asks the core for nothing while the VPN is off; only latency keeps refreshing on the VPN screen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     try {
       backend({
@@ -675,7 +675,7 @@ describe('VpnPage: без фоновой работы, пока VPN выключ
     }
   });
 
-  it('refreshes server latency every 15 seconds on the VPN screen, connected or not', async () => {
+  it('keeps refreshing server latency on the VPN screen, connected or not', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     try {
       const connected = {

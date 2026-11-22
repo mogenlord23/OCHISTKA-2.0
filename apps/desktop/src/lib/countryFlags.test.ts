@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { countryName, flagUrl, numberedLabels, serverLabel } from './countryFlags';
+import {
+  countryName,
+  flagUrl,
+  groupByLabel,
+  numberedLabels,
+  serverLabel,
+} from './countryFlags';
 
 describe('flags and country names', () => {
   it('has a local flag for the supported codes and none for unknown ones', () => {
@@ -49,5 +55,27 @@ describe('флаги', () => {
     }
     expect(flagUrl('XX')).toBeNull();
     expect(flagUrl('ZZ')).toBeNull();
+  });
+});
+
+describe('группировка по странам', () => {
+  it('keeps each country together in order of first appearance', () => {
+    const list = ['Европа', 'США', 'Германия', 'Европа', 'США', 'Европа'];
+    expect(groupByLabel(list, (x) => x)).toEqual([
+      'Европа',
+      'Европа',
+      'Европа',
+      'США',
+      'США',
+      'Германия',
+    ]);
+    expect(numberedLabels(groupByLabel(list, (x) => x))).toEqual([
+      'Европа',
+      'Европа 2',
+      'Европа 3',
+      'США',
+      'США 2',
+      'Германия',
+    ]);
   });
 });
