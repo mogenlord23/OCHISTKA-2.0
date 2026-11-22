@@ -6,9 +6,6 @@ name: vpn-config-check
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/optimistic-hypatia-hgstjj]
-    paths: ['.github/workflows/vpn-config-check.yml']
 
 permissions:
   contents: read
