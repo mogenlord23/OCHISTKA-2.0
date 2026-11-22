@@ -22,7 +22,7 @@ url = "2"
 windows-icons = "0.4.0"
 winreg = "0.56.0"
 # Вызовы Win32 живут только в src/windows/win32_ffi.rs.
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_Console", "Win32_System_Services", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_Services", "Win32_UI_WindowsAndMessaging"] }
 # Модели дисков (Win32_DiskDrive), только чтение; безопасная обёртка над WMI.
 serde = { version = "1", features = ["derive"] }
 wmi = "0.18.4"

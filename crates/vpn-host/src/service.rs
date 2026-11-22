@@ -214,39 +214,16 @@ unsafe extern "system" fn service_main(argc: u32, argv: *mut PWSTR) {
     }
 }
 
-/// Сначала просим ядро завершиться мягко (Ctrl+C для его консоли, до 5 секунд): так оно убирает
-/// адаптер туннеля, маршруты и адреса имён. Только потом принудительно.
+/// Остановка ядра: сразу принудительно, затем ожидание завершения (до 5 секунд). Сигналов консоли
+/// не посылаем. Адаптер и маршруты туннеля, если остались, снимает приложение (только наши).
 fn stop_core(child: &mut Child) {
-    if matches!(child.try_wait(), Ok(Some(_))) {
-        return;
-    }
-    if send_ctrl_c(child.id()) {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
-            if matches!(child.try_wait(), Ok(Some(_))) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(100));
-        }
-    }
     let _ = child.kill();
-    let _ = child.wait();
-}
-
-fn send_ctrl_c(pid: u32) -> bool {
-    use windows::Win32::System::Console::{
-        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
-    };
-    // SAFETY: вызовы Win32 без указателей на память; консоль службы восстанавливается ниже.
-    unsafe {
-        let _ = FreeConsole();
-        if AttachConsole(pid).is_err() {
-            return false;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if matches!(child.try_wait(), Ok(Some(_))) {
+            return;
         }
-        let _ = SetConsoleCtrlHandler(None, true);
-        let sent = GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0).is_ok();
-        let _ = FreeConsole();
-        let _ = SetConsoleCtrlHandler(None, false);
-        sent
+        std::thread::sleep(Duration::from_millis(50));
     }
+    let _ = child.wait();
 }

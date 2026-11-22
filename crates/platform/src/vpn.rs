@@ -40,35 +40,22 @@ impl CoreProcess for StdCoreProcess {
         !matches!(self.child.try_wait(), Ok(None))
     }
 
+    /// Принудительная остановка; ожидание завершения делает `wait_exit` вызывающего. Сигналов
+    /// консоли ядру не посылаем: они доходят и до оболочки, из которой запущена программа.
     fn kill(&mut self) {
         let _ = self.child.kill();
-        let _ = self.child.wait();
     }
 
-    /// Просит ядро завершиться (Ctrl+C для его консоли) и ждёт до `grace`: так ядро успевает убрать
-    /// адаптер туннеля и его настройки. Вне Windows мягкого завершения нет.
-    fn stop_gracefully(&mut self, grace: Duration) -> bool {
-        #[cfg(windows)]
-        {
-            if self.has_exited() {
+    fn wait_exit(&mut self, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        loop {
+            if matches!(self.child.try_wait(), Ok(Some(_))) {
                 return true;
             }
-            if !crate::windows::win32_ffi::send_ctrl_c(self.child.id()) {
+            if Instant::now() >= deadline {
                 return false;
             }
-            let deadline = Instant::now() + grace;
-            while Instant::now() < deadline {
-                if matches!(self.child.try_wait(), Ok(Some(_))) {
-                    return true;
-                }
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            false
-        }
-        #[cfg(not(windows))]
-        {
-            let _ = grace;
-            false
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
@@ -704,6 +691,33 @@ mod tests {
         dir
     }
 
+    /// Остановка ядра не посылает сигналов консоли: Ctrl+C доходит и до оболочки, из которой
+    /// запущена программа, и закрывает её. Проверка по исходникам всех мест остановки.
+    #[test]
+    fn stopping_the_core_never_sends_console_signals() {
+        let sources = [
+            include_str!("vpn.rs"),
+            include_str!("windows/vpn_service.rs"),
+            include_str!("windows/win32_ffi.rs"),
+            include_str!("windows/tunnel_cleanup.rs"),
+            include_str!("../../vpn-host/src/service.rs"),
+            include_str!("../../ochistka-core/src/vpn/service.rs"),
+        ];
+        let banned = [
+            ["Generate", "ConsoleCtrlEvent"].concat(),
+            ["Attach", "Console"].concat(),
+            ["Free", "Console"].concat(),
+            ["CTRL_", "C_EVENT"].concat(),
+            ["send_", "ctrl_c"].concat(),
+        ];
+        for (i, source) in sources.iter().enumerate() {
+            // Тест сам хранит запрещённые слова по частям, поэтому в исходниках они не встречаются.
+            for word in &banned {
+                assert!(!source.contains(word.as_str()), "источник {i}: {word}");
+            }
+        }
+    }
+
     #[test]
     fn spawn_logs_output_and_kill_stops_the_process() {
         let dir = temp("spawn");
@@ -719,6 +733,10 @@ mod tests {
         std::thread::sleep(Duration::from_millis(300));
         assert!(std::fs::read_to_string(&log).unwrap().contains("started"));
         p.kill();
+        assert!(
+            p.wait_exit(Duration::from_secs(5)),
+            "процесс завершился после kill"
+        );
         assert!(p.has_exited());
     }
 

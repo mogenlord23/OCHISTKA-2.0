@@ -161,12 +161,6 @@ impl CoreProcess for ServiceProcess {
     fn kill(&mut self) {
         let _ = self.0.stop();
     }
-
-    /// Службу просят остановиться и ждут её остановки; сама служба сначала просит ядро завершиться
-    /// мягко, а потом принудительно.
-    fn stop_gracefully(&mut self, _grace: Duration) -> bool {
-        self.0.stop().is_ok()
-    }
 }
 
 #[cfg(windows)]

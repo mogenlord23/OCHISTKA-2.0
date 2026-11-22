@@ -209,24 +209,3 @@ pub fn service_stop(name: &str) -> Result<(), ServiceCode> {
             .map_err(|e| code_of(&e))
     })
 }
-
-/// Посылает Ctrl+C консоли процесса `pid` (ядро запущено без окна, но с собственной консоли).
-/// Приложение временно присоединяется к этой консоли и отключается обратно; сам Ctrl+C приложение
-/// не получает (обработчик на время отключён). `false` — не вышло.
-pub fn send_ctrl_c(pid: u32) -> bool {
-    use ::windows::Win32::System::Console::{
-        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
-    };
-    // SAFETY: вызовы Win32 без указателей на память; консоль приложения восстанавливается ниже.
-    unsafe {
-        let _ = FreeConsole();
-        if AttachConsole(pid).is_err() {
-            return false;
-        }
-        let _ = SetConsoleCtrlHandler(None, true);
-        let sent = GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0).is_ok();
-        let _ = FreeConsole();
-        let _ = SetConsoleCtrlHandler(None, false);
-        sent
-    }
-}

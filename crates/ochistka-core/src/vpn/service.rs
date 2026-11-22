@@ -27,10 +27,19 @@ pub trait CoreProcess: Send {
     fn pid(&self) -> u32;
     fn has_exited(&mut self) -> bool;
     fn kill(&mut self);
-    /// Просит ядро завершиться мягко и ждёт до `grace`. `true` — ядро закончило работу само (успело
-    /// убрать маршруты, адреса имён и адаптер). По умолчанию мягкого завершения нет.
-    fn stop_gracefully(&mut self, _grace: Duration) -> bool {
-        false
+    /// Ждёт завершения процесса до `timeout`; `true` — процесс закончил работу. Никаких сигналов
+    /// консоли приложение ядру не посылает: сначала `kill`, потом это ожидание.
+    fn wait_exit(&mut self, timeout: Duration) -> bool {
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            if self.has_exited() {
+                return true;
+            }
+            if std::time::Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 }
 
@@ -66,8 +75,8 @@ pub fn explain_tunnel_failure(details: &str) -> Option<&'static str> {
 /// Текст после аварийного выхода, когда сеть пришлось восстанавливать.
 pub const RECOVERED: &str = "Прошлое подключение не закрылось правильно, сеть восстановлена";
 
-/// Сколько ждём мягкого завершения ядра, прежде чем завершить его принудительно.
-pub const STOP_GRACE: Duration = Duration::from_secs(5);
+/// Сколько ждём завершения ядра после принудительной остановки.
+pub const STOP_WAIT: Duration = Duration::from_secs(5);
 
 /// Всё, что требует операционной системы. Реализация — в `crates/platform`.
 pub trait VpnHost: Send + Sync {
@@ -758,11 +767,11 @@ impl VpnService {
         tunnel
     }
 
-    /// Мягкое завершение (до 5 секунд), затем принудительное.
+    /// Остановка ядра: сразу принудительно, затем ожидание завершения (до 5 секунд). Остатки туннеля
+    /// снимает `remove_leftovers`.
     fn stop_core(process: &mut dyn CoreProcess) {
-        if !process.stop_gracefully(STOP_GRACE) {
-            process.kill();
-        }
+        process.kill();
+        let _ = process.wait_exit(STOP_WAIT);
     }
 
     /// Проверяет, не остался ли наш сетевой адаптер туннеля, и снимает его (только наш). `Ok(true)` —
@@ -901,9 +910,8 @@ mod tests {
         tunnel: Arc<AtomicBool>,
         /// Сколько ближайших запусков ядра должны завершиться ошибкой.
         spawn_failures: Arc<std::sync::atomic::AtomicU32>,
-        /// Мягкое завершение удаётся.
-        graceful_ok: Arc<AtomicBool>,
-        graceful_asked: Arc<AtomicBool>,
+        /// Ожидание завершения вызвано уже после принудительной остановки.
+        waited_after_kill: Arc<AtomicBool>,
         /// После ядра остался наш адаптер туннеля.
         adapter_left: Arc<AtomicBool>,
         /// Снять остатки не получается.
@@ -924,9 +932,11 @@ mod tests {
         fn kill(&mut self) {
             self.0.killed.store(true, Ordering::SeqCst);
         }
-        fn stop_gracefully(&mut self, _: Duration) -> bool {
-            self.0.graceful_asked.store(true, Ordering::SeqCst);
-            self.0.graceful_ok.load(Ordering::SeqCst)
+        fn wait_exit(&mut self, _: Duration) -> bool {
+            if self.0.killed.load(Ordering::SeqCst) {
+                self.0.waited_after_kill.store(true, Ordering::SeqCst);
+            }
+            true
         }
     }
 
@@ -1603,32 +1613,31 @@ mod tests {
     }
 
     #[test]
-    fn a_graceful_stop_that_works_means_no_forced_kill_and_no_leftover_cleanup() {
+    fn stopping_kills_first_then_waits_and_leaves_nothing_to_clean_when_nothing_is_left() {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
         s.connect().unwrap();
-        flags.graceful_ok.store(true, Ordering::SeqCst);
         flags.killed.store(false, Ordering::SeqCst);
         assert_eq!(s.disconnect().state, ConnState::Disconnected);
-        assert!(flags.graceful_asked.load(Ordering::SeqCst));
-        assert!(!flags.killed.load(Ordering::SeqCst), "принудительного нет");
+        assert!(flags.killed.load(Ordering::SeqCst), "сразу принудительно");
+        assert!(
+            flags.waited_after_kill.load(Ordering::SeqCst),
+            "потом ожидание"
+        );
         assert_eq!(flags.removals.load(Ordering::SeqCst), 0);
     }
 
     #[test]
-    fn a_failed_graceful_stop_is_forced_and_the_leftovers_are_checked_and_removed() {
+    fn after_the_stop_our_leftovers_are_checked_and_removed() {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
         s.connect().unwrap();
-        flags.graceful_ok.store(false, Ordering::SeqCst);
         flags.adapter_left.store(true, Ordering::SeqCst);
-        flags.killed.store(false, Ordering::SeqCst);
         let st = s.disconnect();
         assert_eq!(st.state, ConnState::Disconnected, "{}", st.message);
-        assert!(flags.graceful_asked.load(Ordering::SeqCst));
-        assert!(flags.killed.load(Ordering::SeqCst), "потом принудительно");
+        assert!(flags.killed.load(Ordering::SeqCst));
         assert_eq!(flags.removals.load(Ordering::SeqCst), 1);
         assert!(!flags.adapter_left.load(Ordering::SeqCst));
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
@@ -1653,15 +1662,33 @@ mod tests {
     }
 
     #[test]
-    fn shutdown_turning_off_and_recovery_use_the_same_stop() {
+    fn closing_the_program_with_the_vpn_on_does_the_same_stop_and_cleanup() {
         let dir = temp_dir();
         let flags = Flags::default();
         let (s, _reg) = ready(&flags, &dir);
         s.connect().unwrap();
-        flags.graceful_asked.store(false, Ordering::SeqCst);
+        flags.killed.store(false, Ordering::SeqCst);
+        flags.adapter_left.store(true, Ordering::SeqCst);
         s.shutdown();
-        assert!(flags.graceful_asked.load(Ordering::SeqCst));
+        assert!(flags.killed.load(Ordering::SeqCst));
+        assert!(flags.waited_after_kill.load(Ordering::SeqCst));
+        assert!(!flags.adapter_left.load(Ordering::SeqCst), "остатки сняты");
         assert_eq!(s.status().state, ConnState::Disconnected);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+        assert!(!s.session_dir().join("config.json").exists());
+    }
+
+    #[test]
+    fn closing_with_leftovers_that_stay_shows_an_error_not_a_clean_exit() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, _reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        flags.adapter_left.store(true, Ordering::SeqCst);
+        flags.removal_fails.store(true, Ordering::SeqCst);
+        s.shutdown();
+        assert_eq!(s.status().state, ConnState::Error);
+        assert_eq!(s.coord.mode(), Some(Mode::Unclean(Owner::Vpn)));
     }
 
     #[test]
