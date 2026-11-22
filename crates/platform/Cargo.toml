@@ -10,6 +10,7 @@ default = []
 libclamav = []
 
 [dependencies]
+proxy-bypass = { path = "../proxy-bypass" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 netstat2 = "0.11.2"
 ochistka-core = { path = "../ochistka-core" }

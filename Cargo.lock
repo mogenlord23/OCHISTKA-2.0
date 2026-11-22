@@ -2545,6 +2545,7 @@ dependencies = [
  "image",
  "netstat2",
  "ochistka-core",
+ "proxy-bypass",
  "reqwest",
  "serde",
  "serde_json",
