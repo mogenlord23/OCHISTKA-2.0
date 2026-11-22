@@ -34,6 +34,9 @@ pub trait CoreProcess: Send {
     }
 }
 
+/// Текст после аварийного выхода, когда сеть пришлось восстанавливать.
+pub const RECOVERED: &str = "Прошлое подключение не закрылось правильно, сеть восстановлена";
+
 /// Сколько ждём мягкого завершения ядра, прежде чем завершить его принудительно.
 pub const STOP_GRACE: Duration = Duration::from_secs(5);
 
@@ -785,7 +788,10 @@ impl VpnService {
     }
 
     /// Убирает следы прошлого запуска: ядро по номеру из файла, ключи и системный прокси.
-    fn kill_leftovers(&self) {
+    /// Убирает ядро по номеру из файла прошлого запуска; `true` — такой файл был (прошлый запуск не
+    /// закрылся правильно).
+    fn kill_leftovers(&self) -> bool {
+        let existed = self.pid_file().exists();
         if let Some(pid) = std::fs::read_to_string(self.pid_file())
             .ok()
             .and_then(|t| t.trim().parse().ok())
@@ -794,22 +800,30 @@ impl VpnService {
         }
         let _ = std::fs::remove_file(self.pid_file());
         let _ = std::fs::remove_file(self.session_dir().join("config.json"));
+        existed
     }
 
-    /// Только при запуске приложения: следы прошлого запуска и прокси, оставшийся от старой версии.
-    fn recover(&self) -> Result<Restored, VpnError> {
-        self.kill_leftovers();
-        self.proxy.restore()
-    }
-
-    /// Вызывается при запуске: убирает ядро и системный прокси после аварийного завершения.
+    /// Вызывается при запуске: убирает ядро, системный прокси старой версии и остатки нашего адаптера
+    /// туннеля после аварийного завершения. Если что-то пришлось убрать, говорит об этом понятным
+    /// текстом.
     pub fn recover_on_start(&self) {
-        let outcome = self.recover();
-        if outcome.is_err() {
+        let had_session = self.kill_leftovers();
+        let proxy = self.proxy.restore();
+        let tunnel = self.remove_leftovers();
+        if proxy.is_err() || tunnel.is_err() {
             self.coord.mark_unclean(Owner::Vpn);
         }
         let mut conn = lock(&self.conn);
-        Self::note_restore(&mut conn, outcome);
+        match (proxy, tunnel) {
+            (Err(err), _) | (_, Err(err)) => Self::note_restore(&mut conn, Err(err)),
+            (Ok(restored), Ok(removed)) => {
+                let changed = restored == Restored::Restored || removed || had_session;
+                Self::note_restore(&mut conn, Ok(restored));
+                if changed && conn.state == ConnState::Disconnected {
+                    conn.message = RECOVERED.into();
+                }
+            }
+        }
     }
 
     /// Вызывается при выходе из приложения.
@@ -1601,6 +1615,51 @@ mod tests {
         s.shutdown();
         assert!(flags.graceful_asked.load(Ordering::SeqCst));
         assert_eq!(s.status().state, ConnState::Disconnected);
+    }
+
+    #[test]
+    fn at_start_a_leftover_adapter_is_removed_and_the_owner_is_told_in_plain_words() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        flags.adapter_left.store(true, Ordering::SeqCst);
+        let s = service_on(&reg, &flags, &dir);
+        s.recover_on_start();
+        assert!(!flags.adapter_left.load(Ordering::SeqCst), "адаптер снят");
+        let st = s.status();
+        assert_eq!(st.state, ConnState::Disconnected);
+        assert_eq!(st.message, RECOVERED);
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
+    }
+
+    #[test]
+    fn at_start_a_session_file_from_a_crash_stops_the_old_core_and_says_so() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("core.pid"), "4242").unwrap();
+        let s = service_on(&reg, &flags, &dir);
+        s.recover_on_start();
+        assert!(flags.stale.lock().unwrap().contains(&4242));
+        assert_eq!(s.status().message, RECOVERED);
+        assert!(!dir.join("core.pid").exists());
+    }
+
+    #[test]
+    fn at_start_with_nothing_left_there_is_no_message_and_leftovers_that_stay_are_an_error() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let reg = Arc::new(FakeRegistry::default());
+        let clean = service_on(&reg, &flags, &dir);
+        clean.recover_on_start();
+        assert_eq!(clean.status().message, "Не подключено");
+        flags.adapter_left.store(true, Ordering::SeqCst);
+        flags.removal_fails.store(true, Ordering::SeqCst);
+        let stuck = service_on(&reg, &flags, &dir);
+        stuck.recover_on_start();
+        assert_eq!(stuck.status().state, ConnState::Error);
+        assert_eq!(stuck.coord.mode(), Some(Mode::Unclean(Owner::Vpn)));
     }
 
     #[test]
