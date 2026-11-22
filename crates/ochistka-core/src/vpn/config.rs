@@ -21,7 +21,10 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
     }
     // Обе области идут через туннель. Сначала DNS-запросы туннеля, адрес самого сервера напрямую
     // (иначе соединение с ним попало бы в туннель), затем локальные адреса напрямую.
+    // `sniff` первым: без него ядро не видит ни DNS-запросов (для hijack-dns), ни имён сайтов в
+    // соединениях по IP-адресу, и правила по доменам не срабатывают.
     let mut route_rules: Vec<Value> = vec![
+        json!({"action": "sniff"}),
         json!({"protocol": "dns", "action": "hijack-dns"}),
         server_direct_rule(&server.host),
         json!({"ip_is_private": true, "outbound": "direct"}),
@@ -160,6 +163,9 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
         ],
         "rules": dns_rules,
         "final": final_server,
+        // Запоминает, какому имени принадлежит IP-адрес из ответа: соединение по адресу получает имя
+        // сайта и попадает под правило по домену.
+        "reverse_mapping": true,
         // Ответы кэшируются: повторные запросы одного имени не идут в туннель.
         "cache_capacity": 4096,
     })
@@ -219,6 +225,7 @@ mod tests {
             ],
             "rules": [{"domain": ["tr.example.com"], "server": "local"}],
             "final": "remote",
+            "reverse_mapping": true,
             "cache_capacity": 4096
           },
           "inbounds": [
@@ -232,6 +239,7 @@ mod tests {
           ],
           "route": {
             "rules": [
+              {"action": "sniff"},
               {"protocol": "dns", "action": "hijack-dns"},
               {"domain": ["tr.example.com"], "outbound": "direct"},
               {"ip_is_private": true, "outbound": "direct"}
@@ -261,7 +269,7 @@ mod tests {
         .sanitized()
         .unwrap();
         let cfg = build_config(&server(), 1080, &rules, &[]);
-        let list = cfg["route"]["rules"].as_array().unwrap();
+        let list = rules_of(&cfg);
         assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
         assert_eq!(list[2]["ip_is_private"], true);
         assert_eq!(
@@ -302,6 +310,13 @@ mod tests {
         assert_eq!(cfg["inbounds"][0]["type"], "mixed");
     }
 
+    /// Правила маршрута без первого `sniff` (он обязателен и проверяется отдельно).
+    fn rules_of(cfg: &Value) -> &[Value] {
+        let all = cfg["route"]["rules"].as_array().unwrap();
+        assert_eq!(all[0], json!({"action": "sniff"}));
+        &all[1..]
+    }
+
     fn rules(mode: RouteMode) -> RoutingRules {
         RoutingRules {
             mode,
@@ -319,7 +334,7 @@ mod tests {
         let r = r.sanitized().unwrap();
         let cfg = build_config(&server(), 1, &r, &sites);
         assert_eq!(cfg["route"]["final"], "direct");
-        let list = cfg["route"]["rules"].as_array().unwrap();
+        let list = rules_of(&cfg);
         assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
         assert_eq!(list[1]["outbound"], "direct", "адрес сервера напрямую");
         assert_eq!(list[2]["ip_is_private"], true);
@@ -341,7 +356,7 @@ mod tests {
             .collect();
         let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
         assert_eq!(cfg["route"]["final"], "direct");
-        let list = cfg["route"]["rules"].as_array().unwrap();
+        let list = rules_of(&cfg);
         let proxied: Vec<&Value> = list.iter().filter(|r| r["outbound"] == "proxy").collect();
         assert_eq!(proxied.len(), 1);
         assert_eq!(
@@ -367,6 +382,76 @@ mod tests {
             .any(|r| r["domain"] == json!(["tr.example.com"]) && r["outbound"] == "direct"));
     }
 
+    /// Какой сервер имён ответит на `name`: первое подходящее правило, иначе `final`.
+    fn dns_server_for(cfg: &Value, name: &str) -> String {
+        let matches = |rule: &Value| {
+            let hit = |key: &str, f: &dyn Fn(&str) -> bool| {
+                rule.get(key)
+                    .and_then(Value::as_array)
+                    .is_some_and(|l| l.iter().filter_map(Value::as_str).any(f))
+            };
+            hit("domain", &|d| d == name)
+                || hit("domain_suffix", &|d| {
+                    name == d || name.ends_with(&format!(".{d}"))
+                })
+        };
+        let rule = cfg["dns"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| matches(r));
+        let tag = rule.map_or(&cfg["dns"]["final"], |r| &r["server"]);
+        tag.as_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn only_sites_always_has_a_name_server_for_listed_and_other_domains() {
+        let sites = vec!["youtube.com".to_string()];
+        let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
+        let servers: Vec<&str> = cfg["dns"]["servers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|s| s["tag"].as_str())
+            .collect();
+        for (name, expected) in [
+            ("youtube.com", "remote"),
+            ("www.youtube.com", "remote"),
+            ("example.org", "local"),
+            ("tr.example.com", "local"),
+        ] {
+            let server = dns_server_for(&cfg, name);
+            assert_eq!(server, expected, "{name}");
+            assert!(
+                servers.contains(&server.as_str()),
+                "{name}: нет сервера {server}"
+            );
+        }
+        // Правила не исключают друг друга: у каждого правила есть существующий сервер.
+        for rule in cfg["dns"]["rules"].as_array().unwrap() {
+            assert!(
+                servers.contains(&rule["server"].as_str().unwrap()),
+                "{rule}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tunnel_can_see_names_in_connections_by_address_and_dns_queries() {
+        for mode in [RouteMode::ListOnly, RouteMode::All] {
+            let cfg = build_config(&server(), 1, &rules(mode), &["youtube.com".to_string()]);
+            let all = cfg["route"]["rules"].as_array().unwrap();
+            // sniff самым первым, затем перехват DNS: иначе правила по доменам не видят имён.
+            assert_eq!(all[0], json!({"action": "sniff"}), "{mode:?}");
+            assert_eq!(
+                all[1],
+                json!({"protocol": "dns", "action": "hijack-dns"}),
+                "{mode:?}"
+            );
+            assert_eq!(cfg["dns"]["reverse_mapping"], true, "{mode:?}");
+        }
+    }
+
     #[test]
     fn list_only_resolves_listed_names_through_the_vpn_and_the_rest_locally() {
         let sites = vec!["youtube.com".to_string()];
@@ -383,7 +468,7 @@ mod tests {
     fn list_only_never_sends_the_vpn_server_itself_through_the_vpn() {
         let sites = vec!["tr.example.com".to_string()];
         let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
-        let list = cfg["route"]["rules"].as_array().unwrap();
+        let list = rules_of(&cfg);
         let direct = list
             .iter()
             .position(|r| r["outbound"] == "direct" && r.get("domain").is_some())
@@ -400,7 +485,7 @@ mod tests {
         let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &[]);
         assert_eq!(cfg["route"]["final"], "direct");
         // Только DNS, адрес сервера и локальные адреса: через VPN ничего.
-        assert_eq!(cfg["route"]["rules"].as_array().unwrap().len(), 3);
+        assert_eq!(cfg["route"]["rules"].as_array().unwrap().len(), 4);
         assert!(!cfg["route"]["rules"].to_string().contains("\"proxy\""));
     }
 
@@ -414,7 +499,7 @@ mod tests {
         assert_eq!(cfg["route"]["final"], "proxy");
         let text = cfg["route"]["rules"].to_string();
         assert!(text.contains("example.org") && !text.contains("youtube.com"));
-        assert_eq!(cfg["route"]["rules"][2]["ip_is_private"], true);
+        assert_eq!(cfg["route"]["rules"][3]["ip_is_private"], true);
     }
 
     #[test]
@@ -437,7 +522,7 @@ mod tests {
         assert_eq!(inbounds[1]["auto_route"], true);
         assert_eq!(inbounds[1]["address"], json!([TUN_ADDRESS, TUN_ADDRESS_V6]));
         assert_eq!(
-            all["route"]["rules"][0],
+            all["route"]["rules"][1],
             json!({"protocol": "dns", "action": "hijack-dns"})
         );
         let sites = build_config(&server(), 7, &rules(RouteMode::ListOnly), &[]);
@@ -455,7 +540,7 @@ mod tests {
         assert_eq!(all["inbounds"][1]["strict_route"], true);
         assert_eq!(all["route"]["final"], "proxy");
         assert_eq!(all["route"]["auto_detect_interface"], true);
-        let list = all["route"]["rules"].as_array().unwrap();
+        let list = rules_of(&all);
         // Имена из туннеля обрабатывает ядро; адрес сервера и локальные адреса напрямую.
         assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
         assert_eq!(
@@ -478,7 +563,7 @@ mod tests {
         ip_server.host = "203.0.113.7".into();
         let all = build_config(&ip_server, 7, &rules(RouteMode::All), &[]);
         assert_eq!(
-            all["route"]["rules"][1],
+            all["route"]["rules"][2],
             json!({"ip_cidr": ["203.0.113.7/32"], "outbound": "direct"})
         );
         assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 0);
