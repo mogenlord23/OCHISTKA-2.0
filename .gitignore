@@ -10,6 +10,11 @@ Thumbs.db
 apps/desktop/src-tauri/resources/vpn-core/*
 !apps/desktop/src-tauri/resources/vpn-core/README.txt
 
+# Служба VPN (ochistka-vpn-host.exe) собирается в CI, в git не хранится
+apps/desktop/src-tauri/resources/vpn-service/*
+!apps/desktop/src-tauri/resources/vpn-service/README.txt
+!apps/desktop/src-tauri/resources/vpn-service/vpn-service.ps1
+
 # Python: автоматически создаваемые файлы тестов
 __pycache__/
 *.py[cod]

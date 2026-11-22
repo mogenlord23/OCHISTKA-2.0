@@ -111,9 +111,11 @@ mod tests {
         assert!(validate_config(&good().to_string()).is_ok());
     }
 
+    type Mutation = Box<dyn Fn(&mut Value)>;
+
     #[test]
     fn anything_unfamiliar_is_refused() {
-        let cases: Vec<(&str, Box<dyn Fn(&mut Value)>)> = vec![
+        let cases: Vec<(&str, Mutation)> = vec![
             (
                 "раздел",
                 Box::new(|v| v["experimental"] = json!({"clash_api": {}})),
