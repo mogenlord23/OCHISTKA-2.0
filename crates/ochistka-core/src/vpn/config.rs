@@ -332,6 +332,40 @@ mod tests {
     }
 
     #[test]
+    fn only_sites_has_rules_exactly_for_the_listed_domains_and_a_direct_final() {
+        let sites: Vec<String> = ["youtube.com", "googlevideo.com", "ytimg.com"]
+            .iter()
+            .map(|d| d.to_string())
+            .collect();
+        let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
+        assert_eq!(cfg["route"]["final"], "direct");
+        let list = cfg["route"]["rules"].as_array().unwrap();
+        let proxied: Vec<&Value> = list.iter().filter(|r| r["outbound"] == "proxy").collect();
+        assert_eq!(proxied.len(), 1);
+        assert_eq!(
+            proxied[0]["domain_suffix"],
+            json!(["youtube.com", "googlevideo.com", "ytimg.com"]),
+            "ровно домены списка, с поддоменами"
+        );
+        // Кроме списка через VPN не уходит ничего: ни по адресам, ни по ключевым словам.
+        for key in ["ip_cidr", "domain_keyword", "domain", "geoip"] {
+            assert!(proxied[0].get(key).is_none(), "{key}");
+        }
+        // Адрес сервера и локальные адреса напрямую, и они раньше правила списка.
+        let first_proxy = list.iter().position(|r| r["outbound"] == "proxy").unwrap();
+        for (i, r) in list.iter().enumerate().take(first_proxy) {
+            assert!(
+                r["outbound"] == "direct" || r["action"] == "hijack-dns",
+                "{i}: {r}"
+            );
+        }
+        assert!(list.iter().any(|r| r["ip_is_private"] == true));
+        assert!(list
+            .iter()
+            .any(|r| r["domain"] == json!(["tr.example.com"]) && r["outbound"] == "direct"));
+    }
+
+    #[test]
     fn list_only_resolves_listed_names_through_the_vpn_and_the_rest_locally() {
         let sites = vec!["youtube.com".to_string()];
         let cfg = build_config(&server(), 1, &rules(RouteMode::ListOnly), &sites);
