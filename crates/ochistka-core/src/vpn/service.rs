@@ -1258,7 +1258,11 @@ mod tests {
             reg.get(INTERNET_KEY, "ProxyServer").is_none(),
             "прокси Windows не менялся"
         );
+        flags.killed.store(false, Ordering::SeqCst);
         assert_eq!(s.disconnect().state, ConnState::Disconnected);
+        // Выключение останавливает ядро туннеля: его маршруты и адаптер уходят вместе с ним.
+        assert!(flags.killed.load(Ordering::SeqCst));
+        assert_eq!(s.coord.mode(), Some(Mode::Idle));
         assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());
     }
 

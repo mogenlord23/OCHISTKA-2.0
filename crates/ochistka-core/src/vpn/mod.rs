@@ -38,7 +38,7 @@ pub enum VpnError {
     ProxyConflict(String),
     #[error("Сначала выбери сервер")]
     NoServer,
-    #[error("Переустановите программу, чтобы включить режим «Весь компьютер»")]
+    #[error("Для этого режима нужна переустановка программы")]
     NeedsReinstall,
     #[error("Сначала отключи VPN")]
     Busy,

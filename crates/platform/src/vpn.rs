@@ -147,6 +147,22 @@ pub fn run_with_timeout(exe: &Path, args: &[&str], limit: Duration) -> Result<()
     }
 }
 
+/// Запущена ли программа с правами администратора (Windows: можно ли открыть системный ключ служб на
+/// запись; ничего не меняется). Вне Windows — нет.
+pub fn is_elevated() -> bool {
+    #[cfg(windows)]
+    {
+        use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_WRITE};
+        winreg::RegKey::predef(HKEY_LOCAL_MACHINE)
+            .open_subkey_with_flags(r"SYSTEM\\CurrentControlSet\\Services", KEY_WRITE)
+            .is_ok()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 /// Хозяин ядра для текущей ОС. Ядро ищется в папках `core_dirs` по порядку.
 pub struct SingBoxHost {
     core_dirs: Vec<PathBuf>,
@@ -154,6 +170,8 @@ pub struct SingBoxHost {
     install_dir: Option<PathBuf>,
     /// Служба VPN (Windows): держит ядро для режима «Весь компьютер».
     tunnel: Option<Arc<crate::windows::vpn_service::TunnelService>>,
+    /// Программа запущена с правами администратора (проба подменяется в тестах).
+    elevated: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl SingBoxHost {
@@ -162,7 +180,13 @@ impl SingBoxHost {
             core_dirs,
             install_dir: None,
             tunnel: None,
+            elevated: Arc::new(is_elevated),
         }
+    }
+
+    pub fn with_elevation_probe(mut self, probe: Arc<dyn Fn() -> bool + Send + Sync>) -> Self {
+        self.elevated = probe;
+        self
     }
 
     pub fn with_tunnel(mut self, tunnel: Arc<crate::windows::vpn_service::TunnelService>) -> Self {
@@ -220,15 +244,24 @@ impl VpnHost for SingBoxHost {
         }
     }
 
-    /// Туннель на весь компьютер держит служба (её ставит установщик): есть ли она и доступна ли.
+    /// Туннель на весь компьютер: если программа запущена от администратора (в том числе запуск
+    /// разработчика) — ядро поднимает его напрямую; иначе его держит служба, которую ставит
+    /// установщик. Нет ни того, ни другого — нужна переустановка.
     fn can_tunnel(&self) -> Result<(), String> {
+        if (self.elevated)() {
+            return Ok(());
+        }
         match &self.tunnel {
             Some(tunnel) => tunnel.check_installed(),
             None => Err(crate::windows::vpn_service::REINSTALL.into()),
         }
     }
 
-    fn spawn_tunnel(&self, config: &Path, _log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+    fn spawn_tunnel(&self, config: &Path, log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+        if (self.elevated)() {
+            let core = self.locate_core()?;
+            return self.spawn(&core, config, log);
+        }
         let tunnel = self
             .tunnel
             .clone()
@@ -668,10 +701,22 @@ mod tests {
             .connect("127.0.0.1", port, Duration::from_secs(1))
             .is_ok());
         drop(listener);
-        assert!(!host.port_open(port));
-        assert!(TcpDialer
-            .connect("127.0.0.1", port, Duration::from_millis(500))
-            .is_err());
+        // Освобождённый порт мог тут же занять другой параллельный тест: пробуем несколько раз.
+        let mut closed = false;
+        for _ in 0..10 {
+            let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            let p = l.local_addr().unwrap().port();
+            drop(l);
+            if !host.port_open(p)
+                && TcpDialer
+                    .connect("127.0.0.1", p, Duration::from_millis(500))
+                    .is_err()
+            {
+                closed = true;
+                break;
+            }
+        }
+        assert!(closed, "закрытый порт должен быть закрыт");
         assert!(host.free_port().unwrap() > 0);
     }
 
@@ -707,5 +752,110 @@ mod tests {
         std::thread::sleep(Duration::from_millis(200));
         assert!(!p.has_exited(), "чужой процесс не должен быть убит");
         p.kill();
+    }
+
+    // ----- туннель на весь компьютер: напрямую от администратора или через службу -----
+
+    use crate::windows::vpn_service::{
+        ServiceControl, ServiceError, ServiceState, TunnelService, Waits, REINSTALL,
+    };
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    struct FakeControl {
+        installed: bool,
+        starts: AtomicU32,
+        running: std::sync::atomic::AtomicBool,
+    }
+
+    impl ServiceControl for FakeControl {
+        fn state(&self, _: &str) -> Result<ServiceState, ServiceError> {
+            if !self.installed {
+                return Err(ServiceError::NotInstalled);
+            }
+            Ok(if self.running.load(Ordering::SeqCst) {
+                ServiceState::Running
+            } else {
+                ServiceState::Stopped
+            })
+        }
+        fn start(&self, _: &str, _: &[String]) -> Result<(), ServiceError> {
+            self.starts.fetch_add(1, Ordering::SeqCst);
+            self.running.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+        fn stop(&self, _: &str) -> Result<(), ServiceError> {
+            self.running.store(false, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    const FAST: Waits = Waits {
+        poll: std::time::Duration::from_millis(1),
+        start_polls: 5,
+        settle: std::time::Duration::from_millis(1),
+        stop_polls: 5,
+    };
+
+    fn host(installed: bool, admin: bool) -> (SingBoxHost, Arc<FakeControl>) {
+        let control = Arc::new(FakeControl {
+            installed,
+            starts: AtomicU32::new(0),
+            running: std::sync::atomic::AtomicBool::new(false),
+        });
+        let tunnel = Arc::new(TunnelService::new(control.clone(), FAST));
+        let host = SingBoxHost::new(vec![])
+            .with_tunnel(tunnel)
+            .with_elevation_probe(Arc::new(move || admin));
+        (host, control)
+    }
+
+    #[test]
+    fn an_administrator_can_tunnel_without_the_service() {
+        let (h, _) = host(false, true);
+        assert_eq!(h.can_tunnel(), Ok(()));
+    }
+
+    #[test]
+    fn a_normal_user_needs_the_installed_service_and_otherwise_a_reinstall() {
+        let (h, _) = host(true, false);
+        assert_eq!(h.can_tunnel(), Ok(()));
+        let (h, _) = host(false, false);
+        assert_eq!(h.can_tunnel(), Err(REINSTALL.to_string()));
+        assert_eq!(REINSTALL, "Для этого режима нужна переустановка программы");
+        let h = SingBoxHost::new(vec![]).with_elevation_probe(Arc::new(|| false));
+        assert_eq!(h.can_tunnel(), Err(REINSTALL.to_string()));
+    }
+
+    #[test]
+    fn without_admin_rights_the_tunnel_starts_through_the_service_with_the_config() {
+        let dir = temp("tunnel-service");
+        let config = dir.join("config.json");
+        std::fs::write(&config, r#"{"inbounds":[]}"#).unwrap();
+        let (h, control) = host(true, false);
+        let mut process = h.spawn_tunnel(&config, &dir.join("e.log")).unwrap();
+        assert_eq!(control.starts.load(Ordering::SeqCst), 1);
+        assert_eq!(process.pid(), 0, "ядро принадлежит службе");
+        assert!(!process.has_exited());
+        // Выключение: служба останавливается (маршруты убирает ядро при выходе).
+        process.kill();
+        assert!(process.has_exited());
+        // Без службы и без прав — просьба переустановить, ничего не запущено.
+        let (h, control) = host(false, false);
+        assert_eq!(
+            h.spawn_tunnel(&config, &dir.join("e.log")).err(),
+            Some(REINSTALL.to_string())
+        );
+        assert_eq!(control.starts.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn an_administrator_never_goes_through_the_service() {
+        let dir = temp("tunnel-admin");
+        let config = dir.join("config.json");
+        std::fs::write(&config, "{}").unwrap();
+        let (h, control) = host(true, true);
+        // Ядро не найдено (в тесте его нет): путь напрямую, службу не трогаем.
+        assert!(h.spawn_tunnel(&config, &dir.join("e.log")).is_err());
+        assert_eq!(control.starts.load(Ordering::SeqCst), 0);
     }
 }

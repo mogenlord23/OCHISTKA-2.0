@@ -1,0 +1,63 @@
+# Проверка конфигураций VPN (обе области) командой `sing-box check` на настоящем Windows: ошибку в
+# конфигурации видно без запуска ядра на компьютере владельца. Ядро берётся закреплённой версии с
+# проверкой SHA-256 (tools/vpn-core/fetch.ps1); сервер в конфигурациях вымышленный.
+# Запускается вручную (Actions → Run workflow).
+name: vpn-config-check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/optimistic-hypatia-hgstjj]
+    paths: ['.github/workflows/vpn-config-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  config-check:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Fetch the pinned VPN core
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/vpn-core/fetch.ps1"
+          if ($LASTEXITCODE -ne 0) { throw 'не удалось подготовить VPN-ядро' }
+
+      - name: Generate the configurations and check them with the core
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'config-check'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          cargo run --locked -q -p ochistka-core --example dump_vpn_config -- $out
+          if ($LASTEXITCODE -ne 0) { throw 'не удалось создать конфигурации' }
+          $core = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/src-tauri/resources/vpn-core/sing-box.exe'
+          $log = Join-Path $out 'RESULT.txt'
+          & $core version | Tee-Object -FilePath $log -Append
+          $failed = @()
+          foreach ($file in Get-ChildItem $out -Filter *.json) {
+            $text = & $core check -c $file.FullName 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            "{0}: код {1} {2}" -f $file.Name, $code, $text.Trim() | Tee-Object -FilePath $log -Append
+            if ($code -ne 0) { $failed += $file.Name }
+          }
+          if ($failed.Count -gt 0) { "ОШИБКИ: $($failed -join ', ')" | Tee-Object -FilePath $log -Append; exit 1 }
+          'ВСЕ КОНФИГУРАЦИИ ПРОШЛИ sing-box check' | Tee-Object -FilePath $log -Append
+          exit 0
+
+      - name: Upload the configurations and the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vpn-config-check
+          path: config-check/*
+          if-no-files-found: warn

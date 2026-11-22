@@ -867,15 +867,13 @@ describe('VpnPage: области VPN', () => {
       vpn_connect: () =>
         Promise.reject({
           kind: 'needsReinstall',
-          message: 'Переустановите программу, чтобы включить режим «Весь компьютер»',
+          message: 'Для этого режима нужна переустановка программы',
         }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
-    expect(
-      await screen.findByText('Переустановите программу, чтобы включить режим «Весь компьютер»'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Для этого режима нужна переустановка программы')).toBeTruthy();
     const again = await screen.findByRole('button', { name: 'Включить VPN' });
     expect(again.getAttribute('aria-pressed')).toBe('false');
   });

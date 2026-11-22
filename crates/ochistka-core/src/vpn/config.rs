@@ -42,8 +42,10 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
             "route": Value::Object(route),
         });
     }
-    // Весь компьютер: DNS-запросы из туннеля обрабатывает ядро, затем локальные адреса напрямую.
+    // Весь компьютер: DNS-запросы из туннеля обрабатывает ядро, адрес самого сервера идёт напрямую
+    // (иначе соединение с ним попало бы в туннель), затем локальные адреса напрямую.
     route_rules.insert(0, json!({"protocol": "dns", "action": "hijack-dns"}));
+    route_rules.insert(1, server_direct_rule(&server.host));
     // Порядок важен: приложения, затем явные домены пользователя, затем наборы.
     if !rules.direct_apps.is_empty() {
         route_rules.push(json!({"process_name": rules.direct_apps, "outbound": "direct"}));
@@ -68,10 +70,10 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
     }
     json!({
         "log": {"level": "warn", "timestamp": true},
-        "dns": {"servers": [{"type": "local", "tag": "local"}], "final": "local"},
+        "dns": tunnel_dns(server, rules),
         "inbounds": [
             {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port},
-            {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS], "auto_route": true, "strict_route": true, "stack": "mixed"},
+            {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS, TUN_ADDRESS_V6], "auto_route": true, "strict_route": true, "stack": "mixed"},
         ],
         "outbounds": [proxy, {"type": "direct", "tag": "direct"}],
         "route": Value::Object(route),
@@ -80,6 +82,58 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
 
 /// Адрес туннельного адаптера (частная сеть, не пересекается с домашними 192.168.*).
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
+/// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
+pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
+
+fn is_ip(host: &str) -> bool {
+    host.parse::<std::net::IpAddr>().is_ok()
+}
+
+/// Адрес сервера VPN напрямую: по адресу, если это IP, иначе по имени.
+fn server_direct_rule(host: &str) -> Value {
+    match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(_)) => {
+            json!({"ip_cidr": [format!("{host}/32")], "outbound": "direct"})
+        }
+        Ok(std::net::IpAddr::V6(_)) => {
+            json!({"ip_cidr": [format!("{host}/128")], "outbound": "direct"})
+        }
+        Err(_) => json!({"domain": [host], "outbound": "direct"}),
+    }
+}
+
+/// Запросы имён в туннеле: обычные идут к публичному серверу ЧЕРЕЗ VPN, а имя самого сервера VPN и
+/// имена из исключений «напрямую» разрешаются локально.
+fn tunnel_dns(server: &Server, rules: &RoutingRules) -> Value {
+    let mut dns_rules: Vec<Value> = Vec::new();
+    if !is_ip(&server.host) {
+        dns_rules.push(json!({"domain": [server.host], "server": "local"}));
+    }
+    let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
+    for id in &rules.presets {
+        if let Some(list) = preset_suffixes(id) {
+            direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
+        }
+    }
+    for mut rule in direct {
+        if let Some(map) = rule.as_object_mut() {
+            if map.contains_key("ip_cidr") {
+                continue;
+            }
+            map.remove("outbound");
+            map.insert("server".into(), json!("local"));
+            dns_rules.push(rule);
+        }
+    }
+    json!({
+        "servers": [
+            {"type": "local", "tag": "local"},
+            {"type": "tcp", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
+        ],
+        "rules": dns_rules,
+        "final": "remote",
+    })
+}
 
 fn domain_rules(entries: &[String], outbound: &str) -> Vec<Value> {
     let (mut suffix, mut full, mut keyword, mut cidr) = (vec![], vec![], vec![], vec![]);
@@ -128,10 +182,17 @@ mod tests {
         let cfg = build_config(&server(), 20808, &all, &[]);
         let expected = json!({
           "log": {"level": "warn", "timestamp": true},
-          "dns": {"servers": [{"type": "local", "tag": "local"}], "final": "local"},
+          "dns": {
+            "servers": [
+              {"type": "local", "tag": "local"},
+              {"type": "tcp", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"}
+            ],
+            "rules": [{"domain": ["tr.example.com"], "server": "local"}],
+            "final": "remote"
+          },
           "inbounds": [
             {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 20808},
-            {"type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30"], "auto_route": true, "strict_route": true, "stack": "mixed"}
+            {"type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"], "auto_route": true, "strict_route": true, "stack": "mixed"}
           ],
           "outbounds": [
             {"type": "trojan", "server": "tr.example.com", "server_port": 443, "password": "pw",
@@ -141,6 +202,7 @@ mod tests {
           "route": {
             "rules": [
               {"protocol": "dns", "action": "hijack-dns"},
+              {"domain": ["tr.example.com"], "outbound": "direct"},
               {"ip_is_private": true, "outbound": "direct"}
             ],
             "final": "proxy",
@@ -170,34 +232,34 @@ mod tests {
         let cfg = build_config(&server(), 1080, &rules, &[]);
         let list = cfg["route"]["rules"].as_array().unwrap();
         assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
-        assert_eq!(list[1]["ip_is_private"], true);
+        assert_eq!(list[2]["ip_is_private"], true);
         assert_eq!(
-            list[2],
+            list[3],
             json!({"process_name": ["steam.exe"], "outbound": "direct"})
         );
         assert_eq!(
-            list[3],
+            list[4],
             json!({"process_name": ["chrome.exe"], "outbound": "proxy"})
         );
         assert_eq!(
-            list[4],
+            list[5],
             json!({"domain_keyword": ["news"], "outbound": "proxy"})
         );
         assert_eq!(
-            list[5],
+            list[6],
             json!({"domain_suffix": ["example.com"], "outbound": "direct"})
         );
-        assert_eq!(list[6], json!({"domain": ["a.b.c"], "outbound": "direct"}));
+        assert_eq!(list[7], json!({"domain": ["a.b.c"], "outbound": "direct"}));
         assert_eq!(
-            list[7],
+            list[8],
             json!({"ip_cidr": ["10.0.0.0/8"], "outbound": "direct"})
         );
-        assert!(list[8]["domain_suffix"]
+        assert!(list[9]["domain_suffix"]
             .as_array()
             .unwrap()
             .iter()
             .any(|d| d == "ru"));
-        assert_eq!(list.len(), 9);
+        assert_eq!(list.len(), 10);
         assert_eq!(cfg["route"]["find_process"], true);
         assert_eq!(cfg["route"]["final"], "proxy");
     }
@@ -252,7 +314,7 @@ mod tests {
         assert_eq!(cfg["route"]["final"], "proxy");
         let text = cfg["route"]["rules"].to_string();
         assert!(text.contains("example.org") && !text.contains("youtube.com"));
-        assert_eq!(cfg["route"]["rules"][1]["ip_is_private"], true);
+        assert_eq!(cfg["route"]["rules"][2]["ip_is_private"], true);
     }
 
     #[test]
@@ -273,7 +335,7 @@ mod tests {
         assert_eq!(inbounds[0]["listen"], "127.0.0.1");
         assert_eq!(inbounds[1]["type"], "tun");
         assert_eq!(inbounds[1]["auto_route"], true);
-        assert_eq!(inbounds[1]["address"], json!([TUN_ADDRESS]));
+        assert_eq!(inbounds[1]["address"], json!([TUN_ADDRESS, TUN_ADDRESS_V6]));
         assert_eq!(
             all["route"]["rules"][0],
             json!({"protocol": "dns", "action": "hijack-dns"})
@@ -281,5 +343,58 @@ mod tests {
         let sites = build_config(&server(), 7, &rules(RouteMode::ListOnly), &[]);
         assert_eq!(sites["inbounds"].as_array().unwrap().len(), 1);
         assert!(!sites.to_string().contains("\"tun\""));
+    }
+
+    #[test]
+    fn the_whole_computer_routes_everything_through_the_tunnel_except_the_server_and_local_addresses(
+    ) {
+        let all = build_config(&server(), 7, &rules(RouteMode::All), &[]);
+        // Маршрут по умолчанию через туннель: автомаршрут и конечный выход через VPN.
+        assert_eq!(all["inbounds"][1]["auto_route"], true);
+        assert_eq!(all["inbounds"][1]["strict_route"], true);
+        assert_eq!(all["route"]["final"], "proxy");
+        assert_eq!(all["route"]["auto_detect_interface"], true);
+        let list = all["route"]["rules"].as_array().unwrap();
+        // Имена из туннеля обрабатывает ядро; адрес сервера и локальные адреса напрямую.
+        assert_eq!(list[0], json!({"protocol": "dns", "action": "hijack-dns"}));
+        assert_eq!(
+            list[1],
+            json!({"domain": ["tr.example.com"], "outbound": "direct"})
+        );
+        assert_eq!(list[2]["ip_is_private"], true);
+        // Запросы имён идут к публичному серверу через VPN; имя сервера VPN — локально.
+        assert_eq!(all["dns"]["final"], "remote");
+        assert_eq!(all["dns"]["servers"][1]["detour"], "proxy");
+        assert_eq!(
+            all["dns"]["rules"][0],
+            json!({"domain": ["tr.example.com"], "server": "local"})
+        );
+    }
+
+    #[test]
+    fn a_server_given_by_address_is_routed_directly_by_address_and_needs_no_name_lookup_rule() {
+        let mut ip_server = server();
+        ip_server.host = "203.0.113.7".into();
+        let all = build_config(&ip_server, 7, &rules(RouteMode::All), &[]);
+        assert_eq!(
+            all["route"]["rules"][1],
+            json!({"ip_cidr": ["203.0.113.7/32"], "outbound": "direct"})
+        );
+        assert_eq!(all["dns"]["rules"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn exceptions_stay_local_for_names_too() {
+        let mut r = rules(RouteMode::All);
+        r.direct_domains = vec!["example.org".into(), "10.0.0.0/8".into()];
+        r.presets = vec!["ru-direct".into()];
+        let r = r.sanitized().unwrap();
+        let all = build_config(&server(), 7, &r, &[]);
+        let text = all["dns"]["rules"].to_string();
+        assert!(text.contains("example.org") && text.contains("\"server\":\"local\""));
+        assert!(
+            !text.contains("10.0.0.0"),
+            "адресные исключения в правила имён не попадают"
+        );
     }
 }

@@ -10,7 +10,7 @@ use ochistka_core::vpn::service::CoreProcess;
 
 pub const SERVICE_NAME: &str = "OchistkaVpn";
 
-pub const REINSTALL: &str = "Переустановите программу, чтобы включить режим «Весь компьютер»";
+pub const REINSTALL: &str = "Для этого режима нужна переустановка программы";
 pub const NOT_STARTED: &str = "VPN не запустился";
 pub const STOPPED_AT_ONCE: &str = "VPN сразу остановился";
 pub const NOT_STOPPED: &str = "VPN не выключился, перезагрузите компьютер";
