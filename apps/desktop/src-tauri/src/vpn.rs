@@ -23,7 +23,7 @@ impl From<VpnError> for CommandError {
             VpnError::CoreMissing(_) => "engineMissing",
             VpnError::Prepare(_) => "prepare",
             VpnError::NotHttps | VpnError::EmptyInput | VpnError::Rules(_) => "invalidTarget",
-            VpnError::NeedsAdmin => "needsAdmin",
+            VpnError::NeedsReinstall => "needsReinstall",
             _ => "probe",
         };
         CommandError {

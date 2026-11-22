@@ -866,14 +866,16 @@ describe('VpnPage: области VPN', () => {
       vpn_snapshot: () => withMode('all'),
       vpn_connect: () =>
         Promise.reject({
-          kind: 'needsAdmin',
-          message: 'Для всего компьютера нужны права администратора',
+          kind: 'needsReinstall',
+          message: 'Переустановите программу, чтобы включить режим «Весь компьютер»',
         }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
     await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
-    expect(await screen.findByText('Для всего компьютера нужны права администратора')).toBeTruthy();
+    expect(
+      await screen.findByText('Переустановите программу, чтобы включить режим «Весь компьютер»'),
+    ).toBeTruthy();
     const again = await screen.findByRole('button', { name: 'Включить VPN' });
     expect(again.getAttribute('aria-pressed')).toBe('false');
   });

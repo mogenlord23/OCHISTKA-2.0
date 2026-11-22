@@ -45,10 +45,15 @@ pub trait VpnHost: Send + Sync {
     fn probe_via_proxy(&self, port: u16) -> bool;
     /// Останавливает процесс ядра, оставшийся от прошлого запуска (если это действительно ядро).
     fn kill_stale(&self, pid: u32);
-    /// Можно ли поднять туннель на весь компьютер (на Windows нужны права администратора).
-    /// `Err` — короткая причина. По умолчанию можно.
+    /// Можно ли поднять туннель на весь компьютер (на Windows его держит служба, которую один раз
+    /// ставит установщик). `Err` — службы нет или нет доступа: нужна переустановка. По умолчанию можно.
     fn can_tunnel(&self) -> Result<(), String> {
         Ok(())
+    }
+    /// Запускает ядро для туннеля на весь компьютер (на Windows — службой, без запросов прав).
+    /// Конфигурация лежит в `config`. По умолчанию недоступно.
+    fn spawn_tunnel(&self, _config: &Path, _log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+        Err("туннель на этой системе недоступен".into())
     }
 }
 
@@ -453,7 +458,9 @@ impl VpnService {
         if lock(&self.conn).state != ConnState::Connected
             && lock(&self.data).rules.mode == RouteMode::All
         {
-            self.host.can_tunnel().map_err(|_| VpnError::NeedsAdmin)?;
+            self.host
+                .can_tunnel()
+                .map_err(|_| VpnError::NeedsReinstall)?;
         }
         // Включение VPN выключает «Обход блокировок»: делается ДО блокировки `op`, чтобы два
         // сервиса не ждали друг друга. При неудаче VPN не включается.
@@ -635,10 +642,12 @@ impl VpnService {
             ))
         })?;
         let log = session.join("engine.log");
-        let mut process = self
-            .host
-            .spawn(core, &config_path, &log)
-            .map_err(VpnError::Engine)?;
+        let mut process = if rules.mode == RouteMode::All {
+            self.host.spawn_tunnel(&config_path, &log)
+        } else {
+            self.host.spawn(core, &config_path, &log)
+        }
+        .map_err(VpnError::Engine)?;
         let _ = std::fs::write(self.pid_file(), process.pid().to_string());
         let mut ready = false;
         for _ in 0..75 {
@@ -773,6 +782,8 @@ mod tests {
         exited: Arc<AtomicBool>,
         killed: Arc<AtomicBool>,
         stale: Arc<Mutex<Vec<u32>>>,
+        /// Ядро запускали как службу туннеля (а не обычным процессом).
+        tunnel: Arc<AtomicBool>,
     }
 
     struct FakeProcess(Flags);
@@ -796,7 +807,7 @@ mod tests {
         check_fails: bool,
         port_opens: bool,
         probe_ok: bool,
-        /// Нет прав администратора для туннеля.
+        /// Службы туннеля нет (программу нужно переустановить).
         no_admin: bool,
     }
 
@@ -857,6 +868,11 @@ mod tests {
         }
         fn probe_via_proxy(&self, _: u16) -> bool {
             self.probe_ok
+        }
+        fn spawn_tunnel(&self, _: &Path, log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+            self.flags.tunnel.store(true, Ordering::SeqCst);
+            std::fs::write(log, "INFO started").unwrap();
+            Ok(Box::new(FakeProcess(self.flags.clone())))
         }
         fn can_tunnel(&self) -> Result<(), String> {
             if self.no_admin {
@@ -1202,6 +1218,10 @@ mod tests {
         let (s, reg) = ready(&flags, &dir);
         s.set_site_list(Box::new(|| vec!["youtube.com".to_string()]));
         s.connect().unwrap();
+        assert!(
+            !flags.tunnel.load(Ordering::SeqCst),
+            "сайты идут обычным процессом"
+        );
         let cfg = written_config(&s);
         assert_eq!(cfg["route"]["final"], "direct");
         assert!(cfg["route"]["rules"].to_string().contains("youtube.com"));
@@ -1218,6 +1238,10 @@ mod tests {
         let cfg = written_config(&s);
         assert_eq!(cfg["route"]["final"], "proxy");
         assert_eq!(cfg["inbounds"][1]["type"], "tun");
+        assert!(
+            flags.tunnel.load(Ordering::SeqCst),
+            "туннель запущен службой"
+        );
         assert!(!cfg.to_string().contains("youtube.com"));
         assert!(
             reg.get(INTERNET_KEY, "ProxyServer").is_none(),
@@ -1228,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn the_whole_computer_without_admin_rights_is_a_short_refusal_that_changes_nothing() {
+    fn the_whole_computer_without_the_service_asks_for_a_reinstall_and_changes_nothing() {
         let dir = temp_dir();
         let flags = Flags::default();
         let host = FakeHost {
@@ -1238,7 +1262,7 @@ mod tests {
         let (s, reg) = make(host, Box::new(NoNet), &dir);
         s.import(LIST).unwrap();
         s.set_mode(RouteMode::All).unwrap();
-        assert!(matches!(s.connect(), Err(VpnError::NeedsAdmin)));
+        assert!(matches!(s.connect(), Err(VpnError::NeedsReinstall)));
         assert_eq!(s.status().state, ConnState::Disconnected);
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
         assert!(reg.get(INTERNET_KEY, "ProxyServer").is_none());

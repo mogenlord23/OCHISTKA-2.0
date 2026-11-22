@@ -152,6 +152,8 @@ pub struct SingBoxHost {
     core_dirs: Vec<PathBuf>,
     /// Куда приложение само кладёт скачанный движок (`%LOCALAPPDATA%\OCHISTKA\vpn-core`).
     install_dir: Option<PathBuf>,
+    /// Служба VPN (Windows): держит ядро для режима «Весь компьютер».
+    tunnel: Option<Arc<crate::windows::vpn_service::TunnelService>>,
 }
 
 impl SingBoxHost {
@@ -159,7 +161,13 @@ impl SingBoxHost {
         Self {
             core_dirs,
             install_dir: None,
+            tunnel: None,
         }
+    }
+
+    pub fn with_tunnel(mut self, tunnel: Arc<crate::windows::vpn_service::TunnelService>) -> Self {
+        self.tunnel = Some(tunnel);
+        self
     }
 
     pub fn with_install_dir(mut self, dir: PathBuf) -> Self {
@@ -212,21 +220,25 @@ impl VpnHost for SingBoxHost {
         }
     }
 
-    /// Туннель на весь компьютер создаёт сетевой адаптер: на Windows это возможно только с правами
-    /// администратора. Права проверяются без изменений (открытие системного ключа на запись).
+    /// Туннель на весь компьютер держит служба (её ставит установщик): есть ли она и доступна ли.
     fn can_tunnel(&self) -> Result<(), String> {
-        #[cfg(windows)]
-        {
-            use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_WRITE};
-            winreg::RegKey::predef(HKEY_LOCAL_MACHINE)
-                .open_subkey_with_flags(r"SYSTEM\CurrentControlSet\Services", KEY_WRITE)
-                .map(|_| ())
-                .map_err(|e| format!("нужны права администратора: {e}"))
+        match &self.tunnel {
+            Some(tunnel) => tunnel.check_installed(),
+            None => Err(crate::windows::vpn_service::REINSTALL.into()),
         }
-        #[cfg(not(windows))]
-        {
-            Ok(())
-        }
+    }
+
+    fn spawn_tunnel(&self, config: &Path, _log: &Path) -> Result<Box<dyn CoreProcess>, String> {
+        let tunnel = self
+            .tunnel
+            .clone()
+            .ok_or_else(|| crate::windows::vpn_service::REINSTALL.to_string())?;
+        let text =
+            std::fs::read_to_string(config).map_err(|_| "конфигурация недоступна".to_string())?;
+        tunnel.start(&text)?;
+        Ok(Box::new(crate::windows::vpn_service::ServiceProcess(
+            tunnel,
+        )))
     }
 
     fn free_port(&self) -> Result<u16, String> {
@@ -272,6 +284,13 @@ impl VpnHost for SingBoxHost {
     }
 
     fn kill_stale(&self, pid: u32) {
+        // Номер 0 — ядро в службе: останавливаем службу.
+        if pid == 0 {
+            if let Some(tunnel) = &self.tunnel {
+                let _ = tunnel.stop();
+            }
+            return;
+        }
         let target = [Pid::from_u32(pid)];
         let Ok(mut system) = System::new() else {
             return;
@@ -539,7 +558,10 @@ pub fn current_dialer() -> Box<dyn Dialer + Send> {
 }
 
 pub fn current_vpn_host(core_dirs: Vec<PathBuf>) -> Box<dyn VpnHost> {
-    Box::new(SingBoxHost::new(core_dirs).with_install_dir(vpn_engine_dir()))
+    let host = SingBoxHost::new(core_dirs).with_install_dir(vpn_engine_dir());
+    #[cfg(windows)]
+    let host = host.with_tunnel(crate::windows::vpn_service::current_tunnel());
+    Box::new(host)
 }
 
 struct WindowsProxyRefresh;
