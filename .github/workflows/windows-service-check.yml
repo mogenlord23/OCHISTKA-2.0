@@ -100,6 +100,8 @@ jobs:
           }
           Log 'ВСЁ ПРОШЛО'
           Set-Content -Path (Join-Path $logDir 'RESULT.txt') -Value 'PASSED'
+          # Код выхода шага берётся от последней внешней программы (sc.exe мог вернуть 1062): сбрасываем.
+          exit 0
 
       - name: Upload logs
         if: always()
