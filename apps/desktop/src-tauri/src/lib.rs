@@ -3,14 +3,12 @@
 pub mod appearance;
 pub mod bypass_sites;
 pub mod commands;
-pub mod desync_trial;
 pub mod disks;
 pub mod drivers;
 pub mod hardware;
 pub mod network;
 pub mod processes;
 pub mod programs;
-pub mod service_check;
 pub mod services;
 pub mod speedtest;
 pub mod tweaks;
@@ -73,11 +71,13 @@ pub fn run() {
             // Одно общее право на сетевой режим для VPN и обхода.
             let coord =
                 std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
-            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord.clone());
-            let desync_state = vpn::build_desync(&vpn_state, coord, app.path().resource_dir().ok());
+            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord);
             app.manage(vpn_state);
-            app.manage(desync_state);
-            app.manage(service_check::ProbeState::default());
+            app.manage(bypass_sites::BypassSitesState(
+                ochistka_core::desync::user_sites::UserSites::new(
+                    &ochistka_platform::desync::desync_data_dir(),
+                ),
+            ));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -113,12 +113,6 @@ pub fn run() {
             bypass_sites::bypass_sites_list,
             bypass_sites::bypass_sites_add,
             bypass_sites::bypass_sites_remove,
-            desync_trial::desync_trial_status,
-            desync_trial::desync_trial_start,
-            desync_trial::desync_trial_stop,
-            desync_trial::desync_trial_note,
-            service_check::service_check,
-            service_check::service_access_plan,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
@@ -134,14 +128,6 @@ pub fn run() {
         Ok(app) => app.run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
                 use tauri::Manager;
-                // Сначала останавливаем перехват, затем VPN.
-                if let Some(state) = handle.try_state::<vpn::DesyncState>() {
-                    // Если процесс не остановился, ложного успеха нет: ошибка остаётся в состоянии,
-                    // а при следующем запуске приложения `recover_on_start` убирает остаток.
-                    if let Err(err) = state.0.shutdown() {
-                        eprintln!("не удалось остановить обход при выходе: {err}");
-                    }
-                }
                 if let Some(state) = handle.try_state::<vpn::VpnState>() {
                     state.0.shutdown();
                 }

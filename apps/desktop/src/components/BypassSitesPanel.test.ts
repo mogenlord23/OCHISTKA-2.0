@@ -87,10 +87,9 @@ describe('BypassSitesPanel', () => {
     expect(await screen.findByText('example.com')).toBeTruthy();
   });
 
-  it('says in one line that domains are not applied yet', () => {
+  it('says in one line what the sites are for', () => {
     render(BypassSitesPanel, { props: { open: true, onclose: () => {} } });
-    expect(screen.getByText('Домены пока не применяются')).toBeTruthy();
-    expect(screen.queryByText(/вступят в силу/)).toBeNull();
+    expect(screen.getByText('Сайты, которые открываются через обход')).toBeTruthy();
   });
 
   it('uses plain words only', () => {

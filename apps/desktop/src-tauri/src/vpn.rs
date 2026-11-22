@@ -56,31 +56,6 @@ pub fn core_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     dirs
 }
 
-/// Папки, где ищется движок обхода: ресурсы приложения (`resource_dir/ochistkadpi`, установщик кладёт файлы
-/// туда), рядом с exe и (в разработке) папка исходников. Текущая папка не используется.
-pub fn ochistkadpi_dirs(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    let plain = |p: PathBuf| PathBuf::from(crate::appearance::plain_path(&p));
-    if let Some(res) = resource_dir {
-        dirs.push(plain(res.join("ochistkadpi")));
-        dirs.push(plain(res.join("resources").join("ochistkadpi")));
-    }
-    if let Some(exe_dir) = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(PathBuf::from))
-    {
-        dirs.push(exe_dir.join("ochistkadpi"));
-        dirs.push(exe_dir.join("resources").join("ochistkadpi"));
-    }
-    #[cfg(debug_assertions)]
-    dirs.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources")
-            .join("ochistkadpi"),
-    );
-    dirs
-}
-
 /// Собирает сервис и сразу убирает последствия аварийного завершения прошлого запуска
 /// (оставшееся ядро и системный прокси).
 pub fn build_service(
@@ -195,62 +170,9 @@ mod tests {
     }
 
     #[test]
-    fn ochistkadpi_dirs_come_from_the_resource_folder_and_never_from_the_current_folder() {
-        let dirs = ochistkadpi_dirs(Some(PathBuf::from("/app/res")));
-        assert_eq!(dirs[0], PathBuf::from("/app/res/ochistkadpi"));
-        assert!(dirs.iter().any(|d| d.ends_with("resources/ochistkadpi")));
-        assert!(dirs.iter().all(|d| d.is_absolute()), "{dirs:?}");
-        // Без папки ресурсов остаются только соседи exe и папка исходников (в разработке).
-        assert!(!ochistkadpi_dirs(None).contains(&PathBuf::from("ochistkadpi")));
-    }
-
-    #[test]
     fn core_dirs_include_resources_and_exe_neighbours() {
         let dirs = core_dirs(Some(PathBuf::from("/app/res")));
         assert_eq!(dirs[0], PathBuf::from("/app/res/vpn-core"));
         assert!(dirs.iter().any(|d| d.ends_with("resources/vpn-core")));
     }
-}
-
-/// Общий сервис обхода блокировок. Пользовательской команды включения нет: до подтверждения
-/// на реальной сети профиль заблокирован планом доступа.
-pub struct DesyncState(pub Arc<ochistka_core::desync::DesyncService>);
-
-/// Создаёт `DesyncService` и связывает его с VPN в обе стороны через `Weak` (без циклов владения).
-pub fn build_desync(
-    vpn: &VpnState,
-    coord: Arc<ochistka_core::desync::coordinator::NetCoordinator>,
-    resource_dir: Option<PathBuf>,
-) -> DesyncState {
-    use ochistka_core::desync::{desync_conflict_guard, vpn_signal_source, DesyncService};
-    let dir = ochistka_platform::desync::desync_data_dir();
-    let desync = Arc::new(
-        DesyncService::new(
-            dir.clone(),
-            ochistka_platform::desync::adapter_for_current_os(ochistkadpi_dirs(resource_dir)),
-            vpn_signal_source(Arc::downgrade(&vpn.0)),
-        )
-        .with_coordinator(coord),
-    );
-    // VPN → включает VPN: сначала останавливается обход (подтверждённо), иначе VPN не включается.
-    vpn.0
-        .set_conflict_guard(desync_conflict_guard(Arc::downgrade(&desync)));
-    // Обход → включает обход: сначала отключается работающий VPN (остановка ядра и возврат прокси).
-    let weak_vpn = Arc::downgrade(&vpn.0);
-    desync.set_vpn_stopper(Box::new(move || {
-        let Some(service) = weak_vpn.upgrade() else {
-            return Err("состояние VPN недоступно".into());
-        };
-        let status = service.disconnect();
-        if ochistka_core::desync::routing::VpnSignal::from_status(&status).active {
-            Err(status.message)
-        } else {
-            Ok(())
-        }
-    }));
-    desync.recover_on_start();
-    // Проверка уже установленных файлов заранее, в фоне: нажатие кнопки не тратит на неё время.
-    let warm = desync.clone();
-    std::thread::spawn(move || warm.warm_up());
-    DesyncState(desync)
 }

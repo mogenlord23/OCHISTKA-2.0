@@ -525,10 +525,4 @@ mod tests {
             other => panic!("{other:?}"),
         }
     }
-
-    #[test]
-    fn probing_does_not_change_the_empty_confirmation_registry() {
-        // Наблюдения передаются маршрутизатору, но подтверждённых профилей обхода по-прежнему нет.
-        assert!(super::super::routing::CONFIRMED_EXTERNAL_PROFILES.is_empty());
-    }
 }

@@ -3,9 +3,9 @@
     bypassSitesAdd,
     bypassSitesList,
     bypassSitesRemove,
+    errorText,
     MAX_SITES,
   } from '../lib/bypassSites';
-  import { trialErrorText } from '../lib/desyncTrial';
 
   let {
     open,
@@ -41,7 +41,7 @@
       sites = (await bypassSitesAdd(draft)) ?? sites;
       draft = '';
     } catch (err) {
-      error = trialErrorText(err);
+      error = errorText(err);
     } finally {
       busy = false;
     }
@@ -52,7 +52,7 @@
     try {
       sites = (await bypassSitesRemove(domain)) ?? sites;
     } catch (err) {
-      error = trialErrorText(err);
+      error = errorText(err);
     }
   }
 </script>
@@ -64,7 +64,7 @@
         <span class="title">Мои сайты</span>
         <button type="button" class="icon-btn" aria-label="Закрыть" onclick={onclose}>✕</button>
       </div>
-      <p class="note">Домены пока не применяются</p>
+      <p class="note">Сайты, которые открываются через обход</p>
       <textarea
         bind:value={draft}
         rows="3"

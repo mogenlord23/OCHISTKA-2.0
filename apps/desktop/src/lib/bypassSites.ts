@@ -8,3 +8,10 @@ export const bypassSitesRemove = (domain: string) =>
   invoke<string[]>('bypass_sites_remove', { domain });
 
 export const MAX_SITES = 200;
+
+export function errorText(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return 'Не удалось выполнить действие';
+}

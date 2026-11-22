@@ -14,15 +14,6 @@
   import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
-  import {
-    bypassView,
-    desyncTrialStart,
-    desyncTrialStatus,
-    desyncTrialStop,
-    trialErrorText,
-    type TrialStatus,
-    type Want,
-  } from '../lib/desyncTrial';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -98,58 +89,14 @@
     },
   ] as const;
 
-  /** Обход блокировок: одна кнопка, включает и выключает обход. */
-  let trial = $state<TrialStatus | null>(null);
-  /** Желаемое положение, пока Rust работает в фоне (интерфейс реагирует сразу). */
-  let bypassWant = $state<Want>(null);
-  let bypassError = $state<string | null>(null);
   /** Панель «Мои сайты» открыта (кнопка сбоку у «Обхода блокировок»). */
   let sitesOpen = $state(false);
-  const bypass = $derived(bypassView(trial, bypassWant, bypassError));
 
-  /** Состояние возможностей. Пока обе не реализованы: переключатель выключен и недоступен, без имитации. */
-  const TOOLS = $derived<Record<(typeof ADVANCED)[number]['id'], ToolModel>>({
-    bypass: {
-      status: bypass.checked ? 'on' : bypass.status === 'error' ? 'error' : 'off',
-      available: bypass.available,
-      reason: bypass.hint,
-    },
+  /** Обход блокировок временно без кнопки (будет переписан); DNS пока не реализован. */
+  const TOOLS: Record<(typeof ADVANCED)[number]['id'], ToolModel> = {
+    bypass: TOOL_UNAVAILABLE,
     dns: TOOL_UNAVAILABLE,
-  });
-
-  async function refreshTrial() {
-    try {
-      trial = (await desyncTrialStatus()) ?? null;
-    } catch (err) {
-      bypassError = trialErrorText(err);
-    }
-  }
-
-  /** Нажатие — явное действие пользователя: включает или выключает. Автозапуска нет. */
-  async function toggleBypass() {
-    if (bypassWant !== null) return;
-    const stopping = trial?.active === true || Boolean(trial?.error);
-    // Переключатель меняется в тот же кадр; запуск и остановка идут в фоне.
-    bypassWant = stopping ? 'off' : 'on';
-    bypassError = null;
-    try {
-      trial = (stopping ? await desyncTrialStop() : await desyncTrialStart(true)) ?? null;
-    } catch (err) {
-      // Не удалось: переключатель возвращается назад, причина показывается рядом.
-      bypassError = trialErrorText(err);
-      await refreshTrial();
-    } finally {
-      bypassWant = null;
-    }
-  }
-
-  $effect(() => {
-    if (tab !== 'advanced') return;
-    void refreshTrial();
-    // Только чтение состояния из Rust; запусков и сети здесь нет.
-    const timer = setInterval(() => void refreshTrial(), 1000);
-    return () => clearInterval(timer);
-  });
+  };
 
   /** Провайдеры DNS: выбор появится вместе с работой переключателя; «Автоматически» — по умолчанию. */
   const DNS_ITEMS: MenuItem[] = [
@@ -629,32 +576,28 @@
           {#each ADVANCED as item (item.id)}
             {@const tool = TOOLS[item.id]}
             <section class="card tool switch-row">
-              <button
-                type="button"
-                role="switch"
-                class="power tool-power"
-                class:on={tool.available && tool.status === 'on'}
-                aria-checked={tool.available && tool.status === 'on'}
-                aria-busy={item.id === 'bypass'
-                  ? bypass.busy
-                  : tool.available && tool.status === 'pending'}
-                aria-label={item.label}
-                disabled={!tool.available || tool.status === 'pending'}
-                onclick={item.id === 'bypass' ? toggleBypass : undefined}
-              >
-                <span class="power-knob" aria-hidden="true"></span>
-              </button>
+              {#if item.id !== 'bypass'}
+                <button
+                  type="button"
+                  role="switch"
+                  class="power tool-power"
+                  class:on={tool.available && tool.status === 'on'}
+                  aria-checked={tool.available && tool.status === 'on'}
+                  aria-busy={tool.available && tool.status === 'pending'}
+                  aria-label={item.label}
+                  disabled={!tool.available || tool.status === 'pending'}
+                >
+                  <span class="power-knob" aria-hidden="true"></span>
+                </button>
+              {/if}
               <div class="tool-text">
                 <span class="switch-title">{item.label}</span>
                 <span class="tool-state"
-                  >{item.id === 'bypass' ? bypass.text : toolStateText(tool)}</span
+                  >{item.id === 'bypass' ? 'Появится позже' : toolStateText(tool)}</span
                 >
-                <span class="note">{item.description}</span>{#if item.id === 'bypass'}
-                  {#if bypass.hint}<span
-                      class="note"
-                      role={bypass.status === 'error' ? 'alert' : 'status'}>{bypass.hint}</span
-                    >{/if}
-                {:else if tool.reason}<span class="sr-only">{tool.reason}</span>{/if}
+                <span class="note">{item.description}</span
+                >{#if item.id !== 'bypass' && tool.reason}<span class="sr-only">{tool.reason}</span
+                  >{/if}
                 {#if item.scope}<span class="note scope">{item.scope}</span>{/if}
               </div>
               {#if item.id === 'bypass'}

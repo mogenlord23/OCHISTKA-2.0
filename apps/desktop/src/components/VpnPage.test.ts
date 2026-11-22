@@ -579,11 +579,11 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
     expect(screen.queryByText(/Пробная проверка/)).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Работает' })).toBeNull();
-    for (const name of ['Обход блокировок', 'DNS']) {
-      const sw = screen.getByRole('switch', { name });
-      expect(sw.getAttribute('aria-checked')).toBe('false');
-      expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
-    }
+    // У обхода кнопки пока нет; у DNS выключенный переключатель.
+    expect(screen.queryByRole('switch', { name: 'Обход блокировок' })).toBeNull();
+    const sw = screen.getByRole('switch', { name: 'DNS' });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sw.closest('.switch-row')?.textContent).toContain('Выключено');
   });
 
   it('does not show GoodbyeDPI', () => {
@@ -593,136 +593,25 @@ describe('VpnPage: маршруты и «Дополнительно»', () => {
 
   it('has no confirmation dialog and the tools are disabled with a reason', () => {
     render(VpnPage, { props: { subsection: 'advanced' } });
-    for (const name of ['Обход блокировок', 'DNS']) {
-      expect((screen.getByRole('switch', { name }) as HTMLButtonElement).disabled).toBe(true);
-    }
+    expect((screen.getByRole('switch', { name: 'DNS' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole('dialog')).toBeNull();
-    // Только DNS: у обхода своя причина по состоянию из Rust.
+    // Только DNS: у обхода кнопки нет.
     expect(screen.getAllByText(/Пока недоступно/)).toHaveLength(1);
   });
 });
 
-const IDLE = { active: false, message: 'Выключено', unavailable: null };
-const RUNNING = { active: true, message: 'Пробный запуск', unavailable: null };
-
-describe('VpnPage: «Обход блокировок» — один переключатель', () => {
-  it('does not start anything when the tab opens; start needs a real press with consent=true', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => IDLE,
-      desync_trial_start: () => RUNNING,
-    });
+describe('VpnPage: «Обход блокировок» временно без кнопки', () => {
+  it('has no bypass switch and starts nothing; only a note and the sites button', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot() });
     render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    await waitFor(() => expect(sw.disabled).toBe(false));
-    expect(calls('desync_trial_start')).toHaveLength(0);
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    await fireEvent.click(sw);
-    await waitFor(() => expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true }));
-    await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
-    expect(sw.closest('.switch-row')?.textContent).toContain('Включено');
-  });
-
-  it('a second press stops it through desync_trial_stop', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => RUNNING,
-      desync_trial_stop: () => IDLE,
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    await waitFor(() => expect(sw.getAttribute('aria-checked')).toBe('true'));
-    await fireEvent.click(sw);
-    await waitFor(() => expect(calls('desync_trial_stop')).toHaveLength(1));
-    expect(calls('desync_trial_start')).toHaveLength(0);
-  });
-
-  it('flips at once on press, shows «Включаем…» while Rust works, and goes back with the reason on failure', async () => {
-    let release: (v: unknown) => void = () => {};
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => IDLE,
-      desync_trial_start: () =>
-        new Promise((resolve, reject) => {
-          release = () => reject({ kind: 'desync', message: 'Нужны права администратора' });
-          void resolve;
-        }),
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    await waitFor(() => expect(sw.disabled).toBe(false));
-    await fireEvent.click(sw);
-    // Тот же кадр: переключатель уже «включён», хотя ответа Rust ещё нет.
-    expect(sw.getAttribute('aria-checked')).toBe('true');
-    expect(sw.getAttribute('aria-busy')).toBe('true');
-    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Включаем…'));
-    expect(sw.closest('.switch-row')?.textContent).not.toContain('Проверяем');
-    release(null);
-    await waitFor(() => expect(sw.closest('.switch-row')?.textContent).toContain('Ошибка'));
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(sw.closest('.switch-row')?.textContent).toContain('Нужны права администратора');
-  });
-
-  it('has no preset or route chooser: one switch only, everything else is data in the preset', async () => {
-    backend({ vpn_snapshot: () => makeSnapshot(), desync_trial_status: () => IDLE });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    await screen.findByRole('switch', { name: 'Обход блокировок' });
-    expect(screen.getAllByRole('switch').map((el) => el.getAttribute('aria-label'))).toEqual([
-      'Обход блокировок',
-      'DNS',
-    ]);
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByRole('listbox')).toBeNull();
-    expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.queryByText(/пресет|маршрут (pass)|V13|Universal/i)).toBeNull();
-  });
-
-  it('shows the Russian refusal when VPN is running and keeps the switch off', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => IDLE,
-      desync_trial_start: () =>
-        Promise.reject({
-          kind: 'desync',
-          message: 'Сначала отключите VPN: пока обход и VPN вместе не работают',
-        }),
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    await waitFor(() => expect(sw.disabled).toBe(false));
-    await fireEvent.click(sw);
-    await waitFor(() =>
-      expect(sw.closest('.switch-row')?.textContent).toContain('Сначала отключите VPN'),
-    );
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(calls('desync_trial_start')[0]?.[1]).toEqual({ consent: true });
-  });
-
-  it('never shows «Выключено» while the driver is still running; a press retries the stop', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => ({
-        ...IDLE,
-        active: true,
-        error: 'Драйвер не остановлен, перезагрузите компьютер',
-      }),
-      desync_trial_stop: () => IDLE,
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    const row = () => sw.closest('.switch-row')?.textContent ?? '';
-    await waitFor(() => expect(row()).toContain('Драйвер не остановлен, перезагрузите компьютер'));
-    expect(row()).toContain('Ошибка');
-    expect(row()).not.toContain('Выключено');
-    await fireEvent.click(sw);
-    await waitFor(() => expect(calls('desync_trial_stop')).toHaveLength(1));
-    expect(calls('desync_trial_start')).toHaveLength(0);
+    expect(screen.queryByRole('switch', { name: 'Обход блокировок' })).toBeNull();
+    expect(screen.getByText('Появится позже')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Добавить сайты для обхода' })).toBeTruthy();
   });
 
   it('has a side button that opens and closes the sites panel, same button again closes', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => IDLE,
       bypass_sites_list: () => ['example.com'],
     });
     const { container } = render(VpnPage, { props: { subsection: 'advanced' } });
@@ -739,20 +628,6 @@ describe('VpnPage: «Обход блокировок» — один перекл
     await fireEvent.click(side);
     await fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
     expect(panel().getAttribute('aria-hidden')).toBe('true');
-    // Кнопка сбоку не добавляет второй переключатель обхода: он по-прежнему один.
-    expect(screen.getAllByRole('switch', { name: 'Обход блокировок' })).toHaveLength(1);
-  });
-
-  it('is disabled with a visible reason when Rust says the trial is unavailable', async () => {
-    backend({
-      vpn_snapshot: () => makeSnapshot(),
-      desync_trial_status: () => ({ ...IDLE, unavailable: 'Нужны права администратора' }),
-    });
-    render(VpnPage, { props: { subsection: 'advanced' } });
-    const sw = screen.getByRole('switch', { name: 'Обход блокировок' }) as HTMLButtonElement;
-    await screen.findByText('Нужны права администратора');
-    expect(sw.disabled).toBe(true);
-    expect(sw.getAttribute('aria-checked')).toBe('false');
   });
 });
 

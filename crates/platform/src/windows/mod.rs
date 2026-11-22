@@ -4,13 +4,11 @@ pub mod appearance;
 pub mod clamav;
 #[cfg(feature = "libclamav")]
 pub mod clamav_ffi;
-pub mod driver_service;
 pub mod drivers;
 pub mod explorer;
 pub mod files;
 pub mod hardware;
 pub mod network;
-pub mod process_guard;
 pub mod processes;
 pub mod programs;
 pub mod services;
