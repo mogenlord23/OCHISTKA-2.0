@@ -442,6 +442,11 @@
             {#if importNote}
               <p class="note" role="status">{importNote}</p>
             {/if}
+            {#if serverCount > 0}
+              <p class="note saved" data-testid="subscription-saved">
+                Подписка сохранена, серверов: {serverCount}
+              </p>
+            {/if}
           </section>
 
           <section class="card connect">
