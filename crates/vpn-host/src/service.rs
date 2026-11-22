@@ -204,13 +204,49 @@ unsafe extern "system" fn service_main(argc: u32, argv: *mut PWSTR) {
     }
     report(handle, SERVICE_STOP_PENDING, 0, 0, 0);
     if let Ok(mut c) = child.lock() {
-        let _ = c.kill();
-        let _ = c.wait();
+        stop_core(&mut c);
     }
     let _ = std::fs::remove_file(&config_file);
     if core_exited {
         report(handle, SERVICE_STOPPED, 0, ERROR_SERVICE_SPECIFIC_ERROR, 3);
     } else {
         report(handle, SERVICE_STOPPED, 0, 0, 0);
+    }
+}
+
+/// Сначала просим ядро завершиться мягко (Ctrl+C для его консоли, до 5 секунд): так оно убирает
+/// адаптер туннеля, маршруты и адреса имён. Только потом принудительно.
+fn stop_core(child: &mut Child) {
+    if matches!(child.try_wait(), Ok(Some(_))) {
+        return;
+    }
+    if send_ctrl_c(child.id()) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn send_ctrl_c(pid: u32) -> bool {
+    use windows::Win32::System::Console::{
+        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
+    };
+    // SAFETY: вызовы Win32 без указателей на память; консоль службы восстанавливается ниже.
+    unsafe {
+        let _ = FreeConsole();
+        if AttachConsole(pid).is_err() {
+            return false;
+        }
+        let _ = SetConsoleCtrlHandler(None, true);
+        let sent = GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0).is_ok();
+        let _ = FreeConsole();
+        let _ = SetConsoleCtrlHandler(None, false);
+        sent
     }
 }

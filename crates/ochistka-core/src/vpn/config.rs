@@ -84,7 +84,7 @@ pub fn build_config(server: &Server, port: u16, rules: &RoutingRules, sites: &[S
 fn tunnel_inbounds(port: u16) -> Value {
     json!([
         {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": port},
-        {"type": "tun", "tag": "tun-in", "address": [TUN_ADDRESS, TUN_ADDRESS_V6], "mtu": TUN_MTU, "auto_route": true, "strict_route": true, "stack": "mixed"},
+        {"type": "tun", "tag": "tun-in", "interface_name": TUN_NAME, "address": [TUN_ADDRESS, TUN_ADDRESS_V6], "mtu": TUN_MTU, "auto_route": true, "strict_route": true, "stack": "mixed"},
     ])
 }
 
@@ -92,6 +92,8 @@ fn tunnel_inbounds(port: u16) -> Value {
 /// Размер пакета туннеля: с запасом под заголовки VPN, без дробления пакетов (стандартные 9000
 /// у адаптера дают потери и медленную загрузку при передаче через прокси-канал).
 pub const TUN_MTU: u32 = 1400;
+/// Имя адаптера туннеля: по нему приложение находит и снимает только свои остатки.
+pub const TUN_NAME: &str = "OCHISTKA-VPN";
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 /// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
 pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
@@ -221,7 +223,7 @@ mod tests {
           },
           "inbounds": [
             {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 20808},
-            {"type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 1400, "auto_route": true, "strict_route": true, "stack": "mixed"}
+            {"type": "tun", "tag": "tun-in", "interface_name": "OCHISTKA-VPN", "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 1400, "auto_route": true, "strict_route": true, "stack": "mixed"}
           ],
           "outbounds": [
             {"type": "trojan", "server": "tr.example.com", "server_port": 443, "password": "pw",

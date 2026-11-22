@@ -44,6 +44,33 @@ impl CoreProcess for StdCoreProcess {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+
+    /// Просит ядро завершиться (Ctrl+C для его консоли) и ждёт до `grace`: так ядро успевает убрать
+    /// адаптер туннеля и его настройки. Вне Windows мягкого завершения нет.
+    fn stop_gracefully(&mut self, grace: Duration) -> bool {
+        #[cfg(windows)]
+        {
+            if self.has_exited() {
+                return true;
+            }
+            if !crate::windows::win32_ffi::send_ctrl_c(self.child.id()) {
+                return false;
+            }
+            let deadline = Instant::now() + grace;
+            while Instant::now() < deadline {
+                if matches!(self.child.try_wait(), Ok(Some(_))) {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            false
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = grace;
+            false
+        }
+    }
 }
 
 impl StdCoreProcess {
@@ -172,6 +199,8 @@ pub struct SingBoxHost {
     tunnel: Option<Arc<crate::windows::vpn_service::TunnelService>>,
     /// Программа запущена с правами администратора (проба подменяется в тестах).
     elevated: Arc<dyn Fn() -> bool + Send + Sync>,
+    /// Поиск и снятие остатков нашего адаптера туннеля (Windows).
+    cleaner: Option<Arc<crate::windows::tunnel_cleanup::TunnelCleaner>>,
 }
 
 impl SingBoxHost {
@@ -181,6 +210,7 @@ impl SingBoxHost {
             install_dir: None,
             tunnel: None,
             elevated: Arc::new(is_elevated),
+            cleaner: None,
         }
     }
 
@@ -191,6 +221,14 @@ impl SingBoxHost {
 
     pub fn with_tunnel(mut self, tunnel: Arc<crate::windows::vpn_service::TunnelService>) -> Self {
         self.tunnel = Some(tunnel);
+        self
+    }
+
+    pub fn with_cleaner(
+        mut self,
+        cleaner: Arc<crate::windows::tunnel_cleanup::TunnelCleaner>,
+    ) -> Self {
+        self.cleaner = Some(cleaner);
         self
     }
 
@@ -254,6 +292,17 @@ impl VpnHost for SingBoxHost {
         match &self.tunnel {
             Some(tunnel) => tunnel.check_installed(),
             None => Err(crate::windows::vpn_service::REINSTALL.into()),
+        }
+    }
+
+    fn tunnel_leftovers(&self) -> bool {
+        self.cleaner.as_ref().is_some_and(|c| c.leftovers())
+    }
+
+    fn remove_tunnel_leftovers(&self) -> Result<bool, String> {
+        match &self.cleaner {
+            Some(cleaner) => cleaner.remove(),
+            None => Ok(false),
         }
     }
 
@@ -593,7 +642,13 @@ pub fn current_dialer() -> Box<dyn Dialer + Send> {
 pub fn current_vpn_host(core_dirs: Vec<PathBuf>) -> Box<dyn VpnHost> {
     let host = SingBoxHost::new(core_dirs).with_install_dir(vpn_engine_dir());
     #[cfg(windows)]
-    let host = host.with_tunnel(crate::windows::vpn_service::current_tunnel());
+    let host = host
+        .with_tunnel(crate::windows::vpn_service::current_tunnel())
+        .with_cleaner(Arc::new(
+            crate::windows::tunnel_cleanup::TunnelCleaner::new(Arc::new(
+                crate::windows::tunnel_cleanup::WindowsRunner,
+            )),
+        ));
     Box::new(host)
 }
 

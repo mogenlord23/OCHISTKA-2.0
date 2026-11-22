@@ -12,6 +12,7 @@ pub mod network;
 pub mod processes;
 pub mod programs;
 pub mod services;
+pub mod tunnel_cleanup;
 pub mod tweaks;
 pub mod vpn_service;
 #[cfg(windows)]
