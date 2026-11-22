@@ -422,7 +422,10 @@
                   aria-disabled={ui.disabled}
                   onclick={onConnect}
                 >
-                  <span class="power-knob" aria-hidden="true"></span>
+                  <svg class="power-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3v8" />
+                    <path d="M6.3 6.3a8 8 0 1 0 11.4 0" />
+                  </svg>
                 </button>
                 <div class="power-text">
                   {#if preparing !== null}
@@ -801,17 +804,24 @@
     margin-bottom: 8px;
   }
 
-  /* Большой переключатель в цвете раздела; ручка слева = выключено. */
+  /* Квадратная плитка с тем же скруглением и размером, что у боковой панели. Выключено — тёмная с
+     обводкой акцентом; включено — акцент. */
   .power {
     position: relative;
     flex-shrink: 0;
-    width: 104px;
-    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 88px;
+    height: 88px;
     min-height: 0;
     padding: 0;
-    border-radius: var(--radius-pill);
+    border: 0;
+    border-radius: var(--radius-md);
     background: #2a2a2a;
+    color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent);
+    cursor: pointer;
   }
 
   .power:disabled,
@@ -822,22 +832,16 @@
 
   .power.on {
     background: var(--accent);
+    color: #000;
   }
 
-  .power.on .power-knob {
-    left: auto;
-    right: 6px;
-  }
-
-  .power-knob {
-    position: absolute;
-    top: 5px;
-    left: 6px;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 0 0 2px #000;
+  .power-icon {
+    width: 40px;
+    height: 40px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
   }
 
   .power-text {
