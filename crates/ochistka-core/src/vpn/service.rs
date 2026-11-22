@@ -18,7 +18,7 @@ use super::latency::{measure, Dialer, PARALLEL, TIMEOUT};
 use super::mask::mask_secrets;
 use super::parse::{ImportReport, Server};
 use super::routes::{RouteMode, RoutingRules, PRESETS};
-use super::sysproxy::{Restored, SystemProxy};
+use super::sysproxy::{ProxyCheck, Restored, SystemProxy};
 use super::VpnError;
 use crate::desync::coordinator::{NetCoordinator, Owner};
 
@@ -157,6 +157,8 @@ struct Conn {
     message: String,
     verified: bool,
     process: Option<Box<dyn CoreProcess>>,
+    /// Порт локального входа, на который смотрит системный прокси (только «нужные сайты»).
+    proxy_port: Option<u16>,
 }
 
 impl Conn {
@@ -169,6 +171,7 @@ impl Conn {
             message: "Не подключено".into(),
             verified: false,
             process: None,
+            proxy_port: None,
         }
     }
 }
@@ -310,6 +313,12 @@ impl VpnService {
     pub fn status(&self) -> ConnectionStatus {
         let mut conn = lock(&self.conn);
         if conn.state == ConnState::Connected {
+            // Прокси сбросили (например, система): включаем обратно, пока наш адрес записан.
+            if let Some(port) = conn.proxy_port {
+                if matches!(self.proxy.check(port), Ok(ProxyCheck::Disabled)) {
+                    let _ = self.proxy.enable(port);
+                }
+            }
             let died = conn.process.as_mut().is_none_or(|p| p.has_exited());
             if died {
                 let tail = self.log_tail();
@@ -670,12 +679,14 @@ impl VpnService {
             ));
         }
         if uses_proxy {
-            if let Err(err) = self.proxy.enable(port) {
+            // «Подключено» только после того, как прокси записан и проверен чтением.
+            if let Err(err) = self.proxy.enable_checked(port) {
                 process.kill();
                 return Err(err);
             }
         }
         let verified = (0..3).any(|_| self.host.probe_via_proxy(port));
+        lock(&self.conn).proxy_port = uses_proxy.then_some(port);
         Ok((process, verified))
     }
 
@@ -1298,6 +1309,56 @@ mod tests {
         );
         s.disconnect();
         assert_eq!(s.coord.mode(), Some(Mode::Idle));
+    }
+
+    #[test]
+    fn needed_sites_write_and_check_the_system_proxy_before_showing_connected() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        assert_eq!(s.snapshot().rules.mode, RouteMode::ListOnly);
+        let status = s.connect().unwrap();
+        assert_eq!(status.state, ConnState::Connected);
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+        let Some(V::S(server)) = reg.get(INTERNET_KEY, "ProxyServer") else {
+            panic!("адрес прокси не записан");
+        };
+        assert!(server.starts_with("127.0.0.1:"), "{server}");
+        s.disconnect();
+        assert_ne!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+    }
+
+    #[test]
+    fn a_proxy_that_did_not_get_written_is_an_error_not_connected() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        reg.fail_internet_writes
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let err = s.connect().unwrap_err();
+        assert!(matches!(err, VpnError::Proxy(_)), "{err:?}");
+        assert_eq!(s.status().state, ConnState::Error);
+        assert!(flags.killed.load(Ordering::SeqCst), "ядро остановлено");
+    }
+
+    #[test]
+    fn a_proxy_reset_by_the_system_is_switched_back_on_while_connected() {
+        let dir = temp_dir();
+        let flags = Flags::default();
+        let (s, reg) = ready(&flags, &dir);
+        s.connect().unwrap();
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 0);
+        assert_eq!(s.status().state, ConnState::Connected);
+        assert_eq!(reg.get(INTERNET_KEY, "ProxyEnable"), Some(V::D(1)));
+        // Чужой адрес не перезаписываем.
+        reg.set_s(INTERNET_KEY, "ProxyServer", "other:3128");
+        reg.set_d(INTERNET_KEY, "ProxyEnable", 1);
+        s.status();
+        assert_eq!(
+            reg.get(INTERNET_KEY, "ProxyServer"),
+            Some(V::S("other:3128".into()))
+        );
+        s.disconnect();
     }
 
     #[test]

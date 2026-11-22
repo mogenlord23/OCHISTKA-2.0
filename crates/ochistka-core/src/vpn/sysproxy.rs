@@ -38,6 +38,17 @@ const VALUES: &[(&str, Kind)] = &[
     ("AutoConfigURL", Kind::Text),
 ];
 
+/// Состояние системного прокси относительно нашего адреса.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProxyCheck {
+    /// Включён на наш адрес.
+    Ours,
+    /// Наш адрес записан, но прокси выключен.
+    Disabled,
+    /// Адрес другой (или пустой): чужие настройки.
+    Foreign,
+}
+
 /// Что сделал откат системного прокси.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Restored {
@@ -128,6 +139,44 @@ impl SystemProxy {
         }
         self.refresh.refresh();
         Ok(())
+    }
+
+    /// Что сейчас в настройках: наши значения, выключено нами же сброшенное или чужое.
+    pub fn check(&self, port: u16) -> Result<ProxyCheck, VpnError> {
+        let ours = format!("127.0.0.1:{port}");
+        let enabled = matches!(
+            self.registry
+                .read_dword(INTERNET_KEY, "ProxyEnable")
+                .map_err(proxy_err)?,
+            Some(1)
+        );
+        let server = self
+            .registry
+            .read_string(INTERNET_KEY, "ProxyServer")
+            .map_err(proxy_err)?
+            .unwrap_or_default();
+        Ok(if enabled && server == ours {
+            ProxyCheck::Ours
+        } else if server == ours {
+            // Адрес наш, но выключено: сбросила система или другая программа — можно включить снова.
+            ProxyCheck::Disabled
+        } else {
+            ProxyCheck::Foreign
+        })
+    }
+
+    /// Включает прокси и сразу проверяет чтением, что значения действительно записаны.
+    pub fn enable_checked(&self, port: u16) -> Result<(), VpnError> {
+        self.enable(port)?;
+        match self.check(port)? {
+            ProxyCheck::Ours => Ok(()),
+            _ => {
+                let _ = self.restore();
+                Err(VpnError::Proxy(
+                    "значения не записались, проверьте, не мешает ли другая программа".into(),
+                ))
+            }
+        }
     }
 
     fn backup_value(&self, name: &str, kind: Kind) -> Result<(), VpnError> {
