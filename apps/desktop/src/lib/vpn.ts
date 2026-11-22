@@ -218,10 +218,10 @@ export function requestNetworkChange(): StubResult {
   return { ok: false, reason: NETWORK_CHANGE_REASON };
 }
 
-/** Текст импорта по итогам: сколько серверов найдено и, если часть записей пропущена, почему. */
-export function importMessage(count: number, skipped: number, issues: readonly string[]): string {
-  const base = `Импорт завершён: серверов ${count}.`;
+/** Заметка после импорта: пусто, если всё загружено; иначе сколько записей пропущено и почему.
+    Об успехе говорит строка подписи поля, отдельного сообщения нет. */
+export function importMessage(_count: number, skipped: number, issues: readonly string[]): string {
   return skipped > 0
-    ? `${base} Часть записей пропущена (${skipped}): ${issues.slice(0, 2).join('; ')}.`
-    : base;
+    ? `Часть записей пропущена (${skipped}): ${issues.slice(0, 2).join('; ')}.`
+    : '';
 }

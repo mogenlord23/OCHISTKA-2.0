@@ -175,7 +175,7 @@
     importNote = IMPORTING_LABEL;
     try {
       const summary = await vpnImport(prepared.input);
-      importNote = importMessage(summary.count, summary.skipped, summary.issues);
+      importNote = importMessage(summary.count, summary.skipped, summary.issues) || null;
       await refresh();
       measuredAt = 0;
       importTick += 1;
@@ -443,9 +443,7 @@
               <p class="note" role="status">{importNote}</p>
             {/if}
             {#if serverCount > 0}
-              <p class="note saved" data-testid="subscription-saved">
-                Подписка сохранена, серверов: {serverCount}
-              </p>
+              <p class="note saved" data-testid="subscription-saved">Подписка сохранена</p>
             {/if}
           </section>
 

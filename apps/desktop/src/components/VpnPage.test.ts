@@ -98,9 +98,7 @@ describe('VpnPage: сохранённая подписка', () => {
     await openLoaded();
     const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
     expect(input.value).toBe('');
-    expect(screen.getByTestId('subscription-saved').textContent?.trim()).toBe(
-      'Подписка сохранена, серверов: 2',
-    );
+    expect(screen.getByTestId('subscription-saved').textContent?.trim()).toBe('Подписка сохранена');
     expect(document.body.textContent).not.toMatch(/https?:\/\//);
   });
 
@@ -125,12 +123,12 @@ describe('VpnPage: сохранённая подписка', () => {
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     await screen.findByText('Серверы / 2');
-    expect(screen.getByTestId('subscription-saved').textContent).toContain('серверов: 2');
+    expect(screen.getByTestId('subscription-saved').textContent).toContain('Подписка сохранена');
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/new?t=2' },
     });
     await screen.findByText('Серверы / 3');
-    expect(screen.getByTestId('subscription-saved').textContent).toContain('серверов: 3');
+    expect(screen.getByTestId('subscription-saved').textContent).toContain('Подписка сохранена');
   });
 });
 
@@ -200,9 +198,7 @@ describe('VpnPage: подписка и импорт', () => {
       target: { value: 'https://sub.example.com/x?t=1' },
     });
     expect(
-      await screen.findByText(
-        'Импорт завершён: серверов 2. Часть записей пропущена (1): wireguard: не поддерживается.',
-      ),
+      await screen.findByText('Часть записей пропущена (1): wireguard: не поддерживается.'),
     ).toBeTruthy();
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'https://sub.example.com/x?t=1' });
     expect(await screen.findByText('Серверы / 2')).toBeTruthy();
@@ -222,7 +218,7 @@ describe('VpnPage: подписка и импорт', () => {
     // Список ссылок серверов (не https-подписка) импортируется по Enter.
     expect(calls('vpn_import')).toHaveLength(0);
     await fireEvent.keyDown(screen.getByLabelText('Ссылка подписки'), { key: 'Enter' });
-    await screen.findByText('Импорт завершён: серверов 2.');
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'vless://a@h:1#A\ntrojan://b@h:2#B' });
   });
 
@@ -257,7 +253,7 @@ describe('VpnPage: подписка и импорт', () => {
       true,
     );
     finish({ count: 1, skipped: 0, issues: [] });
-    await screen.findByText('Импорт завершён: серверов 1.');
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
   });
 
   it('imports a valid https link by itself once, and typing it letter by letter imports nothing', async () => {
@@ -275,7 +271,7 @@ describe('VpnPage: подписка и импорт', () => {
     // Вставка целиком: импорт один раз.
     await fireEvent.input(input, { target: { value: '' } });
     await fireEvent.input(input, { target: { value: 'https://sub.example.com/token' } });
-    await screen.findByText('Импорт завершён: серверов 1.');
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
     expect(calls('vpn_import')).toHaveLength(1);
   });
 
@@ -287,7 +283,7 @@ describe('VpnPage: подписка и импорт', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const file = new File(['trojan://p@h:443#Файл'], 'sub.txt', { type: 'text/plain' });
     await fireEvent.change(screen.getByLabelText('Файл подписки'), { target: { files: [file] } });
-    await screen.findByText('Импорт завершён: серверов 1.');
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
     expect(calls('vpn_import')[0]?.[1]).toEqual({ input: 'trojan://p@h:443#Файл' });
   });
 

@@ -238,10 +238,8 @@ describe('names and route entries', () => {
   });
 
   it('importMessage reports skipped records', () => {
-    expect(importMessage(3, 0, [])).toBe('Импорт завершён: серверов 3.');
-    expect(importMessage(3, 2, ['a', 'b'])).toBe(
-      'Импорт завершён: серверов 3. Часть записей пропущена (2): a; b.',
-    );
+    expect(importMessage(3, 0, [])).toBe('');
+    expect(importMessage(3, 2, ['a', 'b'])).toBe('Часть записей пропущена (2): a; b.');
   });
 });
 
