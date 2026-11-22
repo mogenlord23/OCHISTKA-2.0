@@ -31,23 +31,9 @@
     onSelect(item.id);
   }
 
-  /** Вкладки одной ширины, если так помещаются в строку; иначе каждая по своему тексту (без обрезания). */
-  function fit() {
-    if (!track || !row) return;
-    const all = tabs();
-    if (all.length === 0) return;
-    track.style.gridAutoColumns = 'max-content';
-    const widest = Math.max(...all.map((b) => Math.ceil(b.getBoundingClientRect().width)));
-    const room = row.clientWidth;
-    // Две вкладки разделяет зазор 2 px; рамка 1 px и поля 4 px с каждой стороны дают 10 px.
-    const total = widest * all.length + (all.length - 1) * 2 + 10;
-    track.style.gridAutoColumns = room > 0 && total <= room ? `${widest}px` : 'max-content';
-  }
-
   /** Ползунок ездит transform и шириной; при смене раздела встаёт на место без анимации. */
   function place(jump: boolean) {
     if (!indicator) return;
-    fit();
     const current = tabs().find((b) => b.getAttribute('aria-selected') === 'true');
     if (!current) return;
     if (jump) indicator.style.transition = 'none';
@@ -129,7 +115,10 @@
     position: relative;
     display: inline-grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-columns: max-content;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
     max-width: 100%;
     gap: 2px;
     padding: 4px;

@@ -2,6 +2,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import Subtabs from './Subtabs.svelte';
 import { SECTIONS } from '../lib/sections';
+import { DICTS, i18n } from '../lib/i18n.svelte';
+import source from './Subtabs.svelte?raw';
+import { tick } from 'svelte';
 
 class TestPointerEvent extends MouseEvent {
   pointerId: number;
@@ -15,7 +18,10 @@ beforeAll(() => {
   (globalThis as unknown as { PointerEvent: typeof TestPointerEvent }).PointerEvent =
     TestPointerEvent;
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  i18n.lang = 'ru';
+});
 
 const items = SECTIONS.find((s) => s.id === 'computer')!.subsections;
 
@@ -34,6 +40,34 @@ describe('Subtabs', () => {
     ]);
     expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1, -1]);
   });
+
+  it.each(['vpn', 'design', 'computer'] as const)(
+    'uses content-sized columns and bounded scrolling in both languages for %s',
+    async (section) => {
+      const sectionItems = SECTIONS.find((entry) => entry.id === section)!.subsections;
+      const { container } = render(Subtabs, {
+        items: sectionItems,
+        active: sectionItems[0].id,
+        onSelect: () => {},
+      });
+      const row = container.querySelector<HTMLElement>('.subtabs')!;
+      const list = screen.getByRole('tablist');
+      row.style.width = '200px';
+      for (const lang of ['ru', 'en'] as const) {
+        i18n.lang = lang;
+        await tick();
+        expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(
+          sectionItems.map((item) => DICTS[lang][item.titleKey]),
+        );
+        expect(list.style.gridAutoColumns).toBe('');
+        expect(source).toMatch(/grid-auto-columns:\s*max-content/);
+        expect(source).toMatch(/max-width:\s*100%/);
+        expect(source).toMatch(/overflow-x:\s*auto/);
+        expect(source).toMatch(/box-sizing:\s*border-box/);
+        expect(source).toMatch(/white-space:\s*nowrap/);
+      }
+    },
+  );
 
   it('click and keyboard activation select the tab', async () => {
     const onSelect = vi.fn();
