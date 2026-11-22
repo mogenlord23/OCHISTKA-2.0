@@ -18,8 +18,9 @@
   let {
     value = $bindable(''),
     label = 'Ссылка подписки',
+    ariaLabel = 'Ссылка подписки',
     onenter,
-  }: { value?: string; label?: string; onenter?: () => void } = $props();
+  }: { value?: string; label?: string; ariaLabel?: string; onenter?: () => void } = $props();
 
   /** Пауза между заменами: одна-две буквы раз в ~0,7 с. */
   const TICK_MS = 700;
@@ -96,7 +97,7 @@
   });
 </script>
 
-<FloatingField bind:value bind:focused {label} {onenter} hideText={showOverlay}>
+<FloatingField bind:value bind:focused {label} {ariaLabel} {onenter} hideText={showOverlay}>
   {#snippet overlay()}
     <span class="line" bind:this={line}
       ><span class="open">{parts.open}</span><span class="secret"

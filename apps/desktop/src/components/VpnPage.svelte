@@ -1,5 +1,6 @@
 <script lang="ts">
   import SecretField from './SecretField.svelte';
+  import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
   import BypassSitesPanel from './BypassSitesPanel.svelte';
@@ -7,7 +8,7 @@
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
-  import { onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
   import cheLime from '../assets/che-lime.png';
@@ -88,6 +89,10 @@
   let snapshot = $state<VpnSnapshot | null>(null);
   let urlInput = $state('');
   let importNote = $state<string | null>(null);
+  /** Подпись поля ссылки: меняется печатным эффектом после успешной вставки. */
+  let fieldLabel = $state(LABEL);
+  const labelEffect = createLabelTypewriter((text) => (fieldLabel = text));
+  onDestroy(() => labelEffect.reset());
   let importing = $state(false);
   let measuring = $state(false);
   /** Растёт после каждого успешного импорта: запускает новую первую проверку. */
@@ -176,6 +181,7 @@
     try {
       const summary = await vpnImport(prepared.input);
       importNote = importMessage(summary.count, summary.skipped, summary.issues) || null;
+      labelEffect.play();
       await refresh();
       measuredAt = 0;
       importTick += 1;
@@ -426,7 +432,7 @@
           <section class="card">
             <h2 class="sr-only">Ссылка подписки / импорта</h2>
             <div class="row">
-              <SecretField bind:value={urlInput} onenter={onImport} />
+              <SecretField bind:value={urlInput} label={fieldLabel} onenter={onImport} />
               <button type="button" disabled={importing} onclick={() => fileInput?.click()}
                 >Из файла…</button
               >
@@ -441,9 +447,6 @@
             </div>
             {#if importNote}
               <p class="note" role="status">{importNote}</p>
-            {/if}
-            {#if serverCount > 0}
-              <p class="note saved" data-testid="subscription-saved">Подписка сохранена</p>
             {/if}
           </section>
 

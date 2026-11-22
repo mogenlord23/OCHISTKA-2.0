@@ -93,42 +93,86 @@ async function openLoaded(snapshot = makeSnapshot({ servers: SERVERS, selected: 
   await screen.findByText(`Серверы / ${snapshot.servers.length}`);
 }
 
-describe('VpnPage: сохранённая подписка', () => {
-  it('shows the saved subscription line under an empty link field when servers are loaded at start', async () => {
-    await openLoaded();
-    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
-    expect(input.value).toBe('');
-    expect(screen.getByTestId('subscription-saved').textContent?.trim()).toBe('Подписка сохранена');
-    expect(document.body.textContent).not.toMatch(/https?:\/\//);
-  });
+describe('VpnPage: подпись поля ссылки с печатным эффектом', () => {
+  const labelText = () => document.querySelector('.field .lbl')?.textContent ?? '';
+  const paste = async (url: string) =>
+    fireEvent.input(screen.getByLabelText('Ссылка подписки'), { target: { value: url } });
 
-  it('shows no line and no servers when there is no saved subscription', async () => {
-    backend({ vpn_snapshot: () => makeSnapshot() });
-    render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 0');
-    expect((screen.getByLabelText('Ссылка подписки') as HTMLInputElement).value).toBe('');
-    expect(screen.queryByTestId('subscription-saved')).toBeNull();
-  });
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: false }));
+  afterEach(() => vi.useRealTimers());
 
-  it('a pasted link replaces the list and the line shows the new count', async () => {
-    let imported = false;
-    const three = [...SERVERS, { ...SERVERS[0], id: 's3', name: '🇩🇪 Германия', country: 'DE' }];
+  async function flush() {
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(0);
+  }
+
+  function importBackend() {
     backend({
-      vpn_snapshot: () =>
-        makeSnapshot({ servers: imported ? three : SERVERS, selected: imported ? 's3' : 's1' }),
-      vpn_import: () => {
-        imported = true;
-        return { count: 3, skipped: 0, issues: [] };
-      },
+      vpn_snapshot: () => makeSnapshot({ servers: SERVERS, selected: 's1' }),
+      vpn_import: () => ({ count: 2, skipped: 0, issues: [] }),
+    });
+  }
+
+  it('after a successful paste: erases the label, types «Подписка сохранена», holds 3 s, returns the label', async () => {
+    importBackend();
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await flush();
+    expect(labelText()).toBe('Ссылка подписки');
+    await paste('https://sub.example.com/x?t=1');
+    await flush();
+    expect(calls('vpn_import')).toHaveLength(1);
+    // Стирание по одному знаку.
+    await vi.advanceTimersByTimeAsync(35 * 3);
+    const erasing = labelText();
+    expect('Ссылка подписки'.startsWith(erasing)).toBe(true);
+    expect(erasing.length).toBeLessThan('Ссылка подписки'.length);
+    await vi.advanceTimersByTimeAsync(35 * 20);
+    // Печать.
+    await vi.advanceTimersByTimeAsync(45 * 5);
+    const typing = labelText();
+    expect('Подписка сохранена'.startsWith(typing)).toBe(true);
+    expect(typing.length).toBeGreaterThan(0);
+    await vi.advanceTimersByTimeAsync(45 * 20);
+    expect(labelText()).toBe('Подписка сохранена');
+    // Через 3 секунды обратно.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(labelText()).toBe('Подписка сохранена');
+    await vi.advanceTimersByTimeAsync(1500 + 35 * 20 + 45 * 20);
+    expect(labelText()).toBe('Ссылка подписки');
+    expect(document.body.textContent).not.toMatch(/[Ии]мпорт завершён/);
+  });
+
+  it('a new link repeats the same order', async () => {
+    importBackend();
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    await flush();
+    await paste('https://sub.example.com/one');
+    await flush();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(labelText()).toBe('Ссылка подписки');
+    await paste('');
+    await paste('https://sub.example.com/two');
+    await flush();
+    expect(calls('vpn_import')).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(35 * 30);
+    await vi.advanceTimersByTimeAsync(45 * 20);
+    expect(labelText()).toBe('Подписка сохранена');
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(labelText()).toBe('Ссылка подписки');
+  });
+
+  it('an error is plain text under the field, with no typing effect', async () => {
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      vpn_import: () => Promise.reject({ kind: 'fetch', message: 'Ссылка больше не действует' }),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
-    await screen.findByText('Серверы / 2');
-    expect(screen.getByTestId('subscription-saved').textContent).toContain('Подписка сохранена');
-    await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
-      target: { value: 'https://sub.example.com/new?t=2' },
-    });
-    await screen.findByText('Серверы / 3');
-    expect(screen.getByTestId('subscription-saved').textContent).toContain('Подписка сохранена');
+    await flush();
+    await paste('https://sub.example.com/gone');
+    await flush();
+    expect(screen.getByText('Ссылка больше не действует')).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(labelText()).toBe('Ссылка подписки');
   });
 });
 
