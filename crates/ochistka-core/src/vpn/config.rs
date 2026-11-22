@@ -97,6 +97,10 @@ fn tunnel_inbounds(port: u16) -> Value {
 pub const TUN_MTU: u32 = 1400;
 /// Имя адаптера туннеля: по нему приложение находит и снимает только свои остатки.
 pub const TUN_NAME: &str = "OCHISTKA-VPN";
+/// Сервер имён для прямых сайтов и приложений: обычный UDP-DNS напрямую (Яндекс, быстрый и даёт
+/// «российские» адреса).
+pub const DIRECT_DNS: &str = "direct-dns";
+pub const DIRECT_DNS_ADDRESS: &str = "77.88.8.8";
 pub const TUN_ADDRESS: &str = "172.19.0.1/30";
 /// Тот же адаптер для IPv6: без него IPv6-трафик пошёл бы мимо туннеля.
 pub const TUN_ADDRESS_V6: &str = "fdfe:dcba:9876::1/126";
@@ -147,19 +151,28 @@ fn tunnel_dns(server: &Server, rules: &RoutingRules, sites: &[String]) -> Value 
         list.extend(domain_rules(sites, "proxy"));
         (to_dns_rules(list, "remote"), "local")
     } else {
-        let mut direct: Vec<Value> = domain_rules(&rules.direct_domains, "direct");
+        // Прямые сайты и приложения резолвятся обычным DNS по UDP НАПРЯМУЮ мимо VPN (`direct-dns`).
+        // Системный резолвер (`local`) не годится: в туннеле у Windows в списке DNS стоит сам
+        // адаптер туннеля, запрос возвращался бы ядру и не получал ответа.
+        let mut direct: Vec<Value> = Vec::new();
+        if !rules.direct_apps.is_empty() {
+            direct.push(json!({"process_name": rules.direct_apps, "outbound": "direct"}));
+        }
+        direct.extend(domain_rules(&rules.direct_domains, "direct"));
         for id in &rules.presets {
             if let Some(list) = preset_suffixes(id) {
                 direct.push(json!({"domain_suffix": list, "outbound": "direct"}));
             }
         }
-        (to_dns_rules(direct, "local"), "remote")
+        (to_dns_rules(direct, DIRECT_DNS), "remote")
     };
     dns_rules.extend(via_vpn);
     json!({
         "servers": [
             {"type": "local", "tag": "local"},
             {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
+            // Без `detour`: запрос идёт прямым выходом через физический адаптер (auto_detect_interface).
+            {"type": "udp", "tag": DIRECT_DNS, "server": DIRECT_DNS_ADDRESS},
         ],
         "rules": dns_rules,
         "final": final_server,
@@ -221,7 +234,8 @@ mod tests {
           "dns": {
             "servers": [
               {"type": "local", "tag": "local"},
-              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"}
+              {"type": "https", "tag": "remote", "server": "1.1.1.1", "detour": "proxy"},
+              {"type": "udp", "tag": "direct-dns", "server": "77.88.8.8"}
             ],
             "rules": [
               {"domain": ["tr.example.com"], "server": "local"}
@@ -452,6 +466,67 @@ mod tests {
             );
             assert_eq!(cfg["dns"]["reverse_mapping"], true, "{mode:?}");
         }
+    }
+
+    #[test]
+    fn direct_sites_and_apps_resolve_by_direct_udp_dns_and_connect_directly() {
+        let mut r = rules(RouteMode::All);
+        r.presets = vec!["ru-direct".into()];
+        r.direct_domains = vec!["example.org".into()];
+        r.direct_apps = vec!["steam.exe".into()];
+        let r = r.sanitized().unwrap();
+        let cfg = build_config(&server(), 1, &r, &[]);
+        // Есть рабочий сервер имён без detour и без системного резолвера.
+        let servers = cfg["dns"]["servers"].as_array().unwrap();
+        let direct = servers.iter().find(|s| s["tag"] == "direct-dns").unwrap();
+        assert_eq!(direct["type"], "udp");
+        assert!(
+            direct.get("detour").is_none(),
+            "detour к direct ядро не принимает"
+        );
+        // DNS: приложение, домен исключения и суффиксы пресета → direct-dns.
+        let dns_rules = cfg["dns"]["rules"].as_array().unwrap();
+        let ru = dns_rules
+            .iter()
+            .find(|d| {
+                d["domain_suffix"]
+                    .as_array()
+                    .is_some_and(|l| l.iter().any(|x| x == "ru") && l.iter().any(|x| x == "ya.ru"))
+            })
+            .expect("DNS-правило для суффиксов пресета");
+        assert_eq!(ru["server"], "direct-dns");
+        assert!(dns_rules
+            .iter()
+            .any(|d| d["process_name"] == json!(["steam.exe"]) && d["server"] == "direct-dns"));
+        assert!(dns_rules
+            .iter()
+            .any(|d| d["domain_suffix"] == json!(["example.org"]) && d["server"] == "direct-dns"));
+        for d in dns_rules {
+            assert!(
+                servers.iter().any(|s| s["tag"] == d["server"]),
+                "у правила есть существующий сервер: {d}"
+            );
+        }
+        assert_eq!(cfg["dns"]["final"], "remote", "остальное через VPN");
+        // Маршрут: те же суффиксы и приложение напрямую, до итогового proxy.
+        let list = rules_of(&cfg);
+        let first_direct_app = list
+            .iter()
+            .position(|x| x["process_name"] == json!(["steam.exe"]) && x["outbound"] == "direct")
+            .expect("правило приложения → direct");
+        let preset = list
+            .iter()
+            .position(|x| {
+                x["outbound"] == "direct"
+                    && x["domain_suffix"]
+                        .as_array()
+                        .is_some_and(|l| l.iter().any(|d| d == "ya.ru"))
+            })
+            .expect("суффиксы пресета → direct");
+        // Порядок: sniff, DNS, адрес сервера, локальные адреса, затем приложения, затем домены.
+        assert!(first_direct_app >= 3 && first_direct_app < preset);
+        assert_eq!(cfg["route"]["final"], "proxy");
+        assert_eq!(cfg["route"]["find_process"], true);
     }
 
     #[test]

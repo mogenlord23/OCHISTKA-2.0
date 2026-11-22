@@ -24,6 +24,8 @@ fn main() {
         for (area, mode) in [("all", RouteMode::All), ("sites", RouteMode::ListOnly)] {
             let rules = RoutingRules {
                 direct_domains: vec!["example.org".into()],
+                presets: vec!["ru-direct".into()],
+                direct_apps: vec!["steam.exe".into()],
                 mode,
                 ..RoutingRules::default()
             }
