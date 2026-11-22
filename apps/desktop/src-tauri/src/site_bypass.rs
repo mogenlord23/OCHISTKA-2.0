@@ -9,6 +9,7 @@ use ochistka_core::site_bypass::{
     vpn_conflict_guard, SiteBypassService, SiteBypassState as State_, SiteBypassStatus,
 };
 use ochistka_core::vpn::service::ConnState;
+#[cfg(not(windows))]
 use proxy_bypass::BypassController;
 use serde::Serialize;
 use tauri::State;
@@ -37,16 +38,25 @@ fn to_dto(status: SiteBypassStatus) -> SiteBypassDto {
 /// Создаёт сервис, связывает его с VPN в обе стороны (через `Weak`) и возвращает прокси после аварии.
 pub fn build(vpn: &VpnState, coord: Arc<NetCoordinator>) -> SiteBypassState {
     let dir = ochistka_platform::desync::desync_data_dir();
-    let controller = Arc::new(BypassController::new(
-        ochistka_platform::sys_proxy::current_system_proxy(),
-        dir.join("proxy-backup.txt"),
-    ));
     let sites_dir = dir.clone();
-    let service = Arc::new(SiteBypassService::new(
-        controller,
+    let user_sites: ochistka_core::site_bypass::UserSitesLoader =
+        Box::new(move || UserSites::new(&sites_dir).load());
+    // Windows: служба обхода (права один раз при установке, без запросов). Остальные ОС: локальный
+    // прокси и системный прокси.
+    #[cfg(windows)]
+    let service = Arc::new(SiteBypassService::with_engine(
+        ochistka_platform::windows::bypass_service::current_engine(),
         coord,
-        Box::new(move || UserSites::new(&sites_dir).load()),
+        user_sites,
     ));
+    #[cfg(not(windows))]
+    let service = {
+        let controller = Arc::new(BypassController::new(
+            ochistka_platform::sys_proxy::current_system_proxy(),
+            dir.join("proxy-backup.txt"),
+        ));
+        Arc::new(SiteBypassService::new(controller, coord, user_sites))
+    };
     // VPN → включает VPN: сначала выключается обход, иначе VPN не включается.
     vpn.0
         .set_conflict_guard(vpn_conflict_guard(Arc::downgrade(&service)));

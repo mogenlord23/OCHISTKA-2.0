@@ -2,6 +2,7 @@
 //! обмена с диспетчером служб), поэтому эта небольшая оболочка делает это за него: по запуску службы
 //! стартует `ochistkadpi.exe run --profile youtube-discord`, по остановке завершает его и, если
 //! драйвер WinDivert не работал до запуска, останавливает и его.
+#![cfg_attr(not(windows), allow(dead_code))]
 
 mod logic;
 #[cfg(windows)]

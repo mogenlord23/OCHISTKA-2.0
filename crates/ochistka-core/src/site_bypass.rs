@@ -32,8 +32,64 @@ pub type VpnStopper = Box<dyn Fn() -> Result<(), String> + Send + Sync>;
 /// Список сайтов пользователя (из панели «Сайты»).
 pub type UserSitesLoader = Box<dyn Fn() -> Vec<String> + Send + Sync>;
 
+/// Ошибка движка обхода. Текст — одна причина для человека (после «Ошибка: »).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EngineError {
+    /// Не удалось включить: ничего не осталось включённым.
+    Failed(String),
+    /// Не удалось выключить или вернуть настройки: состояние не очищено, повтор попробует снова.
+    Unclean(String),
+}
+
+/// Что включает кнопка: локальный прокси (`proxy-bypass`) или служба Windows (`platform`).
+pub trait BypassEngine: Send + Sync {
+    /// Обход сейчас работает (читается состояние, а не запоминается).
+    fn is_on(&self) -> bool;
+    fn enable(&self, user_sites: &[String]) -> Result<(), EngineError>;
+    fn disable(&self) -> Result<(), EngineError>;
+    /// При запуске программы: убрать последствия прошлого аварийного завершения.
+    fn recover(&self) -> Result<(), EngineError>;
+    /// Текст, если обход остановился сам после включения.
+    fn stopped_notice(&self) -> Option<String>;
+    /// Остались ли следы, которые надо убрать при выходе, даже если обход выключен.
+    fn has_leftovers(&self) -> bool;
+}
+
+/// Локальный прокси + системный прокси.
+pub struct ProxyEngine(pub Arc<BypassController>);
+
+fn proxy_error(err: BypassError) -> EngineError {
+    match err {
+        BypassError::Restore(_) => EngineError::Unclean(RESTORE_FAILED.into()),
+        other => EngineError::Failed(other.to_string()),
+    }
+}
+
+impl BypassEngine for ProxyEngine {
+    fn is_on(&self) -> bool {
+        self.0.is_on()
+    }
+    fn enable(&self, user_sites: &[String]) -> Result<(), EngineError> {
+        self.0
+            .enable(SiteList::builtin_with(user_sites))
+            .map_err(proxy_error)
+    }
+    fn disable(&self) -> Result<(), EngineError> {
+        self.0.disable().map_err(proxy_error)
+    }
+    fn recover(&self) -> Result<(), EngineError> {
+        self.0.recover().map_err(proxy_error)
+    }
+    fn stopped_notice(&self) -> Option<String> {
+        self.0.stopped_notice().map(str::to_string)
+    }
+    fn has_leftovers(&self) -> bool {
+        self.0.has_backup_file()
+    }
+}
+
 pub struct SiteBypassService {
-    controller: Arc<BypassController>,
+    controller: Arc<dyn BypassEngine>,
     coord: Arc<NetCoordinator>,
     user_sites: UserSitesLoader,
     vpn_stopper: Mutex<Option<VpnStopper>>,
@@ -58,6 +114,14 @@ impl SiteBypassService {
         coord: Arc<NetCoordinator>,
         user_sites: UserSitesLoader,
     ) -> Self {
+        Self::with_engine(Arc::new(ProxyEngine(controller)), coord, user_sites)
+    }
+
+    pub fn with_engine(
+        controller: Arc<dyn BypassEngine>,
+        coord: Arc<NetCoordinator>,
+        user_sites: UserSitesLoader,
+    ) -> Self {
         Self {
             controller,
             coord,
@@ -76,8 +140,17 @@ impl SiteBypassService {
     }
 
     pub fn status(&self) -> SiteBypassStatus {
-        self.sync_death()
-            .unwrap_or_else(|| lock(&self.status).clone())
+        if let Some(dead) = self.sync_death() {
+            return dead;
+        }
+        // Обход уже работает (например, служба запущена до открытия программы): показываем это.
+        if self.controller.is_on() && lock(&self.status).state != SiteBypassState::On {
+            return self.set(SiteBypassStatus {
+                state: SiteBypassState::On,
+                message: TEXT_ON.into(),
+            });
+        }
+        lock(&self.status).clone()
     }
 
     /// Если прокси погиб после включения (настройки уже возвращены самим прокси), освобождает общее
@@ -87,7 +160,7 @@ impl SiteBypassService {
         self.coord.release(Owner::Desync);
         Some(self.set(SiteBypassStatus {
             state: SiteBypassState::Error,
-            message: notice.into(),
+            message: notice,
         }))
     }
 
@@ -120,8 +193,8 @@ impl SiteBypassService {
         if let Err(denied) = self.coord.begin(Owner::Desync) {
             return self.set(error_status(&denied.to_string()));
         }
-        let list = SiteList::builtin_with(&(self.user_sites)());
-        match self.controller.enable(list) {
+        let sites = (self.user_sites)();
+        match self.controller.enable(&sites) {
             Ok(()) => {
                 self.coord.activate(Owner::Desync);
                 self.set(SiteBypassStatus {
@@ -129,12 +202,13 @@ impl SiteBypassService {
                     message: TEXT_ON.into(),
                 })
             }
-            Err(err) => {
-                match err {
-                    BypassError::Restore(_) => self.coord.mark_unclean(Owner::Desync),
-                    _ => self.coord.release(Owner::Desync),
-                }
-                self.set(error_status(&err.to_string()))
+            Err(EngineError::Unclean(reason)) => {
+                self.coord.mark_unclean(Owner::Desync);
+                self.set(error_status(&reason))
+            }
+            Err(EngineError::Failed(reason)) => {
+                self.coord.release(Owner::Desync);
+                self.set(error_status(&reason))
             }
         }
     }
@@ -158,9 +232,9 @@ impl SiteBypassService {
                     message: TEXT_OFF.into(),
                 })
             }
-            Err(_) => {
+            Err(EngineError::Unclean(reason) | EngineError::Failed(reason)) => {
                 self.coord.mark_unclean(Owner::Desync);
-                self.set(error_status(RESTORE_FAILED))
+                self.set(error_status(&reason))
             }
         }
     }
@@ -169,16 +243,16 @@ impl SiteBypassService {
     pub fn recover_on_start(&self) -> SiteBypassStatus {
         match self.controller.recover() {
             Ok(()) => self.status(),
-            Err(_) => {
+            Err(EngineError::Unclean(reason) | EngineError::Failed(reason)) => {
                 self.coord.mark_unclean(Owner::Desync);
-                self.set(error_status(RESTORE_FAILED))
+                self.set(error_status(&reason))
             }
         }
     }
 
     /// При выходе из программы: выключить обход и вернуть системный прокси.
     pub fn shutdown(&self) -> SiteBypassStatus {
-        if self.controller.is_on() || self.controller.has_backup_file() {
+        if self.controller.is_on() || self.controller.has_leftovers() {
             let _op = lock(&self.op);
             return self.stop_locked();
         }

@@ -107,7 +107,9 @@ unsafe extern "system" fn service_main(_argc: u32, _argv: *mut PWSTR) {
     };
     report(handle, SERVICE_START_PENDING.0, 0, 0, 0);
 
-    let engine = std::env::current_exe().ok().and_then(|exe| engine_path(&exe));
+    let engine = std::env::current_exe()
+        .ok()
+        .and_then(|exe| engine_path(&exe));
     let Some(engine) = engine.filter(|p| p.is_file()) else {
         report(handle, SERVICE_STOPPED.0, 0, ERROR_FILE_NOT_FOUND, 0);
         return;
@@ -127,7 +129,13 @@ unsafe extern "system" fn service_main(_argc: u32, _argv: *mut PWSTR) {
     let child: Child = match command.spawn() {
         Ok(c) => c,
         Err(_) => {
-            report(handle, SERVICE_STOPPED.0, 0, ERROR_SERVICE_SPECIFIC_ERROR, 1);
+            report(
+                handle,
+                SERVICE_STOPPED.0,
+                0,
+                ERROR_SERVICE_SPECIFIC_ERROR,
+                1,
+            );
             return;
         }
     };
@@ -176,7 +184,13 @@ unsafe extern "system" fn service_main(_argc: u32, _argv: *mut PWSTR) {
         }
     }
     if engine_exited {
-        report(handle, SERVICE_STOPPED.0, 0, ERROR_SERVICE_SPECIFIC_ERROR, 2);
+        report(
+            handle,
+            SERVICE_STOPPED.0,
+            0,
+            ERROR_SERVICE_SPECIFIC_ERROR,
+            2,
+        );
     } else {
         report(handle, SERVICE_STOPPED.0, 0, 0, 0);
     }

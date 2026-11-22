@@ -87,9 +87,9 @@ describe('BypassSitesPanel', () => {
     expect(await screen.findByText('example.com')).toBeTruthy();
   });
 
-  it('says in one line what the sites are for', () => {
+  it('says in one line that the list is not applied yet', () => {
     render(BypassSitesPanel, { props: { open: true, onclose: () => {} } });
-    expect(screen.getByText('Сайты, которые открываются через обход')).toBeTruthy();
+    expect(screen.getByText('Список пока не применяется')).toBeTruthy();
   });
 
   it('uses plain words only', () => {
