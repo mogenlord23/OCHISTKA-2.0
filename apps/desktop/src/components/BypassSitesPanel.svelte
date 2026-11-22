@@ -64,7 +64,7 @@
         <span class="title">Мои сайты</span>
         <button type="button" class="icon-btn" aria-label="Закрыть" onclick={onclose}>✕</button>
       </div>
-      <p class="note">Список пока не применяется</p>
+      <p class="note">Эти сайты открываются через VPN</p>
       <textarea
         bind:value={draft}
         rows="3"

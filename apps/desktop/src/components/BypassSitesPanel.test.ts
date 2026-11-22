@@ -89,7 +89,7 @@ describe('BypassSitesPanel', () => {
 
   it('says in one line that the list is not applied yet', () => {
     render(BypassSitesPanel, { props: { open: true, onclose: () => {} } });
-    expect(screen.getByText('Список пока не применяется')).toBeTruthy();
+    expect(screen.getByText('Эти сайты открываются через VPN')).toBeTruthy();
   });
 
   it('uses plain words only', () => {
