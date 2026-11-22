@@ -23,7 +23,19 @@ export interface LabelTypewriter {
   reset(): void;
 }
 
-export function createLabelTypewriter(set: (text: string) => void): LabelTypewriter {
+/** Включена системная настройка «уменьшить движение». */
+export function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+export function createLabelTypewriter(
+  set: (text: string) => void,
+  reduced: () => boolean = prefersReducedMotion,
+): LabelTypewriter {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let run = 0;
 
@@ -63,6 +75,14 @@ export function createLabelTypewriter(set: (text: string) => void): LabelTypewri
     play() {
       cancel();
       const token = run;
+      if (reduced()) {
+        // «Уменьшить движение»: текст меняется сразу, без стирания и печати по знаку.
+        set(SAVED);
+        timer = setTimeout(() => {
+          if (token === run) set(LABEL);
+        }, HOLD_MS);
+        return;
+      }
       replace(LABEL, SAVED, token, () => {
         timer = setTimeout(() => {
           if (token !== run) return;

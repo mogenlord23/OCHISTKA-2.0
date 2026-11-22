@@ -50,6 +50,19 @@ describe('createLabelTypewriter', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('with reduced motion the text changes at once, without per-letter steps', () => {
+    const seen: string[] = [];
+    const tw = createLabelTypewriter(
+      (t) => seen.push(t),
+      () => true,
+    );
+    tw.play();
+    expect(seen).toEqual([SAVED]);
+    vi.advanceTimersByTime(HOLD_MS + 1);
+    expect(seen).toEqual([SAVED, LABEL]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('reset stops everything and shows the plain label', () => {
     const { seen, tw } = setup();
     tw.play();

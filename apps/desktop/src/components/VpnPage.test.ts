@@ -187,6 +187,32 @@ describe('VpnPage: подпись поля ссылки с печатным эф
     expect(labelText()).toBe('Ссылка подписки');
   });
 
+  it('with «reduce motion» the label changes at once after a paste', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('reduce'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      onchange: null,
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      importBackend();
+      render(VpnPage, { props: { subsection: 'vpn' } });
+      await flush();
+      await paste('https://sub.example.com/x?t=1');
+      await flush();
+      expect(labelText()).toBe('Подписка сохранена');
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(labelText()).toBe('Ссылка подписки');
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('an error is plain text under the field, with no typing effect', async () => {
     backend({
       vpn_snapshot: () => makeSnapshot(),
