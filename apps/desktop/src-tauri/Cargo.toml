@@ -12,8 +12,10 @@ name = "ochistka-desktop"
 path = "src/main.rs"
 
 [features]
-default = []
 # Настоящий движок ClamAV из официальной сборки (tools/clamav-win/fetch.ps1). См. ADR 0004.
+# Включён по умолчанию: build.rs подключает его, только если сборка скачана, иначе остаётся
+# честная заглушка «движок не собран» без ошибки линковки.
+default = ["libclamav"]
 libclamav = ["ochistka-platform/libclamav"]
 
 [dependencies]

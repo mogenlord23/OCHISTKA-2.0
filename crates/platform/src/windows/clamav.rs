@@ -1,13 +1,15 @@
 //! Движок ClamAV (libclamav, встроенный в приложение по ADR 0004). Снаружи — только `VirusScanPort`.
-//! Без фичи `libclamav` движка нет: порт отвечает причиной «движок не собран», приложение не падает.
+//! Сборка линкует движок, когда рядом лежит официальная сборка ClamAV
+//! (`tools/clamav-win/fetch.ps1`) и включена фича `libclamav`; тогда build.rs выставляет
+//! `clamav_linked`. Без неё порт отвечает причиной «движок не собран», приложение не падает.
 
 use ochistka_core::scan::{check_signatures_dir, EngineStatus, FileVerdict, VirusScanPort};
 use ochistka_core::system::CoreError;
 
-#[cfg(feature = "libclamav")]
+#[cfg(clamav_linked)]
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-#[cfg(feature = "libclamav")]
+#[cfg(clamav_linked)]
 use super::clamav_ffi::Engine;
 
 /// Причина для интерфейса, пока libclamav не собран (статус: docs/status/clamav-build.md).
@@ -15,12 +17,12 @@ pub const NOT_BUILT_REASON: &str =
     "движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md";
 
 /// Причина, пока собран движок, но сигнатуры не загружены.
-#[cfg(feature = "libclamav")]
+#[cfg(clamav_linked)]
 const NO_SIGNATURES_REASON: &str = "базы проверки не загружены: движок ещё не получил базу";
 
 /// Встроен ли движок в эту сборку.
 pub const fn engine_present() -> bool {
-    cfg!(feature = "libclamav")
+    cfg!(clamav_linked)
 }
 
 /// Папка баз по умолчанию: `%LOCALAPPDATA%\OCHISTKA\clamdb`. Её наполняет владелец.
@@ -55,16 +57,16 @@ pub fn signatures_files(dir: &std::path::Path) -> u32 {
 
 pub struct ClamAvEngine {
     reason: String,
-    #[cfg(feature = "libclamav")]
+    #[cfg(clamav_linked)]
     native: Mutex<Option<Engine>>,
-    #[cfg(feature = "libclamav")]
+    #[cfg(clamav_linked)]
     signatures: Mutex<Option<u32>>,
 }
 
 impl ClamAvEngine {
     /// Движок для текущей сборки: с фичей — без сигнатур до загрузки, без фичи — заглушка.
     pub fn build() -> Self {
-        #[cfg(feature = "libclamav")]
+        #[cfg(clamav_linked)]
         {
             Self {
                 reason: NO_SIGNATURES_REASON.to_string(),
@@ -72,7 +74,7 @@ impl ClamAvEngine {
                 signatures: Mutex::new(None),
             }
         }
-        #[cfg(not(feature = "libclamav"))]
+        #[cfg(not(clamav_linked))]
         {
             Self::not_built()
         }
@@ -82,14 +84,14 @@ impl ClamAvEngine {
     pub fn not_built() -> Self {
         Self {
             reason: NOT_BUILT_REASON.to_string(),
-            #[cfg(feature = "libclamav")]
+            #[cfg(clamav_linked)]
             native: Mutex::new(None),
-            #[cfg(feature = "libclamav")]
+            #[cfg(clamav_linked)]
             signatures: Mutex::new(None),
         }
     }
 
-    #[cfg(feature = "libclamav")]
+    #[cfg(clamav_linked)]
     fn lock_native(&self) -> MutexGuard<'_, Option<Engine>> {
         self.native.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -97,9 +99,9 @@ impl ClamAvEngine {
 
 impl VirusScanPort for ClamAvEngine {
     fn engine_status(&self) -> EngineStatus {
-        #[cfg(feature = "libclamav")]
+        #[cfg(clamav_linked)]
         let loaded = self.lock_native().is_some();
-        #[cfg(not(feature = "libclamav"))]
+        #[cfg(not(clamav_linked))]
         let loaded = false;
         EngineStatus {
             available: loaded,
@@ -112,7 +114,7 @@ impl VirusScanPort for ClamAvEngine {
     }
 
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {
-        #[cfg(feature = "libclamav")]
+        #[cfg(clamav_linked)]
         {
             let guard = self.lock_native();
             let engine = guard
@@ -122,14 +124,14 @@ impl VirusScanPort for ClamAvEngine {
                 .scan(path)
                 .map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
         }
-        #[cfg(not(feature = "libclamav"))]
+        #[cfg(not(clamav_linked))]
         {
             let _ = path;
             Err(CoreError::EngineMissing(self.reason.clone()))
         }
     }
 
-    #[cfg(all(feature = "libclamav", target_os = "linux"))]
+    #[cfg(all(clamav_linked, target_os = "linux"))]
     fn scan_file_with_identity(
         &self,
         path: &str,
@@ -152,7 +154,7 @@ impl VirusScanPort for ClamAvEngine {
     fn load_signatures(&self, dir: &str) -> Result<(), CoreError> {
         // Сначала папка: отсутствие сигнатур — отдельная понятная причина, не «движок не собран».
         check_signatures_dir(&crate::windows_cleanup::WindowsFs, dir)?;
-        #[cfg(feature = "libclamav")]
+        #[cfg(clamav_linked)]
         {
             let (engine, signatures) = Engine::load(dir)
                 .map_err(|err| CoreError::Probe(format!("базы не загружены: {err}")))?;
@@ -163,21 +165,21 @@ impl VirusScanPort for ClamAvEngine {
                 .unwrap_or_else(PoisonError::into_inner) = Some(signatures);
             Ok(())
         }
-        #[cfg(not(feature = "libclamav"))]
+        #[cfg(not(clamav_linked))]
         {
             Err(CoreError::EngineMissing(NOT_BUILT_REASON.to_string()))
         }
     }
 
     fn signature_count(&self) -> Option<u32> {
-        #[cfg(feature = "libclamav")]
+        #[cfg(clamav_linked)]
         {
             *self
                 .signatures
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
         }
-        #[cfg(not(feature = "libclamav"))]
+        #[cfg(not(clamav_linked))]
         {
             None
         }
@@ -224,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "libclamav"))]
+    #[cfg(not(clamav_linked))]
     fn signatures_folder_present_but_not_built_reports_not_built() {
         let root = temp_root("present");
         let signatures = root.join("signatures");
@@ -244,7 +246,7 @@ mod tests {
         assert_eq!(signatures_files(&dir), 0, "свежая папка пуста или её нет");
     }
 
-    #[cfg(feature = "libclamav")]
+    #[cfg(clamav_linked)]
     #[test]
     fn built_engine_starts_without_signatures_and_says_so() {
         assert!(engine_present());
@@ -255,7 +257,7 @@ mod tests {
 
     /// Настоящий движок: тестовая база вместо официальной (её нет в сети).
     /// Вместо EICAR — собственный безвредный образец: Defender удаляет EICAR-файл на этой машине.
-    #[cfg(all(feature = "libclamav", windows))]
+    #[cfg(all(clamav_linked, windows))]
     mod native {
         use super::*;
 

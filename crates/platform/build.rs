@@ -1,9 +1,10 @@
 //! Сборка Windows-адаптеров.
 //!
 //! Когда рядом с репозиторием лежит официальная сборка ClamAV (`tools/clamav-win`, её кладёт
-//! `tools/clamav-win/fetch.ps1`) и включена фича `libclamav`, добавляем путь к `clamav.lib` и
-//! копируем `libclamav.dll` с её DLL-зависимостями рядом с исполняемым файлом. Без этой папки
-//! сборка не меняется: движок просто не входит в неё.
+//! `tools/clamav-win/fetch.ps1`) и включена фича `libclamav`, добавляем путь к `clamav.lib`,
+//! копируем `libclamav.dll` с её DLL-зависимостями рядом с исполняемым файлом и включаем
+//! `clamav_linked`. Без этой папки сборка не меняется: движок просто не входит в неё, а код
+//! отвечает причиной «движок не собран» вместо ошибки линковки.
 
 use std::env;
 use std::fs;
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rustc-check-cfg=cfg(clamav_linked)");
 
     if env::var_os("CARGO_FEATURE_LIBCLAMAV").is_none() {
         return;
@@ -39,6 +41,7 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         root.join("lib").display()
     );
+    println!("cargo:rustc-cfg=clamav_linked");
 
     // Окружение линковки и загрузки DLL: рядом с exe и в deps (там живут тестовые бинарники).
     // Каталог профиля (target/debug или target/release) — это родитель каталога `build`,
