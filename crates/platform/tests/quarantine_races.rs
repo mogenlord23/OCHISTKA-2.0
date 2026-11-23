@@ -183,3 +183,86 @@ fn hard_link_collision_preserves_source_and_existing_destination() {
     assert_eq!(fs::read(&source).unwrap(), b"checked");
     assert_eq!(fs::read(&destination).unwrap(), b"existing");
 }
+
+#[test]
+fn private_user_directory_does_not_exclude_another_same_user_process() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Command;
+
+    let tmp = Temp::new();
+    let private = tmp.0.join("private");
+    fs::create_dir(&private).unwrap();
+    fs::set_permissions(&private, fs::Permissions::from_mode(0o700)).unwrap();
+    let source = private.join("source");
+    let original = private.join("original");
+    fs::write(&source, b"checked").unwrap();
+    let identity = identify(&open_regular_no_links(&source).unwrap()).unwrap();
+    let held = open_verified_source(&source, &identity).unwrap();
+    let (start, proceed) = sync_channel::<()>(0);
+    let (finished, done) = sync_channel::<bool>(0);
+    thread::scope(|scope| {
+        let dir = &private;
+        scope.spawn(move || {
+            proceed.recv().unwrap();
+            let status = Command::new("sh")
+                .arg("-c")
+                .arg("mv -- \"$1/source\" \"$1/original\" && printf replacement > \"$1/source\"")
+                .arg("ochistka-test")
+                .arg(dir)
+                .status()
+                .unwrap();
+            finished.send(status.success()).unwrap();
+        });
+        start.send(()).unwrap();
+        assert!(done.recv().unwrap());
+    });
+    assert_ne!(
+        identity,
+        identify(&open_regular_no_links(&source).unwrap()).unwrap()
+    );
+    assert_eq!(identify(&held).unwrap(), identity);
+    assert_eq!(fs::read(&source).unwrap(), b"replacement");
+    assert_eq!(fs::read(&original).unwrap(), b"checked");
+}
+
+#[test]
+fn file_mode_change_does_not_revoke_an_existing_write_descriptor() {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = Temp::new();
+    let source = tmp.0.join("source");
+    fs::write(&source, b"checked").unwrap();
+    let mut writer = fs::OpenOptions::new().write(true).open(&source).unwrap();
+    fs::set_permissions(&source, fs::Permissions::from_mode(0o400)).unwrap();
+    let (start, proceed) = sync_channel::<()>(0);
+    let (finished, done) = sync_channel::<()>(0);
+    thread::scope(|scope| {
+        scope.spawn(move || {
+            proceed.recv().unwrap();
+            writer.write_all(b"changed").unwrap();
+            finished.send(()).unwrap();
+        });
+        start.send(()).unwrap();
+        done.recv().unwrap();
+    });
+    assert_eq!(fs::read(&source).unwrap(), b"changed");
+}
+
+#[test]
+fn directory_owner_can_restore_write_permission_after_restriction() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Command;
+
+    let tmp = Temp::new();
+    let dir = tmp.0.join("restricted");
+    fs::create_dir(&dir).unwrap();
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o500)).unwrap();
+    let status = Command::new("chmod").arg("700").arg(&dir).status().unwrap();
+    assert!(status.success());
+    assert_eq!(
+        fs::metadata(&dir).unwrap().permissions().mode() & 0o700,
+        0o700
+    );
+    fs::write(dir.join("new"), b"data").unwrap();
+}
