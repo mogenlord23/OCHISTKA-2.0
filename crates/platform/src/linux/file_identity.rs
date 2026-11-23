@@ -107,6 +107,18 @@ pub fn identify(mut file: &File) -> Result<FileIdentity, CleanupError> {
     })
 }
 
+/// Только проверка: не изменяет источник и не разрешает последующее перемещение по имени.
+/// Возвращённый дескриптор удерживает именно проверенный объект открытым.
+pub fn open_verified_source(path: &Path, expected: &FileIdentity) -> Result<File, CleanupError> {
+    let file = open_regular_no_links(path)?;
+    if identify(&file)? != *expected {
+        return Err(CleanupError::Refused(
+            "файл отличается от проверенной находки; перенос не выполнен".into(),
+        ));
+    }
+    Ok(file)
+}
+
 /// Сканирует открытый объект между двумя проверками его содержимого.
 pub fn scan_open_file(
     file: &File,
@@ -232,5 +244,81 @@ mod tests {
                 identify(&open_regular_no_links(&path).unwrap()).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn verified_source_refuses_replacement_and_preserves_both_files() {
+        let tmp = Temp::new();
+        let path = tmp.0.join("file");
+        let old = tmp.0.join("old");
+        let manifest = tmp.0.join("manifest.json");
+        let destination = tmp.0.join("destination");
+        std::fs::write(&manifest, b"manifest").unwrap();
+        std::fs::write(&destination, b"existing").unwrap();
+        std::fs::write(&path, b"same").unwrap();
+        let identity = identify(&open_regular_no_links(&path).unwrap()).unwrap();
+        assert!(open_verified_source(&path, &identity).is_ok());
+        std::fs::rename(&path, &old).unwrap();
+        std::fs::write(&path, b"same").unwrap();
+        assert!(matches!(
+            open_verified_source(&path, &identity),
+            Err(CleanupError::Refused(_))
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), b"same");
+        assert_eq!(std::fs::read(&old).unwrap(), b"same");
+        assert_eq!(std::fs::read(&manifest).unwrap(), b"manifest");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"existing");
+    }
+
+    #[test]
+    fn verified_source_refuses_changed_content_and_each_identity_mismatch() {
+        let tmp = Temp::new();
+        let path = tmp.0.join("file");
+        std::fs::write(&path, b"first").unwrap();
+        let identity = identify(&open_regular_no_links(&path).unwrap()).unwrap();
+        let mut variants = Vec::new();
+        let mut other = identity.clone();
+        other.platform = "other".into();
+        variants.push(other);
+        let mut other = identity.clone();
+        other.volume.push('0');
+        variants.push(other);
+        let mut other = identity.clone();
+        other.file_id.push('0');
+        variants.push(other);
+        let mut other = identity.clone();
+        other.size += 1;
+        variants.push(other);
+        let mut other = identity.clone();
+        other.sha256.push('0');
+        variants.push(other);
+        for other in variants {
+            assert!(matches!(
+                open_verified_source(&path, &other),
+                Err(CleanupError::Refused(_))
+            ));
+            assert_eq!(std::fs::read(&path).unwrap(), b"first");
+        }
+        std::fs::write(&path, b"other").unwrap();
+        assert!(matches!(
+            open_verified_source(&path, &identity),
+            Err(CleanupError::Refused(_))
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), b"other");
+    }
+
+    #[test]
+    fn verified_source_refuses_links_without_touching_their_targets() {
+        let tmp = Temp::new();
+        let dir = tmp.0.join("dir");
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("file");
+        std::fs::write(&path, b"data").unwrap();
+        let identity = identify(&open_regular_no_links(&path).unwrap()).unwrap();
+        symlink(&path, tmp.0.join("link")).unwrap();
+        symlink(&dir, tmp.0.join("parent")).unwrap();
+        assert!(open_verified_source(&tmp.0.join("link"), &identity).is_err());
+        assert!(open_verified_source(&tmp.0.join("parent/file"), &identity).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"data");
     }
 }

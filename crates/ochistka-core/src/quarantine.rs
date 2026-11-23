@@ -22,6 +22,39 @@ pub struct FileIdentity {
     pub size: u64,
     pub sha256: String,
 }
+
+/// Находка для проверяемого системного адаптера карантина.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedFinding {
+    pub path: String,
+    pub identity: FileIdentity,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedQuarantineEntry {
+    pub id: String,
+    pub finding: VerifiedFinding,
+    pub quarantined_identity: FileIdentity,
+    pub moved_at_unix: u64,
+}
+
+/// Контракт будущего защищённого адаптера. Существующий `Quarantine` его не реализует.
+/// Реализация обязана отказывать, если не может обеспечить идентичность источника,
+/// отсутствие перезаписи и возможность восстановления после сбоя.
+pub trait VerifiedQuarantinePort: Send + Sync {
+    fn quarantine(
+        &self,
+        finding: &VerifiedFinding,
+        now_unix: u64,
+    ) -> Result<VerifiedQuarantineEntry, CleanupError>;
+
+    fn restore(
+        &self,
+        entry: &VerifiedQuarantineEntry,
+        alternative: Option<&str>,
+    ) -> Result<(), CleanupError>;
+}
 use crate::policy::{file_name, parent_dir, validate_root, PathPolicy};
 
 pub const MANIFEST_FILE: &str = "manifest.json";
