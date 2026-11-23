@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 import type {
   CommandError,
   DiskKind,
@@ -147,8 +147,22 @@ export function getHardware(): Promise<HardwareOverview> {
   return invokeChecked(isHardwareOverview, 'get_hardware');
 }
 
-export function scanStart(target: string): Promise<ScanReport> {
-  return invokeChecked(isScanReport, 'scan_start', { target });
+export interface ScanProgress {
+  totalFiles: number;
+  processedFiles: number;
+  scannedFiles: number;
+  errors: number;
+  skippedFiles: number;
+}
+
+export function scanStart(
+  target: string,
+  onProgress?: (progress: ScanProgress) => void,
+): Promise<ScanReport> {
+  if (!onProgress) return invokeChecked(isScanReport, 'scan_start', { target });
+  const channel = new Channel<ScanProgress>();
+  channel.onmessage = onProgress;
+  return invokeChecked(isScanReport, 'scan_start_with_progress', { target, onProgress: channel });
 }
 
 export function clamavStatus(): Promise<EngineStatus> {

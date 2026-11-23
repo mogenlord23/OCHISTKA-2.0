@@ -220,3 +220,96 @@ fn cancel_before_sweep_stops_without_calling_engine() {
     assert_eq!(err, CoreError::Cancelled);
     assert_eq!(engine.calls.load(Ordering::SeqCst), 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn inaccessible_subfolder_marks_scan_incomplete() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = temp_folder("unreadable");
+    let restricted = root.join("restricted");
+    std::fs::create_dir(&restricted).unwrap();
+    std::fs::write(restricted.join("file.txt"), b"not checked").unwrap();
+    std::fs::set_permissions(&restricted, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::read_dir(&restricted).is_ok() {
+        std::fs::set_permissions(&restricted, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::remove_dir_all(&root).ok();
+        eprintln!("permission test skipped: current user can read the restricted directory");
+        return;
+    }
+    let report = sweep(
+        &WindowsFs,
+        &FakeEngine::default(),
+        &as_target(&root),
+        &no_cancel(),
+        Limits::default(),
+    );
+    std::fs::set_permissions(&restricted, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::remove_dir_all(&root).ok();
+    let report = report.unwrap();
+    assert!(
+        report.incomplete,
+        "unreadable folder must not produce a complete report"
+    );
+    assert_eq!(report.scanned_files, 0);
+}
+
+#[cfg(feature = "libclamav")]
+#[test]
+fn embedded_clamav_loads_test_signature_and_detects_eicar() {
+    let root = temp_folder("eicar-clamav");
+    let signatures = root.join("signatures");
+    std::fs::create_dir(&signatures).unwrap();
+    std::fs::write(
+        signatures.join("test.hdb"),
+        b"44d88612fea8a8f36de82e1278abb02f:68:OCHISTKA.EICAR.Test\n",
+    )
+    .unwrap();
+    let eicar = root.join("eicar.txt");
+    let clean = root.join("clean.txt");
+    std::fs::write(&eicar, EICAR).unwrap();
+    std::fs::write(&clean, b"clean test file").unwrap();
+    let engine = ClamAvEngine::build();
+    engine.load_signatures(&as_target(&signatures)).unwrap();
+    assert!(engine.engine_status().available);
+    assert!(matches!(
+        engine.scan_file(&as_target(&eicar)),
+        Ok(FileVerdict::Found { .. })
+    ));
+    assert_eq!(
+        engine.scan_file(&as_target(&clean)).unwrap(),
+        FileVerdict::Clean
+    );
+    let corrupted = root.join("corrupted");
+    std::fs::create_dir(&corrupted).unwrap();
+    std::fs::write(
+        corrupted.join("bad.hdb"),
+        b"not a valid signature database\n",
+    )
+    .unwrap();
+    assert!(engine.load_signatures(&as_target(&corrupted)).is_err());
+    assert!(matches!(
+        engine.scan_file(&as_target(&eicar)),
+        Ok(FileVerdict::Found { .. })
+    ));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[cfg(feature = "libclamav")]
+#[test]
+fn embedded_clamav_stays_unavailable_without_signatures() {
+    let root = temp_folder("missing-clamav-signatures");
+    let engine = ClamAvEngine::build();
+    assert!(!engine.engine_status().available);
+    assert!(engine
+        .load_signatures(&as_target(&root.join("missing")))
+        .is_err());
+    assert!(engine.load_signatures(&as_target(&root)).is_err());
+    assert!(!engine.engine_status().available);
+    assert!(matches!(
+        engine.scan_file(&as_target(&root.join("file"))),
+        Err(CoreError::EngineMissing(_))
+    ));
+    std::fs::remove_dir_all(&root).ok();
+}

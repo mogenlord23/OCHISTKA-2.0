@@ -8,7 +8,9 @@ use std::path::Path;
 use ochistka_core::assess::{assess_path, NoModel, SuspicionModel};
 use ochistka_core::fs::{FsPort, Limits};
 use ochistka_core::heuristic::FileFacts;
-use ochistka_core::scan::{sweep, EngineStatus, ScanReport, VirusScanPort};
+use ochistka_core::scan::{
+    sweep, sweep_with_progress, EngineStatus, ScanProgress, ScanReport, VirusScanPort,
+};
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
 use tauri::State;
@@ -125,6 +127,23 @@ pub async fn scan_start(
     state: State<'_, AppState>,
     target: String,
 ) -> Result<ScanReport, CommandError> {
+    run_scan(state, target, None).await
+}
+
+#[tauri::command]
+pub async fn scan_start_with_progress(
+    state: State<'_, AppState>,
+    target: String,
+    on_progress: tauri::ipc::Channel<ScanProgress>,
+) -> Result<ScanReport, CommandError> {
+    run_scan(state, target, Some(on_progress)).await
+}
+
+async fn run_scan(
+    state: State<'_, AppState>,
+    target: String,
+    on_progress: Option<tauri::ipc::Channel<ScanProgress>>,
+) -> Result<ScanReport, CommandError> {
     let guard = try_begin_scan(&state.scan_running)?;
     state.scan_cancel.store(false, Ordering::SeqCst);
     let scanner = Arc::clone(&state.scanner);
@@ -132,7 +151,26 @@ pub async fn scan_start(
     let cancel = Arc::clone(&state.scan_cancel);
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        scan_with(files.as_ref(), scanner.as_ref(), &cancel, &target)
+        let mut last_sent = std::time::Instant::now();
+        sweep_with_progress(
+            files.as_ref(),
+            scanner.as_ref(),
+            &target,
+            &cancel,
+            Limits::default(),
+            &mut |update| {
+                if update.processed_files == 0
+                    || update.processed_files == update.total_files
+                    || last_sent.elapsed() >= std::time::Duration::from_millis(100)
+                {
+                    if let Some(channel) = &on_progress {
+                        let _ = channel.send(update);
+                    }
+                    last_sent = std::time::Instant::now();
+                }
+            },
+        )
+        .map_err(CommandError::from)
     })
     .await
     .map_err(|err| CommandError {

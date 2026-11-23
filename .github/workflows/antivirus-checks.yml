@@ -1,0 +1,31 @@
+name: antivirus-checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  antivirus-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install interface dependencies
+        run: npm ci
+      - name: Check scan logic
+        run: cargo test --locked -p ochistka-core scan::tests
+      - name: Check filesystem scan integration
+        run: cargo test --locked -p ochistka-platform --test virus_scan
+      - name: Check scan interface
+        run: npm test -w apps/desktop -- src/components/VirusesPage.test.ts src/lib/api.test.ts --reporter=dot
+      - name: Check interface types
+        run: npm run check -w apps/desktop

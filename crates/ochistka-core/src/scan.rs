@@ -31,7 +31,7 @@ pub struct ScanReport {
     pub errors: u32,
     // Файлы больше `MAX_FILE_BYTES`: не проверялись, но учтены в отчёте.
     pub skipped_files: u32,
-    // Обход остановлен лимитом записей (`Limits::max_entries`): часть папки не проверена.
+    // Часть дерева не проверена из-за лимитов обхода или недоступных папок.
     pub incomplete: bool,
     pub findings: Vec<Finding>,
 }
@@ -96,6 +96,17 @@ pub fn check_signatures_dir(fs: &dyn FsPort, dir: &str) -> Result<u32, CoreError
     u32::try_from(files).map_err(|_| CoreError::Probe("слишком много файлов сигнатур".into()))
 }
 
+/// Реальный ход обработки найденных файлов после обхода дерева.
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanProgress {
+    pub total_files: u32,
+    pub processed_files: u32,
+    pub scanned_files: u32,
+    pub errors: u32,
+    pub skipped_files: u32,
+}
+
 /// Проверяет папку `target`. Движок недоступен — ошибка `EngineMissing` до обхода.
 /// Ошибка одного файла считается в `errors` и не останавливает проверку.
 /// `cancel` останавливает проверку ошибкой `Cancelled`.
@@ -105,6 +116,18 @@ pub fn sweep(
     target: &str,
     cancel: &AtomicBool,
     limits: Limits,
+) -> Result<ScanReport, CoreError> {
+    sweep_with_progress(fs, port, target, cancel, limits, &mut |_| {})
+}
+
+/// Проверка с уведомлением о фактически обработанных файлах.
+pub fn sweep_with_progress(
+    fs: &dyn FsPort,
+    port: &dyn VirusScanPort,
+    target: &str,
+    cancel: &AtomicBool,
+    limits: Limits,
+    progress: &mut dyn FnMut(ScanProgress),
 ) -> Result<ScanReport, CoreError> {
     validate_target(target)?;
     let status = port.engine_status();
@@ -134,18 +157,24 @@ pub fn sweep(
     )
     .map_err(into_core)?;
 
-    // `walk` возвращает `false` и для лимита глубины, и для недоступных подпапок; флаг нужен только
-    // для исчерпанного бюджета записей, поэтому проверяем и остаток бюджета.
     let mut report = ScanReport {
-        incomplete: !complete && budget.remaining == 0,
+        incomplete: !complete,
         ..ScanReport::default()
     };
+    let mut current = ScanProgress {
+        total_files: u32::try_from(files.len()).unwrap_or(u32::MAX),
+        ..ScanProgress::default()
+    };
+    progress(current.clone());
     for (path, size) in files {
         if is_cancelled(cancel) {
             return Err(CoreError::Cancelled);
         }
         if size > MAX_FILE_BYTES {
             report.skipped_files += 1;
+            current.skipped_files = report.skipped_files;
+            current.processed_files += 1;
+            progress(current.clone());
             continue;
         }
         match port.scan_file(&path) {
@@ -159,6 +188,10 @@ pub fn sweep(
             Err(CoreError::Cancelled) => return Err(CoreError::Cancelled),
             Err(_) => report.errors += 1,
         }
+        current.processed_files += 1;
+        current.scanned_files = report.scanned_files;
+        current.errors = report.errors;
+        progress(current.clone());
     }
     Ok(report)
 }
@@ -267,6 +300,19 @@ mod tests {
     }
 
     #[test]
+    fn depth_limit_marks_the_report_incomplete() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\nested\\inside.txt"), b"x", 0);
+        let limits = Limits {
+            max_entries: 100,
+            max_depth: 0,
+        };
+        let report = sweep(&fs, &FakeEngine::ready(), ROOT, &no_cancel(), limits).unwrap();
+        assert!(report.incomplete);
+        assert_eq!(report.scanned_files, 0);
+    }
+
+    #[test]
     fn walk_that_fits_the_entry_limit_exactly_is_complete() {
         let fs = FakeFs::new();
         fs.file(&format!("{ROOT}\\a.txt"), b"x", 0);
@@ -278,6 +324,28 @@ mod tests {
         let report = sweep(&fs, &FakeEngine::ready(), ROOT, &no_cancel(), limits).unwrap();
         assert!(!report.incomplete);
         assert_eq!(report.scanned_files, 2);
+    }
+
+    #[test]
+    fn progress_counts_checked_and_failed_files() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\broken.zip"), b"x", 0);
+        fs.file(&format!("{ROOT}\\eicar.com"), b"x", 0);
+        let mut updates = Vec::new();
+        let report = sweep_with_progress(
+            &fs,
+            &FakeEngine::ready(),
+            ROOT,
+            &no_cancel(),
+            Limits::default(),
+            &mut |p| updates.push(p),
+        )
+        .unwrap();
+        assert_eq!(updates.first().unwrap().total_files, 2);
+        let last = updates.last().unwrap();
+        assert_eq!(last.processed_files, 2);
+        assert_eq!(last.scanned_files, report.scanned_files);
+        assert_eq!(last.errors, 1);
     }
 
     #[test]

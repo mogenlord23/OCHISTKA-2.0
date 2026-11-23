@@ -1,4 +1,4 @@
-import { assessFile, scanStart, toCommandError } from './api';
+import { assessFile, scanStart, toCommandError, type ScanProgress } from './api';
 import { quarantineFindings } from './disksApi';
 import { scanCancel } from './scanControl';
 import type { CommandError, Finding, ScanReport, Suspicion } from './types';
@@ -24,6 +24,7 @@ export type ScanPhase = 'idle' | 'scanning' | 'assessing';
  */
 export const scan = $state({
   phase: 'idle' as ScanPhase,
+  progress: null as ScanProgress | null,
   target: '',
   report: null as ScanReport | null,
   error: null as CommandError | null,
@@ -39,6 +40,7 @@ let cancelRequested = false;
 /** Сбрасывает всё состояние (для тестов). */
 export function resetScanState(): void {
   scan.phase = 'idle';
+  scan.progress = null;
   scan.target = '';
   scan.report = null;
   scan.error = null;
@@ -63,6 +65,7 @@ export async function startScan(path: string): Promise<void> {
     return;
   }
   scan.phase = 'scanning';
+  scan.progress = null;
   cancelRequested = false;
   scan.error = null;
   scan.notice = '';
@@ -70,9 +73,13 @@ export async function startScan(path: string): Promise<void> {
   scan.suspicions = {};
   scan.assessFailures = { count: 0, firstMessage: '' };
   let result: ScanReport;
+  let acceptingProgress = true;
   try {
-    result = await scanStart(path);
+    result = await scanStart(path, (progress) => {
+      if (acceptingProgress && scan.phase === 'scanning') scan.progress = progress;
+    });
   } catch (err) {
+    acceptingProgress = false;
     const command = toCommandError(err);
     if (cancelRequested || command.kind === 'cancelled') {
       scan.notice = 'Проверка отменена';
@@ -98,6 +105,7 @@ export async function startScan(path: string): Promise<void> {
     scan.phase = 'idle';
     return;
   }
+  acceptingProgress = false;
   scan.report = result;
   addRun({
     target: path,

@@ -102,7 +102,11 @@ describe('VirusesPage scan', () => {
 
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    expect(await screen.findByText('Проверка неполная: достигнут лимит обхода.')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Проверка неполная: часть папок недоступна или достигнут лимит обхода.',
+      ),
+    ).toBeTruthy();
   });
 
   it('does not show the incomplete warning for a full check', async () => {
@@ -210,6 +214,27 @@ describe('VirusesPage scan', () => {
     expect(screen.getAllByRole('meter')).toHaveLength(1);
   });
 
+  it('shows real progress received while scanning', async () => {
+    engineOk();
+    let finish: (report: ScanReport) => void = () => {};
+    vi.mocked(scanStart).mockImplementation((_path, onProgress) => {
+      onProgress?.({
+        totalFiles: 10,
+        processedFiles: 4,
+        scannedFiles: 3,
+        errors: 1,
+        skippedFiles: 0,
+      });
+      return new Promise((resolve) => (finish = resolve));
+    });
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(await screen.findByText('Обработано файлов: 4 из 10. Проверено: 3.')).toBeTruthy();
+    expect(screen.getByTestId('scan-sweep').style.width).toBe('40%');
+    finish(report());
+    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+  });
+
   it('FND-0183: while scanning the button and input are disabled and scanStart is called once', async () => {
     engineOk();
     let finish: (report: ScanReport) => void = () => {};
@@ -225,7 +250,7 @@ describe('VirusesPage scan', () => {
     expect(input.disabled).toBe(true);
     await fireEvent.click(button);
     expect(scanStart).toHaveBeenCalledTimes(1);
-    expect(scanStart).toHaveBeenCalledWith(DOWNLOADS);
+    expect(scanStart).toHaveBeenCalledWith(DOWNLOADS, expect.any(Function));
 
     finish(report());
     expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
@@ -290,6 +315,21 @@ describe('VirusesPage findings', () => {
     expect(screen.getByText('Угроз не найдено.')).toBeTruthy();
     expect(screen.queryByText('Здесь появятся находки после проверки.')).toBeNull();
     expect(screen.queryAllByRole('meter')).toHaveLength(0);
+  });
+
+  it.each([
+    { incomplete: true, errors: 0, skippedFiles: 0 },
+    { incomplete: false, errors: 1, skippedFiles: 0 },
+    { incomplete: false, errors: 0, skippedFiles: 1 },
+  ])('does not call a partial scan clean', async (partial) => {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue({ ...report([]), ...partial });
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await view.rerender({ subsection: 'findings' });
+    expect(screen.getByText('Находок нет. Часть файлов или папок не проверена.')).toBeTruthy();
+    expect(screen.queryByText('Угроз не найдено.')).toBeNull();
   });
 
   it('FND-0186: meter aria-valuenow and the reason text under the score', async () => {

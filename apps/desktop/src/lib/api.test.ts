@@ -15,7 +15,12 @@ import {
 } from './api';
 import type { Finding, ScanReport, SystemOverview } from './types';
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+  Channel: class {
+    onmessage: (value: unknown) => void = () => {};
+  },
+}));
 const invokeMock = vi.mocked(invoke);
 
 const overview: SystemOverview = {
@@ -65,6 +70,29 @@ describe('scan commands', () => {
     expect(invokeMock).toHaveBeenCalledWith('scan_start', {
       target: 'C:\\Users\\Slava\\Downloads',
     });
+  });
+
+  it('forwards backend progress while preserving the final report', async () => {
+    invokeMock.mockReset();
+    const onProgress = vi.fn();
+    const update = {
+      totalFiles: 10,
+      processedFiles: 4,
+      scannedFiles: 3,
+      errors: 1,
+      skippedFiles: 0,
+    };
+    invokeMock.mockImplementation(async (_command, args) => {
+      const progressArgs = args as { onProgress: { onmessage: (value: unknown) => void } };
+      progressArgs.onProgress.onmessage(update);
+      return report;
+    });
+    await expect(scanStart('C:\\scan', onProgress)).resolves.toEqual(report);
+    expect(onProgress).toHaveBeenCalledWith(update);
+    expect(invokeMock).toHaveBeenCalledWith(
+      'scan_start_with_progress',
+      expect.objectContaining({ target: 'C:\\scan' }),
+    );
   });
 
   it('reads the ClamAV engine status', async () => {

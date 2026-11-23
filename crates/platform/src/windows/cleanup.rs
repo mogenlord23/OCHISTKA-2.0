@@ -71,12 +71,11 @@ impl FsPort for WindowsFs {
         let reader = fs::read_dir(path).map_err(|err| io_error(path, err))?;
         let mut entries = Vec::new();
         for entry in reader {
-            // Запись, которую не удалось прочитать (например, занята), пропускаем.
-            let Ok(entry) = entry else { continue };
+            // Ошибку нельзя скрывать: вызывающий должен сообщить о неполном обходе.
+            let entry = entry.map_err(|err| io_error(path, err))?;
             let entry_path = entry.path();
-            let Ok(metadata) = fs::symlink_metadata(&entry_path) else {
-                continue;
-            };
+            let metadata = fs::symlink_metadata(&entry_path)
+                .map_err(|err| io_error(&entry_path.to_string_lossy(), err))?;
             entries.push(DirEntry {
                 name: entry.file_name().to_string_lossy().into_owned(),
                 path: entry_path.to_string_lossy().into_owned(),

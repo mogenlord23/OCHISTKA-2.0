@@ -1,10 +1,8 @@
 //! Граница с libclamav. Единственный модуль крейта с `unsafe`; компилируется только с фичей
 //! `libclamav` (по умолчанию выключена, см. docs/status/clamav-build.md).
 //!
-//! НЕ ПРОВЕРЕНО по заголовкам ClamAV: исходники и заголовки в этой среде получить не удалось
-//! (GitHub отдаёт 403). Сигнатуры функций, значения констант и состав `ClScanOptions`
-//! записаны по памяти API ClamAV 1.x и требуют сверки с `clamav.h` при первой сборке.
-//! Остальной код приложения к этим деталям не обращается: он видит только `Engine`.
+//! Объявления сверены с `libclamav/clamav.h` ClamAV 1.4.6. Сборка с библиотекой и
+//! проверка сигнатур остаются отдельными этапами для каждой целевой платформы.
 
 use std::ffi::{c_char, c_int, c_uint, c_ulong, CStr, CString};
 use std::ptr::NonNull;
@@ -17,23 +15,24 @@ pub struct ClEngine {
     _private: [u8; 0],
 }
 
-/// Опции сканирования (`struct cl_scan_options`). НЕ ПРОВЕРЕНО: набор полей и порядок взяты по памяти.
+/// Опции сканирования (`struct cl_scan_options` в ClamAV 1.4.6).
 #[repr(C)]
 #[derive(Default)]
 pub struct ClScanOptions {
+    pub general: u32,
     pub parse: u32,
     pub heuristic: u32,
     pub mail: u32,
     pub dev: u32,
 }
 
-/// `CL_SUCCESS` и `CL_CLEAN` равны 0, `CL_VIRUS` равен 1. НЕ ПРОВЕРЕНО по заголовкам.
+/// Коды результата из `clamav.h`.
 const CL_SUCCESS: c_int = 0;
 const CL_CLEAN: c_int = 0;
 const CL_VIRUS: c_int = 1;
-/// Значения опций init и загрузки БД. НЕ ПРОВЕРЕНО: заменить на константы из заголовка.
+/// Рекомендуемые опции инициализации и загрузки базы из `clamav.h`.
 const CL_INIT_DEFAULT: c_uint = 0;
-const CL_DB_STDOPT: c_uint = 0;
+const CL_DB_STDOPT: c_uint = 0x2 | 0x8 | 0x2000;
 
 #[link(name = "clamav")]
 extern "C" {
@@ -91,6 +90,9 @@ impl Engine {
         };
         if code != CL_SUCCESS {
             return Err(format!("cl_load: код {code}"));
+        }
+        if signatures == 0 {
+            return Err("в базе нет загруженных сигнатур".into());
         }
         // SAFETY: движок загружен и ещё не скомпилирован, указатель валиден.
         let code = unsafe { cl_engine_compile(engine.raw.as_ptr()) };

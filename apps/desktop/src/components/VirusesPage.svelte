@@ -171,10 +171,23 @@
   <section class="scanner" class:active={busy} aria-live="polite">
     <h3>Состояние</h3>
     <div class="track" aria-hidden="true">
-      {#if scan.phase === 'scanning'}<div class="sweep" data-testid="scan-sweep"></div>{/if}
+      {#if scan.phase === 'scanning'}
+        <div
+          class="sweep"
+          data-testid="scan-sweep"
+          style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
+        ></div>
+      {/if}
     </div>
     {#if scan.phase === 'scanning'}
-      <p>Проверяем файлы…</p>
+      {#if scan.progress}
+        <p>
+          Обработано файлов: {scan.progress.processedFiles} из {scan.progress.totalFiles}.
+          Проверено: {scan.progress.scannedFiles}.
+        </p>
+      {:else}
+        <p>Подготавливаем список файлов…</p>
+      {/if}
     {:else if scan.phase === 'assessing'}
       <p>Оцениваем находки…</p>
     {:else if scan.notice}
@@ -182,7 +195,9 @@
     {:else if scan.report}
       <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
       {#if scan.report.incomplete}
-        <p class="alert" role="status">Проверка неполная: достигнут лимит обхода.</p>
+        <p class="alert" role="status">
+          Проверка неполная: часть папок недоступна или достигнут лимит обхода.
+        </p>
       {/if}
     {:else}
       <p>Готово к проверке.</p>
@@ -194,7 +209,11 @@
   {#if !scan.report}
     <p class="empty panel">Здесь появятся находки после проверки.</p>
   {:else if findings.length === 0}
-    <p class="empty panel">Угроз не найдено.</p>
+    {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
+      <p class="empty panel">Находок нет. Часть файлов или папок не проверена.</p>
+    {:else}
+      <p class="empty panel">Угроз не найдено.</p>
+    {/if}
   {:else}
     {#if scan.notice}
       <p class="empty" role="status">{scan.notice}</p>
@@ -427,10 +446,9 @@
   }
 
   .sweep {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    animation: sweep 1.6s linear infinite;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s ease-out;
   }
 
   .scanner p {
@@ -441,18 +459,9 @@
     margin-bottom: 8px;
   }
 
-  @keyframes sweep {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(100%);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .sweep {
-      animation: none;
+      transition: none;
     }
   }
 
