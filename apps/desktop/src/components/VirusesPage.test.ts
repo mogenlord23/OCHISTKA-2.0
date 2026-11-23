@@ -876,6 +876,16 @@ describe('VirusesPage signatures (round 29)', () => {
     expect(screen.queryByTestId('signatures-missing')).toBeNull();
   });
 
+  it('never claims the engine is missing when its state is unknown', async () => {
+    vi.mocked(clamavStatus).mockResolvedValue({ available: false, reason: 'нет движка' });
+    vi.mocked(clamavSignatures).mockRejectedValue({ kind: 'probe', message: 'нет ответа' });
+    vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
+    render(VirusesPage, { props: { subsection: 'scan' } });
+
+    expect(await screen.findByTestId('signatures-unknown')).toBeTruthy();
+    expect(screen.queryByTestId('engine-unavailable')).toBeNull();
+  });
+
   it('keeps the old wording when the engine is not part of this build', async () => {
     vi.mocked(clamavStatus).mockResolvedValue({ available: false, reason: 'движок не собран' });
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
