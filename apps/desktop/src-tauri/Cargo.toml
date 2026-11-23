@@ -11,6 +11,11 @@ name = "ochistka_desktop_lib"
 name = "ochistka-desktop"
 path = "src/main.rs"
 
+[features]
+default = []
+# Настоящий движок ClamAV из официальной сборки (tools/clamav-win/fetch.ps1). См. ADR 0004.
+libclamav = ["ochistka-platform/libclamav"]
+
 [dependencies]
 ochistka-core = { path = "../../../crates/ochistka-core" }
 ochistka-platform = { path = "../../../crates/platform" }
