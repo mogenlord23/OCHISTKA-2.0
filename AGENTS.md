@@ -32,5 +32,12 @@ This is an existing Windows application, not a new project. These are durable re
 ## Immediate next unit of work
 **Do not create another diagnostic ZIP.** A real upstream NetZapret `Universal V13 Lite` preset and all 135 SHA-256-pinned resources are in the source tree; the complete Windows `winws2 --dry-run` step passed. The full 135 resources are SHA-256-pinned, embedded and prepared by the real Windows DesyncAdapter, and the complete real preset passed Windows --dry-run. The pure route selector is now connected to DesyncService::plan_access, but it is read-only and has an intentionally empty external-coverage approval registry. Next, **connect per-category reachability and VPN coverage evidence to the route planner**, then add safe explicit user consent for a real Windows-only trial of a WHOLE preset inside the application (not an external ZIP), leaving normal user activation locked until real evidence exists. Do not assume one website's result confirms YouTube, Discord, Telegram or Games. Do not enable the switch until a reproducible real success; do not invent recipes, bypass Defender, or build more standalone diagnostic ZIPs. Do not claim real network bypass until repeated authorized external testing.
 
+## DeepSeek Harness (DSH)
+DSH is the third executor beside Codex and Claude Code and follows this file. The role split and the round handoff are described in `docs/ai-workflow.md`; read it before the first change in a DSH session.
+- Start from `AI/PROJECT_GUIDE.md`, the shared entry point for every AI assistant. Its sections «Как начать новую сессию» and «Работа двух чатов и передача заданий» are mandatory; read the other sections only as the task requires.
+- Two DSH sessions: **planning** (read-only) writes `docs/PROMPT-roundN.md`; **execution** (write access) implements it, runs targeted tests, commits and pushes.
+- Project skills in `.agents/skills/` are discovered automatically; invoke them explicitly, as with Codex.
+- Do not edit the same files while Codex or Claude Code is working; coordinate through pushed commits and a note under `docs/status/`.
+
 ## Handoff discipline
 Before handing back to Claude Code, commit/push safely, summarize the branch HEAD, touched files, tests, outstanding risks and next stage in existing project docs. No parallel overlapping edits. The owner can usually say simply «продолжай»; self-resolve routine technical choices. Do not generate ChatGPT chat-export/handoff files every turn — only when explicitly asked or the chat is being moved.
