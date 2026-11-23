@@ -8,6 +8,11 @@ import tempfile
 import uuid
 
 
+def require(condition, message):
+    if not condition:
+        raise AssertionError(message)
+
+
 def macos():
     libc = ctypes.CDLL(None, use_errno=True)
     libc.getpeereid.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
@@ -20,15 +25,16 @@ def macos():
             seen = []
             for _ in range(2):
                 code = "import socket,sys;s=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.sendall(b'x');s.close()"
-                client = subprocess.Popen([sys.executable, "-c", code, endpoint])
+                client = subprocess.Popen([sys.executable, "-c", code, endpoint], stderr=subprocess.DEVNULL)
+                server.settimeout(10)
                 with server.accept()[0] as peer:
                     uid, gid = ctypes.c_uint(), ctypes.c_uint()
                     if libc.getpeereid(peer.fileno(), ctypes.byref(uid), ctypes.byref(gid)) != 0:
                         raise OSError(ctypes.get_errno(), "getpeereid failed")
-                    assert peer.recv(1) == b"x"
+                    require(peer.recv(1) == b"x", "unexpected peer message")
                     seen.append((uid.value, gid.value))
-                assert client.wait() == 0
-            assert seen[0] == seen[1]
+                require(client.wait() == 0, "client failed")
+            require(seen[0] == seen[1], "clients have different credentials")
             print("OBSERVED: getpeereid returns the same UID/GID for both clients; UID/GID alone is not authorization")
 
 
@@ -51,29 +57,33 @@ def windows():
             raise ctypes.WinError(ctypes.get_last_error())
         try:
             code = "import sys;f=open(sys.argv[1],'wb',buffering=0);f.write(b'x');sys.stdin.buffer.read(1);f.close()"
-            client = subprocess.Popen([sys.executable, "-c", code, endpoint], stdin=subprocess.PIPE)
+            client = subprocess.Popen([sys.executable, "-c", code, endpoint], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
             connected = k.ConnectNamedPipe(handle, None)
             if not connected and ctypes.get_last_error() != 535:  # ERROR_PIPE_CONNECTED
                 raise ctypes.WinError(ctypes.get_last_error())
             pid = wintypes.ULONG()
             if not k.GetNamedPipeClientProcessId(handle, ctypes.byref(pid)):
                 raise ctypes.WinError(ctypes.get_last_error())
-            assert pid.value == client.pid
+            require(pid.value == client.pid, "unexpected client PID")
             seen.append(pid.value)
             client.stdin.write(b"x")
             client.stdin.close()
-            assert client.wait(timeout=10) == 0
+            require(client.wait(timeout=10) == 0, "client failed")
             k.DisconnectNamedPipe(handle)
         finally:
             k.CloseHandle(handle)
-    assert seen[0] != seen[1]
+    require(seen[0] != seen[1], "clients have the same PID")
     print("OBSERVED: distinct client PIDs; PID alone is not authenticated application identity or authorization")
 
 
 if __name__ == "__main__":
-    if sys.platform == "darwin":
-        macos()
-    elif sys.platform == "win32":
-        windows()
-    else:
-        raise SystemExit("This probe must run on Windows or macOS")
+    try:
+        if sys.platform == "darwin":
+            macos()
+        elif sys.platform == "win32":
+            windows()
+        else:
+            raise RuntimeError("unsupported platform")
+    except Exception as err:
+        print(f"FAIL: {type(err).__name__}; details withheld to avoid logging paths", file=sys.stderr)
+        raise SystemExit(1) from None

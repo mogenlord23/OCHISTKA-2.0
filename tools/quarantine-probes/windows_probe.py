@@ -37,6 +37,10 @@ OPEN_EXISTING, OPEN_REPARSE, BACKUP_SEMANTICS = 3, 0x00200000, 0x02000000
 REPARSE_ATTRIBUTE = 0x400
 
 
+class ProbeIncomplete(Exception):
+    pass
+
+
 def open_handle(path, access, share, flags=0):
     h = k.CreateFileW(str(path), access, share, None, OPEN_EXISTING, flags, None)
     if h == INVALID:
@@ -83,7 +87,7 @@ class WindowsFileProbe(unittest.TestCase):
                 code = ("import os,sys; p=sys.argv[1]; "
                         "\ntry:\n f=open(p,'wb'); f.close(); sys.exit(1)\nexcept OSError: pass\n"
                         "try:\n os.rename(p,sys.argv[2]); sys.exit(2)\nexcept OSError: sys.exit(0)")
-                result = subprocess.run([sys.executable, "-c", code, str(source), str(root / "other")], check=False)
+                result = subprocess.run([sys.executable, "-c", code, str(source), str(root / "other")], check=False, stderr=subprocess.DEVNULL)
                 self.assertEqual(result.returncode, 0, "second process wrote or renamed the held file")
                 self.assertFalse(rename_relative(handle, directory, "destination"))
                 self.assertIn(ctypes.get_last_error(), (80, 183))
@@ -109,8 +113,8 @@ class WindowsFileProbe(unittest.TestCase):
             source.write_bytes(b"checked")
             try:
                 link.symlink_to(source)
-            except OSError as err:
-                self.skipTest(f"runner cannot create a symlink: {err}")
+            except OSError:
+                raise ProbeIncomplete("symlink creation unavailable") from None
             handle = open_handle(link, 0, 7, OPEN_REPARSE)
             try:
                 self.assertTrue(info(handle).attributes & REPARSE_ATTRIBUTE)
@@ -119,5 +123,12 @@ class WindowsFileProbe(unittest.TestCase):
                 k.CloseHandle(handle)
 
 
+class SanitizedResult(unittest.TextTestResult):
+    def _exc_info_to_string(self, err, test):
+        if isinstance(err[1], ProbeIncomplete):
+            return "INCOMPLETE: runner cannot create a symlink; reparse-point behavior was not tested\n"
+        return f"{err[0].__name__}: probe failed; details withheld to avoid logging local paths or file contents\n"
+
+
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main(testRunner=unittest.TextTestRunner(verbosity=2, resultclass=SanitizedResult))

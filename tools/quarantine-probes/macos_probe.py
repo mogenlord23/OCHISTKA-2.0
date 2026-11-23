@@ -51,7 +51,7 @@ class MacFileProbe(unittest.TestCase):
                 dest.unlink()
                 # Child completes replacement before the parent continues: no timing assumptions.
                 code = "import os,sys;os.rename(sys.argv[1],sys.argv[2]);open(sys.argv[1],'wb').write(b'replacement')"
-                subprocess.run([sys.executable, "-c", code, str(source), str(old)], check=True)
+                subprocess.run([sys.executable, "-c", code, str(source), str(old)], check=True, stderr=subprocess.DEVNULL)
                 self.assertNotEqual(os.fstat(fd).st_ino, source.stat().st_ino)
                 self.assertEqual(rename_exclusive(directory, b"source", directory, b"destination", RENAME_EXCL), 0)
                 self.assertEqual(dest.read_bytes(), b"replacement")
@@ -68,12 +68,17 @@ class MacFileProbe(unittest.TestCase):
             fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
             try:
                 code = "import sys;open(sys.argv[1],'wb').write(b'changed')"
-                subprocess.run([sys.executable, "-c", code, str(path)], check=True)
+                subprocess.run([sys.executable, "-c", code, str(path)], check=True, stderr=subprocess.DEVNULL)
                 self.assertEqual(os.read(fd, 7), b"changed")
                 print("OBSERVED: another process modified the file while the read descriptor remained open")
             finally:
                 os.close(fd)
 
 
+class SanitizedResult(unittest.TextTestResult):
+    def _exc_info_to_string(self, err, test):
+        return f"{err[0].__name__}: probe failed; details withheld to avoid logging local paths or file contents\n"
+
+
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main(testRunner=unittest.TextTestRunner(verbosity=2, resultclass=SanitizedResult))
