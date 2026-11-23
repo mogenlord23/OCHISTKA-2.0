@@ -301,7 +301,7 @@
   }
 </script>
 
-?{#snippet findingsEmpty()}
+{#snippet findingsEmpty()}
   {#if !scan.report}
     <p class="empty">Здесь появятся находки после проверки.</p>
   {:else if findings.length === 0}
