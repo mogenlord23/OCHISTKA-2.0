@@ -73,6 +73,21 @@
           : 'idle',
   );
 
+  /** Подпись под большой кнопкой: коротко, что происходит. */
+  const plateCaption = $derived(
+    scan.phase === 'scanning'
+      ? 'Идёт проверка…'
+      : scan.phase === 'assessing'
+        ? 'Смотрим находки…'
+        : !engine?.available
+          ? 'Проверка недоступна'
+          : scan.report
+            ? findings.length > 0
+              ? `Находок: ${findings.length}`
+              : 'Проверка закончена'
+            : 'Нажмите, чтобы проверить',
+  );
+
   /** Движение отключают и системная настройка, и наш переключатель в «Оформлении». */
   function reducedMotion(): boolean {
     if (typeof window === 'undefined') return false;
@@ -370,102 +385,93 @@
 
   <div class="scan-layout">
     <div class="station-col">
-      <section
-        class="station"
+      <button
+        type="button"
+        class="start-plate"
         data-testid="scan-station"
         data-state={stationState}
-        aria-live="polite"
+        aria-label="Начать проверку"
+        onclick={start}
+        disabled={!engine?.available || busy || scan.target.trim() === ''}
       >
         {#if stationState === 'scanning'}
           <span class="beam" data-testid="scan-beam" aria-hidden="true"></span>
         {/if}
-        <div class="station-head">
-          <span class="shield" aria-hidden="true">
-            <svg viewBox="0 0 48 56" focusable="false">
-              <path
-                d="M24 3 5 10.5V28c0 11.6 7.7 21.2 19 24.9C35.3 49.2 43 39.6 43 28V10.5Z"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="4"
-                stroke-linejoin="round"
-              />
-              <path
-                d="m16 27.5 6.2 6.4L32 20.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-          <h3>Состояние</h3>
-        </div>
+        <span class="shield" aria-hidden="true">
+          <svg viewBox="0 0 48 56" focusable="false">
+            <path
+              d="M24 3 5 10.5V28c0 11.6 7.7 21.2 19 24.9C35.3 49.2 43 39.6 43 28V10.5Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="4"
+              stroke-linejoin="round"
+            />
+            <path
+              d="m16 27.5 6.2 6.4L32 20.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+        <span class="plate-title">Начать проверку</span>
+        <span class="plate-caption">{plateCaption}</span>
+      </button>
 
-        {#if engine && !engine.available}
-          {#if signatures?.enginePresent}
-            <p class="empty" data-testid="signatures-missing">
-              Базы проверки не загружены. Положите файлы базы в папку:
-              <span class="path selectable">{signatures.dir}</span>
-            </p>
-            <div class="actions">
-              <button type="button" onclick={() => void openSignaturesDir()}>
-                Открыть папку баз
-              </button>
-            </div>
-          {:else}
-            <p class="empty" data-testid="engine-unavailable">
-              Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
-            </p>
-          {/if}
+      <label>
+        Папка для проверки
+        <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
+      </label>
+
+      <div class="actions">
+        {#if scan.phase === 'scanning'}
+          <button type="button" onclick={() => void cancelScan()}>Остановить</button>
         {/if}
+        {#if startBlockReason}
+          <span class="reason">{startBlockReason}</span>
+        {/if}
+      </div>
 
-        {#if engine?.available && signatures?.signatures}
-          <p class="hint" data-testid="signatures-loaded">
-            База загружена: сигнатур — {signatures.signatures}.
+      <div class="track" aria-hidden="true">
+        {#if scan.phase === 'scanning'}
+          <div
+            class="sweep"
+            data-testid="scan-sweep"
+            style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
+          ></div>
+        {/if}
+      </div>
+
+      <div class="state" aria-live="polite">
+        {@render stationStatus()}
+      </div>
+
+      {#if engine && !engine.available}
+        {#if signatures?.enginePresent}
+          <p class="empty" data-testid="signatures-missing">
+            Базы проверки не загружены. Положите файлы базы в папку:
+            <span class="path selectable">{signatures.dir}</span>
+          </p>
+          <div class="actions">
+            <button type="button" onclick={() => void openSignaturesDir()}>Открыть папку баз</button
+            >
+          </div>
+        {:else}
+          <p class="empty" data-testid="engine-unavailable">
+            Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
           </p>
         {/if}
+      {/if}
 
-        <label>
-          Папка для проверки
-          <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
-        </label>
+      {#if engine?.available && signatures?.signatures}
+        <p class="hint" data-testid="signatures-loaded">
+          База загружена: сигнатур — {signatures.signatures}.
+        </p>
+      {/if}
 
-        <div class="actions">
-          <button
-            type="button"
-            class="primary big"
-            class:scanning={stationState === 'scanning'}
-            data-state={stationState}
-            onclick={start}
-            disabled={!engine?.available || busy || scan.target.trim() === ''}
-          >
-            Начать проверку
-          </button>
-          {#if startBlockReason}
-            <span class="reason">{startBlockReason}</span>
-          {/if}
-          {#if scan.phase === 'scanning'}
-            <button type="button" onclick={() => void cancelScan()}>Остановить</button>
-          {/if}
-        </div>
-
-        <div class="track" aria-hidden="true">
-          {#if scan.phase === 'scanning'}
-            <div
-              class="sweep"
-              data-testid="scan-sweep"
-              style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
-            ></div>
-          {/if}
-        </div>
-
-        <div class="state">
-          {@render stationStatus()}
-        </div>
-      </section>
-
-      <div class="bin-slot">
+      <div class="bin-row">
         <VirusBin count={findings.length} state={binState} />
         <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
       </div>
@@ -698,19 +704,6 @@
     color: var(--muted);
   }
 
-  button.primary {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--black);
-    font-weight: 700;
-  }
-
-  button.big {
-    min-height: 56px;
-    padding: 8px 20px;
-    font-size: var(--text-title);
-  }
-
   .bar {
     margin: 0 0 8px;
     padding: 10px 14px;
@@ -735,17 +728,60 @@
     min-height: 0;
   }
 
-  .station {
+  /* Большая кнопка проверки: нажимаешь на неё — и проверка начинается. */
+  .start-plate {
     position: relative;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
-    overflow: hidden;
-    padding: 16px;
+    width: 100%;
+    min-height: 208px;
+    padding: 24px;
+    border: 0;
     border-radius: var(--radius-lg);
     background: var(--surface);
     box-shadow: 0 0 0 2px #000;
-    font-size: var(--text-caption);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .start-plate:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .start-plate:hover:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .plate-title {
+    font-size: var(--text-title);
+    font-weight: 800;
+  }
+
+  .plate-caption {
+    color: var(--muted);
+    font-size: var(--text-small);
+  }
+
+  .start-plate[data-state='found'] {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .start-plate[data-state='clean'] {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, #000);
+  }
+
+  .start-plate[data-state='failed'] {
+    box-shadow: 0 0 0 2px var(--muted);
+  }
+
+  .start-plate[data-state='scanning'] {
+    animation: press-pulse 1.3s ease-in-out infinite;
   }
 
   /* Луч по станции: только пока идёт проверка. */
@@ -761,22 +797,6 @@
     );
     animation: beam-sweep 1.6s linear infinite;
     pointer-events: none;
-  }
-
-  .big.scanning {
-    animation: press-pulse 1.3s ease-in-out infinite;
-  }
-
-  .station[data-state='found'] {
-    box-shadow: 0 0 0 2px var(--accent);
-  }
-
-  .station[data-state='clean'] {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, #000);
-  }
-
-  .station[data-state='failed'] {
-    box-shadow: 0 0 0 2px var(--muted);
   }
 
   .flight {
@@ -848,24 +868,14 @@
     }
   }
 
-  .station-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .station-head h3 {
-    margin: 0;
-  }
-
   .shield {
     display: inline-flex;
     color: var(--accent);
   }
 
   .shield svg {
-    width: 28px;
-    height: 32px;
+    width: 84px;
+    height: 98px;
   }
 
   .state {
@@ -878,7 +888,7 @@
     color: var(--ink-soft);
   }
 
-  .bin-slot {
+  .bin-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -947,7 +957,7 @@
       display: none;
     }
 
-    .big.scanning {
+    .start-plate[data-state='scanning'] {
       animation: none;
     }
 
@@ -965,7 +975,7 @@
     display: none;
   }
 
-  :global(:root[data-reduce-motion='true']) .big.scanning {
+  :global(:root[data-reduce-motion='true']) .start-plate[data-state='scanning'] {
     animation: none;
   }
 
@@ -1004,7 +1014,6 @@
       gap: 8px;
     }
 
-    .station,
     .findings-panel {
       padding: 12px;
     }

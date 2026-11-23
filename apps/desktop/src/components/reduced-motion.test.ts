@@ -13,7 +13,7 @@ describe('VirusesPage reduced motion', () => {
     const block = match?.[1] ?? '';
     expect(block).toMatch(/\.sweep\s*\{[^}]*transition:\s*none/);
     expect(block).toMatch(/\.beam\s*\{[^}]*display:\s*none/);
-    expect(block).toMatch(/\.big\.scanning\s*\{[^}]*animation:\s*none/);
+    expect(block).toMatch(/\.start-plate\[data-state='scanning'\]\s*\{[^}]*animation:\s*none/);
     expect(block).toMatch(/\.drop\s*\{[^}]*animation:\s*none/);
   });
 
@@ -23,7 +23,7 @@ describe('VirusesPage reduced motion', () => {
     );
     expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.beam\s*\{[^}]*display:\s*none/);
     expect(css).toMatch(
-      /:root\[data-reduce-motion='true'\]\)\s*\.big\.scanning\s*\{[^}]*animation:\s*none/,
+      /:root\[data-reduce-motion='true'\]\)\s*\.start-plate\[data-state='scanning'\]\s*\{[^}]*animation:\s*none/,
     );
     expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.drop\s*\{[^}]*animation:\s*none/);
   });
@@ -55,12 +55,12 @@ describe('VirusesPage scan screen layout (round 28)', () => {
     expect(css).toMatch(/@media \(max-width: 720px\)/);
   });
 
-  it('scrolls only the findings list, not the station', () => {
+  it('scrolls only the findings list, not the left column', () => {
     const css = pageSource.slice(pageSource.indexOf('<style>'));
     const scroll = css.match(/\.list-scroll\s*\{([^}]*)\}/)?.[1] ?? '';
     expect(scroll).toMatch(/overflow:\s*hidden auto/);
-    const station = css.match(/\.station\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(station).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
+    const column = css.match(/\.station-col\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(column).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
   });
 
   it('draws the bin as inline vector shapes, without raster images', async () => {
