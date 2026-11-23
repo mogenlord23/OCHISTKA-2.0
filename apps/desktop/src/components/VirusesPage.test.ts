@@ -511,6 +511,66 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
   });
 });
 
+describe('VirusesPage scan screen (round 28)', () => {
+  async function twoFindings() {
+    const a = `${DOWNLOADS}\\a.exe`;
+    const b = `${DOWNLOADS}\\b.exe`;
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue(
+      report([
+        { path: a, signature: 'Win.A.Test' },
+        { path: b, signature: 'Win.B.Test' },
+      ]),
+    );
+    vi.mocked(assessFile).mockResolvedValue({
+      score: 20,
+      reasons: ['исполняемый файл в загрузках'],
+    });
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+    return { view, a, b };
+  }
+
+  it('shows the station, the findings panel on the right and the bin with the report count', async () => {
+    const { a } = await twoFindings();
+
+    expect(screen.getByTestId('scan-station')).toBeTruthy();
+    expect(screen.getByTestId('findings-list')).toBeTruthy();
+    expect(screen.getByTestId('virus-bin')).toBeTruthy();
+    expect(screen.getByTestId('bin-count').textContent).toBe('2');
+    // Находки видны в правой панели, а не только в подразделе «Находки».
+    expect(screen.getByText('Win.A.Test')).toBeTruthy();
+    expect(screen.getByText(a)).toBeTruthy();
+  });
+
+  it('counts selected findings and keeps the choice when switching subsections', async () => {
+    const { view } = await twoFindings();
+
+    expect(screen.getByText('Выбрано: 0')).toBeTruthy();
+    await fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+
+    await view.rerender({ subsection: 'findings' });
+    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    expect(boxes[0].checked).toBe(true);
+    expect(boxes[1].checked).toBe(false);
+
+    await view.rerender({ subsection: 'scan' });
+    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+  });
+
+  it('unselects a finding when its checkbox is clicked again', async () => {
+    await twoFindings();
+    const box = screen.getAllByRole('checkbox')[0];
+    await fireEvent.click(box);
+    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+    await fireEvent.click(box);
+    expect(screen.getByText('Выбрано: 0')).toBeTruthy();
+  });
+});
+
 describe('VirusesPage findings: selection and quarantine', () => {
   it('keeps quarantine unavailable even after selecting a finding', async () => {
     engineOk();

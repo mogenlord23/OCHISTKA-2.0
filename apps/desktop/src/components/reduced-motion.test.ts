@@ -28,3 +28,30 @@ describe('VpnPage reduced motion', () => {
     expect(match?.[1] ?? '').toMatch(/\.pane\s*\{[^}]*animation:\s*none/);
   });
 });
+
+describe('VirusesPage scan screen layout (round 28)', () => {
+  it('uses two tokenised columns that stack at 980px and tighten at 720px', () => {
+    const css = pageSource.slice(pageSource.indexOf('<style>'));
+    expect(css).toMatch(
+      /\.scan-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 980px\)\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+    );
+    expect(css).toMatch(/@media \(max-width: 720px\)/);
+  });
+
+  it('scrolls only the findings list, not the station', () => {
+    const css = pageSource.slice(pageSource.indexOf('<style>'));
+    const scroll = css.match(/\.list-scroll\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(scroll).toMatch(/overflow:\s*hidden auto/);
+    const station = css.match(/\.station\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(station).not.toMatch(/overflow/);
+  });
+
+  it('draws the bin as inline vector shapes, without raster images', async () => {
+    const source = (await import('./VirusBin.svelte?raw')).default;
+    expect(source).toContain('<svg');
+    expect(source).not.toMatch(/<img|<image/);
+  });
+});

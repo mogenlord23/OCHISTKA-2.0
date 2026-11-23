@@ -1,5 +1,7 @@
 <script lang="ts">
   import Check from './Check.svelte';
+  import FindingsList from './FindingsList.svelte';
+  import VirusBin from './VirusBin.svelte';
   import { onMount } from 'svelte';
   import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
   import {
@@ -45,6 +47,10 @@
     void scan.report;
     picked = {};
   });
+
+  function toggleFinding(index: number, next: boolean) {
+    picked = { ...picked, [index]: next };
+  }
 
   onMount(async () => {
     try {
@@ -119,6 +125,44 @@
   }
 </script>
 
+{#snippet findingsEmpty()}
+  {#if !scan.report}
+    <p class="empty">Здесь появятся находки после проверки.</p>
+  {:else if findings.length === 0}
+    {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
+      <p class="empty">Находок нет. Часть файлов или папок не проверена.</p>
+    {:else}
+      <p class="empty">Угроз не найдено.</p>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet stationState()}
+  {#if scan.phase === 'scanning'}
+    {#if scan.progress}
+      <p>
+        Обработано файлов: {scan.progress.processedFiles} из {scan.progress.totalFiles}. Проверено:
+        {scan.progress.scannedFiles}.
+      </p>
+    {:else}
+      <p>Подготавливаем список файлов…</p>
+    {/if}
+  {:else if scan.phase === 'assessing'}
+    <p>Оцениваем находки…</p>
+  {:else if scan.notice}
+    <p>{scan.notice}</p>
+  {:else if scan.report}
+    <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
+    {#if scan.report.incomplete}
+      <p class="alert" role="status">
+        Проверка неполная: часть папок недоступна или достигнут лимит обхода.
+      </p>
+    {/if}
+  {:else}
+    <p>Готово к проверке.</p>
+  {/if}
+{/snippet}
+
 {#if subsection === 'scan'}
   {#if engine && !engine.available}
     <div class="alert" role="alert">
@@ -132,75 +176,98 @@
     <div class="alert" role="alert"><p>{error.message}</p></div>
   {/if}
 
-  <section class="panel">
-    <label>
-      Папка для проверки
-      <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
-    </label>
-    <div class="actions">
-      <button
-        type="button"
-        class="primary"
-        onclick={start}
-        disabled={!engine?.available || busy || scan.target.trim() === ''}
-      >
-        Начать проверку
-      </button>
-      {#if startBlockReason}
-        <span class="reason">{startBlockReason}</span>
-      {/if}
-      {#if scan.phase === 'scanning'}
-        <button type="button" onclick={() => void cancelScan()}>Остановить</button>
-      {/if}
-    </div>
-  </section>
+  <div class="scan-layout">
+    <div class="station-col">
+      <section class="station" data-testid="scan-station" aria-live="polite">
+        <div class="station-head">
+          <span class="shield" aria-hidden="true">
+            <svg viewBox="0 0 48 56" focusable="false">
+              <path
+                d="M24 3 5 10.5V28c0 11.6 7.7 21.2 19 24.9C35.3 49.2 43 39.6 43 28V10.5Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="4"
+                stroke-linejoin="round"
+              />
+              <path
+                d="m16 27.5 6.2 6.4L32 20.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <h3>Состояние</h3>
+        </div>
 
-  <section class="scanner" class:active={busy} aria-live="polite">
-    <h3>Состояние</h3>
-    <div class="track" aria-hidden="true">
-      {#if scan.phase === 'scanning'}
-        <div
-          class="sweep"
-          data-testid="scan-sweep"
-          style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
-        ></div>
-      {/if}
+        <label>
+          Папка для проверки
+          <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
+        </label>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="primary big"
+            onclick={start}
+            disabled={!engine?.available || busy || scan.target.trim() === ''}
+          >
+            Начать проверку
+          </button>
+          {#if startBlockReason}
+            <span class="reason">{startBlockReason}</span>
+          {/if}
+          {#if scan.phase === 'scanning'}
+            <button type="button" onclick={() => void cancelScan()}>Остановить</button>
+          {/if}
+        </div>
+
+        <div class="track" aria-hidden="true">
+          {#if scan.phase === 'scanning'}
+            <div
+              class="sweep"
+              data-testid="scan-sweep"
+              style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
+            ></div>
+          {/if}
+        </div>
+
+        <div class="state">
+          {@render stationState()}
+        </div>
+      </section>
+
+      <div class="bin-slot">
+        <VirusBin count={findings.length} />
+      </div>
     </div>
-    {#if scan.phase === 'scanning'}
-      {#if scan.progress}
-        <p>
-          Обработано файлов: {scan.progress.processedFiles} из {scan.progress.totalFiles}.
-          Проверено: {scan.progress.scannedFiles}.
-        </p>
-      {:else}
-        <p>Подготавливаем список файлов…</p>
-      {/if}
-    {:else if scan.phase === 'assessing'}
-      <p>Оцениваем находки…</p>
-    {:else if scan.notice}
-      <p>{scan.notice}</p>
-    {:else if scan.report}
-      <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
-      {#if scan.report.incomplete}
-        <p class="alert" role="status">
-          Проверка неполная: часть папок недоступна или достигнут лимит обхода.
-        </p>
-      {/if}
-    {:else}
-      <p>Готово к проверке.</p>
-    {/if}
-  </section>
+
+    <section class="findings-panel" aria-label="Находки проверки">
+      <div class="panel-head">
+        <h3>Находки</h3>
+        <span class="reason">Выбрано: {pickedCount}</span>
+      </div>
+      <div class="list-scroll">
+        {#if findings.length === 0}
+          {@render findingsEmpty()}
+        {:else}
+          <FindingsList
+            {findings}
+            suspicions={scan.suspicions}
+            selected={picked}
+            onToggle={toggleFinding}
+          />
+        {/if}
+      </div>
+    </section>
+  </div>
 {/if}
 
 {#if subsection === 'findings'}
-  {#if !scan.report}
-    <p class="empty panel">Здесь появятся находки после проверки.</p>
-  {:else if findings.length === 0}
-    {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
-      <p class="empty panel">Находок нет. Часть файлов или папок не проверена.</p>
-    {:else}
-      <p class="empty panel">Угроз не найдено.</p>
-    {/if}
+  {#if findings.length === 0}
+    {@render findingsEmpty()}
   {:else}
     {#if scan.notice}
       <p class="empty" role="status">{scan.notice}</p>
@@ -222,35 +289,12 @@
       </button>
     </div>
     <p class="reason" role="status">Перенос находок в карантин временно недоступен.</p>
-    <ul class="findings">
-      {#each findings as finding, index (`${finding.path}#${index}`)}
-        {@const score = scan.suspicions[finding.path]}
-        <li>
-          <Check bind:checked={picked[index]}>
-            <span class="head">
-              <strong>{finding.signature}</strong>
-              <span class="path selectable">{finding.path}</span>
-            </span>
-          </Check>
-          <small>Причина: сигнатура {finding.signature}</small>
-          {#if score}
-            <div
-              class="meter"
-              role="meter"
-              aria-label="Подсказка о подозрительности"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={score.score}
-            >
-              <span style:width="{score.score}%"></span>
-            </div>
-            <small>
-              Подсказка: {score.score}/100 — {score.reasons.join('; ') || 'признаков не найдено'}
-            </small>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+    <FindingsList
+      {findings}
+      suspicions={scan.suspicions}
+      selected={picked}
+      onToggle={toggleFinding}
+    />
   {/if}
 {/if}
 
@@ -303,9 +347,7 @@
 
 <style>
   .panel,
-  .scanner,
-  .alert,
-  .findings li {
+  .alert {
     margin: 0 0 8px;
     padding: 16px;
     border-radius: var(--radius-lg);
@@ -412,6 +454,12 @@
     font-weight: 700;
   }
 
+  button.big {
+    min-height: 56px;
+    padding: 8px 20px;
+    font-size: var(--text-title);
+  }
+
   .bar {
     margin: 0 0 8px;
     padding: 10px 14px;
@@ -420,16 +468,97 @@
     box-shadow: 0 0 0 2px #000;
   }
 
-  .scanner {
-    position: relative;
-    min-height: 88px;
-    overflow: hidden;
+  .scan-layout {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
   }
 
-  .scanner p,
-  .empty {
+  .station-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .station {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: 0 0 0 2px #000;
+    font-size: var(--text-caption);
+  }
+
+  .station-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .station-head h3 {
     margin: 0;
+  }
+
+  .shield {
+    display: inline-flex;
+    color: var(--accent);
+  }
+
+  .shield svg {
+    width: 28px;
+    height: 32px;
+  }
+
+  .state {
+    position: relative;
+    min-height: 44px;
+  }
+
+  .state p {
+    margin: 0 0 4px;
     color: var(--ink-soft);
+  }
+
+  .bin-slot {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    margin-top: auto;
+    padding-bottom: 8px;
+  }
+
+  .findings-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: 0 0 0 2px #000;
+    font-size: var(--text-caption);
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .panel-head h3 {
+    margin: 0;
+  }
+
+  .list-scroll {
+    min-height: 0;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
   }
 
   .sweep {
@@ -438,8 +567,9 @@
     transition: width 0.2s ease-out;
   }
 
-  .scanner p {
-    position: relative;
+  .empty {
+    margin: 0;
+    color: var(--ink-soft);
   }
 
   .empty.panel {
@@ -452,17 +582,10 @@
     }
   }
 
-  .findings,
   .log {
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .head {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
   }
 
   .path {
@@ -470,21 +593,29 @@
     word-break: break-all;
   }
 
-  .meter {
-    height: 8px;
-    margin: 8px 0 6px;
-    border-radius: var(--radius-xs);
-    background: #21262d;
-    overflow: hidden;
-  }
-
-  .meter span {
-    display: block;
-    height: 100%;
-    background: var(--accent);
-  }
-
   small {
     color: var(--muted);
+  }
+
+  @media (max-width: 980px) {
+    .scan-layout {
+      flex: none;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .list-scroll {
+      overflow: visible;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .scan-layout {
+      gap: 8px;
+    }
+
+    .station,
+    .findings-panel {
+      padding: 12px;
+    }
   }
 </style>
