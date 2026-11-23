@@ -703,7 +703,7 @@
      секциями 20. Верхняя панель вкладок стоит вплотную к верху колонки, как постер слева. */
   .column :global(.subtabs) {
     /* main имеет отступ 12px, обычная строка вкладок — 6px. */
-    margin: -6px calc(-1 * var(--pane-outline-bleed)) 0;
+    margin: -6px 0 0;
     min-height: 0;
   }
 
@@ -736,8 +736,8 @@
     flex: 1;
     gap: 12px;
     min-height: 0;
-    /* Обводка карточек (тень 2px) раньше обрезалась прокруткой: поле 2px внутри, минус снаружи. */
-    margin: calc(-1 * var(--pane-outline-bleed));
+    /* Внутреннее поле сохраняет обводку карточек в пределах общей колонки. */
+    margin: calc(-1 * var(--pane-outline-bleed)) 0 0;
     padding: var(--pane-outline-bleed);
     /* Обрезание прокручиваемого содержимого идёт по скруглённой границе, а не по прямой линии. */
     border-radius: var(--radius-lg);
