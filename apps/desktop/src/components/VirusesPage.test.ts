@@ -11,8 +11,10 @@ import {
   type QuarantineEntry,
 } from '../lib/disksApi';
 import { scanCancel } from '../lib/scanControl';
+import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
 import { resetScanState } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
+import VirusBin from './VirusBin.svelte';
 
 vi.mock('../lib/scanControl', () => ({ scanCancel: vi.fn() }));
 
@@ -155,7 +157,7 @@ describe('VirusesPage scan', () => {
     await view.rerender({ subsection: 'findings' });
     expect(screen.getByText('Win.Test.X')).toBeTruthy();
     expect(await screen.findByText(/Подсказка: 70\/100/)).toBeTruthy();
-    const remove = screen.getByRole('button', { name: 'Удалить' }) as HTMLButtonElement;
+    const remove = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
     expect(remove.disabled).toBe(true);
   });
 
@@ -718,6 +720,61 @@ describe('VirusesPage findings context menu (round 28)', () => {
   });
 });
 
+describe('VirusesPage remove button (round 28)', () => {
+  const REASON = 'Пока нельзя убрать: перенос файлов ещё не готов';
+
+  it('shows «Убрать выбранные» next to the bin, disabled with a plain reason', async () => {
+    engineOk();
+    const view = render(VirusesPage, { props: { subsection: 'scan' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+
+    const button = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByTestId('remove-reason').textContent).toBe(REASON);
+    view.unmount();
+  });
+
+  it('keeps the button off even with a selection while the transfer is not ready', async () => {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue(
+      report([{ path: `${DOWNLOADS}\\evil.exe`, signature: 'Win.Evil.Test' }]),
+    );
+    vi.mocked(assessFile).mockResolvedValue({ score: 5, reasons: [] });
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+
+    await fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    const button = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    await fireEvent.click(button);
+    expect(quarantineFindings).not.toHaveBeenCalled();
+  });
+
+  it('enables removal only with a ready transfer and a selection', () => {
+    expect(removeAllowed(false, 1)).toBe(false);
+    expect(removeAllowed(true, 0)).toBe(false);
+    expect(removeAllowed(true, 1)).toBe(true);
+    expect(removeAllowed(true, 2, true)).toBe(false);
+    expect(FINDINGS_TRANSFER_READY).toBe(false);
+  });
+
+  it('plays the bin throw only as a visual state of the bin', async () => {
+    const view = render(VirusBin, { props: { count: 2, state: 'throwing' } });
+    expect(screen.getAllByTestId('bin-throw')).toHaveLength(3);
+    expect(screen.getByTestId('virus-bin').dataset.state).toBe('throwing');
+    view.unmount();
+
+    const idle = render(VirusBin, { props: { count: 0 } });
+    expect(screen.queryByTestId('bin-throw')).toBeNull();
+    idle.unmount();
+  });
+});
+
 describe('VirusesPage findings: selection and quarantine', () => {
   it('keeps quarantine unavailable even after selecting a finding', async () => {
     engineOk();
@@ -746,13 +803,13 @@ describe('VirusesPage findings: selection and quarantine', () => {
     await view.rerender({ subsection: 'findings' });
     await screen.findAllByText(/Подсказка: 30\/100/);
 
-    const move = screen.getByRole('button', { name: 'Удалить' }) as HTMLButtonElement;
+    const move = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
     expect(move.disabled).toBe(true);
     await fireEvent.click(screen.getAllByRole('checkbox')[0]);
     expect(move.disabled).toBe(true);
     await fireEvent.click(move);
     expect(quarantineFindings).not.toHaveBeenCalled();
-    expect(screen.getByText('Перенос находок в карантин временно недоступен.')).toBeTruthy();
+    expect(screen.getByText('Пока нельзя убрать: перенос файлов ещё не готов')).toBeTruthy();
     expect(screen.getByText('Win.A.Test')).toBeTruthy();
     expect(screen.getByText('Win.B.Test')).toBeTruthy();
     expect(screen.getByText('Причина: сигнатура Win.B.Test')).toBeTruthy();

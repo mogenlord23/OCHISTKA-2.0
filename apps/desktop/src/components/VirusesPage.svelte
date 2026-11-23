@@ -2,9 +2,11 @@
   import Check from './Check.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import FindingsList from './FindingsList.svelte';
+  import RemoveSelected from './RemoveSelected.svelte';
   import VirusBin from './VirusBin.svelte';
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
+  import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
   import { revealInExplorer, toProgramsError } from '../lib/programsApi';
   import {
     listQuarantine,
@@ -13,7 +15,7 @@
     toDisksError,
     type QuarantineEntry,
   } from '../lib/disksApi';
-  import { cancelScan, scan, startScan } from '../lib/scanState.svelte';
+  import { cancelScan, quarantineSelected, scan, startScan } from '../lib/scanState.svelte';
   import type { CommandError, EngineStatus } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
@@ -77,10 +79,52 @@
     return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   }
 
+  // Кнопка «Убрать выбранные»: перенос пока запрещён бэкендом, поэтому причина простая и понятная.
+  const canRemove = $derived(removeAllowed(FINDINGS_TRANSFER_READY, pickedCount, busy));
+  const removeReason = $derived(
+    FINDINGS_TRANSFER_READY
+      ? pickedCount === 0
+        ? 'Выберите находки'
+        : ''
+      : 'Пока нельзя убрать: перенос файлов ещё не готов',
+  );
+  let throwTimer: number | undefined;
+
+  onDestroy(() => {
+    if (throwTimer) window.clearTimeout(throwTimer);
+  });
+
+  /** «Корзина выбрасывает»: крышка открыта, фигуры улетают, счётчик обнуляется отчётом. */
+  function playThrow() {
+    if (reducedMotion()) {
+      binState = 'closed';
+      return;
+    }
+    if (throwTimer) window.clearTimeout(throwTimer);
+    binState = 'throwing';
+    throwTimer = window.setTimeout(() => {
+      binState = 'idle';
+      throwTimer = undefined;
+    }, FLIGHT_MS);
+  }
+
+  async function removeSelected() {
+    if (!canRemove) return;
+    const selected = findings.filter((_, index) => picked[index]);
+    actionNotice = '';
+    try {
+      const moved = await quarantineSelected(selected);
+      if (moved > 0) playThrow();
+    } catch (err) {
+      actionNotice = toDisksError(err).message;
+    }
+  }
+
   // Выбор относится к конкретному отчёту: новый отчёт или перенос сбрасывают отметки.
   $effect(() => {
     void scan.report;
     picked = {};
+    menu = null;
   });
 
   // Находки слетаются в корзину после отчёта, крышка закрывается в конце.
@@ -94,7 +138,8 @@
     }
     if (report.findings.length === 0 || reducedMotion()) {
       flight = null;
-      binState = 'closed';
+      // Пока корзина «выбрасывает», её вид не перебиваем.
+      if (binState !== 'throwing') binState = 'closed';
       return;
     }
     flight = { id: ++flightSeq, count: Math.min(3, report.findings.length) };
@@ -382,6 +427,7 @@
 
       <div class="bin-slot">
         <VirusBin count={findings.length} state={binState} />
+        <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
       </div>
     </div>
 
@@ -434,15 +480,8 @@
     {/if}
     <div class="actions bar">
       <span class="reason">Выбрано: {pickedCount}</span>
-      <button
-        type="button"
-        disabled
-        title="Перенос временно недоступен: безопасная проверка файла ещё не реализована"
-      >
-        Удалить
-      </button>
+      <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
     </div>
-    <p class="reason" role="status">Перенос находок в карантин временно недоступен.</p>
     {#if actionNotice}
       <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
     {/if}
@@ -798,8 +837,10 @@
 
   .bin-slot {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
-    align-items: flex-end;
+    gap: 16px;
     margin-top: auto;
     padding-bottom: 8px;
   }

@@ -31,6 +31,11 @@
   </svg>
   <span class="count" data-testid="bin-count">{count}</span>
   <span class="sr-only">Корзина находок: {count}</span>
+  {#if state === 'throwing'}
+    <span class="out" data-testid="bin-throw" aria-hidden="true"></span>
+    <span class="out" data-testid="bin-throw" aria-hidden="true"></span>
+    <span class="out" data-testid="bin-throw" aria-hidden="true"></span>
+  {/if}
 </div>
 
 <style>
@@ -87,13 +92,57 @@
     clip: rect(0 0 0 0);
   }
 
+  /* «Корзина выбрасывает»: мелкие фигуры улетают вверх из открытой крышки. */
+  .out {
+    position: absolute;
+    left: 50%;
+    bottom: 58px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: throw-out 420ms cubic-bezier(0.2, 0, 0.6, 1) both;
+  }
+
+  .out:nth-of-type(2) {
+    animation-delay: 50ms;
+    margin-left: -14px;
+  }
+
+  .out:nth-of-type(3) {
+    animation-delay: 90ms;
+    margin-left: 14px;
+    border-radius: var(--radius-xs);
+  }
+
+  @keyframes throw-out {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(0.8);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-46px) scale(1);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .lid {
       transition: none;
+    }
+
+    .out {
+      animation: none;
+      opacity: 0;
     }
   }
 
   :global(:root[data-reduce-motion='true']) .lid {
     transition: none;
+  }
+
+  :global(:root[data-reduce-motion='true']) .out {
+    animation: none;
+    opacity: 0;
   }
 </style>
