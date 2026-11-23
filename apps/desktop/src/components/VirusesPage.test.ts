@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import VirusesPage from './VirusesPage.svelte';
-import { assessFile, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
+import { assessFile, clamavSignatures, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
 import { revealInExplorer } from '../lib/programsApi';
 import {
   listQuarantine,
@@ -12,7 +12,7 @@ import {
 } from '../lib/disksApi';
 import { scanCancel } from '../lib/scanControl';
 import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
-import { resetScanState } from '../lib/scanState.svelte';
+import { resetScanState, scan } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
 import VirusBin from './VirusBin.svelte';
 
@@ -34,6 +34,7 @@ vi.mock('../lib/disksApi', async (importOriginal) => ({
 vi.mock('../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/api')>()),
   clamavStatus: vi.fn(),
+  clamavSignatures: vi.fn(),
   defaultScanTarget: vi.fn(),
   scanStart: vi.fn(),
   assessFile: vi.fn(),
@@ -41,9 +42,16 @@ vi.mock('../lib/api', async (importOriginal) => ({
 
 const DOWNLOADS = 'C:\\Users\\Slava\\Downloads';
 const START = 'Начать проверку';
+const CLAMDB = 'C:\\Users\\Slava\\AppData\\Local\\OCHISTKA\\clamdb';
 
 beforeEach(() => {
   vi.mocked(listQuarantine).mockResolvedValue([]);
+  vi.mocked(clamavSignatures).mockResolvedValue({
+    dir: CLAMDB,
+    files: 0,
+    signatures: null,
+    enginePresent: false,
+  });
 });
 
 afterEach(() => {
@@ -300,6 +308,8 @@ describe('VirusesPage scan', () => {
 
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: DOWNLOADS } });
+    expect(scan.target).toBe(DOWNLOADS);
+    expect(input.value).toBe(DOWNLOADS);
     await waitFor(() => expect(screen.queryByText('Укажите папку для проверки')).toBeNull());
   });
 });
@@ -799,6 +809,61 @@ describe('VirusesPage remove button (round 28)', () => {
     const idle = render(VirusBin, { props: { count: 0 } });
     expect(screen.queryByTestId('bin-throw')).toBeNull();
     idle.unmount();
+  });
+});
+
+describe('VirusesPage signatures (round 29)', () => {
+  it('asks for bases in plain words when the engine is built but its base is missing', async () => {
+    vi.mocked(clamavStatus).mockResolvedValue({
+      available: false,
+      reason: 'базы проверки не загружены: движок ещё не получил базу',
+    });
+    vi.mocked(clamavSignatures).mockResolvedValue({
+      dir: CLAMDB,
+      files: 0,
+      signatures: null,
+      enginePresent: true,
+    });
+    vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
+    render(VirusesPage, { props: { subsection: 'scan' } });
+
+    const hint = await screen.findByTestId('signatures-missing');
+    expect(hint.textContent).toContain('Базы проверки не загружены');
+    expect(hint.textContent).toContain(CLAMDB);
+    expect(screen.queryByTestId('engine-unavailable')).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Открыть папку баз' }));
+    await waitFor(() => expect(revealInExplorer).toHaveBeenCalledWith(CLAMDB));
+  });
+
+  it('shows the loaded base and its signature count, and lets the check start', async () => {
+    vi.mocked(clamavStatus).mockResolvedValue({ available: true, reason: '' });
+    vi.mocked(clamavSignatures).mockResolvedValue({
+      dir: CLAMDB,
+      files: 1,
+      signatures: 1234,
+      enginePresent: true,
+    });
+    vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
+    render(VirusesPage, { props: { subsection: 'scan' } });
+
+    expect(await screen.findByTestId('signatures-loaded')).toBeTruthy();
+    expect(screen.getByText('База загружена: сигнатур — 1234.')).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    expect(screen.queryByTestId('signatures-missing')).toBeNull();
+  });
+
+  it('keeps the old wording when the engine is not part of this build', async () => {
+    vi.mocked(clamavStatus).mockResolvedValue({ available: false, reason: 'движок не собран' });
+    vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
+    render(VirusesPage, { props: { subsection: 'scan' } });
+
+    expect(await screen.findByTestId('engine-unavailable')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Открыть папку баз' })).toBeNull();
   });
 });
 

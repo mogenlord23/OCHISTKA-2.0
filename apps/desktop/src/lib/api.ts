@@ -10,6 +10,7 @@ import type {
   HardwareOverview,
   MotherboardInfo,
   ScanReport,
+  SignaturesInfo,
   Suspicion,
   SystemOverview,
 } from './types';
@@ -120,6 +121,17 @@ export function isEngineStatus(value: unknown): value is EngineStatus {
   return isObj(value) && typeof value.available === 'boolean' && isStr(value.reason);
 }
 
+/** Проверка формы ответа `clamav_signatures`: папка баз, число файлов, сигнатуры. */
+export function isSignaturesInfo(value: unknown): value is SignaturesInfo {
+  return (
+    isObj(value) &&
+    isStr(value.dir) &&
+    isNum(value.files) &&
+    typeof value.enginePresent === 'boolean' &&
+    (value.signatures === null || isNum(value.signatures))
+  );
+}
+
 /** `invoke<T>` только приводит тип; здесь форма ответа проверяется на самом деле. */
 async function invokeChecked<T>(
   guard: (value: unknown) => value is T,
@@ -167,6 +179,16 @@ export function scanStart(
 
 export function clamavStatus(): Promise<EngineStatus> {
   return invokeChecked(isEngineStatus, 'clamav_status');
+}
+
+/** Папка баз и число загруженных сигнатур: нужно экрану проверки. */
+export function clamavSignatures(): Promise<SignaturesInfo> {
+  return invokeChecked(isSignaturesInfo, 'clamav_signatures');
+}
+
+/** Просит движок загрузить базы (по умолчанию — из папки приложения). */
+export function clamavLoadSignatures(path?: string): Promise<EngineStatus> {
+  return invokeChecked(isEngineStatus, 'clamav_load_signatures', { path: path ?? null });
 }
 
 export function assessFile(path: string): Promise<Suspicion> {

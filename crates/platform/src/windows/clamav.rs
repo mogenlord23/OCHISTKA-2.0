@@ -16,12 +16,49 @@ pub const NOT_BUILT_REASON: &str =
 
 /// Причина, пока собран движок, но сигнатуры не загружены.
 #[cfg(feature = "libclamav")]
-const NO_SIGNATURES_REASON: &str = "сигнатуры не загружены: движок ещё не получил базу";
+const NO_SIGNATURES_REASON: &str = "базы проверки не загружены: движок ещё не получил базу";
+
+/// Встроен ли движок в эту сборку.
+pub const fn engine_present() -> bool {
+    cfg!(feature = "libclamav")
+}
+
+/// Папка баз по умолчанию: `%LOCALAPPDATA%\OCHISTKA\clamdb`. Её наполняет владелец.
+pub fn default_signatures_dir() -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("LOCALAPPDATA")?;
+    Some(
+        std::path::PathBuf::from(base)
+            .join("OCHISTKA")
+            .join("clamdb"),
+    )
+}
+
+/// Создаёт папку баз, если её нет, и возвращает путь.
+pub fn ensure_signatures_dir() -> Result<std::path::PathBuf, String> {
+    let dir = default_signatures_dir().ok_or_else(|| "не найден %LOCALAPPDATA%".to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|err| format!("папка баз не создана: {err}"))?;
+    Ok(dir)
+}
+
+/// Сколько файлов базы лежит в папке (0 — папка пуста или её нет).
+pub fn signatures_files(dir: &std::path::Path) -> u32 {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .filter(|entry| entry.path().is_file())
+        .count()
+        .try_into()
+        .unwrap_or(u32::MAX)
+}
 
 pub struct ClamAvEngine {
     reason: String,
     #[cfg(feature = "libclamav")]
     native: Mutex<Option<Engine>>,
+    #[cfg(feature = "libclamav")]
+    signatures: Mutex<Option<u32>>,
 }
 
 impl ClamAvEngine {
@@ -32,6 +69,7 @@ impl ClamAvEngine {
             Self {
                 reason: NO_SIGNATURES_REASON.to_string(),
                 native: Mutex::new(None),
+                signatures: Mutex::new(None),
             }
         }
         #[cfg(not(feature = "libclamav"))]
@@ -46,6 +84,8 @@ impl ClamAvEngine {
             reason: NOT_BUILT_REASON.to_string(),
             #[cfg(feature = "libclamav")]
             native: Mutex::new(None),
+            #[cfg(feature = "libclamav")]
+            signatures: Mutex::new(None),
         }
     }
 
@@ -114,14 +154,32 @@ impl VirusScanPort for ClamAvEngine {
         check_signatures_dir(&crate::windows_cleanup::WindowsFs, dir)?;
         #[cfg(feature = "libclamav")]
         {
-            let engine = Engine::load(dir)
-                .map_err(|err| CoreError::Probe(format!("сигнатуры не загружены: {err}")))?;
+            let (engine, signatures) = Engine::load(dir)
+                .map_err(|err| CoreError::Probe(format!("базы не загружены: {err}")))?;
             *self.lock_native() = Some(engine);
+            *self
+                .signatures
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner) = Some(signatures);
             Ok(())
         }
         #[cfg(not(feature = "libclamav"))]
         {
             Err(CoreError::EngineMissing(NOT_BUILT_REASON.to_string()))
+        }
+    }
+
+    fn signature_count(&self) -> Option<u32> {
+        #[cfg(feature = "libclamav")]
+        {
+            *self
+                .signatures
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+        }
+        #[cfg(not(feature = "libclamav"))]
+        {
+            None
         }
     }
 }
@@ -166,6 +224,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "libclamav"))]
     fn signatures_folder_present_but_not_built_reports_not_built() {
         let root = temp_root("present");
         let signatures = root.join("signatures");
@@ -176,5 +235,91 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, CoreError::EngineMissing(ref m) if m.contains("движок не собран")));
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn default_signatures_dir_lives_in_the_app_folder() {
+        let dir = default_signatures_dir().expect("LOCALAPPDATA задан на Windows");
+        assert!(dir.ends_with(std::path::Path::new("OCHISTKA").join("clamdb")));
+        assert_eq!(signatures_files(&dir), 0, "свежая папка пуста или её нет");
+    }
+
+    #[cfg(feature = "libclamav")]
+    #[test]
+    fn built_engine_starts_without_signatures_and_says_so() {
+        assert!(engine_present());
+        let status = ClamAvEngine::build().engine_status();
+        assert!(!status.available);
+        assert!(status.reason.contains("базы проверки не загружены"));
+    }
+
+    /// Настоящий движок: тестовая база вместо официальной (её нет в сети).
+    /// Вместо EICAR — собственный безвредный образец: Defender удаляет EICAR-файл на этой машине.
+    #[cfg(all(feature = "libclamav", windows))]
+    mod native {
+        use super::*;
+
+        const PATTERN: &str = "OCHISTKA-CLAMAV-TEST-PATTERN-0123456789ABCDEF";
+
+        fn hex(bytes: &[u8]) -> String {
+            bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+        }
+
+        fn base_folder(name: &str, body: &str) -> std::path::PathBuf {
+            let root = temp_root(name);
+            std::fs::write(root.join("test.ndb"), body).unwrap();
+            root
+        }
+
+        #[test]
+        fn test_base_finds_our_pattern_and_keeps_a_clean_file_clean() {
+            let folder = base_folder(
+                "native-clean",
+                &format!("OCHISTKA.Test:0:*:{}\n", hex(PATTERN.as_bytes())),
+            );
+            let engine = ClamAvEngine::build();
+            engine
+                .load_signatures(&folder.to_string_lossy())
+                .expect("тестовая база должна загрузиться");
+            assert!(engine.engine_status().available);
+            assert_eq!(engine.signature_count(), Some(1));
+
+            let sample = folder.join("sample.bin");
+            std::fs::write(&sample, PATTERN.as_bytes()).unwrap();
+            let verdict = engine
+                .scan_file(&sample.to_string_lossy())
+                .expect("файл должен проверяться");
+            // Локальная база без подписи ClamAV помечает суффиксом `.UNOFFICIAL`.
+            match verdict {
+                FileVerdict::Found { signature } => {
+                    assert!(
+                        signature.starts_with("OCHISTKA.Test"),
+                        "имя сигнатуры: {signature}"
+                    );
+                }
+                other => panic!("движок вернул {other:?}"),
+            }
+
+            let clean = folder.join("clean.txt");
+            std::fs::write(&clean, b"just a note").unwrap();
+            assert_eq!(
+                engine.scan_file(&clean.to_string_lossy()).unwrap(),
+                FileVerdict::Clean
+            );
+            std::fs::remove_dir_all(&folder).ok();
+        }
+
+        #[test]
+        fn a_broken_base_is_reported_as_a_plain_reason() {
+            let folder = base_folder("native-broken", "this is not a signature file\n");
+            let engine = ClamAvEngine::build();
+            let err = engine
+                .load_signatures(&folder.to_string_lossy())
+                .unwrap_err();
+            assert!(matches!(err, CoreError::Probe(ref m) if m.contains("базы не загружены")));
+            assert!(!engine.engine_status().available);
+            assert_eq!(engine.signature_count(), None);
+            std::fs::remove_dir_all(&folder).ok();
+        }
     }
 }

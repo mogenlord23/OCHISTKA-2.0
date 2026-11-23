@@ -9,7 +9,8 @@ use ochistka_core::assess::{assess_path, NoModel, SuspicionModel};
 use ochistka_core::fs::{FsPort, Limits};
 use ochistka_core::heuristic::FileFacts;
 use ochistka_core::scan::{
-    sweep, sweep_with_progress, EngineStatus, ScanProgress, ScanReport, VirusScanPort,
+    sweep, sweep_with_progress, EngineStatus, ScanProgress, ScanReport, SignaturesInfo,
+    VirusScanPort,
 };
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
@@ -227,6 +228,44 @@ pub fn default_scan_target() -> String {
 #[tauri::command]
 pub fn clamav_status(state: State<'_, AppState>) -> EngineStatus {
     state.scanner.engine_status()
+}
+
+/// Где лежат базы и сколько их: экран проверки показывает путь и кнопку «Открыть папку баз».
+#[tauri::command]
+pub fn clamav_signatures(state: State<'_, AppState>) -> SignaturesInfo {
+    let dir = ochistka_platform::windows::clamav::default_signatures_dir()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let files = ochistka_platform::windows::clamav::signatures_files(std::path::Path::new(&dir));
+    SignaturesInfo {
+        dir,
+        files,
+        signatures: state.scanner.signature_count(),
+        engine_present: ochistka_platform::windows::clamav::engine_present(),
+    }
+}
+
+/// Загружает базы из папки (по умолчанию — из папки приложения). Возвращает новый статус.
+#[tauri::command]
+pub fn clamav_load_signatures(
+    state: State<'_, AppState>,
+    path: Option<String>,
+) -> Result<EngineStatus, CommandError> {
+    let dir = match path {
+        Some(path) if !path.trim().is_empty() => path,
+        _ => ochistka_platform::windows::clamav::ensure_signatures_dir()
+            .map_err(|message| CommandError {
+                kind: "probe".into(),
+                message,
+            })?
+            .to_string_lossy()
+            .into_owned(),
+    };
+    state
+        .scanner
+        .load_signatures(&dir)
+        .map_err(CommandError::from)?;
+    Ok(state.scanner.engine_status())
 }
 
 #[cfg(test)]

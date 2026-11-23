@@ -48,6 +48,22 @@ pub struct EngineStatus {
     pub reason: String,
 }
 
+/// Что приложение знает о базах сигнатур: где они лежат и сколько их загружено.
+/// Базы наполняет владелец сам; приложение только читает папку и загружает её в движок.
+#[derive(Serialize, TS, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "SignaturesInfo.ts")]
+pub struct SignaturesInfo {
+    /// Папка баз, которую смотрит приложение.
+    pub dir: String,
+    /// Сколько файлов базы лежит в папке (0 — папка пуста).
+    pub files: u32,
+    /// Сколько сигнатур загружено, если библиотека сообщила число.
+    pub signatures: Option<u32>,
+    /// Встроен ли движок в эту сборку вообще.
+    pub engine_present: bool,
+}
+
 /// Результат движка по одному файлу.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FileVerdict {
@@ -69,6 +85,11 @@ pub trait VirusScanPort: Send + Sync {
     }
     /// Загружает и компилирует сигнатуры из папки. Без встроенного движка возвращает ошибку.
     fn load_signatures(&self, dir: &str) -> Result<(), CoreError>;
+
+    /// Сколько сигнатур загружено, если движок знает число. Иначе `None`.
+    fn signature_count(&self) -> Option<u32> {
+        None
+    }
 }
 
 /// Путь проверки должен быть абсолютным и без управляющих символов, чтобы его нельзя было

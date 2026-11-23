@@ -10,6 +10,7 @@ export type { MotherboardInfo } from './generated/MotherboardInfo';
 export type { Finding } from './generated/Finding';
 export type { MemoryStatus } from './generated/MemoryStatus';
 export type { ScanReport } from './generated/ScanReport';
+export type { SignaturesInfo } from './generated/SignaturesInfo';
 export type { Suspicion } from './generated/Suspicion';
 export type { BoostState } from './generated/BoostState';
 export type { BoostStep } from './generated/BoostStep';

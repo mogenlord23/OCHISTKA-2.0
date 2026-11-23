@@ -10,7 +10,7 @@ use ochistka_core::assess::Suspicion;
 use ochistka_core::hardware::{GpuInfo, HardwareOverview, MotherboardInfo};
 use ochistka_core::netinfo::{GeoConsent, GeoInfo};
 use ochistka_core::network::{NetworkAdapter, TcpConnection};
-use ochistka_core::scan::{EngineStatus, Finding, ScanReport};
+use ochistka_core::scan::{EngineStatus, Finding, ScanReport, SignaturesInfo};
 use ochistka_core::speedtest::{SpeedEvent, SpeedFailure, SpeedPhase, SpeedResult};
 use ochistka_core::system::{CpuStatus, DiskKind, DiskStatus, MemoryStatus, SystemOverview};
 use ochistka_core::tweaks::{
@@ -54,6 +54,7 @@ fn export_all_into(dir: &Path) {
     ScanReport::export_all(&cfg).unwrap();
     Finding::export_all(&cfg).unwrap();
     EngineStatus::export_all(&cfg).unwrap();
+    SignaturesInfo::export_all(&cfg).unwrap();
     Suspicion::export_all(&cfg).unwrap();
     GpuInfo::export_all(&cfg).unwrap();
     MotherboardInfo::export_all(&cfg).unwrap();

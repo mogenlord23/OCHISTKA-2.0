@@ -5,7 +5,7 @@
   import RemoveSelected from './RemoveSelected.svelte';
   import VirusBin from './VirusBin.svelte';
   import { onDestroy, onMount, tick } from 'svelte';
-  import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
+  import { clamavSignatures, clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
   import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
   import { revealInExplorer, toProgramsError } from '../lib/programsApi';
   import {
@@ -16,7 +16,7 @@
     type QuarantineEntry,
   } from '../lib/disksApi';
   import { cancelScan, quarantineSelected, scan, startScan } from '../lib/scanState.svelte';
-  import type { CommandError, EngineStatus } from '../lib/types';
+  import type { CommandError, EngineStatus, SignaturesInfo } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
 
@@ -25,6 +25,7 @@
 
   let engine = $state<EngineStatus | null>(null);
   let engineError = $state<CommandError | null>(null);
+  let signatures = $state<SignaturesInfo | null>(null);
   let picked = $state<Record<number, boolean>>({});
   let journalEntries = $state<QuarantineEntry[]>([]);
   let journalNotice = $state('');
@@ -234,15 +235,34 @@
     } catch (err) {
       engineError = toCommandError(err);
     }
-    // Поле не затираем, если проверка уже идёт или путь введён раньше.
+    try {
+      signatures = await clamavSignatures();
+    } catch {
+      // Без сведений о базах экран работает как раньше: показывает причину от движка.
+    }
+    // Поле не затираем, если проверка уже идёт или путь введён раньше. Значение по умолчанию
+    // подставляем, только если владелец ещё ничего не ввёл, пока шёл запрос.
     if (scan.target === '') {
       try {
-        scan.target = await defaultScanTarget();
+        const fallback = await defaultScanTarget();
+        if (scan.target === '') scan.target = fallback;
       } catch {
         // Пустое поле — пользователь укажет папку сам.
       }
     }
   });
+
+  /** Открывает папку баз в Проводнике: владелец кладёт туда файлы базы сам. */
+  async function openSignaturesDir() {
+    const dir = signatures?.dir ?? '';
+    if (dir === '') return;
+    actionNotice = '';
+    try {
+      await revealInExplorer(dir);
+    } catch (err) {
+      actionNotice = toProgramsError(err).message;
+    }
+  }
 
   async function refreshJournal(): Promise<void> {
     try {
@@ -383,8 +403,26 @@
         </div>
 
         {#if engine && !engine.available}
-          <p class="empty" data-testid="engine-unavailable">
-            Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
+          {#if signatures?.enginePresent}
+            <p class="empty" data-testid="signatures-missing">
+              Базы проверки не загружены. Положите файлы базы в папку:
+              <span class="path selectable">{signatures.dir}</span>
+            </p>
+            <div class="actions">
+              <button type="button" onclick={() => void openSignaturesDir()}>
+                Открыть папку баз
+              </button>
+            </div>
+          {:else}
+            <p class="empty" data-testid="engine-unavailable">
+              Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
+            </p>
+          {/if}
+        {/if}
+
+        {#if engine?.available && signatures?.signatures}
+          <p class="hint" data-testid="signatures-loaded">
+            База загружена: сигнатур — {signatures.signatures}.
           </p>
         {/if}
 
@@ -500,8 +538,8 @@
 {#if subsection === 'log'}
   {#if engine && !engine.available}
     <p class="empty panel selectable" data-testid="engine-log">
-      Почему проверка недоступна: защитная часть программы (ClamAV) ещё не собрана и не встроена в
-      эту сборку. Технические подробности: docs/status/clamav-build.md.
+      Почему проверка недоступна: {engine.reason}. Технические подробности:
+      docs/status/clamav-build.md.
     </p>
   {/if}
 
@@ -888,6 +926,12 @@
   .empty {
     margin: 0;
     color: var(--ink-soft);
+  }
+
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--text-small);
   }
 
   .empty.panel {

@@ -17,8 +17,8 @@ pub mod vpn;
 use std::sync::Arc;
 
 use commands::{
-    assess_file, clamav_status, default_scan_target, get_system_overview, scan_cancel, scan_start,
-    scan_start_with_progress, AppState,
+    assess_file, clamav_load_signatures, clamav_signatures, clamav_status, default_scan_target,
+    get_system_overview, scan_cancel, scan_start, scan_start_with_progress, AppState,
 };
 
 /// Показывает родное окно с сообщением об ошибке запуска (в релизе нет консоли).
@@ -78,6 +78,16 @@ pub fn run() {
                     &ochistka_platform::desync::desync_data_dir(),
                 ),
             ));
+            // Базы проверки: папку создаём всегда, а встроенный движок грузим, только если в ней
+            // уже есть файлы. Пустая папка — честное «базы не загружены», приложение работает.
+            if let Ok(dir) = ochistka_platform::windows::clamav::ensure_signatures_dir() {
+                if ochistka_platform::windows::clamav::signatures_files(&dir) > 0 {
+                    let scanner = std::sync::Arc::clone(&app.state::<AppState>().scanner);
+                    std::thread::spawn(move || {
+                        let _ = scanner.load_signatures(&dir.to_string_lossy());
+                    });
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -87,6 +97,8 @@ pub fn run() {
             scan_start_with_progress,
             scan_cancel,
             clamav_status,
+            clamav_signatures,
+            clamav_load_signatures,
             assess_file,
             default_scan_target,
             disks::disks_request,

@@ -74,8 +74,9 @@ pub struct Engine {
 unsafe impl Send for Engine {}
 
 impl Engine {
-    /// Загружает и компилирует сигнатуры из папки. Ошибка содержит код библиотеки.
-    pub fn load(dir: &str) -> Result<Self, String> {
+    /// Загружает и компилирует сигнатуры из папки. Возвращает движок и число сигнатур.
+    /// Ошибка содержит код библиотеки.
+    pub fn load(dir: &str) -> Result<(Self, u32), String> {
         // SAFETY: `cl_init` не принимает указателей; повторный вызов безопасен (возвращает успех).
         if unsafe { cl_init(CL_INIT_DEFAULT) } != CL_SUCCESS {
             return Err("cl_init завершился с ошибкой".into());
@@ -108,7 +109,7 @@ impl Engine {
         if code != CL_SUCCESS {
             return Err(format!("cl_engine_compile: код {code}"));
         }
-        Ok(engine)
+        Ok((engine, signatures))
     }
 
     /// Проверяет один файл. Возвращает вердикт или текст ошибки библиотеки.
