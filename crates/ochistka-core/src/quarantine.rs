@@ -167,8 +167,10 @@ impl Quarantine {
 
     fn load(&self, fs: &dyn FsPort) -> Result<Manifest, CleanupError> {
         let path = fs.child(&self.root, MANIFEST_FILE);
-        if fs.metadata(&path).is_err() {
-            return Ok(Manifest::default());
+        match fs.metadata(&path) {
+            Ok(_) => {}
+            Err(CleanupError::NotFound(_)) => return Ok(Manifest::default()),
+            Err(err) => return Err(err),
         }
         let bytes = read_all(fs, &path)?;
         serde_json::from_slice(&bytes).map_err(|_| CleanupError::ManifestCorrupt)
@@ -235,9 +237,7 @@ impl Quarantine {
         known: &HashSet<String>,
     ) -> Result<Staged, CleanupError> {
         self.policy.check(source)?;
-        let meta = fs
-            .metadata(source)
-            .map_err(|_| CleanupError::NotFound(source.to_string()))?;
+        let meta = fs.metadata(source)?;
         if meta.is_dir || meta.is_symlink {
             return Err(CleanupError::Refused(format!("не обычный файл: {source}")));
         }
@@ -247,8 +247,10 @@ impl Quarantine {
             return Err(CleanupError::Io("коллизия идентификатора карантина".into()));
         }
         let (dir, dest) = self.stored_path(fs, &id, source)?;
-        if fs.metadata(&dest).is_ok() {
-            return Err(CleanupError::Occupied(dest));
+        match fs.metadata(&dest) {
+            Ok(_) => return Err(CleanupError::Occupied(dest)),
+            Err(CleanupError::NotFound(_)) => {}
+            Err(err) => return Err(err),
         }
         fs.create_dir_all(&dir)?;
         fs.rename(source, &dest)?;
@@ -319,8 +321,7 @@ impl Quarantine {
             .ok_or(CleanupError::EntryNotFound)?;
         let entry = manifest.entries[index].clone();
         let (dir, stored) = self.stored_path(fs, id, &entry.original_path)?;
-        fs.metadata(&stored)
-            .map_err(|_| CleanupError::NotFound(stored.clone()))?;
+        fs.metadata(&stored)?;
         if sha256_file(fs, &stored)? != entry.sha256 {
             return Err(CleanupError::HashMismatch(stored));
         }
@@ -331,8 +332,10 @@ impl Quarantine {
             .unwrap_or(&entry.original_path)
             .to_string();
         self.policy.check(&target)?;
-        if fs.metadata(&target).is_ok() {
-            return Err(CleanupError::Occupied(target));
+        match fs.metadata(&target) {
+            Ok(_) => return Err(CleanupError::Occupied(target)),
+            Err(CleanupError::NotFound(_)) => {}
+            Err(err) => return Err(err),
         }
         if let Some(parent) = parent_dir(&target) {
             fs.create_dir_all(parent)?;
@@ -369,9 +372,8 @@ impl Quarantine {
         let entry = manifest.entries[index].clone();
         // Путь строится внутри папки записи (id уже проверен), поэтому за пределы карантина не выйдет.
         let (dir, stored) = self.stored_path(fs, id, &entry.original_path)?;
-        if fs.metadata(&stored).is_ok() {
-            fs.remove_file(&stored)?;
-        }
+        fs.metadata(&stored)?;
+        fs.remove_file(&stored)?;
         manifest.entries.remove(index);
         self.save(fs, &manifest)?;
         let _ = fs.remove_dir(&dir);
@@ -389,6 +391,145 @@ mod tests {
 
     fn quarantine() -> Quarantine {
         Quarantine::new(QROOT, PathPolicy::new(&[TEMP]).unwrap()).unwrap()
+    }
+
+    struct MetadataDenied<'a> {
+        inner: &'a FakeFs,
+        blocked: String,
+    }
+
+    impl FsPort for MetadataDenied<'_> {
+        fn metadata(&self, path: &str) -> Result<crate::fs::Meta, CleanupError> {
+            if path == self.blocked {
+                Err(CleanupError::Io("нет доступа к метаданным".into()))
+            } else {
+                self.inner.metadata(path)
+            }
+        }
+        fn read_dir(&self, path: &str) -> Result<Vec<crate::fs::DirEntry>, CleanupError> {
+            self.inner.read_dir(path)
+        }
+        fn child(&self, dir: &str, name: &str) -> String {
+            self.inner.child(dir, name)
+        }
+        fn open(&self, path: &str) -> Result<Box<dyn std::io::Read + Send>, CleanupError> {
+            self.inner.open(path)
+        }
+        fn write_file(&self, path: &str, bytes: &[u8]) -> Result<(), CleanupError> {
+            self.inner.write_file(path, bytes)
+        }
+        fn create_dir_all(&self, path: &str) -> Result<(), CleanupError> {
+            self.inner.create_dir_all(path)
+        }
+        fn rename(&self, from: &str, to: &str) -> Result<(), CleanupError> {
+            self.inner.rename(from, to)
+        }
+        fn remove_file(&self, path: &str) -> Result<(), CleanupError> {
+            self.inner.remove_file(path)
+        }
+        fn remove_dir(&self, path: &str) -> Result<(), CleanupError> {
+            self.inner.remove_dir(path)
+        }
+    }
+
+    #[test]
+    fn inaccessible_manifest_cannot_be_treated_as_empty() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        let denied = MetadataDenied {
+            inner: &fs,
+            blocked: fs.child(QROOT, MANIFEST_FILE),
+        };
+        assert!(matches!(
+            q.move_many(&denied, std::slice::from_ref(&source), "test", 1),
+            Err(CleanupError::Io(_))
+        ));
+        assert!(fs.exists(&source));
+    }
+
+    #[test]
+    fn inaccessible_source_is_reported_and_not_moved() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        let denied = MetadataDenied {
+            inner: &fs,
+            blocked: source.clone(),
+        };
+        let outcome = q
+            .move_many(&denied, std::slice::from_ref(&source), "test", 1)
+            .unwrap();
+        assert_eq!((outcome.moved, outcome.failed), (0, 1));
+        assert!(fs.exists(&source));
+        assert!(q.list(&fs).unwrap().is_empty());
+    }
+
+    #[test]
+    fn inaccessible_restore_destination_cannot_be_treated_as_vacant() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        q.move_many(&fs, std::slice::from_ref(&source), "test", 1)
+            .unwrap();
+        let entry = q.list(&fs).unwrap().remove(0);
+        let denied = MetadataDenied {
+            inner: &fs,
+            blocked: source.clone(),
+        };
+        assert!(matches!(
+            q.restore(&denied, &entry.id, None),
+            Err(CleanupError::Io(_))
+        ));
+        assert_eq!(q.list(&fs).unwrap(), vec![entry]);
+        assert!(!fs.exists(&source));
+    }
+
+    #[test]
+    fn inaccessible_quarantined_file_keeps_its_manifest_entry() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        q.move_many(&fs, std::slice::from_ref(&source), "test", 1)
+            .unwrap();
+        let entry = q.list(&fs).unwrap().remove(0);
+        let blocked = format!("{QROOT}\\{}\\a.tmp", entry.id);
+        let denied = MetadataDenied {
+            inner: &fs,
+            blocked: blocked.clone(),
+        };
+        assert!(matches!(
+            q.purge(&denied, &entry.id, &entry.purge_token),
+            Err(CleanupError::Io(_))
+        ));
+        assert!(fs.exists(&blocked));
+        assert_eq!(q.list(&fs).unwrap(), vec![entry]);
+    }
+
+    #[test]
+    fn missing_quarantined_file_keeps_its_manifest_entry() {
+        let fs = FakeFs::new();
+        let source = format!("{TEMP}\\a.tmp");
+        fs.file(&source, b"data", 0);
+        let q = quarantine();
+        q.move_many(&fs, std::slice::from_ref(&source), "test", 1)
+            .unwrap();
+        let entry = q.list(&fs).unwrap().remove(0);
+        let stored = format!("{QROOT}\\{}\\a.tmp", entry.id);
+        fs.remove_file(&stored).unwrap();
+        assert!(matches!(
+            q.restore(&fs, &entry.id, None),
+            Err(CleanupError::NotFound(_))
+        ));
+        assert!(matches!(
+            q.purge(&fs, &entry.id, &entry.purge_token),
+            Err(CleanupError::NotFound(_))
+        ));
+        assert_eq!(q.list(&fs).unwrap(), vec![entry]);
     }
 
     #[test]
