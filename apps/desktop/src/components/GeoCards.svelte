@@ -74,28 +74,25 @@
       </span>
     </div>
   </div>
-  <div class="panel">
-    <div class="actions">
-      {#if geo.consent}
-        <button type="button" class="btn" disabled={geo.loading} onclick={() => void lookupGeo()}
-          >{geo.loading ? 'Определяем…' : 'Обновить'}</button
-        >
-        <button type="button" class="btn" onclick={() => void revokeGeo()}
-          >Отозвать разрешение</button
-        >
-      {:else}
-        <button
-          type="button"
-          class="btn go"
-          disabled={geo.consent === null}
-          onclick={() => void determineGeo()}>Определить</button
-        >
-        <span class="note">{GEO_CONSENT_TEXT}</span>
-      {/if}
-    </div>
-    {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
-    <p class="note">{GEO_VPN_NOTE} Данные примерные.</p>
+  <div class="actions">
+    {#if geo.consent}
+      <button type="button" class="btn" disabled={geo.loading} onclick={() => void lookupGeo()}
+        >{geo.loading ? 'Определяем…' : 'Обновить'}</button
+      >
+      <button type="button" class="btn" onclick={() => void revokeGeo()}>Отозвать разрешение</button
+      >
+    {:else}
+      <button
+        type="button"
+        class="btn go"
+        disabled={geo.consent === null}
+        onclick={() => void determineGeo()}>Определить</button
+      >
+      <p class="note">{GEO_CONSENT_TEXT}</p>
+    {/if}
   </div>
+  {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
+  <p class="note">{GEO_VPN_NOTE} Данные примерные.</p>
 </section>
 
 <style>
@@ -103,12 +100,18 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
     margin: 0;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    box-shadow: 0 0 0 2px #000;
+    container-type: inline-size;
   }
 
   .cards {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -118,9 +121,8 @@
     gap: 12px;
     min-width: 0;
     padding: 12px 14px;
-    border-radius: var(--radius-md);
-    background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    border-radius: var(--radius-sm);
+    background: #1a1a1a;
   }
 
   .icon {
@@ -141,6 +143,7 @@
   }
 
   .label {
+    overflow-wrap: anywhere;
     font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -160,7 +163,8 @@
   }
 
   .btn {
-    flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
     min-height: 36px;
     padding: 6px 18px;
     border: 0;
@@ -190,24 +194,10 @@
     outline-offset: 2px;
   }
 
-  .panel {
+  .actions {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 12px 14px;
-    border-radius: var(--radius-md);
-    background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .actions .note {
-    flex: 1;
   }
 
   .note {
@@ -221,7 +211,7 @@
     font-weight: 700;
   }
 
-  @media (max-width: 640px) {
+  @container (max-width: 400px) {
     .cards {
       grid-template-columns: 1fr;
     }
