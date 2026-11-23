@@ -1,0 +1,8 @@
+# Официальная сборка ClamAV скачивается скриптом fetch.ps1 и в git не попадает.
+_download/
+bin/
+lib/
+include/
+COPYING/
+COPYING.txt
+VERSION.txt
