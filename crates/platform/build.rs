@@ -35,7 +35,10 @@ fn main() {
     }
 
     println!("cargo:rerun-if-changed={}", root.join("bin").display());
-    println!("cargo:rustc-link-search=native={}", root.join("lib").display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        root.join("lib").display()
+    );
 
     // Окружение линковки и загрузки DLL: рядом с exe и в deps (там живут тестовые бинарники).
     // Каталог профиля (target/debug или target/release) — это родитель каталога `build`,
@@ -61,7 +64,10 @@ fn main() {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if !path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("dll")) {
+            if !path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("dll"))
+            {
                 continue;
             }
             let Some(name) = path.file_name() else {
