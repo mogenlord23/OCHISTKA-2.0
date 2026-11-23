@@ -1,6 +1,8 @@
 //! Проверка папок через порт движка на настоящей файловой системе (временная папка).
 //! Движок — либо заглушка `ClamAvEngine::not_built`, либо фейк, который реализует `VirusScanPort`.
 //! Строка EICAR — стандартный тестовый файл антивирусов (68 байт), она не является вредоносной.
+//! На диск EICAR не пишется: Defender удаляет такой файл, поэтому тесты используют собственный
+//! безвредный образец `MARKER`, и движок проверяется по-настоящему.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -15,7 +17,10 @@ use ochistka_platform::windows_cleanup::WindowsFs;
 
 const EICAR: &[u8] = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
-/// Фейковый движок: видит EICAR по содержимому; файлы с именем `damaged*` дают ошибку чтения.
+/// Собственный безвредный образец для тестов на диске.
+const MARKER: &[u8] = b"OCHISTKA-CLAMAV-TEST-MARKER-0123456789ABCDEF";
+
+/// Фейковый движок: видит MARKER по содержимому; файлы с именем `damaged*` дают ошибку чтения.
 #[derive(Default)]
 struct FakeEngine {
     calls: AtomicU32,
@@ -38,9 +43,9 @@ impl VirusScanPort for FakeEngine {
             return Err(CoreError::Probe("файл повреждён".into()));
         }
         let bytes = std::fs::read(path).map_err(|err| CoreError::Probe(err.to_string()))?;
-        if bytes.windows(EICAR.len()).any(|window| window == EICAR) {
+        if bytes.windows(MARKER.len()).any(|window| window == MARKER) {
             return Ok(FileVerdict::Found {
-                signature: "Eicar-Test-Signature".into(),
+                signature: "OCHISTKA.Test".into(),
             });
         }
         Ok(FileVerdict::Clean)
@@ -73,9 +78,9 @@ fn eicar_string_is_the_standard_68_byte_test_file() {
 }
 
 #[test]
-fn eicar_with_stub_engine_reports_engine_not_built() {
-    let root = temp_folder("eicar-stub");
-    std::fs::write(root.join("eicar.com"), EICAR).unwrap();
+fn stub_engine_reports_not_built_for_a_marker_file() {
+    let root = temp_folder("marker-stub");
+    std::fs::write(root.join("sample.bin"), MARKER).unwrap();
 
     let err = sweep(
         &WindowsFs,
@@ -91,9 +96,9 @@ fn eicar_with_stub_engine_reports_engine_not_built() {
 }
 
 #[test]
-fn eicar_with_engine_that_detects_it_is_reported_as_finding() {
-    let root = temp_folder("eicar-fake");
-    std::fs::write(root.join("eicar.com"), EICAR).unwrap();
+fn engine_that_detects_the_marker_reports_a_finding() {
+    let root = temp_folder("marker-fake");
+    std::fs::write(root.join("sample.bin"), MARKER).unwrap();
     std::fs::write(root.join("notes.txt"), b"plain text").unwrap();
     let engine = FakeEngine::default();
 
@@ -110,8 +115,8 @@ fn eicar_with_engine_that_detects_it_is_reported_as_finding() {
     assert_eq!(report.scanned_files, 2);
     assert_eq!(report.infected_files, 1);
     assert_eq!(report.findings.len(), 1);
-    assert!(report.findings[0].path.ends_with("eicar.com"));
-    assert_eq!(report.findings[0].signature, "Eicar-Test-Signature");
+    assert!(report.findings[0].path.ends_with("sample.bin"));
+    assert_eq!(report.findings[0].signature, "OCHISTKA.Test");
     assert_eq!(engine.calls.load(Ordering::SeqCst), 2);
 }
 
@@ -135,7 +140,7 @@ fn zero_byte_and_damaged_files_do_not_stop_the_sweep() {
     let root = temp_folder("damaged");
     std::fs::write(root.join("empty.bin"), b"").unwrap();
     std::fs::write(root.join("damaged.zip"), b"PK\x03").unwrap();
-    std::fs::write(root.join("eicar.com"), EICAR).unwrap();
+    std::fs::write(root.join("sample.bin"), MARKER).unwrap();
 
     let report = sweep(
         &WindowsFs,
@@ -147,7 +152,7 @@ fn zero_byte_and_damaged_files_do_not_stop_the_sweep() {
     .unwrap();
     std::fs::remove_dir_all(&root).ok();
 
-    assert_eq!(report.scanned_files, 2, "empty file and EICAR are scanned");
+    assert_eq!(report.scanned_files, 2, "empty file and marker are scanned");
     assert_eq!(report.errors, 1, "damaged file is counted, not fatal");
     assert_eq!(report.infected_files, 1);
 }
@@ -256,24 +261,25 @@ fn inaccessible_subfolder_marks_scan_incomplete() {
 
 #[cfg(feature = "libclamav")]
 #[test]
-fn embedded_clamav_loads_test_signature_and_detects_eicar() {
-    let root = temp_folder("eicar-clamav");
+fn embedded_clamav_loads_a_test_base_and_detects_the_marker() {
+    let root = temp_folder("marker-clamav");
     let signatures = root.join("signatures");
     std::fs::create_dir(&signatures).unwrap();
+    let hex: String = MARKER.iter().map(|byte| format!("{byte:02x}")).collect();
     std::fs::write(
-        signatures.join("test.hdb"),
-        b"44d88612fea8a8f36de82e1278abb02f:68:OCHISTKA.EICAR.Test\n",
+        signatures.join("test.ndb"),
+        format!("OCHISTKA.Test:0:*:{hex}\n"),
     )
     .unwrap();
-    let eicar = root.join("eicar.txt");
+    let sample = root.join("sample.bin");
     let clean = root.join("clean.txt");
-    std::fs::write(&eicar, EICAR).unwrap();
+    std::fs::write(&sample, MARKER).unwrap();
     std::fs::write(&clean, b"clean test file").unwrap();
     let engine = ClamAvEngine::build();
     engine.load_signatures(&as_target(&signatures)).unwrap();
     assert!(engine.engine_status().available);
     assert!(matches!(
-        engine.scan_file(&as_target(&eicar)),
+        engine.scan_file(&as_target(&sample)),
         Ok(FileVerdict::Found { .. })
     ));
     assert_eq!(
@@ -283,13 +289,14 @@ fn embedded_clamav_loads_test_signature_and_detects_eicar() {
     let corrupted = root.join("corrupted");
     std::fs::create_dir(&corrupted).unwrap();
     std::fs::write(
-        corrupted.join("bad.hdb"),
+        corrupted.join("bad.ndb"),
         b"not a valid signature database\n",
     )
     .unwrap();
     assert!(engine.load_signatures(&as_target(&corrupted)).is_err());
+    // Неудачная загрузка не ломает уже загруженную базу.
     assert!(matches!(
-        engine.scan_file(&as_target(&eicar)),
+        engine.scan_file(&as_target(&sample)),
         Ok(FileVerdict::Found { .. })
     ));
 
