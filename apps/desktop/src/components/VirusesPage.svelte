@@ -26,6 +26,12 @@
   let journalNotice = $state('');
   let confirmPurgeId = $state<string | null>(null);
 
+  /** Полёт находок в корзину: сколько фигур летит и открыта ли крышка. */
+  const FLIGHT_MS = 520;
+  let flight = $state<{ id: number; count: number } | null>(null);
+  let flightSeq = 0;
+  let binState = $state<'idle' | 'filling' | 'closed' | 'throwing'>('idle');
+
   // Идёт либо сама проверка, либо оценка находок: новую начинать нельзя.
   const busy = $derived(scan.phase !== 'idle');
   const error = $derived(scan.error ?? engineError);
@@ -42,10 +48,55 @@
           : '',
   );
 
+  /** Вид станции: идёт проверка, есть находки, чисто или проверить не удалось. */
+  const stationState = $derived(
+    scan.phase !== 'idle'
+      ? 'scanning'
+      : error || (engine && !engine.available)
+        ? 'failed'
+        : scan.report
+          ? scan.report.findings.length > 0
+            ? 'found'
+            : scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0
+              ? 'failed'
+              : 'clean'
+          : 'idle',
+  );
+
+  /** Движение отключают и системная настройка, и наш переключатель в «Оформлении». */
+  function reducedMotion(): boolean {
+    if (typeof window === 'undefined') return false;
+    if (document.documentElement.dataset.reduceMotion === 'true') return true;
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  }
+
   // Выбор относится к конкретному отчёту: новый отчёт или перенос сбрасывают отметки.
   $effect(() => {
     void scan.report;
     picked = {};
+  });
+
+  // Находки слетаются в корзину после отчёта, крышка закрывается в конце.
+  // Без движения состояние меняется сразу: ни полёта, ни ожидания.
+  $effect(() => {
+    const report = scan.report;
+    if (!report) {
+      flight = null;
+      binState = 'idle';
+      return;
+    }
+    if (report.findings.length === 0 || reducedMotion()) {
+      flight = null;
+      binState = 'closed';
+      return;
+    }
+    flight = { id: ++flightSeq, count: Math.min(3, report.findings.length) };
+    binState = 'filling';
+    const timer = window.setTimeout(() => {
+      binState = 'closed';
+      flight = null;
+    }, FLIGHT_MS);
+    return () => window.clearTimeout(timer);
   });
 
   function toggleFinding(index: number, next: boolean) {
@@ -125,7 +176,7 @@
   }
 </script>
 
-{#snippet findingsEmpty()}
+?{#snippet findingsEmpty()}
   {#if !scan.report}
     <p class="empty">Здесь появятся находки после проверки.</p>
   {:else if findings.length === 0}
@@ -137,7 +188,7 @@
   {/if}
 {/snippet}
 
-{#snippet stationState()}
+{#snippet stationStatus()}
   {#if scan.phase === 'scanning'}
     {#if scan.progress}
       <p>
@@ -178,7 +229,15 @@
 
   <div class="scan-layout">
     <div class="station-col">
-      <section class="station" data-testid="scan-station" aria-live="polite">
+      <section
+        class="station"
+        data-testid="scan-station"
+        data-state={stationState}
+        aria-live="polite"
+      >
+        {#if stationState === 'scanning'}
+          <span class="beam" data-testid="scan-beam" aria-hidden="true"></span>
+        {/if}
         <div class="station-head">
           <span class="shield" aria-hidden="true">
             <svg viewBox="0 0 48 56" focusable="false">
@@ -211,6 +270,8 @@
           <button
             type="button"
             class="primary big"
+            class:scanning={stationState === 'scanning'}
+            data-state={stationState}
             onclick={start}
             disabled={!engine?.available || busy || scan.target.trim() === ''}
           >
@@ -235,12 +296,12 @@
         </div>
 
         <div class="state">
-          {@render stationState()}
+          {@render stationStatus()}
         </div>
       </section>
 
       <div class="bin-slot">
-        <VirusBin count={findings.length} />
+        <VirusBin count={findings.length} state={binState} />
       </div>
     </div>
 
@@ -262,6 +323,15 @@
         {/if}
       </div>
     </section>
+
+    {#if flight}
+      {@const current = flight}
+      <div class="flight" data-testid="bin-flight" aria-hidden="true">
+        {#each Array.from({ length: current.count }, (_, index) => index) as drop (drop)}
+          <span class="drop" style:--drop-index={drop}></span>
+        {/each}
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -469,6 +539,7 @@
   }
 
   .scan-layout {
+    position: relative;
     display: grid;
     flex: 1 1 auto;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -484,14 +555,116 @@
   }
 
   .station {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow: hidden;
     padding: 16px;
     border-radius: var(--radius-lg);
     background: var(--surface);
     box-shadow: 0 0 0 2px #000;
     font-size: var(--text-caption);
+  }
+
+  /* Луч по станции: только пока идёт проверка. */
+  .beam {
+    position: absolute;
+    inset: 0 auto 0 -40%;
+    width: 40%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--accent) 30%, transparent),
+      transparent
+    );
+    animation: beam-sweep 1.6s linear infinite;
+    pointer-events: none;
+  }
+
+  .big.scanning {
+    animation: press-pulse 1.3s ease-in-out infinite;
+  }
+
+  .station[data-state='found'] {
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .station[data-state='clean'] {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, #000);
+  }
+
+  .station[data-state='failed'] {
+    box-shadow: 0 0 0 2px var(--muted);
+  }
+
+  .flight {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .drop {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    animation: fly 480ms cubic-bezier(0.4, 0, 0.7, 1) both;
+    animation-delay: calc(var(--drop-index) * 60ms);
+  }
+
+  .drop:nth-child(1) {
+    border-radius: 50%;
+  }
+
+  .drop:nth-child(2) {
+    border-radius: var(--radius-xs);
+  }
+
+  .drop:nth-child(3) {
+    border-radius: 0;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  }
+
+  @keyframes beam-sweep {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(360%);
+    }
+  }
+
+  @keyframes press-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    50% {
+      box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+  }
+
+  @keyframes fly {
+    0% {
+      left: 70%;
+      top: 20%;
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    16% {
+      opacity: 1;
+    }
+    86% {
+      opacity: 1;
+    }
+    100% {
+      left: 26%;
+      top: 82%;
+      opacity: 0;
+      transform: scale(0.8);
+    }
   }
 
   .station-head {
@@ -580,6 +753,35 @@
     .sweep {
       transition: none;
     }
+
+    .beam {
+      display: none;
+    }
+
+    .big.scanning {
+      animation: none;
+    }
+
+    .drop {
+      animation: none;
+    }
+  }
+
+  /* Наш переключатель «меньше движения» в «Оформлении» делает то же самое. */
+  :global(:root[data-reduce-motion='true']) .sweep {
+    transition: none;
+  }
+
+  :global(:root[data-reduce-motion='true']) .beam {
+    display: none;
+  }
+
+  :global(:root[data-reduce-motion='true']) .big.scanning {
+    animation: none;
+  }
+
+  :global(:root[data-reduce-motion='true']) .drop {
+    animation: none;
   }
 
   .log {

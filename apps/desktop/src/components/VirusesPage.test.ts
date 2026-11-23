@@ -571,6 +571,82 @@ describe('VirusesPage scan screen (round 28)', () => {
   });
 });
 
+describe('VirusesPage scan screen motion (round 28)', () => {
+  const REDUCED = {
+    matches: true,
+    media: '(prefers-reduced-motion: reduce)',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete document.documentElement.dataset.reduceMotion;
+  });
+
+  /** Находки после проверки: становится видно, что полёт закончился. */
+  async function scanWithOneFinding(): Promise<void> {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue(
+      report([{ path: `${DOWNLOADS}\\evil.exe`, signature: 'Win.Evil.Test' }]),
+    );
+    vi.mocked(assessFile).mockResolvedValue({ score: 10, reasons: [] });
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+  }
+
+  it('shows the beam only while scanning and marks the station state', async () => {
+    engineOk();
+    let finish: (value: ScanReport) => void = () => {};
+    vi.mocked(scanStart).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+
+    const station = screen.getByTestId('scan-station');
+    expect(station.dataset.state).toBe('scanning');
+    expect(screen.getByTestId('scan-beam')).toBeTruthy();
+
+    finish(report());
+    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    expect(screen.queryByTestId('scan-beam')).toBeNull();
+    expect(screen.getByTestId('scan-station').dataset.state).toBe('clean');
+  });
+
+  it('flies findings into the bin, then closes the lid and keeps the count', async () => {
+    await scanWithOneFinding();
+
+    expect(screen.getByTestId('bin-flight')).toBeTruthy();
+    expect(screen.getByTestId('virus-bin').dataset.state).toBe('filling');
+    expect(screen.getByTestId('bin-count').textContent).toBe('1');
+
+    await waitFor(() => expect(screen.queryByTestId('bin-flight')).toBeNull(), { timeout: 2000 });
+    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
+    expect(screen.getByTestId('bin-count').textContent).toBe('1');
+  });
+
+  it('keeps everything still when the system asks for less motion', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => REDUCED),
+    );
+    await scanWithOneFinding();
+
+    expect(screen.queryByTestId('bin-flight')).toBeNull();
+    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
+    expect(screen.getByTestId('bin-count').textContent).toBe('1');
+  });
+
+  it('keeps everything still with the in-app reduce-motion switch', async () => {
+    document.documentElement.dataset.reduceMotion = 'true';
+    await scanWithOneFinding();
+
+    expect(screen.queryByTestId('bin-flight')).toBeNull();
+    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
+  });
+});
+
 describe('VirusesPage findings: selection and quarantine', () => {
   it('keeps quarantine unavailable even after selecting a finding', async () => {
     engineOk();

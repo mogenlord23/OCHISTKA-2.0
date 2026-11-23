@@ -7,11 +7,25 @@ import pageSource from './VirusesPage.svelte?raw';
 describe('VirusesPage reduced motion', () => {
   const css = pageSource.slice(pageSource.indexOf('<style>'));
 
-  it('turns the progress transition off under prefers-reduced-motion: reduce', () => {
+  it('turns every moving part off under prefers-reduced-motion: reduce', () => {
     const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
     expect(match).not.toBeNull();
     const block = match?.[1] ?? '';
     expect(block).toMatch(/\.sweep\s*\{[^}]*transition:\s*none/);
+    expect(block).toMatch(/\.beam\s*\{[^}]*display:\s*none/);
+    expect(block).toMatch(/\.big\.scanning\s*\{[^}]*animation:\s*none/);
+    expect(block).toMatch(/\.drop\s*\{[^}]*animation:\s*none/);
+  });
+
+  it('does the same for the in-app reduce-motion switch', () => {
+    expect(css).toMatch(
+      /:root\[data-reduce-motion='true'\]\)\s*\.sweep\s*\{[^}]*transition:\s*none/,
+    );
+    expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.beam\s*\{[^}]*display:\s*none/);
+    expect(css).toMatch(
+      /:root\[data-reduce-motion='true'\]\)\s*\.big\.scanning\s*\{[^}]*animation:\s*none/,
+    );
+    expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.drop\s*\{[^}]*animation:\s*none/);
   });
 
   it('keeps the scanning state visible as text, not only as motion', () => {
@@ -46,7 +60,7 @@ describe('VirusesPage scan screen layout (round 28)', () => {
     const scroll = css.match(/\.list-scroll\s*\{([^}]*)\}/)?.[1] ?? '';
     expect(scroll).toMatch(/overflow:\s*hidden auto/);
     const station = css.match(/\.station\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(station).not.toMatch(/overflow/);
+    expect(station).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
   });
 
   it('draws the bin as inline vector shapes, without raster images', async () => {
