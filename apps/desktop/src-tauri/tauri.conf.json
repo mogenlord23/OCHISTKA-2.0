@@ -45,7 +45,8 @@
     "resources": {
       "resources/wallpapers/*.jpg": "wallpapers/",
       "resources/vpn-core/*": "vpn-core/",
-      "resources/vpn-service/*": "vpn-service/"
+      "resources/vpn-service/*": "vpn-service/",
+      "resources/licenses/*": "licenses/"
     }
   }
 }

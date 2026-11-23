@@ -12,6 +12,27 @@
 
 Разбор и проверка адресов загрузки.
 
+## ClamAV 1.4.6 для Windows (GPL-2.0)
+
+- Источник: официальный выпуск Cisco Talos, GitHub Releases `Cisco-Talos/clamav`, тег `clamav-1.4.6`,
+  файл `clamav-1.4.6.win.x64.zip`
+  (https://github.com/Cisco-Talos/clamav/releases/download/clamav-1.4.6/clamav-1.4.6.win.x64.zip).
+- Размер архива: 191 947 200 байт. SHA-256 архива (совпадает с полем `digest` в GitHub API):
+  `57b6fd1d60cd87bafe800f97407ecdef0576d36b3900b8b7abcfbbabe88295fd`.
+- Лицензия: GNU General Public License v2.0 (`COPYING.txt` из архива; в поставку кладётся
+  `resources/licenses/ClamAV-GPL-2.0.txt`).
+- Поставляются **только** файлы движка из архива: `libclamav.dll` и его DLL-зависимости
+  (OpenSSL, libxml2, pcre2, curl, json-c, bz2, ssh2, nghttp2, unrar, mspack, runtime MSVC),
+  а также import-библиотека и заголовки для сборки. Программы `clamscan.exe`, `freshclam.exe`,
+  `clamd.exe`, `clamdscan.exe`, `sigtool.exe`, `clambc.exe`, `clamconf.exe`, `clamsubmit.exe`,
+  `clamdtop.exe` **не поставляются и не запускаются**.
+- Библиотека линкуется с OCHISTKA как разделяемая (`clamav.lib` + `libclamav.dll`), поэтому
+  действуют требования GPL-2.0 к распространению: текст лицензии прилагается, исходный код
+  ClamAV доступен по ссылке выше. Лицензия самой OCHISTKA: TBD (см. ADR 0004).
+- Скачивание и распаковка: `tools/clamav-win/fetch.ps1` (проверка SHA-256 и размера, повторный
+  запуск безопасен). В git бинарники не попадают, папка `tools/clamav-win` игнорируется.
+- Базы сигнатур в поставку не входят: их кладёт владелец в `%LOCALAPPDATA%\OCHISTKA\clamdb`.
+
 ## Прочие компоненты
 
 ## sing-box (VPN-ядро)
