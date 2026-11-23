@@ -80,28 +80,26 @@ async function renderReady(subsection = 'scan') {
 }
 
 describe('VirusesPage scan', () => {
-  it('FND-0182: blocks scanning and shows the engine reason and install hint', async () => {
+  it('FND-0182: blocks scanning and explains the unavailable engine in plain words', async () => {
     vi.mocked(clamavStatus).mockResolvedValue({
       available: false,
       reason:
         'движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md',
     });
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
-    render(VirusesPage, { props: { subsection: 'scan' } });
+    const view = render(VirusesPage, { props: { subsection: 'scan' } });
 
-    expect(await screen.findByText('Движок ClamAV не найден')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md',
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Сборка libclamav не выполнена: статус и причина в docs/status/clamav-build.md.',
-      ),
-    ).toBeTruthy();
+    const hint = await screen.findByTestId('engine-unavailable');
+    expect(hint.textContent).toContain('встроенная защита ещё не готова');
+    // На экране проверки нет технического пути и текста причины.
+    expect(view.container.textContent).not.toContain('docs/status/clamav-build.md');
+    expect(view.container.textContent).not.toContain('libclamav');
     const start = screen.getByRole('button', { name: START }) as HTMLButtonElement;
     expect(start.disabled).toBe(true);
+
+    await view.rerender({ subsection: 'log' });
+    const journal = await screen.findByTestId('engine-log');
+    expect(journal.textContent).toContain('docs/status/clamav-build.md');
   });
 
   it('warns that the check is incomplete when the entry limit was reached', async () => {
@@ -111,9 +109,7 @@ describe('VirusesPage scan', () => {
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
     expect(
-      await screen.findByText(
-        'Проверка неполная: часть папок недоступна или достигнут лимит обхода.',
-      ),
+      await screen.findByText('Проверено не всё: часть папок недоступна или слишком много файлов.'),
     ).toBeTruthy();
   });
 
@@ -124,7 +120,7 @@ describe('VirusesPage scan', () => {
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
     expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
-    expect(screen.queryByText(/Проверка неполная/)).toBeNull();
+    expect(screen.queryByText(/Проверено не всё/)).toBeNull();
   });
 
   it('shows the sweep while scanning, then the result and suspicion score', async () => {
@@ -286,8 +282,12 @@ describe('VirusesPage scan', () => {
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
     render(VirusesPage, { props: { subsection: 'scan' } });
 
-    expect(await screen.findByText('Движок ClamAV не найден')).toBeTruthy();
-    expect(screen.getByText('Сначала проверьте движок')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('Проверка пока недоступна')).toBeTruthy();
     expect(screen.queryByText('Укажите папку для проверки')).toBeNull();
   });
 
@@ -296,7 +296,7 @@ describe('VirusesPage scan', () => {
     render(VirusesPage, { props: { subsection: 'scan' } });
 
     expect(await screen.findByText('Укажите папку для проверки')).toBeTruthy();
-    expect(screen.queryByText('Сначала проверьте движок')).toBeNull();
+    expect(screen.queryByText('Проверка пока недоступна')).toBeNull();
 
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: DOWNLOADS } });
@@ -326,17 +326,44 @@ describe('VirusesPage findings', () => {
   });
 
   it.each([
-    { incomplete: true, errors: 0, skippedFiles: 0 },
-    { incomplete: false, errors: 1, skippedFiles: 0 },
-    { incomplete: false, errors: 0, skippedFiles: 1 },
+    {
+      incomplete: true,
+      errors: 0,
+      skippedFiles: 0,
+      expected: 'Проверено не всё: часть файлов или папок осталась без проверки.',
+    },
+    {
+      incomplete: false,
+      errors: 1,
+      skippedFiles: 0,
+      expected: 'Проверить не удалось: файлов без проверки — 1.',
+    },
+    {
+      incomplete: false,
+      errors: 0,
+      skippedFiles: 1,
+      expected: 'Проверено не всё: часть файлов или папок осталась без проверки.',
+    },
   ])('does not call a partial scan clean', async (partial) => {
     engineOk();
-    vi.mocked(scanStart).mockResolvedValue({ ...report([]), ...partial });
+    const { expected, ...partialReport } = partial;
+    vi.mocked(scanStart).mockResolvedValue({ ...report([]), ...partialReport });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
     await screen.findByText('Проверено файлов: 5. Находок: 0.');
     await view.rerender({ subsection: 'findings' });
-    expect(screen.getByText('Находок нет. Часть файлов или папок не проверена.')).toBeTruthy();
+    expect(screen.getByText(expected)).toBeTruthy();
+    expect(screen.queryByText('Угроз не найдено.')).toBeNull();
+  });
+
+  it('says there is nothing to check for an empty folder', async () => {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue({ ...report([]), scannedFiles: 0 });
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 0. Находок: 0.');
+    await view.rerender({ subsection: 'findings' });
+    expect(screen.getByText('Проверять нечего.')).toBeTruthy();
     expect(screen.queryByText('Угроз не найдено.')).toBeNull();
   });
 

@@ -51,7 +51,7 @@
     busy
       ? ''
       : !engine?.available
-        ? 'Сначала проверьте движок'
+        ? 'Проверка пока недоступна'
         : scan.target.trim() === ''
           ? 'Укажите папку для проверки'
           : '',
@@ -305,8 +305,12 @@
   {#if !scan.report}
     <p class="empty">Здесь появятся находки после проверки.</p>
   {:else if findings.length === 0}
-    {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
-      <p class="empty">Находок нет. Часть файлов или папок не проверена.</p>
+    {#if scan.report.scannedFiles === 0 && scan.report.errors === 0 && !scan.report.incomplete}
+      <p class="empty">Проверять нечего.</p>
+    {:else if scan.report.errors > 0}
+      <p class="empty">Проверить не удалось: файлов без проверки — {scan.report.errors}.</p>
+    {:else if scan.report.incomplete || scan.report.skippedFiles > 0}
+      <p class="empty">Проверено не всё: часть файлов или папок осталась без проверки.</p>
     {:else}
       <p class="empty">Угроз не найдено.</p>
     {/if}
@@ -329,9 +333,9 @@
     <p>{scan.notice}</p>
   {:else if scan.report}
     <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
-    {#if scan.report.incomplete}
+    {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
       <p class="alert" role="status">
-        Проверка неполная: часть папок недоступна или достигнут лимит обхода.
+        Проверено не всё: часть папок недоступна или слишком много файлов.
       </p>
     {/if}
   {:else}
@@ -340,14 +344,6 @@
 {/snippet}
 
 {#if subsection === 'scan'}
-  {#if engine && !engine.available}
-    <div class="alert" role="alert">
-      <strong>Движок ClamAV не найден</strong>
-      <p>{engine.reason}</p>
-      <p>Сборка libclamav не выполнена: статус и причина в docs/status/clamav-build.md.</p>
-    </div>
-  {/if}
-
   {#if error}
     <div class="alert" role="alert"><p>{error.message}</p></div>
   {/if}
@@ -385,6 +381,12 @@
           </span>
           <h3>Состояние</h3>
         </div>
+
+        {#if engine && !engine.available}
+          <p class="empty" data-testid="engine-unavailable">
+            Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
+          </p>
+        {/if}
 
         <label>
           Папка для проверки
@@ -496,6 +498,13 @@
 {/if}
 
 {#if subsection === 'log'}
+  {#if engine && !engine.available}
+    <p class="empty panel selectable" data-testid="engine-log">
+      Почему проверка недоступна: защитная часть программы (ClamAV) ещё не собрана и не встроена в
+      эту сборку. Технические подробности: docs/status/clamav-build.md.
+    </p>
+  {/if}
+
   {#if scan.runs.length === 0}
     <p class="empty panel">Проверок в этой сессии пока не было.</p>
   {:else}
@@ -599,10 +608,6 @@
   .alert {
     border: 2px solid var(--accent);
     color: var(--ink);
-  }
-
-  .alert strong {
-    text-transform: uppercase;
   }
 
   label {
