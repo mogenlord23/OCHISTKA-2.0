@@ -44,13 +44,13 @@
   );
   const caption = $derived(
     running && ui.phase
-      ? PHASE_LABEL[ui.phase]
+      ? `${PHASE_LABEL[ui.phase]} · Мбит/с`
       : ui.status === 'done'
         ? 'Скачивание, Мбит/с'
         : 'Мбит/с',
   );
 
-  // Плавное число и дуга: приближаем показанное значение к целевому по кадрам.
+  // Плавное число и заливка: приближаем показанное значение к целевому по кадрам.
   let frame = 0;
   let last = 0;
   const reduceMotion =
@@ -95,68 +95,43 @@
   }
 </script>
 
-<section class="card speed" aria-label="Твой интернет">
-  <div class="head">
-    <h2>Твой интернет</h2>
-    {#if running}
-      <button type="button" class="btn" onclick={stop}>Остановить</button>
-    {:else}
-      <button type="button" class="btn go" onclick={start}>
-        {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
-      </button>
-    {/if}
-  </div>
-
+<section class="card speed" aria-label="Тест скорости интернета">
   <div class="body">
     <div class="gauge" role="img" aria-label={`Скорость ${formatMbps(shown)} Мбит/с`}>
-      <svg viewBox="0 0 200 124" aria-hidden="true">
-        <defs>
-          <linearGradient id="speed-grad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="var(--accent)" />
-            <stop offset="100%" stop-color="#b4ff00" />
-          </linearGradient>
-        </defs>
-        <path class="track" d="M20 104 A80 80 0 0 1 180 104" pathLength="100" />
-        <path
-          class="fill"
-          d="M20 104 A80 80 0 0 1 180 104"
-          pathLength="100"
-          stroke-dasharray="100"
-          stroke-dashoffset={100 - fraction * 100}
-        />
-        <text x="14" y="120" class="tick" text-anchor="start">0</text>
-        <text x="186" y="120" class="tick" text-anchor="end">1000</text>
-      </svg>
+      <div class="fill" aria-hidden="true" style:height={`${running ? fraction * 100 : 0}%`}></div>
       <div class="readout">
         <span class="value" data-testid="speed-value">{formatMbps(shown)}</span>
         <span class="caption">{caption}</span>
       </div>
     </div>
 
-    <dl class="cards">
-      <div class="stat">
-        <dt>Скачивание</dt>
-        <dd data-testid="speed-down">
-          {formatMbps(ui.downloadMbps)}<small>Мбит/с</small>
-        </dd>
-      </div>
-      <div class="stat">
-        <dt>Отдача</dt>
-        <dd data-testid="speed-up">{formatMbps(ui.uploadMbps)}<small>Мбит/с</small></dd>
-      </div>
-      <div class="stat">
-        <dt>Пинг</dt>
-        <dd data-testid="speed-ping">{formatMs(ui.pingMs)}<small>мс</small></dd>
-      </div>
-      <div class="stat">
-        <dt>Под нагрузкой</dt>
-        <dd data-testid="speed-loaded">{formatMs(ui.loadedMs)}<small>мс</small></dd>
-      </div>
-      <div class="stat">
-        <dt>Стабильность</dt>
-        <dd data-testid="speed-jitter">{formatMs(ui.jitterMs)}<small>мс</small></dd>
-      </div>
-    </dl>
+    <div class="details">
+      <dl class="cards">
+        <div class="stat">
+          <dt>Скачивание</dt>
+          <dd data-testid="speed-down">{formatMbps(ui.downloadMbps)}<small>Мбит/с</small></dd>
+        </div>
+        <div class="stat">
+          <dt>Отдача</dt>
+          <dd data-testid="speed-up">{formatMbps(ui.uploadMbps)}<small>Мбит/с</small></dd>
+        </div>
+        <div class="stat">
+          <dt>Пинг</dt>
+          <dd data-testid="speed-ping">{formatMs(ui.pingMs)}<small>мс</small></dd>
+        </div>
+        <div class="stat">
+          <dt>Стабильность</dt>
+          <dd data-testid="speed-jitter">{formatMs(ui.jitterMs)}<small>мс</small></dd>
+        </div>
+      </dl>
+      {#if running}
+        <button type="button" class="btn" onclick={stop}>Остановить</button>
+      {:else}
+        <button type="button" class="btn go" onclick={start}>
+          {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
+        </button>
+      {/if}
+    </div>
   </div>
 
   {#if running}
@@ -191,26 +166,6 @@
     box-shadow: 0 0 0 2px #000;
   }
 
-  /* Высота строки заголовка постоянная (36 = кнопка): «Твой интернет» не смещается, когда кнопка
-     меняет подпись или заменяется на «Остановить». */
-  .head {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    min-height: 36px;
-    justify-content: space-between;
-    gap: 8px 16px;
-    margin-bottom: 8px;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: var(--text-caption);
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-
   .btn {
     min-height: 36px;
     padding: 6px 18px;
@@ -237,71 +192,79 @@
   }
 
   .body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(200px, 1fr);
+    align-items: stretch;
     gap: 12px;
   }
 
   .gauge {
     position: relative;
-    width: min(100%, 250px);
-  }
-
-  svg {
-    display: block;
+    display: grid;
+    place-items: center;
     width: 100%;
-    height: auto;
-  }
-
-  .track,
-  .fill {
-    fill: none;
-    stroke-width: 14;
-    stroke-linecap: round;
-  }
-
-  .track {
-    stroke: #262626;
+    aspect-ratio: 1;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: #343434;
   }
 
   .fill {
-    stroke: url(#speed-grad);
-  }
-
-  .tick {
-    fill: var(--muted);
-    font-size: 9px;
-    font-weight: 800;
+    position: absolute;
+    inset: auto 0 0;
+    background: linear-gradient(to top, #ff009d, #b4ff00);
+    opacity: 0.65;
+    transition: height 0.18s linear;
   }
 
   .readout {
-    position: absolute;
-    inset: 38% 0 auto;
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    pointer-events: none;
+    max-width: 100%;
+    padding: 8px;
+    text-align: center;
+    text-shadow:
+      0 1px 4px #000,
+      0 0 8px #000;
   }
 
   .value {
+    max-width: 100%;
+    overflow-wrap: anywhere;
     font-size: 2.1rem;
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    color: var(--ink);
+    color: #fff;
   }
 
   .caption {
     margin-top: 4px;
     font-size: var(--text-caption);
-    color: var(--muted);
+    color: #fff;
+  }
+
+  .details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .details .btn {
+    width: 100%;
+    margin-top: auto;
   }
 
   .cards {
     display: grid;
-    width: 100%;
-    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+    flex: 1;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin: 0;
   }
@@ -314,6 +277,7 @@
   }
 
   dt {
+    overflow-wrap: anywhere;
     font-size: 0.6rem;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -367,7 +331,23 @@
     font-weight: 800;
   }
 
+  .speed {
+    container-type: inline-size;
+  }
+
+  @container (max-width: 420px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .gauge {
+      width: min(100%, 240px);
+      justify-self: center;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .fill,
     .progress span {
       transition: none;
     }

@@ -65,6 +65,20 @@ describe('SpeedTest', () => {
     expect(screen.queryByText(/расходует трафик/)).toBeNull();
   });
 
+  it('shows the square readout and four metrics with the control below them', () => {
+    render(SpeedTest);
+    expect(screen.queryByText('Твой интернет')).toBeNull();
+    expect(screen.queryByText('Под нагрузкой')).toBeNull();
+    expect(screen.getByRole('img', { name: 'Скорость 0.0 Мбит/с' })).toBeTruthy();
+    expect(screen.getByTestId('speed-value').textContent).toBe('0.0');
+    expect(screen.getAllByRole('term')).toHaveLength(4);
+    expect(
+      screen
+        .getByRole('button', { name: 'Проверить скорость' })
+        .parentElement?.classList.contains('details'),
+    ).toBe(true);
+  });
+
   it('shows result cards and the summary after a run', async () => {
     backend(FULL);
     render(SpeedTest);
@@ -73,7 +87,6 @@ describe('SpeedTest', () => {
     expect(screen.getByTestId('speed-down').textContent).toContain('120');
     expect(screen.getByTestId('speed-up').textContent).toContain('40.0');
     expect(screen.getByTestId('speed-ping').textContent).toContain('12');
-    expect(screen.getByTestId('speed-loaded').textContent).toContain('40');
     expect(screen.getByTestId('speed-jitter').textContent).toContain('2.0');
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
     expect(calls('speedtest_start')).toHaveLength(1);
@@ -112,6 +125,9 @@ describe('SpeedTest', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     const stop = await screen.findByRole('button', { name: 'Остановить' });
     expect(screen.getByRole('progressbar')).toBeTruthy();
+    const fill = document.querySelector<HTMLElement>('.gauge .fill')!;
+    await waitFor(() => expect(parseFloat(fill.style.height)).toBeGreaterThan(0));
+    expect(screen.getByText('Скачивание… · Мбит/с')).toBeTruthy();
     await fireEvent.click(stop);
     expect(calls('speedtest_cancel')).toHaveLength(1);
     finish();
@@ -170,7 +186,7 @@ describe('Network tab', () => {
   it('has the speed test above the adapter list', async () => {
     backend(FULL);
     render(VpnNetworkTab);
-    expect(screen.getByRole('heading', { name: 'Твой интернет' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Тест скорости интернета' })).toBeTruthy();
     expect(await screen.findByText('Сетевых адаптеров не найдено.')).toBeTruthy();
   });
 });
