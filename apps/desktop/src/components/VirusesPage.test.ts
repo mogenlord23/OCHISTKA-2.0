@@ -512,7 +512,7 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
 });
 
 describe('VirusesPage findings: selection and quarantine', () => {
-  it('moves only the selected findings to quarantine and drops them from the list', async () => {
+  it('keeps quarantine unavailable even after selecting a finding', async () => {
     engineOk();
     const a = `${DOWNLOADS}\\a.exe`;
     const b = `${DOWNLOADS}\\b.exe`;
@@ -542,16 +542,11 @@ describe('VirusesPage findings: selection and quarantine', () => {
     const move = screen.getByRole('button', { name: 'Удалить' }) as HTMLButtonElement;
     expect(move.disabled).toBe(true);
     await fireEvent.click(screen.getAllByRole('checkbox')[0]);
-    expect(move.disabled).toBe(false);
+    expect(move.disabled).toBe(true);
     await fireEvent.click(move);
-
-    await waitFor(() =>
-      expect(quarantineFindings).toHaveBeenCalledWith([
-        { path: a, reason: 'сигнатура Win.A.Test; исполняемый файл в загрузках' },
-      ]),
-    );
-    expect(await screen.findByText('В карантин: 1.')).toBeTruthy();
-    expect(screen.queryByText('Win.A.Test')).toBeNull();
+    expect(quarantineFindings).not.toHaveBeenCalled();
+    expect(screen.getByText('Перенос находок в карантин временно недоступен.')).toBeTruthy();
+    expect(screen.getByText('Win.A.Test')).toBeTruthy();
     expect(screen.getByText('Win.B.Test')).toBeTruthy();
     expect(screen.getByText('Причина: сигнатура Win.B.Test')).toBeTruthy();
   });

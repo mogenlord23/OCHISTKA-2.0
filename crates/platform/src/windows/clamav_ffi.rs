@@ -52,6 +52,15 @@ extern "C" {
         engine: *const ClEngine,
         scanoptions: *mut ClScanOptions,
     ) -> c_int;
+    #[cfg(target_os = "linux")]
+    fn cl_scandesc(
+        desc: c_int,
+        filename: *const c_char,
+        virname: *mut *const c_char,
+        scanned: *mut c_ulong,
+        engine: *const ClEngine,
+        scanoptions: *mut ClScanOptions,
+    ) -> c_int;
     fn cl_engine_free(engine: *mut ClEngine) -> c_int;
 }
 
@@ -119,6 +128,32 @@ impl Engine {
                 &mut options,
             )
         };
+        Self::verdict(code, virus)
+    }
+
+    /// Linux: проверка именно открытого файлового дескриптора, без повторного открытия пути.
+    #[cfg(target_os = "linux")]
+    pub fn scan_open_file(&self, file: &std::fs::File) -> Result<FileVerdict, String> {
+        use std::os::fd::AsRawFd;
+        let mut virus: *const c_char = std::ptr::null();
+        let mut scanned: c_ulong = 0;
+        let mut options = ClScanOptions::default();
+        // SAFETY: дескриптор остаётся открытым на протяжении вызова, указатели живут
+        // достаточно долго; скомпилированный движок защищён Mutex вызывающего кода.
+        let code = unsafe {
+            cl_scandesc(
+                file.as_raw_fd(),
+                std::ptr::null(),
+                &mut virus,
+                &mut scanned,
+                self.raw.as_ptr(),
+                &mut options,
+            )
+        };
+        Self::verdict(code, virus)
+    }
+
+    fn verdict(code: c_int, virus: *const c_char) -> Result<FileVerdict, String> {
         match code {
             CL_CLEAN => Ok(FileVerdict::Clean),
             CL_VIRUS => {

@@ -89,6 +89,26 @@ impl VirusScanPort for ClamAvEngine {
         }
     }
 
+    #[cfg(all(feature = "libclamav", target_os = "linux"))]
+    fn scan_file_with_identity(
+        &self,
+        path: &str,
+    ) -> Result<(FileVerdict, Option<ochistka_core::quarantine::FileIdentity>), CoreError> {
+        use crate::linux::file_identity::{open_regular_no_links, scan_open_file};
+        let guard = self.lock_native();
+        let engine = guard
+            .as_ref()
+            .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
+        let file = open_regular_no_links(std::path::Path::new(path))
+            .map_err(|err| CoreError::Probe(err.to_string()))?;
+        let (verdict, identity) = scan_open_file(&file, |opened| {
+            engine
+                .scan_open_file(opened)
+                .map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
+        })?;
+        Ok((verdict, Some(identity)))
+    }
+
     fn load_signatures(&self, dir: &str) -> Result<(), CoreError> {
         // Сначала папка: отсутствие сигнатур — отдельная понятная причина, не «движок не собран».
         check_signatures_dir(&crate::windows_cleanup::WindowsFs, dir)?;

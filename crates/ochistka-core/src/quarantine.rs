@@ -9,12 +9,16 @@ use crate::fs::{read_all, sha256_file, sha256_hex, CleanupError, FsPort};
 
 /// Идентичность обычного файла, полученная из открытого системного объекта.
 /// Числа имеют смысл только вместе с платформой и относятся к моменту наблюдения.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "FileIdentity.ts")]
 pub struct FileIdentity {
     pub platform: String,
-    pub volume: u64,
+    /// Строка исключает потерю точности при передаче через JavaScript.
+    pub volume: String,
     /// Строка позволяет сохранить также 128-битный идентификатор Windows.
     pub file_id: String,
+    #[ts(type = "number")]
     pub size: u64,
     pub sha256: String,
 }

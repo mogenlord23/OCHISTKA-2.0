@@ -9,7 +9,7 @@
     toDisksError,
     type QuarantineEntry,
   } from '../lib/disksApi';
-  import { cancelScan, quarantineSelected, scan, startScan } from '../lib/scanState.svelte';
+  import { cancelScan, scan, startScan } from '../lib/scanState.svelte';
   import type { CommandError, EngineStatus } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
@@ -20,7 +20,6 @@
   let engine = $state<EngineStatus | null>(null);
   let engineError = $state<CommandError | null>(null);
   let picked = $state<Record<number, boolean>>({});
-  let moving = $state(false);
   let journalEntries = $state<QuarantineEntry[]>([]);
   let journalNotice = $state('');
   let confirmPurgeId = $state<string | null>(null);
@@ -81,18 +80,6 @@
 
   function start() {
     void startScan(scan.target.trim());
-  }
-
-  async function moveSelected(): Promise<void> {
-    const chosen = findings.filter((_, index) => picked[index]);
-    moving = true;
-    try {
-      await quarantineSelected(chosen);
-    } catch (err) {
-      scan.notice = toDisksError(err).message;
-    } finally {
-      moving = false;
-    }
   }
 
   async function restore(entry: QuarantineEntry): Promise<void> {
@@ -228,13 +215,13 @@
       <span class="reason">Выбрано: {pickedCount}</span>
       <button
         type="button"
-        disabled={pickedCount === 0 || moving || busy}
-        title="Файлы переносятся в карантин; окончательное удаление — только в журнале"
-        onclick={() => void moveSelected()}
+        disabled
+        title="Перенос временно недоступен: безопасная проверка файла ещё не реализована"
       >
         Удалить
       </button>
     </div>
+    <p class="reason" role="status">Перенос находок в карантин временно недоступен.</p>
     <ul class="findings">
       {#each findings as finding, index (`${finding.path}#${index}`)}
         {@const score = scan.suspicions[finding.path]}

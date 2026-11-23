@@ -8,6 +8,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 use crate::fs::{walk, Budget, CleanupError, FsPort, Limits};
+use crate::quarantine::FileIdentity;
 use crate::system::CoreError;
 
 /// Файлы больше этого размера движок не читает: они попадают в `skipped_files`.
@@ -19,6 +20,9 @@ pub const MAX_FILE_BYTES: u64 = 200 * 1024 * 1024;
 pub struct Finding {
     pub path: String,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub identity: Option<FileIdentity>,
 }
 
 #[derive(Serialize, TS, Clone, Debug, Default, PartialEq)]
@@ -56,6 +60,13 @@ pub trait VirusScanPort: Send + Sync {
     fn engine_status(&self) -> EngineStatus;
     /// Проверяет один файл. Вызывается только при доступном движке.
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError>;
+    /// Если платформа не поддерживает проверку открытого объекта, идентичность отсутствует.
+    fn scan_file_with_identity(
+        &self,
+        path: &str,
+    ) -> Result<(FileVerdict, Option<FileIdentity>), CoreError> {
+        self.scan_file(path).map(|verdict| (verdict, None))
+    }
     /// Загружает и компилирует сигнатуры из папки. Без встроенного движка возвращает ошибку.
     fn load_signatures(&self, dir: &str) -> Result<(), CoreError>;
 }
@@ -177,12 +188,16 @@ pub fn sweep_with_progress(
             progress(current.clone());
             continue;
         }
-        match port.scan_file(&path) {
-            Ok(verdict) => {
+        match port.scan_file_with_identity(&path) {
+            Ok((verdict, identity)) => {
                 report.scanned_files += 1;
                 if let FileVerdict::Found { signature } = verdict {
                     report.infected_files += 1;
-                    report.findings.push(Finding { path, signature });
+                    report.findings.push(Finding {
+                        path,
+                        signature,
+                        identity,
+                    });
                 }
             }
             Err(CoreError::Cancelled) => return Err(CoreError::Cancelled),

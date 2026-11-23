@@ -313,3 +313,48 @@ fn embedded_clamav_stays_unavailable_without_signatures() {
     ));
     std::fs::remove_dir_all(&root).ok();
 }
+
+#[cfg(all(feature = "libclamav", target_os = "linux"))]
+#[test]
+fn embedded_scan_records_open_file_identity_and_detects_replacement() {
+    use ochistka_platform::linux::file_identity::{identify, open_regular_no_links};
+    use std::os::unix::fs::symlink;
+
+    let root = temp_folder("identity-clamav");
+    let signatures = root.join("signatures");
+    let samples = root.join("samples");
+    std::fs::create_dir(&signatures).unwrap();
+    std::fs::create_dir(&samples).unwrap();
+    std::fs::write(
+        signatures.join("test.hdb"),
+        b"44d88612fea8a8f36de82e1278abb02f:68:OCHISTKA.EICAR.Test\n",
+    )
+    .unwrap();
+    let path = samples.join("eicar.txt");
+    std::fs::write(&path, EICAR).unwrap();
+    let engine = ClamAvEngine::build();
+    engine.load_signatures(&as_target(&signatures)).unwrap();
+    let report = sweep(
+        &WindowsFs,
+        &engine,
+        &as_target(&samples),
+        &no_cancel(),
+        Limits::default(),
+    )
+    .unwrap();
+    let identity = report.findings[0]
+        .identity
+        .as_ref()
+        .expect("scan must carry identity");
+    assert_eq!(identity.sha256, ochistka_core::fs::sha256_hex(EICAR));
+    std::fs::rename(&path, root.join("old")).unwrap();
+    std::fs::write(&path, EICAR).unwrap();
+    assert_ne!(
+        *identity,
+        identify(&open_regular_no_links(&path).unwrap()).unwrap()
+    );
+    std::fs::remove_file(&path).unwrap();
+    symlink(root.join("old"), &path).unwrap();
+    assert!(engine.scan_file_with_identity(&as_target(&path)).is_err());
+    std::fs::remove_dir_all(&root).unwrap();
+}

@@ -13,6 +13,8 @@ use std::path::{Component, Path};
 
 use ochistka_core::fs::{sha256_reader, CleanupError};
 use ochistka_core::quarantine::FileIdentity;
+use ochistka_core::scan::FileVerdict;
+use ochistka_core::system::CoreError;
 
 // Linux UAPI <asm-generic/fcntl.h>; модуль компилируется только для Linux.
 const O_NOFOLLOW: i32 = 0o400000;
@@ -98,11 +100,46 @@ pub fn identify(mut file: &File) -> Result<FileIdentity, CleanupError> {
     }
     Ok(FileIdentity {
         platform: "linux".into(),
-        volume: before.dev(),
+        volume: before.dev().to_string(),
         file_id: before.ino().to_string(),
         size: before.len(),
         sha256,
     })
+}
+
+/// Сканирует открытый объект между двумя проверками его содержимого.
+pub fn scan_open_file(
+    file: &File,
+    scan: impl FnOnce(&File) -> Result<FileVerdict, CoreError>,
+) -> Result<(FileVerdict, FileIdentity), CoreError> {
+    let before = identify(file).map_err(|err| CoreError::Probe(err.to_string()))?;
+    let metadata_before = file
+        .metadata()
+        .map_err(|err| CoreError::Probe(err.to_string()))?;
+    (&*file)
+        .seek(SeekFrom::Start(0))
+        .map_err(|err| CoreError::Probe(err.to_string()))?;
+    let verdict = scan(file)?;
+    let after = identify(file).map_err(|err| CoreError::Probe(err.to_string()))?;
+    let metadata_after = file
+        .metadata()
+        .map_err(|err| CoreError::Probe(err.to_string()))?;
+    if before != after
+        || (
+            metadata_before.mtime(),
+            metadata_before.mtime_nsec(),
+            metadata_before.ctime(),
+            metadata_before.ctime_nsec(),
+        ) != (
+            metadata_after.mtime(),
+            metadata_after.mtime_nsec(),
+            metadata_after.ctime(),
+            metadata_after.ctime_nsec(),
+        )
+    {
+        return Err(CoreError::Probe("файл изменился во время проверки".into()));
+    }
+    Ok((verdict, before))
 }
 
 #[cfg(test)]
@@ -159,5 +196,41 @@ mod tests {
         assert!(open_regular_no_links(&tmp.0.join("link")).is_err());
         assert!(open_regular_no_links(&tmp.0.join("parent/file")).is_err());
         assert!(open_regular_no_links(&tmp.0.join("dir")).is_err());
+    }
+
+    #[test]
+    fn rejects_content_changed_during_scan() {
+        let tmp = Temp::new();
+        let path = tmp.0.join("file");
+        std::fs::write(&path, b"first").unwrap();
+        let file = open_regular_no_links(&path).unwrap();
+        let result = scan_open_file(&file, |_| {
+            std::fs::write(&path, b"other").unwrap();
+            Ok(FileVerdict::Clean)
+        });
+        assert!(matches!(result, Err(CoreError::Probe(_))));
+    }
+
+    #[test]
+    fn scan_uses_original_file_when_path_is_replaced() {
+        let tmp = Temp::new();
+        let path = tmp.0.join("file");
+        std::fs::write(&path, b"first").unwrap();
+        let file = open_regular_no_links(&path).unwrap();
+        let result = scan_open_file(&file, |opened| {
+            use std::io::Read;
+            std::fs::rename(&path, tmp.0.join("old")).unwrap();
+            std::fs::write(&path, b"other").unwrap();
+            let mut data = Vec::new();
+            (&*opened).read_to_end(&mut data).unwrap();
+            assert_eq!(data, b"first");
+            Ok(FileVerdict::Clean)
+        });
+        if let Ok((_, identity)) = result {
+            assert_ne!(
+                identity,
+                identify(&open_regular_no_links(&path).unwrap()).unwrap()
+            );
+        }
     }
 }
