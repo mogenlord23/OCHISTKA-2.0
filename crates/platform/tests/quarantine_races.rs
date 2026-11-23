@@ -266,3 +266,40 @@ fn directory_owner_can_restore_write_permission_after_restriction() {
     );
     fs::write(dir.join("new"), b"data").unwrap();
 }
+
+#[test]
+fn another_process_can_ignore_advisory_flock() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::process::{Command, Stdio};
+
+    let tmp = Temp::new();
+    let source = tmp.0.join("source");
+    fs::write(&source, b"checked").unwrap();
+    // flock держит LOCK_EX до получения строки; stdout подтверждает захват блокировки.
+    let mut holder = Command::new("flock")
+        .arg("-x")
+        .arg(&source)
+        .arg("sh")
+        .arg("-c")
+        .arg("printf 'locked\\n'; read -r line")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut output = BufReader::new(holder.stdout.take().unwrap());
+    let mut message = String::new();
+    output.read_line(&mut message).unwrap();
+    assert_eq!(message, "locked\n");
+    // Независимый процесс не запрашивает flock; адрес указывается отдельным аргументом.
+    let writer = Command::new("sh")
+        .arg("-c")
+        .arg("printf changed > \"$1\"")
+        .arg("ochistka-test")
+        .arg(&source)
+        .status()
+        .unwrap();
+    holder.stdin.take().unwrap().write_all(b"done\n").unwrap();
+    assert!(holder.wait().unwrap().success());
+    assert!(writer.success());
+    assert_eq!(fs::read(&source).unwrap(), b"changed");
+}
