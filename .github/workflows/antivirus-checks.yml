@@ -21,6 +21,22 @@ jobs:
           cache: npm
       - name: Install interface dependencies
         run: npm ci
+      - name: Windows file API experiments
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        run: python tools/quarantine-probes/windows_probe.py
+      - name: macOS file API experiments
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        run: python3 tools/quarantine-probes/macos_probe.py
+      - name: Windows local IPC experiment
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        run: python tools/quarantine-probes/ipc_probe.py
+      - name: macOS local IPC experiment
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        run: python3 tools/quarantine-probes/ipc_probe.py
       - name: Check scan logic
         run: cargo test --locked -p ochistka-core scan::tests
       - name: Check quarantine logic
