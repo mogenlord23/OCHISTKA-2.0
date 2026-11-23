@@ -112,6 +112,7 @@
     <div
       class="gauge"
       class:running
+      class:filled={fraction >= 0.5}
       role="img"
       aria-label={running && ui.phase
         ? `Скорость ${formatMbps(shown)} Мбит/с. ${PHASE_LABEL[ui.phase]} ${Math.round(speedStore.ui.fraction * 100)}%`
@@ -238,15 +239,13 @@
     align-items: center;
     max-width: 100%;
     padding: 8px;
-    border-radius: var(--radius-sm);
-    background: #111;
     text-align: center;
   }
 
   .value {
     max-width: 100%;
     overflow-wrap: anywhere;
-    font-size: clamp(2.6rem, 4cqi, 4rem);
+    font-size: clamp(3rem, 7cqi, 6rem);
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -257,6 +256,11 @@
     margin-top: 4px;
     font-size: var(--text-caption);
     color: #fff;
+  }
+
+  .gauge.filled .value,
+  .gauge.filled .caption {
+    color: #000;
   }
 
   .details {
@@ -293,8 +297,9 @@
 
   dd {
     margin: 2px 0 0;
-    font-size: 1.5rem;
+    font-size: clamp(1.5rem, 3cqi, 2.75rem);
     font-weight: 800;
+    overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
     color: var(--ink);
   }

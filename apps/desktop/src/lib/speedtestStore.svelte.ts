@@ -1,5 +1,5 @@
 import { IDLE, START, reduce, markNoteSeen, type SpeedUi } from './speedtest';
-import { cancelSpeedtest, startSpeedtest } from './speedtestApi';
+import { cancelSpeedtest, startSpeedtest, type SpeedEvent } from './speedtestApi';
 
 /**
  * Состояние проверки скорости живёт здесь, а не в странице: переход по разделам тест не
@@ -25,16 +25,21 @@ export class SpeedStore {
     if (this.running) return;
     markNoteSeen();
     this.ui = START;
-    const apply = (event: Parameters<typeof reduce>[1]) => {
+    let terminal: SpeedEvent | null = null;
+    const apply = (event: SpeedEvent) => {
+      if (event.type === 'done' || event.type === 'failed' || event.type === 'cancelled') {
+        terminal = event;
+        return;
+      }
       this.ui = reduce(this.ui, event);
-      if (this.ui.status === 'done') this.last = this.ui;
     };
     try {
       await startSpeedtest(apply);
-      // Если Rust завершился, не прислав итога, не оставляем кнопку в ожидании.
-      if (this.ui.status === 'running') apply({ type: 'failed', kind: 'server' });
+      // Кнопка повтора доступна только после освобождения ресурса системной командой.
+      this.ui = reduce(this.ui, terminal ?? { type: 'failed', kind: 'server' });
+      if (this.ui.status === 'done') this.last = this.ui;
     } catch {
-      apply({ type: 'failed', kind: 'server' });
+      this.ui = reduce(this.ui, { type: 'failed', kind: 'server' });
     }
   }
 

@@ -90,8 +90,8 @@ describe('SpeedTest', () => {
     expect(SECTION_COLORS.viruses).toBe('#b4ff00');
     expect(source).toContain('linear-gradient(to top, var(--accent), var(--speed-green))');
     expect(source).not.toMatch(/opacity:\s*0\.3/);
-    expect(source).toContain('font-size: clamp(2.6rem, 4cqi, 4rem)');
-    expect(source).toContain('font-size: 1.5rem');
+    expect(source).toContain('font-size: clamp(3rem, 7cqi, 6rem)');
+    expect(source).toContain('font-size: clamp(1.5rem, 3cqi, 2.75rem)');
   });
 
   it('shows result cards and the summary after a run', async () => {
@@ -190,6 +190,23 @@ describe('SpeedTest store outside the page', () => {
     expect(screen.getByTestId('speed-value').textContent).toBe('120');
     expect(screen.getByRole('button', { name: 'Проверить скорость снова' })).toBeTruthy();
     expect(calls('speedtest_start')).toHaveLength(1);
+  });
+
+  it.each([
+    ['completed', { type: 'done', result: RESULT }],
+    ['cancelled', { type: 'cancelled' }],
+  ] as const)('allows another run after %s and blocks overlapping runs', async (_label, event) => {
+    const finish = backend([event], { hold: true });
+    render(SpeedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
+    await screen.findByRole('button', { name: 'Остановить' });
+    await speedStore.start();
+    expect(calls('speedtest_start')).toHaveLength(1);
+    finish();
+    const again = await screen.findByRole('button', { name: 'Проверить скорость снова' });
+    backend(FULL);
+    await fireEvent.click(again);
+    await waitFor(() => expect(calls('speedtest_start')).toHaveLength(2));
   });
 
   it('keeps the last result visible when a repeated run fails', async () => {

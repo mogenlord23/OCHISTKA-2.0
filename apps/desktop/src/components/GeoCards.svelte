@@ -1,19 +1,30 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
-    GEO_CONSENT_TEXT,
     GEO_UNDETERMINED,
     GEO_VPN_NOTE,
     determineGeo,
     geo,
     initGeo,
-    lookupGeo,
     revokeGeo,
   } from '../lib/geoStore.svelte';
 
   onMount(() => {
     void initGeo();
   });
+
+  let changingConsent = $state(false);
+
+  async function changeConsent() {
+    if (changingConsent || geo.loading) return;
+    changingConsent = true;
+    try {
+      if (geo.consent) await revokeGeo();
+      else await determineGeo();
+    } finally {
+      changingConsent = false;
+    }
+  }
 
   const provider = $derived(geo.info?.provider ?? GEO_UNDETERMINED);
   const place = $derived(
@@ -75,20 +86,20 @@
     </div>
   </div>
   <div class="actions">
-    {#if geo.consent}
-      <button type="button" class="btn" disabled={geo.loading} onclick={() => void lookupGeo()}
-        >{geo.loading ? 'Определяем…' : 'Обновить'}</button
-      >
-      <button type="button" class="btn" onclick={() => void revokeGeo()}>Отозвать разрешение</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="btn go"
-        disabled={geo.consent === null}
-        onclick={() => void determineGeo()}>Определить</button
-      >
-      <p class="note">{GEO_CONSENT_TEXT}</p>
+    <button
+      type="button"
+      class="btn"
+      class:go={!geo.consent}
+      aria-describedby={!geo.consent ? 'geo-consent-note' : undefined}
+      disabled={geo.consent === null || geo.loading || changingConsent}
+      onclick={() => void changeConsent()}
+      >{geo.loading ? 'Определяем…' : geo.consent ? 'Отозвать разрешение' : 'Определить'}</button
+    >
+    {#if !geo.consent}
+      <p class="note" id="geo-consent-note">
+        При нажатии внешний сервис ipwho.is получит ваш IP-адрес для определения провайдера и
+        расположения. Разрешение можно отозвать.
+      </p>
     {/if}
   </div>
   {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}

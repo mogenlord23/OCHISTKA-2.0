@@ -5,7 +5,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
 
 import GeoCards from './GeoCards.svelte';
-import { GEO_CONSENT_TEXT, resetGeo } from '../lib/geoStore.svelte';
+import { resetGeo } from '../lib/geoStore.svelte';
 
 beforeEach(() => {
   resetGeo();
@@ -41,7 +41,8 @@ describe('GeoCards', () => {
     expect(section.contains(screen.getByTestId('geo-provider'))).toBe(true);
     expect(section.contains(screen.getByTestId('geo-place'))).toBe(true);
     expect(section.contains(button)).toBe(true);
-    expect(screen.getByText(GEO_CONSENT_TEXT)).toBeTruthy();
+    expect(screen.getByText(/внешний сервис ipwho.is получит ваш IP-адрес/)).toBeTruthy();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(container.querySelectorAll('.icon')).toHaveLength(2);
   });
 
@@ -62,12 +63,22 @@ describe('GeoCards', () => {
     completeLookup({ provider, city, country: 'Страна' });
     await screen.findByText(provider);
     expect(screen.getByText(`${city}, Страна`)).toBeTruthy();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Отозвать разрешение' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Обновить' })).toBeNull();
+  });
+
+  it('shows lookup errors without starting another request', async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'geo_consent') return { granted: false };
+      if (cmd === 'geo_set_consent') return { granted: true };
       if (cmd === 'geo_lookup') throw new Error('Сервис недоступен');
     });
-    await fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
+    render(GeoCards);
+    await fireEvent.click(await screen.findByRole('button', { name: 'Определить' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Сервис недоступен');
-    expect(screen.getByText(provider)).toBeTruthy();
+    expect(invokeMock.mock.calls.filter((call) => call[0] === 'geo_lookup')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Отозвать разрешение' })).toBeTruthy();
   });
 
   it('"Определить" shows provider and place; the consent can be revoked', async () => {
@@ -75,7 +86,9 @@ describe('GeoCards', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Определить' }));
     await waitFor(() => expect(screen.getByText('Example ISP')).toBeTruthy());
     expect(screen.getByText('Latvia')).toBeTruthy();
-    await fireEvent.click(screen.getByRole('button', { name: 'Отозвать разрешение' }));
+    const revoke = screen.getByRole('button', { name: 'Отозвать разрешение' });
+    await waitFor(() => expect(revoke.hasAttribute('disabled')).toBe(false));
+    await fireEvent.click(revoke);
     await waitFor(() => expect(screen.getAllByText('Не определено')).toHaveLength(2));
     expect(screen.getByRole('button', { name: 'Определить' })).toBeTruthy();
   });
