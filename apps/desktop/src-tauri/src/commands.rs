@@ -59,6 +59,8 @@ pub fn scan_with(
 pub struct AppState {
     pub system: Arc<dyn SystemInfoPort>,
     pub scanner: Arc<dyn VirusScanPort>,
+    /// Проверка по признакам: работает, пока нет базы сигнатур.
+    pub suspicion: Arc<dyn VirusScanPort>,
     pub files: Arc<dyn FsPort>,
     /// ИИ-слой оценки. Пока заглушка `NoModel`; локальная ONNX-модель подключится сюда.
     pub model: Arc<dyn SuspicionModel>,
@@ -72,11 +74,13 @@ impl AppState {
     pub fn new(
         system: Box<dyn SystemInfoPort>,
         scanner: Box<dyn VirusScanPort>,
+        suspicion: Box<dyn VirusScanPort>,
         files: Arc<dyn FsPort>,
     ) -> Self {
         Self {
             system: Arc::from(system),
             scanner: Arc::from(scanner),
+            suspicion: Arc::from(suspicion),
             files,
             model: Arc::new(NoModel),
             scan_running: Arc::new(AtomicBool::new(false)),
@@ -147,7 +151,13 @@ async fn run_scan(
 ) -> Result<ScanReport, CommandError> {
     let guard = try_begin_scan(&state.scan_running)?;
     state.scan_cancel.store(false, Ordering::SeqCst);
-    let scanner = Arc::clone(&state.scanner);
+    // Без загруженной базы сигнатур проверяем по признакам: так проверка работает и честно
+    // называет находки «по признакам», а не вирусами.
+    let scanner = if state.scanner.engine_status().available {
+        Arc::clone(&state.scanner)
+    } else {
+        Arc::clone(&state.suspicion)
+    };
     let files = Arc::clone(&state.files);
     let cancel = Arc::clone(&state.scan_cancel);
     tauri::async_runtime::spawn_blocking(move || {

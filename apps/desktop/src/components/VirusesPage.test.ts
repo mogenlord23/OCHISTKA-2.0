@@ -101,18 +101,19 @@ describe('VirusesPage scan', () => {
         'движок не собран: libclamav не встроен в эту сборку, см. docs/status/clamav-build.md',
     });
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
+    vi.mocked(scanStart).mockResolvedValue(report());
     const view = render(VirusesPage, { props: { subsection: 'scan' } });
 
     const hint = await screen.findByTestId('engine-unavailable');
-    expect(hint.textContent).toContain('встроенная защита ещё не готова');
+    expect(hint.textContent).toContain('проверка идёт по признакам');
     // На экране проверки нет технического пути и текста причины.
     expect(view.container.textContent).not.toContain('docs/status/clamav-build.md');
     expect(view.container.textContent).not.toContain('libclamav');
     const start = screen.getByRole('button', { name: START }) as HTMLButtonElement;
-    // Кнопка не «мертвая»: нажать можно, но проверка не начнётся — рядом объяснение.
+    // Без базы проверка всё равно работает — по признакам.
     expect(start.disabled).toBe(false);
     await fireEvent.click(start);
-    expect(scanStart).not.toHaveBeenCalled();
+    expect(scanStart).toHaveBeenCalledTimes(1);
 
     await view.rerender({ subsection: 'log' });
     const journal = await screen.findByTestId('engine-log');
@@ -305,10 +306,9 @@ describe('VirusesPage scan', () => {
 
     expect(
       await screen.findByText(
-        'Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».',
+        'Встроенный движок вирусов в этой сборке не собран, поэтому проверка идёт по признакам: программа ищет подозрительные файлы. Подробности — в «Журнале».',
       ),
     ).toBeTruthy();
-    expect(screen.getByText('Проверка пока недоступна')).toBeTruthy();
     expect(screen.queryByText('Укажите папку для проверки')).toBeNull();
   });
 
@@ -317,7 +317,7 @@ describe('VirusesPage scan', () => {
     render(VirusesPage, { props: { subsection: 'scan' } });
 
     expect(await screen.findByText('Укажите папку для проверки')).toBeTruthy();
-    expect(screen.queryByText('Проверка пока недоступна')).toBeNull();
+    expect(screen.queryByTestId('engine-unavailable')).toBeNull();
 
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: DOWNLOADS } });

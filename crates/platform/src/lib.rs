@@ -44,6 +44,13 @@ pub fn current_virus_scanner() -> Box<dyn VirusScanPort> {
     Box::new(windows::clamav::ClamAvEngine::build())
 }
 
+/// Проверка по признакам: работает без базы сигнатур, пока движок не загрузил официальные базы.
+pub fn current_suspicion_scanner() -> Box<dyn VirusScanPort> {
+    Box::new(windows::suspicion::SuspicionEngine::new(
+        windows_cleanup::WindowsFs,
+    ))
+}
+
 /// Раскладка и файловые операции очистки для текущей ОС: Windows — адаптер, остальные — заглушка.
 #[cfg(target_os = "windows")]
 pub fn current_cleanup_env() -> Box<dyn CleanupEnvPort> {

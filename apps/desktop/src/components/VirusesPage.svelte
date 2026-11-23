@@ -49,13 +49,7 @@
   const pickedCount = $derived(findings.filter((_, index) => picked[index]).length);
 
   const startBlockReason = $derived(
-    busy
-      ? ''
-      : !engine?.available
-        ? 'Проверка пока недоступна'
-        : scan.target.trim() === ''
-          ? 'Укажите папку для проверки'
-          : '',
+    busy ? '' : scan.target.trim() === '' ? 'Укажите папку для проверки' : '',
   );
 
   /** Вид станции: идёт проверка, есть находки, чисто или проверить не удалось. */
@@ -308,7 +302,7 @@
   });
 
   function start() {
-    if (busy || !engine?.available || scan.target.trim() === '') return;
+    if (busy || scan.target.trim() === '') return;
     void startScan(scan.target.trim());
   }
 
@@ -480,7 +474,8 @@
       {#if engine && !engine.available}
         {#if signatures?.enginePresent}
           <p class="empty" data-testid="signatures-missing">
-            Базы проверки не загружены. Положите файлы базы в папку:
+            Базы проверки не загружены, поэтому проверка идёт по признакам: программа ищет
+            подозрительные файлы, но не заменяет базу вирусов. Папка баз:
             <span class="path selectable">{signatures.dir}</span>
           </p>
           <div class="actions">
@@ -490,7 +485,8 @@
           </div>
         {:else}
           <p class="empty" data-testid="engine-unavailable">
-            Проверка пока недоступна: встроенная защита ещё не готова. Подробности — в «Журнале».
+            Встроенный движок вирусов в этой сборке не собран, поэтому проверка идёт по признакам:
+            программа ищет подозрительные файлы. Подробности — в «Журнале».
           </p>
         {/if}
       {/if}

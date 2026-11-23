@@ -40,6 +40,7 @@ pub fn run() {
         .manage(AppState::new(
             ochistka_platform::current_system_info(),
             ochistka_platform::current_virus_scanner(),
+            ochistka_platform::current_suspicion_scanner(),
             Arc::new(ochistka_platform::windows_cleanup::WindowsFs),
         ))
         .manage(speedtest::SpeedState::default())
