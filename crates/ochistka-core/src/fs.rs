@@ -165,6 +165,11 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// SHA-256 файла, читается потоком (большие файлы не грузятся в память целиком).
 pub fn sha256_file(fs: &dyn FsPort, path: &str) -> Result<String, CleanupError> {
     let mut reader = fs.open(path)?;
+    sha256_reader(&mut reader)
+}
+
+/// Хэширует уже открытый объект, не открывая его повторно по пути.
+pub fn sha256_reader(reader: &mut dyn Read) -> Result<String, CleanupError> {
     let mut hasher = Sha256::new();
     let mut buffer = vec![0u8; 64 * 1024];
     loop {

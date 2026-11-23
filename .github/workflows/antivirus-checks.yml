@@ -23,6 +23,11 @@ jobs:
         run: npm ci
       - name: Check scan logic
         run: cargo test --locked -p ochistka-core scan::tests
+      - name: Check quarantine logic
+        run: cargo test --locked -p ochistka-core quarantine::tests
+      - name: Check Linux file identity
+        if: runner.os == 'Linux'
+        run: cargo test --locked -p ochistka-platform linux::file_identity::tests
       - name: Check filesystem scan integration
         run: cargo test --locked -p ochistka-platform --test virus_scan
       - name: Check scan interface

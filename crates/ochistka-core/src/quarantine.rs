@@ -6,6 +6,18 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::fs::{read_all, sha256_file, sha256_hex, CleanupError, FsPort};
+
+/// Идентичность обычного файла, полученная из открытого системного объекта.
+/// Числа имеют смысл только вместе с платформой и относятся к моменту наблюдения.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FileIdentity {
+    pub platform: String,
+    pub volume: u64,
+    /// Строка позволяет сохранить также 128-битный идентификатор Windows.
+    pub file_id: String,
+    pub size: u64,
+    pub sha256: String,
+}
 use crate::policy::{file_name, parent_dir, validate_root, PathPolicy};
 
 pub const MANIFEST_FILE: &str = "manifest.json";

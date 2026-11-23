@@ -86,8 +86,6 @@ pub struct FindingItem {
 
 /// Больше находок за один запрос не переносим: интерфейс отправляет выбранное, а не весь список.
 const MAX_FINDINGS_PER_REQUEST: usize = 500;
-/// Причина в манифесте карантина короче этого предела.
-const MAX_REASON_CHARS: usize = 300;
 
 impl DisksRequest {
     /// Анализы идут под общим флагом «занято» и останавливаются кнопкой «Стоп».
@@ -279,24 +277,12 @@ pub fn run(
                     "за один раз не больше {MAX_FINDINGS_PER_REQUEST} находок"
                 )));
             }
-            let layout = env.layout()?;
-            let fs = env.fs()?;
-            let quarantine = quarantine_for(&layout)?;
-            let mut outcome = MoveOutcome::default();
-            for item in items {
-                let reason: String = format!("проверка «Вирусы»: {}", item.reason)
-                    .chars()
-                    .take(MAX_REASON_CHARS)
-                    .collect();
-                let one = quarantine.move_many(
-                    fs,
-                    std::slice::from_ref(&item.path),
-                    &reason,
-                    now_unix(),
-                )?;
-                outcome.merge(one);
-            }
-            Ok(DisksResponse::Cleaned { outcome })
+            // Находка содержит только путь: связать его с проверенным объектом невозможно.
+            // Обычный rename допускает подмену источника и перезапись назначения.
+            Err(CleanupError::Refused(
+                "перенос находок временно недоступен: безопасная проверка файла ещё не реализована"
+                    .into(),
+            ))
         }
     }
 }
@@ -450,22 +436,18 @@ mod findings_tests {
     }
 
     #[test]
-    fn findings_outside_the_whitelist_are_refused_without_io() {
+    fn findings_are_refused_until_identity_can_be_verified() {
         let env = TestEnv { fs: WindowsFs };
         let plan = Mutex::new(None);
         let cancel = AtomicBool::new(false);
-        let response = run(
+        let error = run(
             &env,
             &cancel,
             &plan,
-            quarantine_request(&["C:\\Windows\\System32\\evil.exe"]),
+            quarantine_request(&["C:\\Users\\Slava\\Downloads\\evil.exe"]),
         )
-        .unwrap();
-        let DisksResponse::Cleaned { outcome } = response else {
-            panic!("expected cleaned response");
-        };
-        assert_eq!(outcome.moved, 0);
-        assert_eq!(outcome.failed, 1);
+        .unwrap_err();
+        assert!(matches!(error, CleanupError::Refused(_)));
     }
 
     #[test]

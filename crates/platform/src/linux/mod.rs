@@ -15,6 +15,8 @@ impl SystemInfoPort for LinuxSystemInfo {
 
 pub mod cleanup;
 pub mod drivers;
+#[cfg(target_os = "linux")]
+pub mod file_identity;
 pub mod hardware;
 pub mod network;
 pub mod processes;
