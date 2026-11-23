@@ -1,9 +1,11 @@
 <script lang="ts">
   import Check from './Check.svelte';
+  import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import FindingsList from './FindingsList.svelte';
   import VirusBin from './VirusBin.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
+  import { revealInExplorer, toProgramsError } from '../lib/programsApi';
   import {
     listQuarantine,
     purgeItem,
@@ -31,6 +33,11 @@
   let flight = $state<{ id: number; count: number } | null>(null);
   let flightSeq = 0;
   let binState = $state<'idle' | 'filling' | 'closed' | 'throwing'>('idle');
+
+  /** Меню находки: где открылось и куда вернуть фокус. */
+  let menu = $state<{ index: number; x: number; y: number } | null>(null);
+  let menuReturnFocus: HTMLElement | null = null;
+  let actionNotice = $state('');
 
   // Идёт либо сама проверка, либо оценка находок: новую начинать нельзя.
   const busy = $derived(scan.phase !== 'idle');
@@ -101,6 +108,79 @@
 
   function toggleFinding(index: number, next: boolean) {
     picked = { ...picked, [index]: next };
+  }
+
+  /** Папка, в которой лежит находка: без последнего куска пути и без хвостовых слэшей. */
+  function parentFolder(path: string): string {
+    const trimmed = path.replace(/[\\/]+$/, '');
+    const cut = Math.max(trimmed.lastIndexOf('\\'), trimmed.lastIndexOf('/'));
+    return cut > 0 ? trimmed.slice(0, cut) : trimmed;
+  }
+
+  function openFindingMenu(event: MouseEvent | KeyboardEvent, index: number) {
+    if (event instanceof MouseEvent) {
+      event.preventDefault();
+    }
+    const row = (event.target as HTMLElement | null)?.closest('li');
+    menuReturnFocus = row?.querySelector<HTMLElement>('input[type="checkbox"]') ?? null;
+    let x = 0;
+    let y = 0;
+    if (event instanceof MouseEvent) {
+      x = event.clientX;
+      y = event.clientY;
+    }
+    if (x === 0 && y === 0) {
+      const rect = (menuReturnFocus ?? (event.target as HTMLElement)).getBoundingClientRect();
+      x = rect.left + 24;
+      y = rect.bottom;
+    }
+    menu = { index, x, y };
+  }
+
+  function findingMenuItems(): MenuItem[] {
+    return [
+      { id: 'folder', label: 'Открыть папку' },
+      { id: 'copy', label: 'Скопировать путь' },
+    ];
+  }
+
+  async function closeFindingMenu() {
+    menu = null;
+    await tick();
+    menuReturnFocus?.focus();
+  }
+
+  async function openFolder(path: string) {
+    actionNotice = '';
+    try {
+      await revealInExplorer(parentFolder(path));
+    } catch (err) {
+      actionNotice = toProgramsError(err).message;
+    }
+  }
+
+  async function copyPath(path: string) {
+    try {
+      await navigator.clipboard.writeText(path);
+      actionNotice = 'Путь скопирован.';
+    } catch {
+      actionNotice = 'Не удалось скопировать путь.';
+    }
+  }
+
+  async function onFindingMenuSelect(id: string) {
+    const index = menu?.index;
+    menu = null;
+    if (index === undefined) return;
+    const finding = findings[index];
+    if (!finding) return;
+    if (id === 'folder') {
+      await openFolder(finding.path);
+    } else if (id === 'copy') {
+      await copyPath(finding.path);
+    }
+    await tick();
+    menuReturnFocus?.focus();
   }
 
   onMount(async () => {
@@ -310,6 +390,9 @@
         <h3>Находки</h3>
         <span class="reason">Выбрано: {pickedCount}</span>
       </div>
+      {#if actionNotice}
+        <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
+      {/if}
       <div class="list-scroll">
         {#if findings.length === 0}
           {@render findingsEmpty()}
@@ -319,6 +402,7 @@
             suspicions={scan.suspicions}
             selected={picked}
             onToggle={toggleFinding}
+            onOpenMenu={openFindingMenu}
           />
         {/if}
       </div>
@@ -359,11 +443,15 @@
       </button>
     </div>
     <p class="reason" role="status">Перенос находок в карантин временно недоступен.</p>
+    {#if actionNotice}
+      <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
+    {/if}
     <FindingsList
       {findings}
       suspicions={scan.suspicions}
       selected={picked}
       onToggle={toggleFinding}
+      onOpenMenu={openFindingMenu}
     />
   {/if}
 {/if}
@@ -413,6 +501,17 @@
       </ul>
     {/if}
   </section>
+{/if}
+
+{#if menu}
+  <ContextMenu
+    label="Действия с находкой"
+    items={findingMenuItems()}
+    x={menu.x}
+    y={menu.y}
+    onselect={(id) => void onFindingMenuSelect(id)}
+    onclose={() => void closeFindingMenu()}
+  />
 {/if}
 
 <style>

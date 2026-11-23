@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import VirusesPage from './VirusesPage.svelte';
 import { assessFile, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
+import { revealInExplorer } from '../lib/programsApi';
 import {
   listQuarantine,
   purgeItem,
@@ -14,6 +15,11 @@ import { resetScanState } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
 
 vi.mock('../lib/scanControl', () => ({ scanCancel: vi.fn() }));
+
+vi.mock('../lib/programsApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/programsApi')>()),
+  revealInExplorer: vi.fn(),
+}));
 
 vi.mock('../lib/disksApi', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/disksApi')>()),
@@ -644,6 +650,71 @@ describe('VirusesPage scan screen motion (round 28)', () => {
 
     expect(screen.queryByTestId('bin-flight')).toBeNull();
     expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
+  });
+});
+
+describe('VirusesPage findings context menu (round 28)', () => {
+  const FINDING = `${DOWNLOADS}\\evil.exe`;
+
+  async function scanOne(): Promise<void> {
+    engineOk();
+    vi.mocked(scanStart).mockResolvedValue(report([{ path: FINDING, signature: 'Win.Evil.Test' }]));
+    vi.mocked(assessFile).mockResolvedValue({ score: 5, reasons: [] });
+    const view = await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await view.rerender({ subsection: 'findings' });
+    await screen.findByTestId('finding');
+  }
+
+  it('opens the menu with both items on right click and reveals the parent folder', async () => {
+    await scanOne();
+    await fireEvent.contextMenu(screen.getByTestId('finding'), { clientX: 120, clientY: 90 });
+
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: 'Открыть папку' })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: 'Скопировать путь' })).toBeTruthy();
+
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Открыть папку' }));
+    await waitFor(() => expect(revealInExplorer).toHaveBeenCalledWith(DOWNLOADS));
+  });
+
+  it('explains a failed reveal with a plain line, without windows or codes', async () => {
+    vi.mocked(revealInExplorer).mockRejectedValue({ kind: 'io', message: 'Папка недоступна' });
+    await scanOne();
+    await fireEvent.contextMenu(screen.getByTestId('finding'), { clientX: 120, clientY: 90 });
+    const menu = await screen.findByRole('menu');
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Открыть папку' }));
+
+    const line = await screen.findByTestId('finding-action');
+    expect(line.textContent).toBe('Папка недоступна');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('copies the full path', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    await scanOne();
+    await fireEvent.contextMenu(screen.getByTestId('finding'), { clientX: 120, clientY: 90 });
+    const menu = await screen.findByRole('menu');
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Скопировать путь' }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(FINDING));
+    expect((await screen.findByTestId('finding-action')).textContent).toBe('Путь скопирован.');
+  });
+
+  it('opens the menu from the keyboard and returns focus on Escape', async () => {
+    await scanOne();
+    const box = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
+    box.focus();
+
+    await fireEvent.keyDown(box, { key: 'F10', shiftKey: true });
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: 'Открыть папку' })).toBeTruthy();
+
+    await fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(box);
   });
 });
 
