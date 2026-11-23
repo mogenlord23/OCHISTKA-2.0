@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import VirusesPage from './VirusesPage.svelte';
-import { assessFile, clamavSignatures, clamavStatus, defaultScanTarget, scanStart } from '../lib/api';
+import {
+  assessFile,
+  clamavSignatures,
+  clamavStatus,
+  defaultScanTarget,
+  scanStart,
+} from '../lib/api';
 import { revealInExplorer } from '../lib/programsApi';
 import {
   listQuarantine,
@@ -103,7 +109,10 @@ describe('VirusesPage scan', () => {
     expect(view.container.textContent).not.toContain('docs/status/clamav-build.md');
     expect(view.container.textContent).not.toContain('libclamav');
     const start = screen.getByRole('button', { name: START }) as HTMLButtonElement;
-    expect(start.disabled).toBe(true);
+    // Кнопка не «мертвая»: нажать можно, но проверка не начнётся — рядом объяснение.
+    expect(start.disabled).toBe(false);
+    await fireEvent.click(start);
+    expect(scanStart).not.toHaveBeenCalled();
 
     await view.rerender({ subsection: 'log' });
     const journal = await screen.findByTestId('engine-log');
@@ -258,15 +267,20 @@ describe('VirusesPage scan', () => {
     await fireEvent.click(button);
 
     expect(await screen.findByTestId('scan-sweep')).toBeTruthy();
-    expect(button.disabled).toBe(true);
+    // Во время проверки кнопка запуска заменена на «Остановить», поле недоступно.
+    expect(screen.queryByRole('button', { name: START })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
     expect(input.disabled).toBe(true);
-    await fireEvent.click(button);
     expect(scanStart).toHaveBeenCalledTimes(1);
     expect(scanStart).toHaveBeenCalledWith(DOWNLOADS, expect.any(Function));
 
     finish(report());
     expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
-    expect(button.disabled).toBe(false);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'Проверить снова' }) as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
     expect(input.disabled).toBe(false);
   });
 
@@ -280,7 +294,6 @@ describe('VirusesPage scan', () => {
 
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: '   ' } });
-    expect(button.disabled).toBe(true);
     await fireEvent.click(button);
     expect(scanStart).not.toHaveBeenCalled();
   });
@@ -475,13 +488,14 @@ describe('VirusesPage journal', () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const view = await renderReady();
-    const button = screen.getByRole('button', { name: START }) as HTMLButtonElement;
-    await fireEvent.click(button);
+    await fireEvent.click(screen.getByRole('button', { name: START }));
     await screen.findByText('Проверено файлов: 5. Находок: 0.');
-    await waitFor(() => expect(button.disabled).toBe(false));
-    await fireEvent.click(button);
+    const again = (await screen.findByRole('button', {
+      name: 'Проверить снова',
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(again.disabled).toBe(false));
+    await fireEvent.click(again);
     await waitFor(() => expect(scanStart).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(button.disabled).toBe(false));
 
     await view.rerender({ subsection: 'log' });
     const items = screen.getAllByRole('listitem');
@@ -504,7 +518,9 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
     cleanup();
     render(VirusesPage, { props: { subsection: 'scan' } });
     expect(await screen.findByTestId('scan-sweep')).toBeTruthy();
-    expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(true);
+    // Пока проверка идёт, кнопка запуска заменена на «Остановить».
+    expect(screen.queryByRole('button', { name: START })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
 
     finish(report());
     expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
@@ -527,7 +543,10 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
     expect(await screen.findByText('Оцениваем находки…')).toBeTruthy();
     expect(screen.queryByText('Проверяем файлы…')).toBeNull();
     expect(screen.queryByTestId('scan-sweep')).toBeNull();
-    expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(true);
+    // Во время оценки новая проверка не начинается: кнопка выключена.
+    expect(
+      (screen.getByRole('button', { name: 'Проверить снова' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
 
     finishAssess({ score: 1, reasons: [] });
     expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();

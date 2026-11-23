@@ -73,19 +73,31 @@
           : 'idle',
   );
 
-  /** Подпись под большой кнопкой: коротко, что происходит. */
-  const plateCaption = $derived(
+  /** Заполнение шкалы: ход проверки, а после отчёта — полная. */
+  const scanFraction = $derived(
     scan.phase === 'scanning'
-      ? 'Идёт проверка…'
+      ? scan.progress && scan.progress.totalFiles > 0
+        ? Math.min(1, scan.progress.processedFiles / scan.progress.totalFiles)
+        : 0
       : scan.phase === 'assessing'
-        ? 'Смотрим находки…'
-        : !engine?.available
-          ? 'Проверка недоступна'
-          : scan.report
-            ? findings.length > 0
-              ? `Находок: ${findings.length}`
-              : 'Проверка закончена'
-            : 'Нажмите, чтобы проверить',
+        ? 1
+        : scan.report
+          ? 1
+          : 0,
+  );
+  const scanPercent = $derived(Math.round(scanFraction * 100));
+  const sweepWidth = $derived(
+    scan.progress && scan.progress.totalFiles > 0
+      ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100
+      : 0,
+  );
+  const statScanned = $derived(scan.progress?.scannedFiles ?? scan.report?.scannedFiles ?? 0);
+  const statSkipped = $derived(scan.report?.skippedFiles ?? scan.progress?.skippedFiles ?? 0);
+  const statErrors = $derived(scan.report?.errors ?? scan.progress?.errors ?? 0);
+  const gaugeLabel = $derived(
+    scan.phase === 'scanning' || scan.phase === 'assessing'
+      ? `Проверка ${scanPercent}%`
+      : `Находок: ${findings.length}`,
   );
 
   /** Движение отключают и системная настройка, и наш переключатель в «Оформлении». */
@@ -245,6 +257,16 @@
   }
 
   onMount(async () => {
+    // Сначала папка: кнопка проверки включается, когда известен движок, и к этому моменту путь
+    // уже подставлен, иначе первое нажатие ничего бы не сделало.
+    if (scan.target === '') {
+      try {
+        const fallback = await defaultScanTarget();
+        if (scan.target === '') scan.target = fallback;
+      } catch {
+        // Пустое поле — пользователь укажет папку сам.
+      }
+    }
     try {
       engine = await clamavStatus();
     } catch (err) {
@@ -254,16 +276,6 @@
       signatures = await clamavSignatures();
     } catch {
       // Без сведений о базах экран работает как раньше: показывает причину от движка.
-    }
-    // Поле не затираем, если проверка уже идёт или путь введён раньше. Значение по умолчанию
-    // подставляем, только если владелец ещё ничего не ввёл, пока шёл запрос.
-    if (scan.target === '') {
-      try {
-        const fallback = await defaultScanTarget();
-        if (scan.target === '') scan.target = fallback;
-      } catch {
-        // Пустое поле — пользователь укажет папку сам.
-      }
     }
   });
 
@@ -296,6 +308,7 @@
   });
 
   function start() {
+    if (busy || !engine?.available || scan.target.trim() === '') return;
     void startScan(scan.target.trim());
   }
 
@@ -383,70 +396,86 @@
     <div class="alert" role="alert"><p>{error.message}</p></div>
   {/if}
 
-  <div class="scan-layout">
-    <div class="station-col">
-      <button
-        type="button"
-        class="start-plate"
-        data-testid="scan-station"
-        data-state={stationState}
-        aria-label="Начать проверку"
-        onclick={start}
-        disabled={!engine?.available || busy || scan.target.trim() === ''}
-      >
-        {#if stationState === 'scanning'}
-          <span class="beam" data-testid="scan-beam" aria-hidden="true"></span>
-        {/if}
-        <span class="shield" aria-hidden="true">
-          <svg viewBox="0 0 48 56" focusable="false">
-            <path
-              d="M24 3 5 10.5V28c0 11.6 7.7 21.2 19 24.9C35.3 49.2 43 39.6 43 28V10.5Z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="4"
-              stroke-linejoin="round"
-            />
-            <path
-              d="m16 27.5 6.2 6.4L32 20.5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="4"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </span>
-        <span class="plate-title">Начать проверку</span>
-        <span class="plate-caption">{plateCaption}</span>
-      </button>
+  <div class="scan-screen">
+    <section
+      class="card scanner"
+      data-testid="scan-station"
+      data-state={stationState}
+      aria-label="Проверка компьютера"
+    >
+      <div class="scanner-body">
+        <div
+          class="gauge"
+          class:running={scan.phase === 'scanning' || scan.phase === 'assessing'}
+          class:filled={scanFraction >= 0.5}
+          role="img"
+          aria-label={gaugeLabel}
+        >
+          <div class="fill" aria-hidden="true" style:height={`${scanFraction * 100}%`}></div>
+          {#if scan.phase === 'scanning'}
+            <span class="beam" data-testid="scan-beam" aria-hidden="true"></span>
+          {/if}
+          <div class="readout">
+            {#if scan.phase === 'scanning' || scan.phase === 'assessing'}
+              <span class="value" data-testid="scan-percent">{scanPercent}%</span>
+              <span class="caption">проверено</span>
+            {:else}
+              <span class="value" data-testid="scan-percent">{findings.length}</span>
+              <span class="caption">находок</span>
+            {/if}
+          </div>
+        </div>
 
-      <label>
-        Папка для проверки
-        <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
-      </label>
+        <div class="scanner-details">
+          <dl class="stats">
+            <div class="stat">
+              <dt>Проверено</dt>
+              <dd data-testid="scan-scanned">{statScanned}</dd>
+            </div>
+            <div class="stat">
+              <dt>Находки</dt>
+              <dd data-testid="scan-findings">{findings.length}</dd>
+            </div>
+            <div class="stat">
+              <dt>Пропущено</dt>
+              <dd data-testid="scan-skipped">{statSkipped}</dd>
+            </div>
+            <div class="stat">
+              <dt>Ошибки</dt>
+              <dd data-testid="scan-errors">{statErrors}</dd>
+            </div>
+          </dl>
 
-      <div class="actions">
-        {#if scan.phase === 'scanning'}
-          <button type="button" onclick={() => void cancelScan()}>Остановить</button>
-        {/if}
-        {#if startBlockReason}
-          <span class="reason">{startBlockReason}</span>
-        {/if}
+          <label class="folder">
+            Папка для проверки
+            <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
+          </label>
+        </div>
       </div>
 
       <div class="track" aria-hidden="true">
         {#if scan.phase === 'scanning'}
-          <div
-            class="sweep"
-            data-testid="scan-sweep"
-            style:width={`${scan.progress && scan.progress.totalFiles > 0 ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100 : 0}%`}
-          ></div>
+          <div class="sweep" data-testid="scan-sweep" style:width={`${sweepWidth}%`}></div>
         {/if}
       </div>
 
-      <div class="state" aria-live="polite">
+      <div class="actions">
+        {#if scan.phase === 'scanning'}
+          <button type="button" class="btn" onclick={() => void cancelScan()}>Остановить</button>
+        {:else}
+          <button type="button" class="btn go" onclick={start} disabled={busy || engine === null}>
+            {scan.report ? 'Проверить снова' : 'Начать проверку'}
+          </button>
+        {/if}
+      </div>
+
+      <div class="msg" aria-live="polite">
         {@render stationStatus()}
       </div>
+
+      {#if startBlockReason}
+        <p class="msg note">{startBlockReason}</p>
+      {/if}
 
       {#if engine && !engine.available}
         {#if signatures?.enginePresent}
@@ -455,8 +484,9 @@
             <span class="path selectable">{signatures.dir}</span>
           </p>
           <div class="actions">
-            <button type="button" onclick={() => void openSignaturesDir()}>Открыть папку баз</button
-            >
+            <button type="button" class="btn" onclick={() => void openSignaturesDir()}>
+              Открыть папку баз
+            </button>
           </div>
         {:else}
           <p class="empty" data-testid="engine-unavailable">
@@ -470,35 +500,37 @@
           База загружена: сигнатур — {signatures.signatures}.
         </p>
       {/if}
+    </section>
 
-      <div class="bin-row">
+    <div class="bottom">
+      <section class="findings-panel" aria-label="Находки проверки">
+        <div class="panel-head">
+          <h3>Находки</h3>
+          <span class="reason">Выбрано: {pickedCount}</span>
+        </div>
+        {#if actionNotice}
+          <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
+        {/if}
+        <div class="list-scroll">
+          {#if findings.length === 0}
+            {@render findingsEmpty()}
+          {:else}
+            <FindingsList
+              {findings}
+              suspicions={scan.suspicions}
+              selected={picked}
+              onToggle={toggleFinding}
+              onOpenMenu={openFindingMenu}
+            />
+          {/if}
+        </div>
+      </section>
+
+      <aside class="bin-card" aria-label="Корзина находок">
         <VirusBin count={findings.length} state={binState} />
         <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
-      </div>
+      </aside>
     </div>
-
-    <section class="findings-panel" aria-label="Находки проверки">
-      <div class="panel-head">
-        <h3>Находки</h3>
-        <span class="reason">Выбрано: {pickedCount}</span>
-      </div>
-      {#if actionNotice}
-        <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
-      {/if}
-      <div class="list-scroll">
-        {#if findings.length === 0}
-          {@render findingsEmpty()}
-        {:else}
-          <FindingsList
-            {findings}
-            suspicions={scan.suspicions}
-            selected={picked}
-            onToggle={toggleFinding}
-            onOpenMenu={openFindingMenu}
-          />
-        {/if}
-      </div>
-    </section>
 
     {#if flight}
       {@const current = flight}
@@ -712,79 +744,208 @@
     box-shadow: 0 0 0 2px #000;
   }
 
-  .scan-layout {
+  .scan-screen {
     position: relative;
-    display: grid;
-    flex: 1 1 auto;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 16px;
-    min-height: 0;
-  }
-
-  .station-col {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 16px;
     min-height: 0;
   }
 
-  /* Большая кнопка проверки: нажимаешь на неё — и проверка начинается. */
-  .start-plate {
+  /* Карточка проверки в духе карточки скорости из «Сети»: большая шкала, цифры, одна кнопка. */
+  .card.scanner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    box-shadow: 0 0 0 2px #000;
+  }
+
+  .scanner-body {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(220px, 1.4fr);
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .gauge {
     position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: #202020;
+  }
+
+  .gauge .fill {
+    position: absolute;
+    inset: auto 0 0;
+    background: linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) 45%, #000));
+    transition: height 0.18s linear;
+  }
+
+  .gauge:not(.running) .fill {
+    transition: none;
+  }
+
+  .gauge.running {
+    animation: press-pulse 1.6s ease-in-out infinite;
+  }
+
+  .readout {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    min-height: 208px;
-    padding: 24px;
-    border: 0;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    box-shadow: 0 0 0 2px #000;
-    color: var(--ink);
-    font: inherit;
-    cursor: pointer;
-    overflow: hidden;
+    max-width: 100%;
+    padding: 8px;
+    text-align: center;
   }
 
-  .start-plate:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .start-plate:hover:not(:disabled) {
-    box-shadow: 0 0 0 2px var(--accent);
-  }
-
-  .plate-title {
-    font-size: var(--text-title);
+  .value {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(3rem, 11cqi, 7rem);
     font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
   }
 
-  .plate-caption {
+  .caption {
+    margin-top: 4px;
+    font-size: clamp(0.9rem, 2.4cqi, 1.6rem);
+    color: #fff;
+  }
+
+  .gauge.filled .value,
+  .gauge.filled .caption {
+    color: #000;
+  }
+
+  .scanner-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .stats {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+  }
+
+  .stat {
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: #202020;
+    text-align: center;
+  }
+
+  .stat dt {
+    font-size: var(--text-caption);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--muted);
-    font-size: var(--text-small);
   }
 
-  .start-plate[data-state='found'] {
-    box-shadow: 0 0 0 2px var(--accent);
+  .stat dd {
+    margin: 2px 0 0;
+    font-size: clamp(1.6rem, 4cqi, 2.6rem);
+    font-weight: 800;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
   }
 
-  .start-plate[data-state='clean'] {
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, #000);
+  .folder {
+    margin: 0;
   }
 
-  .start-plate[data-state='failed'] {
-    box-shadow: 0 0 0 2px var(--muted);
+  .btn {
+    width: 100%;
+    min-height: 38px;
+    margin-top: 4px;
+    padding: 6px 18px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--btn-bg);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--btn-border);
+    font: inherit;
+    font-size: var(--text-caption);
+    font-weight: 800;
+    cursor: pointer;
   }
 
-  .start-plate[data-state='scanning'] {
-    animation: press-pulse 1.3s ease-in-out infinite;
+  .btn.go {
+    background: var(--accent);
+    color: var(--black);
+    box-shadow: none;
   }
 
-  /* Луч по станции: только пока идёт проверка. */
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .msg {
+    margin: 0;
+    font-size: var(--text-caption);
+    color: var(--ink-soft);
+  }
+
+  .msg p {
+    margin: 0 0 4px;
+  }
+
+  .msg.note {
+    color: var(--muted);
+  }
+
+  .bottom {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .bin-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    box-shadow: 0 0 0 2px #000;
+  }
+
+  .scanner {
+    container-type: inline-size;
+  }
+
+  /* Луч по шкале: только пока идёт проверка. */
   .beam {
     position: absolute;
     inset: 0 auto 0 -40%;
@@ -868,36 +1029,6 @@
     }
   }
 
-  .shield {
-    display: inline-flex;
-    color: var(--accent);
-  }
-
-  .shield svg {
-    width: 84px;
-    height: 98px;
-  }
-
-  .state {
-    position: relative;
-    min-height: 44px;
-  }
-
-  .state p {
-    margin: 0 0 4px;
-    color: var(--ink-soft);
-  }
-
-  .bin-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin-top: auto;
-    padding-bottom: 8px;
-  }
-
   .findings-panel {
     display: flex;
     flex-direction: column;
@@ -957,7 +1088,7 @@
       display: none;
     }
 
-    .start-plate[data-state='scanning'] {
+    .gauge.running {
       animation: none;
     }
 
@@ -975,7 +1106,7 @@
     display: none;
   }
 
-  :global(:root[data-reduce-motion='true']) .start-plate[data-state='scanning'] {
+  :global(:root[data-reduce-motion='true']) .gauge.running {
     animation: none;
   }
 
@@ -999,8 +1130,11 @@
   }
 
   @media (max-width: 980px) {
-    .scan-layout {
+    .scan-screen {
       flex: none;
+    }
+
+    .bottom {
       grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1010,8 +1144,17 @@
   }
 
   @media (max-width: 720px) {
-    .scan-layout {
+    .scan-screen {
       gap: 8px;
+    }
+
+    .scanner-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .gauge {
+      width: min(100%, 240px);
+      justify-self: center;
     }
 
     .findings-panel {

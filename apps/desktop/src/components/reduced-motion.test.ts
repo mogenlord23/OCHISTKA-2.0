@@ -13,7 +13,7 @@ describe('VirusesPage reduced motion', () => {
     const block = match?.[1] ?? '';
     expect(block).toMatch(/\.sweep\s*\{[^}]*transition:\s*none/);
     expect(block).toMatch(/\.beam\s*\{[^}]*display:\s*none/);
-    expect(block).toMatch(/\.start-plate\[data-state='scanning'\]\s*\{[^}]*animation:\s*none/);
+    expect(block).toMatch(/\.gauge\.running\s*\{[^}]*animation:\s*none/);
     expect(block).toMatch(/\.drop\s*\{[^}]*animation:\s*none/);
   });
 
@@ -23,7 +23,7 @@ describe('VirusesPage reduced motion', () => {
     );
     expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.beam\s*\{[^}]*display:\s*none/);
     expect(css).toMatch(
-      /:root\[data-reduce-motion='true'\]\)\s*\.start-plate\[data-state='scanning'\]\s*\{[^}]*animation:\s*none/,
+      /:root\[data-reduce-motion='true'\]\)\s*\.gauge\.running\s*\{[^}]*animation:\s*none/,
     );
     expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.drop\s*\{[^}]*animation:\s*none/);
   });
@@ -44,23 +44,23 @@ describe('VpnPage reduced motion', () => {
 });
 
 describe('VirusesPage scan screen layout (round 28)', () => {
-  it('uses two tokenised columns that stack at 980px and tighten at 720px', () => {
+  it('puts the findings beside the bin and stacks both at 980px', () => {
     const css = pageSource.slice(pageSource.indexOf('<style>'));
     expect(css).toMatch(
-      /\.scan-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
+      /\.bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(220px,\s*1fr\)/,
     );
     expect(css).toMatch(
-      /@media \(max-width: 980px\)\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+      /@media \(max-width: 980px\)\s*\{[\s\S]*?\.bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
     );
     expect(css).toMatch(/@media \(max-width: 720px\)/);
   });
 
-  it('scrolls only the findings list, not the left column', () => {
+  it('scrolls only the findings list, not the scanner card', () => {
     const css = pageSource.slice(pageSource.indexOf('<style>'));
     const scroll = css.match(/\.list-scroll\s*\{([^}]*)\}/)?.[1] ?? '';
     expect(scroll).toMatch(/overflow:\s*hidden auto/);
-    const column = css.match(/\.station-col\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(column).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
+    const card = css.match(/\.card\.scanner\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(card).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
   });
 
   it('draws the bin as inline vector shapes, without raster images', async () => {
