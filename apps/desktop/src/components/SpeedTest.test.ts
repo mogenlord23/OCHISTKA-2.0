@@ -24,9 +24,12 @@ function backend(events: SpeedEvent[], opts: { reject?: boolean; hold?: boolean 
   invokeMock.mockImplementation(async (cmd: string, args?: { onEvent?: Channelish }) => {
     if (cmd === 'speedtest_start') {
       if (opts.reject) throw { kind: 'probe', message: 'x' };
-      for (const e of events) args?.onEvent?.onmessage(e);
+      const terminal = events.find((event) => ['done', 'failed', 'cancelled'].includes(event.type));
+      for (const event of events) {
+        if (event !== terminal) args?.onEvent?.onmessage(event);
+      }
       if (opts.hold) await new Promise<void>((r) => (release = r));
-      return undefined;
+      return terminal;
     }
     if (cmd === 'get_network_adapters') return [];
     return undefined;
@@ -90,8 +93,8 @@ describe('SpeedTest', () => {
     expect(SECTION_COLORS.viruses).toBe('#b4ff00');
     expect(source).toContain('linear-gradient(to top, var(--accent), var(--speed-green))');
     expect(source).not.toMatch(/opacity:\s*0\.3/);
-    expect(source).toContain('font-size: clamp(3rem, 7cqi, 6rem)');
-    expect(source).toContain('font-size: clamp(1.5rem, 3cqi, 2.75rem)');
+    expect(source).toContain('font-size: clamp(3.5rem, 12cqi, 8rem)');
+    expect(source).toContain('font-size: clamp(2rem, 6cqi, 5rem)');
   });
 
   it('shows result cards and the summary after a run', async () => {
@@ -207,6 +210,22 @@ describe('SpeedTest store outside the page', () => {
     backend(FULL);
     await fireEvent.click(again);
     await waitFor(() => expect(calls('speedtest_start')).toHaveLength(2));
+  });
+
+  it('keeps the returned result when a progress event arrives after the command completes', async () => {
+    let channel: Channelish | undefined;
+    invokeMock.mockImplementation(async (cmd: string, args?: { onEvent?: Channelish }) => {
+      if (cmd === 'speedtest_start') {
+        channel = args?.onEvent;
+        return { type: 'done', result: RESULT };
+      }
+    });
+    render(SpeedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
+    await screen.findByText('Отличное соединение.');
+    channel?.onmessage({ type: 'progress', phase: 'download', mbps: 5, fraction: 0.1 });
+    expect(speedStore.ui.status).toBe('done');
+    expect(screen.getByTestId('speed-down').textContent).toContain('120');
   });
 
   it('keeps the last result visible when a repeated run fails', async () => {

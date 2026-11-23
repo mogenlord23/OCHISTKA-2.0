@@ -90,20 +90,13 @@
       type="button"
       class="btn"
       class:go={!geo.consent}
-      aria-describedby={!geo.consent ? 'geo-consent-note' : undefined}
       disabled={geo.consent === null || geo.loading || changingConsent}
       onclick={() => void changeConsent()}
       >{geo.loading ? 'Определяем…' : geo.consent ? 'Отозвать разрешение' : 'Определить'}</button
     >
-    {#if !geo.consent}
-      <p class="note" id="geo-consent-note">
-        При нажатии внешний сервис ipwho.is получит ваш IP-адрес для определения провайдера и
-        расположения. Разрешение можно отозвать.
-      </p>
-    {/if}
   </div>
   {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
-  <p class="note">{GEO_VPN_NOTE} Данные примерные.</p>
+  <p class="note">{GEO_VPN_NOTE}</p>
 </section>
 
 <style>

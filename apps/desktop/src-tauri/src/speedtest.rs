@@ -20,7 +20,7 @@ pub struct SpeedState {
 pub async fn speedtest_start(
     state: State<'_, SpeedState>,
     on_event: Channel<SpeedEvent>,
-) -> Result<(), CommandError> {
+) -> Result<SpeedEvent, CommandError> {
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let mut slot = state.running.lock().unwrap_or_else(|e| e.into_inner());
@@ -35,21 +35,35 @@ pub async fn speedtest_start(
     let flag = cancel.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let transport = ochistka_platform::speedtest::current_speed_transport();
+        let mut terminal = None;
         run_speedtest(
             transport.as_ref(),
             &SpeedConfig::default(),
             &flag,
             &mut |event| {
-                let _ = on_event.send(event);
+                if matches!(
+                    event,
+                    SpeedEvent::Done { .. } | SpeedEvent::Failed { .. } | SpeedEvent::Cancelled
+                ) {
+                    terminal = Some(event);
+                } else {
+                    let _ = on_event.send(event);
+                }
             },
         );
+        terminal
     })
     .await;
     *state.running.lock().unwrap_or_else(|e| e.into_inner()) = None;
-    outcome.map_err(|err| CommandError {
-        kind: "probe".into(),
-        message: err.to_string(),
-    })
+    outcome
+        .map_err(|err| CommandError {
+            kind: "probe".into(),
+            message: err.to_string(),
+        })?
+        .ok_or_else(|| CommandError {
+            kind: "probe".into(),
+            message: "Тест завершился без результата".into(),
+        })
 }
 
 #[tauri::command]

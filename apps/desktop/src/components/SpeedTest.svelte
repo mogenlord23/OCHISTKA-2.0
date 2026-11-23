@@ -217,7 +217,7 @@
     min-width: 0;
     overflow: hidden;
     border-radius: var(--radius-sm);
-    background: #343434;
+    background: #202020;
   }
 
   .fill {
@@ -245,7 +245,7 @@
   .value {
     max-width: 100%;
     overflow-wrap: anywhere;
-    font-size: clamp(3rem, 7cqi, 6rem);
+    font-size: clamp(3.5rem, 12cqi, 8rem);
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -254,7 +254,7 @@
 
   .caption {
     margin-top: 4px;
-    font-size: var(--text-caption);
+    font-size: clamp(1rem, 2.5cqi, 1.8rem);
     color: #fff;
   }
 
@@ -283,12 +283,13 @@
     min-width: 0;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
-    background: #1a1a1a;
+    background: #202020;
+    text-align: center;
   }
 
   dt {
     overflow-wrap: anywhere;
-    font-size: 0.6rem;
+    font-size: clamp(0.75rem, 1.8cqi, 1.25rem);
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -297,9 +298,10 @@
 
   dd {
     margin: 2px 0 0;
-    font-size: clamp(1.5rem, 3cqi, 2.75rem);
+    font-size: clamp(2rem, 6cqi, 5rem);
     font-weight: 800;
     overflow-wrap: anywhere;
+    line-height: 1.05;
     font-variant-numeric: tabular-nums;
     color: var(--ink);
   }
@@ -307,7 +309,7 @@
   dd small {
     display: block;
     margin-left: 0;
-    font-size: var(--text-caption);
+    font-size: clamp(0.75rem, 1.5cqi, 1rem);
     font-weight: 600;
     color: var(--muted);
   }

@@ -25,20 +25,20 @@ export class SpeedStore {
     if (this.running) return;
     markNoteSeen();
     this.ui = START;
-    let terminal: SpeedEvent | null = null;
+    let acceptingEvents = true;
     const apply = (event: SpeedEvent) => {
-      if (event.type === 'done' || event.type === 'failed' || event.type === 'cancelled') {
-        terminal = event;
-        return;
-      }
-      this.ui = reduce(this.ui, event);
+      if (acceptingEvents) this.ui = reduce(this.ui, event);
     };
     try {
-      await startSpeedtest(apply);
-      // Кнопка повтора доступна только после освобождения ресурса системной командой.
-      this.ui = reduce(this.ui, terminal ?? { type: 'failed', kind: 'server' });
+      const terminal = await startSpeedtest(apply);
+      acceptingEvents = false;
+      if (!terminal || !['done', 'failed', 'cancelled'].includes(terminal.type)) {
+        throw new Error('Тест завершился без результата');
+      }
+      this.ui = reduce(this.ui, terminal);
       if (this.ui.status === 'done') this.last = this.ui;
     } catch {
+      acceptingEvents = false;
       this.ui = reduce(this.ui, { type: 'failed', kind: 'server' });
     }
   }

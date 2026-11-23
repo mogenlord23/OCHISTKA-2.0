@@ -41,7 +41,8 @@ describe('GeoCards', () => {
     expect(section.contains(screen.getByTestId('geo-provider'))).toBe(true);
     expect(section.contains(screen.getByTestId('geo-place'))).toBe(true);
     expect(section.contains(button)).toBe(true);
-    expect(screen.getByText(/внешний сервис ipwho.is получит ваш IP-адрес/)).toBeTruthy();
+    expect(screen.queryByText(/внешний сервис ipwho.is/)).toBeNull();
+    expect(screen.getByText(/Если включён VPN/)).toBeTruthy();
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(container.querySelectorAll('.icon')).toHaveLength(2);
   });
