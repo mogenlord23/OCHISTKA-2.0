@@ -28,6 +28,9 @@ jobs:
       - name: Check Linux file identity
         if: runner.os == 'Linux'
         run: cargo test --locked -p ochistka-platform linux::file_identity::tests
+      - name: Check Linux quarantine race experiments
+        if: runner.os == 'Linux'
+        run: cargo test --locked -p ochistka-platform --test quarantine_races
       - name: Check filesystem scan integration
         run: cargo test --locked -p ochistka-platform --test virus_scan
       - name: Check scan interface
