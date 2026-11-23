@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { speedStore } from '../lib/speedtestStore.svelte';
+  import { SECTION_COLORS } from '../lib/tokens';
   import {
     CANCELLED_MESSAGE,
     PHASE_LABEL,
@@ -102,9 +103,20 @@
   }
 </script>
 
-<section class="card speed" aria-label="Тест скорости интернета">
+<section
+  class="card speed"
+  aria-label="Тест скорости интернета"
+  style:--speed-green={SECTION_COLORS.viruses}
+>
   <div class="body">
-    <div class="gauge" class:running role="img" aria-label={`Скорость ${formatMbps(shown)} Мбит/с`}>
+    <div
+      class="gauge"
+      class:running
+      role="img"
+      aria-label={running && ui.phase
+        ? `Скорость ${formatMbps(shown)} Мбит/с. ${PHASE_LABEL[ui.phase]} ${Math.round(speedStore.ui.fraction * 100)}%`
+        : `Скорость ${formatMbps(shown)} Мбит/с`}
+    >
       <div class="fill" aria-hidden="true" style:height={`${fraction * 100}%`}></div>
       <div class="readout">
         <span class="value" data-testid="speed-value">{formatMbps(shown)}</span>
@@ -138,21 +150,8 @@
     <button type="button" class="btn" onclick={stop}>Остановить</button>
   {:else}
     <button type="button" class="btn go" onclick={start}>
-      {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
+      {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Проверить скорость снова'}
     </button>
-  {/if}
-
-  {#if running}
-    <div
-      class="progress"
-      role="progressbar"
-      aria-label="Ход теста"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-valuenow={Math.round(speedStore.ui.fraction * 100)}
-    >
-      <span style:width={`${Math.round(speedStore.ui.fraction * 100)}%`}></span>
-    </div>
   {/if}
 
   {#if status === 'failed'}
@@ -223,8 +222,7 @@
   .fill {
     position: absolute;
     inset: auto 0 0;
-    background: linear-gradient(to top, #ff009d, #b4ff00);
-    opacity: 0.3;
+    background: linear-gradient(to top, var(--accent), var(--speed-green));
     transition: height 0.18s linear;
   }
 
@@ -240,13 +238,15 @@
     align-items: center;
     max-width: 100%;
     padding: 8px;
+    border-radius: var(--radius-sm);
+    background: #111;
     text-align: center;
   }
 
   .value {
     max-width: 100%;
     overflow-wrap: anywhere;
-    font-size: 2.1rem;
+    font-size: clamp(2.6rem, 4cqi, 4rem);
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -293,7 +293,7 @@
 
   dd {
     margin: 2px 0 0;
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     color: var(--ink);
@@ -305,21 +305,6 @@
     font-size: var(--text-caption);
     font-weight: 600;
     color: var(--muted);
-  }
-
-  .progress {
-    height: 4px;
-    margin-top: 12px;
-    border-radius: var(--radius-xs);
-    background: #262626;
-    overflow: hidden;
-  }
-
-  .progress span {
-    display: block;
-    height: 100%;
-    background: var(--accent);
-    transition: width 0.12s linear;
   }
 
   .msg {
@@ -353,8 +338,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .fill,
-    .progress span {
+    .fill {
       transition: none;
     }
   }

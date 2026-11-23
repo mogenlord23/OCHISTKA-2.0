@@ -5,6 +5,8 @@ import VpnNetworkTab from './VpnNetworkTab.svelte';
 import type { SpeedEvent } from '../lib/speedtestApi';
 import { speedStore } from '../lib/speedtestStore.svelte';
 import { gaugeFraction } from '../lib/speedtest';
+import { SECTION_COLORS } from '../lib/tokens';
+import source from './SpeedTest.svelte?raw';
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({
@@ -79,6 +81,19 @@ describe('SpeedTest', () => {
     expect(body?.nextElementSibling).toBe(button);
   });
 
+  it('uses full-strength theme colors and larger numerals', () => {
+    const { container } = render(SpeedTest);
+    expect(
+      container.querySelector<HTMLElement>('.speed')?.style.getPropertyValue('--speed-green'),
+    ).toBe(SECTION_COLORS.viruses);
+    expect(SECTION_COLORS.vpn).toBe('#ff009d');
+    expect(SECTION_COLORS.viruses).toBe('#b4ff00');
+    expect(source).toContain('linear-gradient(to top, var(--accent), var(--speed-green))');
+    expect(source).not.toMatch(/opacity:\s*0\.3/);
+    expect(source).toContain('font-size: clamp(2.6rem, 4cqi, 4rem)');
+    expect(source).toContain('font-size: 1.5rem');
+  });
+
   it('shows result cards and the summary after a run', async () => {
     backend(FULL);
     render(SpeedTest);
@@ -94,7 +109,7 @@ describe('SpeedTest', () => {
     );
     expect(screen.getByTestId('speed-value').textContent).toBe('120');
     expect(speedStore.last?.loadedMs).toBe(40);
-    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Проверить скорость снова' })).toBeTruthy();
     expect(calls('speedtest_start')).toHaveLength(1);
   });
 
@@ -107,7 +122,7 @@ describe('SpeedTest', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('Нет подключения к интернету. Проверьте сеть и повторите');
-    await fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость снова' }));
     await waitFor(() => expect(calls('speedtest_start')).toHaveLength(2));
   });
 
@@ -116,7 +131,7 @@ describe('SpeedTest', () => {
     render(SpeedTest);
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/Сервер измерения/);
-    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Проверить скорость снова' })).toBeTruthy();
   });
 
   it('can be cancelled while running and the UI stays responsive', async () => {
@@ -130,7 +145,8 @@ describe('SpeedTest', () => {
     render(SpeedTest);
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     const stop = await screen.findByRole('button', { name: 'Остановить' });
-    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('30%');
     const fill = document.querySelector<HTMLElement>('.gauge .fill')!;
     await waitFor(() => expect(parseFloat(fill.style.height)).toBeGreaterThan(0));
     expect(screen.getByText('Скачивание… · Мбит/с')).toBeTruthy();
@@ -157,7 +173,8 @@ describe('SpeedTest store outside the page', () => {
     expect(calls('speedtest_cancel')).toHaveLength(0);
     render(SpeedTest);
     expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('30');
+    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('30%');
+    expect(screen.queryByRole('progressbar')).toBeNull();
     expect(calls('speedtest_start')).toHaveLength(1);
     finish();
   });
@@ -171,7 +188,7 @@ describe('SpeedTest store outside the page', () => {
     render(SpeedTest);
     expect(screen.getByTestId('speed-down').textContent).toContain('120');
     expect(screen.getByTestId('speed-value').textContent).toBe('120');
-    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Проверить скорость снова' })).toBeTruthy();
     expect(calls('speedtest_start')).toHaveLength(1);
   });
 
@@ -181,10 +198,10 @@ describe('SpeedTest store outside the page', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     await screen.findByText('Отличное соединение.');
     backend([{ type: 'failed', kind: 'offline' }]);
-    await fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость снова' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByTestId('speed-down').textContent).toContain('120');
-    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Проверить скорость снова' })).toBeTruthy();
   });
 });
 
