@@ -136,3 +136,50 @@ fn hash_reader_propagates_an_injected_read_error() {
     }
     assert!(ochistka_core::fs::sha256_reader(&mut FailingReader).is_err());
 }
+
+#[test]
+fn hard_link_followed_by_unlink_can_remove_a_replacement_name() {
+    let tmp = Temp::new();
+    let source = tmp.0.join("source");
+    let original = tmp.0.join("original");
+    let quarantine = tmp.0.join("quarantine-copy");
+    let replacement_backup = tmp.0.join("replacement-backup");
+    fs::write(&source, b"checked").unwrap();
+    fs::hard_link(&source, &quarantine).unwrap();
+    let (start, proceed) = sync_channel::<()>(0);
+    let (finished, done) = sync_channel::<()>(0);
+    thread::scope(|scope| {
+        let source_ref = &source;
+        let original_ref = &original;
+        let backup_ref = &replacement_backup;
+        scope.spawn(move || {
+            proceed.recv().unwrap();
+            fs::rename(source_ref, original_ref).unwrap();
+            fs::write(source_ref, b"replacement").unwrap();
+            // Сохраняем вторую ссылку только для проверки содержимого после эксперимента.
+            fs::hard_link(source_ref, backup_ref).unwrap();
+            finished.send(()).unwrap();
+        });
+        start.send(()).unwrap();
+        done.recv().unwrap();
+        // Демонстрация небезопасного протокола в изолированной папке, не код приложения.
+        fs::remove_file(&source).unwrap();
+    });
+    assert!(!source.exists(), "замещающее имя было удалено");
+    assert_eq!(fs::read(&replacement_backup).unwrap(), b"replacement");
+    assert_eq!(fs::read(&original).unwrap(), b"checked");
+    assert_eq!(fs::read(&quarantine).unwrap(), b"checked");
+}
+
+#[test]
+fn hard_link_collision_preserves_source_and_existing_destination() {
+    let tmp = Temp::new();
+    let source = tmp.0.join("source");
+    let destination = tmp.0.join("destination");
+    fs::write(&source, b"checked").unwrap();
+    fs::write(&destination, b"existing").unwrap();
+    let err = fs::hard_link(&source, &destination).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(fs::read(&source).unwrap(), b"checked");
+    assert_eq!(fs::read(&destination).unwrap(), b"existing");
+}
