@@ -76,7 +76,14 @@
 
   $effect(() => {
     void target;
-    schedule();
+    if (!running) {
+      if (frame !== 0 && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+      frame = 0;
+      last = 0;
+      shown = target;
+    } else {
+      schedule();
+    }
   });
 
   onDestroy(() => {
@@ -97,8 +104,8 @@
 
 <section class="card speed" aria-label="Тест скорости интернета">
   <div class="body">
-    <div class="gauge" role="img" aria-label={`Скорость ${formatMbps(shown)} Мбит/с`}>
-      <div class="fill" aria-hidden="true" style:height={`${running ? fraction * 100 : 0}%`}></div>
+    <div class="gauge" class:running role="img" aria-label={`Скорость ${formatMbps(shown)} Мбит/с`}>
+      <div class="fill" aria-hidden="true" style:height={`${fraction * 100}%`}></div>
       <div class="readout">
         <span class="value" data-testid="speed-value">{formatMbps(shown)}</span>
         <span class="caption">{caption}</span>
@@ -124,15 +131,16 @@
           <dd data-testid="speed-jitter">{formatMs(ui.jitterMs)}<small>мс</small></dd>
         </div>
       </dl>
-      {#if running}
-        <button type="button" class="btn" onclick={stop}>Остановить</button>
-      {:else}
-        <button type="button" class="btn go" onclick={start}>
-          {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
-        </button>
-      {/if}
     </div>
   </div>
+
+  {#if running}
+    <button type="button" class="btn" onclick={stop}>Остановить</button>
+  {:else}
+    <button type="button" class="btn go" onclick={start}>
+      {ui.status === 'idle' && !speedStore.last ? 'Проверить скорость' : 'Повторить'}
+    </button>
+  {/if}
 
   {#if running}
     <div
@@ -167,7 +175,9 @@
   }
 
   .btn {
+    width: 100%;
     min-height: 36px;
+    margin-top: 8px;
     padding: 6px 18px;
     border: 0;
     border-radius: var(--radius-sm);
@@ -214,8 +224,12 @@
     position: absolute;
     inset: auto 0 0;
     background: linear-gradient(to top, #ff009d, #b4ff00);
-    opacity: 0.65;
+    opacity: 0.3;
     transition: height 0.18s linear;
+  }
+
+  .gauge:not(.running) .fill {
+    transition: none;
   }
 
   .readout {
@@ -227,9 +241,6 @@
     max-width: 100%;
     padding: 8px;
     text-align: center;
-    text-shadow:
-      0 1px 4px #000,
-      0 0 8px #000;
   }
 
   .value {
@@ -253,11 +264,6 @@
     flex-direction: column;
     min-width: 0;
     gap: 8px;
-  }
-
-  .details .btn {
-    width: 100%;
-    margin-top: auto;
   }
 
   .cards {

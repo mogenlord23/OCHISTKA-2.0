@@ -4,6 +4,7 @@ import SpeedTest from './SpeedTest.svelte';
 import VpnNetworkTab from './VpnNetworkTab.svelte';
 import type { SpeedEvent } from '../lib/speedtestApi';
 import { speedStore } from '../lib/speedtestStore.svelte';
+import { gaugeFraction } from '../lib/speedtest';
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({
@@ -72,11 +73,10 @@ describe('SpeedTest', () => {
     expect(screen.getByRole('img', { name: 'Скорость 0.0 Мбит/с' })).toBeTruthy();
     expect(screen.getByTestId('speed-value').textContent).toBe('0.0');
     expect(screen.getAllByRole('term')).toHaveLength(4);
-    expect(
-      screen
-        .getByRole('button', { name: 'Проверить скорость' })
-        .parentElement?.classList.contains('details'),
-    ).toBe(true);
+    const button = screen.getByRole('button', { name: 'Проверить скорость' });
+    const body = document.querySelector('.speed > .body');
+    expect(button.parentElement).toBe(body?.parentElement);
+    expect(body?.nextElementSibling).toBe(button);
   });
 
   it('shows result cards and the summary after a run', async () => {
@@ -88,6 +88,12 @@ describe('SpeedTest', () => {
     expect(screen.getByTestId('speed-up').textContent).toContain('40.0');
     expect(screen.getByTestId('speed-ping').textContent).toContain('12');
     expect(screen.getByTestId('speed-jitter').textContent).toContain('2.0');
+    const fill = document.querySelector<HTMLElement>('.gauge .fill')!;
+    await waitFor(() =>
+      expect(parseFloat(fill.style.height)).toBeCloseTo(gaugeFraction(120) * 100),
+    );
+    expect(screen.getByTestId('speed-value').textContent).toBe('120');
+    expect(speedStore.last?.loadedMs).toBe(40);
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
     expect(calls('speedtest_start')).toHaveLength(1);
   });
