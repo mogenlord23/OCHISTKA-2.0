@@ -5,6 +5,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
 
 import AppearancePage from './AppearancePage.svelte';
+import appearanceSource from './AppearancePage.svelte?raw';
 import { COLOR_SCHEMES, SOLID_WALLPAPERS } from '../lib/appearance';
 import { i18n } from '../lib/i18n.svelte';
 import { readSoundEnabled } from '../lib/sound';
@@ -163,6 +164,17 @@ describe('AppearancePage wallpapers', () => {
     expect(imgs.length).toBeGreaterThan(0);
     expect(imgs.length).toBeLessThan(146);
     for (const img of imgs) expect(img.getAttribute('loading')).toBe('lazy');
+  });
+
+  it('keeps the two wallpaper actions together in a flexible wrapping row', () => {
+    render(AppearancePage, { subsection: 'wallpapers' });
+    const add = screen.getByRole('button', { name: 'Добавить свои обои…' });
+    const restore = screen.getByRole('button', { name: 'Вернуть прежний фон' });
+    expect(add.parentElement).toBe(restore.parentElement);
+    expect(add.parentElement?.classList.contains('actions')).toBe(true);
+    expect(appearanceSource).toMatch(/flex-wrap:\s*wrap/);
+    expect(appearanceSource).toMatch(/flex:\s*1 1 220px/);
+    expect(appearanceSource).toMatch(/min-width:\s*min\(100%, 220px\)/);
   });
 
   it('opens the file picker straight from the button, without a dialog', async () => {

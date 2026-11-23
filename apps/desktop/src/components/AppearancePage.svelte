@@ -448,6 +448,11 @@
     cursor: pointer;
   }
 
+  .actions button {
+    flex: 1 1 220px;
+    min-width: min(100%, 220px);
+  }
+
   .actions button.disabled {
     color: var(--ink-soft);
     cursor: not-allowed;

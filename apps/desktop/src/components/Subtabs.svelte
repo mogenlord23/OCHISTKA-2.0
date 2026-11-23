@@ -115,7 +115,9 @@
     position: relative;
     display: inline-grid;
     grid-auto-flow: column;
-    grid-auto-columns: max-content;
+    grid-auto-columns: minmax(max-content, 1fr);
+    flex: 1;
+    min-width: 0;
     box-sizing: border-box;
     overflow-x: auto;
     overflow-y: hidden;

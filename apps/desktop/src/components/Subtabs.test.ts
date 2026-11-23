@@ -41,8 +41,8 @@ describe('Subtabs', () => {
     expect(tabs.map((t) => t.tabIndex)).toEqual([-1, 0, -1, -1]);
   });
 
-  it.each(['vpn', 'design', 'computer'] as const)(
-    'uses content-sized columns and bounded scrolling in both languages for %s',
+  it.each(['vpn', 'design', 'computer', 'disks'] as const)(
+    'fills the available width and preserves labels in both languages for %s',
     async (section) => {
       const sectionItems = SECTIONS.find((entry) => entry.id === section)!.subsections;
       const { container } = render(Subtabs, {
@@ -52,19 +52,22 @@ describe('Subtabs', () => {
       });
       const row = container.querySelector<HTMLElement>('.subtabs')!;
       const list = screen.getByRole('tablist');
-      row.style.width = '200px';
-      for (const lang of ['ru', 'en'] as const) {
-        i18n.lang = lang;
-        await tick();
-        expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(
-          sectionItems.map((item) => DICTS[lang][item.titleKey]),
-        );
-        expect(list.style.gridAutoColumns).toBe('');
-        expect(source).toMatch(/grid-auto-columns:\s*max-content/);
-        expect(source).toMatch(/max-width:\s*100%/);
-        expect(source).toMatch(/overflow-x:\s*auto/);
-        expect(source).toMatch(/box-sizing:\s*border-box/);
-        expect(source).toMatch(/white-space:\s*nowrap/);
+      for (const width of [200, 600, 1200]) {
+        row.style.width = `${width}px`;
+        for (const lang of ['ru', 'en'] as const) {
+          i18n.lang = lang;
+          await tick();
+          expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(
+            sectionItems.map((item) => DICTS[lang][item.titleKey]),
+          );
+          expect(list.style.gridAutoColumns).toBe('');
+          expect(source).toMatch(/grid-auto-columns:\s*minmax\(max-content, 1fr\)/);
+          expect(source).toMatch(/flex:\s*1/);
+          expect(source).toMatch(/max-width:\s*100%/);
+          expect(source).toMatch(/overflow-x:\s*auto/);
+          expect(source).toMatch(/box-sizing:\s*border-box/);
+          expect(source).toMatch(/white-space:\s*nowrap/);
+        }
       }
     },
   );
