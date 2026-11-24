@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use std::path::Path;
 
-use ochistka_core::assess::{assess_path, NoModel, SuspicionModel};
+use ochistka_core::assess::{assess_path, SuspicionModel};
 use ochistka_core::fs::{FsPort, Limits};
 use ochistka_core::heuristic::FileFacts;
 use ochistka_core::scan::{
@@ -13,6 +13,7 @@ use ochistka_core::scan::{
     SignaturesInfo, VirusScanPort,
 };
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
+use ochistka_platform::pe_model::PeHeaderModel;
 use serde::Serialize;
 use tauri::State;
 
@@ -62,7 +63,7 @@ pub struct AppState {
     /// Проверка по признакам: работает, пока нет базы сигнатур.
     pub suspicion: Arc<dyn VirusScanPort>,
     pub files: Arc<dyn FsPort>,
-    /// ИИ-слой оценки. Пока заглушка `NoModel`; локальная ONNX-модель подключится сюда.
+    /// ИИ-слой оценки файла локальной моделью.
     pub model: Arc<dyn SuspicionModel>,
     /// Признак идущей проверки: одновременно допускается только одна.
     pub scan_running: Arc<AtomicBool>,
@@ -82,7 +83,7 @@ impl AppState {
             scanner: Arc::from(scanner),
             suspicion: Arc::from(suspicion),
             files,
-            model: Arc::new(NoModel),
+            model: Arc::new(PeHeaderModel),
             scan_running: Arc::new(AtomicBool::new(false)),
             scan_cancel: Arc::new(AtomicBool::new(false)),
         }
@@ -302,6 +303,7 @@ pub fn clamav_load_signatures(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ochistka_core::assess::NoModel;
     use ochistka_core::scan::{EngineStatus, FileVerdict};
     use ochistka_core::system::{CpuStatus, MemoryStatus};
     use ochistka_platform::windows::clamav::ClamAvEngine;

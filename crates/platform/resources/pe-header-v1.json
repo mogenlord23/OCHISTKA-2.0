@@ -1,0 +1,18 @@
+{
+  "dataset_sha256": "b6052eb8d350a49a8d5a5396fbe7d16cf42848b86ff969b77464434cf2997812",
+  "training_samples": 180465,
+  "threshold": 0.938730001449585,
+  "validation": {
+    "benign": 29987,
+    "malicious": 30108,
+    "false_positive": 0.0029679527795377996,
+    "recall": 0.21562375448385812
+  },
+  "test": {
+    "benign": 100000,
+    "malicious": 100000,
+    "false_positive": 0.00497,
+    "recall": 0.25565
+  },
+  "model_sha256": "55ed3e7e89538b72d572f25acdb79cbbfb7be73f51669c19cb17bbe101373c1c"
+}

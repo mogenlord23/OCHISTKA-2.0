@@ -1,18 +1,18 @@
-//! Проверка по признакам: без базы сигнатур, только инвентаризация файла и эвристика.
+//! Проверка по признакам: инвентаризация, эвристика и локальная модель заголовков PE.
 //!
 //! Нужна, пока официальные базы ClamAV не загружены: движку не с чем сравнивать файлы, поэтому
 //! приложение ищет подозрительные файлы по внешним признакам (двойное расширение, исполняемый
 //! файл в загрузках, скрытый файл и т. п.) и честно называет их «по признакам», а не вирусами.
-//! Нейросети здесь нет: `NoModel` — заглушка ИИ-слоя из ADR 0004.
 
 use std::path::Path;
 
-use ochistka_core::assess::{assess_path, NoModel};
+use ochistka_core::assess::assess_path;
 use ochistka_core::fs::FsPort;
 use ochistka_core::scan::{EngineStatus, FileVerdict, ScanMode, VirusScanPort};
 use ochistka_core::system::CoreError;
 
 use super::files::file_facts;
+use crate::pe_model::PeHeaderModel;
 
 /// С какого балла файл показываем как подозрительный (0–100).
 pub const SUSPICION_THRESHOLD: u8 = 40;
@@ -42,7 +42,7 @@ impl<F: FsPort + Send + Sync> VirusScanPort for SuspicionEngine<F> {
 
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {
         let facts = file_facts(Path::new(path)).map_err(|err| CoreError::Probe(err.to_string()))?;
-        let suspicion = assess_path(&self.fs, path, &facts, &NoModel)?;
+        let suspicion = assess_path(&self.fs, path, &facts, &PeHeaderModel)?;
         if suspicion.score >= SUSPICION_THRESHOLD {
             Ok(FileVerdict::Found {
                 signature: format!("по признакам: {}", suspicion.reasons.join("; ")),
@@ -102,5 +102,28 @@ mod tests {
         );
         assert!(engine.engine_status().available);
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn synthetic_pe_header_surfaces_the_local_model_in_the_scan_result() {
+        let root = temp_folder("model");
+        let file = root.join("sample.exe");
+        // Заголовок PE без исполняемого кода. Модель оценивает только признаки заголовка.
+        let mut bytes = vec![0u8; 8192];
+        bytes[..2].copy_from_slice(b"MZ");
+        bytes[60..64].copy_from_slice(&64u32.to_le_bytes());
+        bytes[64..68].copy_from_slice(b"PE\0\0");
+        bytes[84..86].copy_from_slice(&96u16.to_le_bytes());
+        bytes[88..90].copy_from_slice(&0x10bu16.to_le_bytes());
+        bytes[92..96].copy_from_slice(&512u32.to_le_bytes());
+        bytes[156..158].copy_from_slice(&2u16.to_le_bytes());
+        std::fs::write(&file, bytes).unwrap();
+
+        let engine = SuspicionEngine::new(WindowsFs);
+        let verdict = engine.scan_file(file.to_str().unwrap()).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+        assert!(
+            matches!(verdict, FileVerdict::Found { signature } if signature.contains("ИИ-подсказка"))
+        );
     }
 }

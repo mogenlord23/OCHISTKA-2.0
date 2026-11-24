@@ -33,6 +33,11 @@
   запуск безопасен). В git бинарники не попадают, папка `tools/clamav-win` игнорируется.
 - Базы сигнатур в поставку не входят: их кладёт владелец в `%LOCALAPPDATA%\OCHISTKA\clamdb`.
 
+## EMBER2018 (MIT) и tract-onnx 0.23.10 (MIT или Apache-2.0)
+
+- Локальная модель OCHISTKA обучена на числовых признаках из архива `ember_dataset_2018_2.tar.bz2` набора [Elastic EMBER2018](https://github.com/elastic/ember/tree/d97a0b523de02f3fe5ea6089d080abacab6ee931). SHA-256 архива и модели указаны в `crates/platform/resources/pe-header-v1.json`. Исходники EMBER и его предобученные веса не используются. Лицензия набора находится в `apps/desktop/src-tauri/resources/licenses/EMBER-MIT.txt`.
+- Выполнение модели обеспечивает [tract-onnx](https://crates.io/crates/tract-onnx/0.23.10). Программа использует встроенный ONNX-файл, а инструменты обучения и набор данных в приложение не входят.
+
 ## Прочие компоненты
 
 ## sing-box (VPN-ядро)

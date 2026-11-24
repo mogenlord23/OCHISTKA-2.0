@@ -15,6 +15,7 @@ netstat2 = "0.11.2"
 ochistka-core = { path = "../ochistka-core" }
 serde_json = "1"
 sysinfo = "0.40.4"
+tract-onnx = { version = "=0.23.10", default-features = false }
 url = "2"
 
 # Реестр Windows: только чтение, только под Windows (безопасная обёртка над WinAPI).

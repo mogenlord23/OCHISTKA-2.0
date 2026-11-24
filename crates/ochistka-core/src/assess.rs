@@ -34,14 +34,13 @@ pub struct ModelOpinion {
     pub reason: String,
 }
 
-/// ИИ-слой. Реализация — локальная ONNX-модель (ADR 0004, пункт 4), пока не подключена.
+/// ИИ-слой оценки по содержимому заголовка и метаданным файла (ADR 0004, пункт 4).
 /// Модель только повышает подозрение: `combine` не даёт ей понизить оценку.
 pub trait SuspicionModel: Send + Sync {
     fn opinion(&self, facts: &FileFacts, header: &[u8]) -> Option<ModelOpinion>;
 }
 
-/// Заглушка: модели нет, мнения нет. Заменится локальной ONNX-моделью, когда будет выбрана
-/// модель с понятной лицензией.
+/// Оценка без участия модели.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoModel;
 
