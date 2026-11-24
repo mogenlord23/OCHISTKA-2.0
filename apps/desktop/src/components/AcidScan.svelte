@@ -1,5 +1,53 @@
 <script lang="ts">
-  let { level, running }: { level: number; running: boolean } = $props();
+  import { onMount, untrack } from 'svelte';
+
+  let { level, running, clipId }: { level: number; running: boolean; clipId: string } = $props();
+  let fill = $state(0);
+  let phase = $state(0);
+  let reduced = $state(false);
+  const gradient = $derived(`${clipId}-fluid`);
+
+  onMount(() => {
+    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    const read = () => {
+      reduced = !!query?.matches || document.documentElement.dataset.reduceMotion === 'true';
+    };
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-reduce-motion'] });
+    query?.addEventListener?.('change', read);
+    read();
+    return () => {
+      observer.disconnect();
+      query?.removeEventListener?.('change', read);
+    };
+  });
+
+  $effect(() => {
+    const target = level;
+    const moving = running;
+    if (reduced || typeof requestAnimationFrame !== 'function') {
+      fill = target;
+      return;
+    }
+    const initial = untrack(() => fill);
+    const start = performance.now();
+    let frame: number;
+    const step = (time: number) => {
+      const fraction = Math.min(1, Math.max(0, (time - start) / 620));
+      fill = initial + (target - initial) * (1 - (1 - fraction) ** 3);
+      phase = time * 0.0022;
+      if (moving || fraction < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  });
+
+  // The visible liquid and the ink over the lettering use exactly the same geometry.
+  const water = $derived.by(() => {
+    const amplitude = Math.min(0.032, fill, 1 - fill);
+    const line = (x: number) => (1 - fill + Math.sin(x * Math.PI * 4 - phase) * amplitude).toFixed(4);
+    return `M0 ${line(0)} Q.125 ${line(.125)} .25 ${line(.25)} T.5 ${line(.5)} T.75 ${line(.75)} T1 ${line(1)} V1 H0 Z`;
+  });
 
   const particles = [
     { x: 10, size: 24, duration: 2.2, delay: -0.7 },
@@ -14,7 +62,7 @@
 </script>
 
 <span class="tank" class:running data-testid="scan-liquid" data-level={Math.round(level * 100)}
-  style:--level={`${level * 100}%`} aria-hidden="true">
+  style:--level={`${fill * 100}%`} aria-hidden="true">
   {#if running}
     <span class="rain" data-testid="falling-viruses">
       {#each particles as particle (particle.x)}
@@ -32,11 +80,18 @@
       {/each}
     </span>
   {/if}
-  <span class="acid" class:empty={level === 0}>
-    <svg class="surface" viewBox="0 0 240 18" preserveAspectRatio="none">
-      <path d="M0 10Q20 0 40 9T80 8T120 9T160 8T200 9T240 8V18H0Z" fill="#99c623" />
-      <path d="M0 13Q20 6 40 12T80 11T120 12T160 11T200 12T240 11V18H0Z" fill="#d6fa5a" />
-    </svg>
+  <svg class="liquid" viewBox="0 0 1 1" preserveAspectRatio="none">
+    <defs>
+      <clipPath id={clipId} clipPathUnits="objectBoundingBox"><path d={water} /></clipPath>
+      <linearGradient id={gradient} x2="12%" y2="100%">
+        <stop offset="0.06" stop-color="#e3ff72" />
+        <stop offset="0.55" stop-color="#c5ed39" />
+        <stop offset="1" stop-color="#77a311" />
+      </linearGradient>
+    </defs>
+    <path d={water} fill={`url(#${gradient})`} />
+  </svg>
+  <span class="acid" class:empty={fill === 0}>
     {#if running}
       <span class="bubble bubble-left"></span>
       <span class="bubble bubble-center"></span>
@@ -59,7 +114,7 @@
     position: absolute;
     inset: 0 0 var(--level);
     overflow: hidden;
-    transition: bottom 620ms cubic-bezier(0.23, 0.78, 0.32, 1);
+    animation: reveal 760ms ease both;
   }
 
   .drop {
@@ -71,7 +126,7 @@
     animation: sink var(--duration) linear var(--delay) infinite;
   }
 
-  .drop:nth-child(2n) { color: #bdf04a; opacity: 0.78; }
+  .drop:nth-child(2n) { color: #bdf04a; }
 
   .drop svg {
     display: block;
@@ -83,22 +138,16 @@
     position: absolute;
     inset: auto 0 0;
     height: var(--level);
-    background:
-      radial-gradient(ellipse at 78% -20%, #ecff826e, transparent 60%),
-      linear-gradient(174deg, #d6fa5a, #b0df25 48%, #6b9710);
-    transition: height 620ms cubic-bezier(0.23, 0.78, 0.32, 1);
   }
 
   .acid.empty { visibility: hidden; }
 
-  .surface {
+  .liquid {
     position: absolute;
-    inset: auto auto calc(100% - 1px) -12%;
-    width: 124%;
-    height: 16px;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
-
-  .running .surface { animation: wave 3.6s ease-in-out infinite alternate; }
 
   .bubble {
     position: absolute;
@@ -129,16 +178,14 @@
   .splash-right { left: 72%; --delay: -1.6s; }
 
   @keyframes sink {
-    from { transform: translate(-50%, -20%); }
-    to { transform: translate(-50%, 100%); }
+    0% { transform: translate(-50%, -15%); opacity: 0; }
+    24%, 68% { opacity: 0.9; }
+    100% { transform: translate(-50%, 100%); opacity: 0; }
   }
+
+  @keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
 
   @keyframes turn { to { transform: rotate(140deg); } }
-
-  @keyframes wave {
-    from { transform: translateX(-5%) scaleY(0.82); }
-    to { transform: translateX(5%) scaleY(1.08); }
-  }
 
   @keyframes ripple {
     0% { transform: scale(0.35); opacity: 0.9; }
@@ -153,13 +200,9 @@
 
   @media (prefers-reduced-motion: reduce) {
     .rain, .bubble, .splash { display: none; }
-    .acid { transition: none; }
-    .running .surface { animation: none; }
   }
 
   :global(:root[data-reduce-motion='true']) .rain,
   :global(:root[data-reduce-motion='true']) .bubble,
   :global(:root[data-reduce-motion='true']) .splash { display: none; }
-  :global(:root[data-reduce-motion='true']) .acid { transition: none; }
-  :global(:root[data-reduce-motion='true']) .running .surface { animation: none; }
 </style>

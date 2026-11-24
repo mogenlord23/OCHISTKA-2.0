@@ -11,10 +11,12 @@ use ::windows::Win32::UI::WindowsAndMessaging::{
     SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WM_SETTINGCHANGE,
 };
 
-/// Корни фиксированных дисков. WinAPI исключает съёмные, сетевые и неизвестные тома.
-pub fn fixed_drive_roots() -> Vec<String> {
+/// Корни локальных дисков, включая подключённые съёмные носители.
+pub fn local_drive_roots() -> Vec<String> {
     use ::windows::Win32::Storage::FileSystem::{GetDriveTypeW, GetLogicalDrives};
-    use ::windows::Win32::System::WindowsProgramming::DRIVE_FIXED;
+    use ::windows::Win32::System::WindowsProgramming::{
+        DRIVE_CDROM, DRIVE_FIXED, DRIVE_RAMDISK, DRIVE_REMOVABLE,
+    };
 
     // SAFETY: GetLogicalDrives не принимает указателей и только читает сведения о томах.
     let drives = unsafe { GetLogicalDrives() };
@@ -23,8 +25,11 @@ pub fn fixed_drive_roots() -> Vec<String> {
         .filter_map(|letter| {
             let root = [u16::from(letter), u16::from(b':'), u16::from(b'\\'), 0];
             // SAFETY: root содержит имя диска с завершающим нулём и живёт до конца вызова.
-            (unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) } == DRIVE_FIXED)
-                .then(|| format!("{}:\\", char::from(letter)))
+            matches!(
+                unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) },
+                DRIVE_FIXED | DRIVE_REMOVABLE | DRIVE_CDROM | DRIVE_RAMDISK
+            )
+            .then(|| format!("{}:\\", char::from(letter)))
         })
         .collect();
     if let Some(profile) = std::env::var_os("USERPROFILE") {

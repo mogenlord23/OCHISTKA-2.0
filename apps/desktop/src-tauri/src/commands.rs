@@ -15,7 +15,8 @@ use ochistka_core::scan::{
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use ochistka_platform::pe_model::PeHeaderModel;
 use serde::Serialize;
-use tauri::State;
+use tauri::{Emitter, State};
+use tauri_plugin_notification::NotificationExt;
 
 /// Ошибка для интерфейса: `kind` — тип ошибки, `message` — текст на русском.
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -130,27 +131,30 @@ pub async fn get_system_overview(
 /// Проверка идёт в фоне: окно остаётся отзывчивым. Отмена — через `scan_cancel`.
 #[tauri::command]
 pub async fn scan_start(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     target: String,
 ) -> Result<ScanReport, CommandError> {
-    run_scan(state, Some(target), None).await
+    run_scan(app, state, Some(target), None).await
 }
 
 #[tauri::command]
 pub async fn scan_start_with_progress(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     target: String,
     on_progress: tauri::ipc::Channel<ScanProgress>,
 ) -> Result<ScanReport, CommandError> {
-    run_scan(state, Some(target), Some(on_progress)).await
+    run_scan(app, state, Some(target), Some(on_progress)).await
 }
 
 #[tauri::command]
 pub async fn scan_computer(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     on_progress: tauri::ipc::Channel<ScanProgress>,
 ) -> Result<ScanReport, CommandError> {
-    run_scan(state, None, Some(on_progress)).await
+    run_scan(app, state, None, Some(on_progress)).await
 }
 
 #[tauri::command]
@@ -169,12 +173,15 @@ pub async fn scan_pick_folder(window: tauri::Window) -> Result<Option<String>, C
 }
 
 async fn run_scan(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     target: Option<String>,
     on_progress: Option<tauri::ipc::Channel<ScanProgress>>,
 ) -> Result<ScanReport, CommandError> {
     let guard = try_begin_scan(&state.scan_running)?;
     state.scan_cancel.store(false, Ordering::SeqCst);
+    let _ = app.emit_to("tray-panel", "tray-scan-running", true);
+    let tray_events = app.clone();
     // Без загруженной базы сигнатур проверяем по признакам: так проверка работает и честно
     // называет находки «по признакам», а не вирусами.
     let scanner = if state.scanner.engine_status().available {
@@ -184,10 +191,22 @@ async fn run_scan(
     };
     let files = Arc::clone(&state.files);
     let cancel = Arc::clone(&state.scan_cancel);
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
         let mut last_sent = std::time::Instant::now();
+        let mut notified = false;
+        let signature_scan = scanner.mode() == ochistka_core::scan::ScanMode::Signatures;
         let mut progress = |update: ScanProgress| {
+            if signature_scan && update.infected_files > 0 && !notified {
+                notified = true;
+                let _ = app.emit_to("main", "scan-threat-found", ());
+                let _ = app
+                    .notification()
+                    .builder()
+                    .title("OCHISTKA · Обнаружена угроза")
+                    .body("Проверка продолжается. Подробности доступны во вкладке «Находки».")
+                    .show();
+            }
             if update.processed_files == 0
                 || update.processed_files == update.total_files
                 || last_sent.elapsed() >= std::time::Duration::from_millis(100)
@@ -220,7 +239,13 @@ async fn run_scan(
     .map_err(|err| CommandError {
         kind: "probe".into(),
         message: err.to_string(),
-    })?
+    });
+    let _ = tray_events.emit_to(
+        "tray-panel",
+        "tray-scan-running",
+        state.scan_running.load(Ordering::SeqCst),
+    );
+    result?
 }
 
 /// Просит остановить идущую проверку. Возвращает `true`, если проверка шла.

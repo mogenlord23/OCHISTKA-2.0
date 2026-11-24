@@ -18,6 +18,8 @@
   import { watchMaximized } from './lib/windowState';
   import { attachChromeGuards } from './lib/chromeGuards';
   import { attachUiSounds, playUiSound, preloadSounds } from './lib/sound';
+  import { listenDesktop, type TrayAction } from './lib/tray';
+  import { scan, startScan } from './lib/scanState.svelte';
   import { setSoundOn, soundState, syncSoundState } from './lib/soundState.svelte';
   import {
     BODY_FONT,
@@ -33,6 +35,8 @@
   } from './lib/tokens';
 
   let maximized = $state(false);
+  let desktopNotice = $state('');
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
   syncSoundState();
   const soundOn = $derived(soundState.on);
 
@@ -80,12 +84,35 @@
     const detachSounds = attachUiSounds(window);
     const detachGuards = attachChromeGuards(window);
     const stopWatching = watchMaximized((value) => (maximized = value));
+    const stopTray = listenDesktop<TrayAction | 'openVpn'>('tray-action', ({ payload }) => {
+      switch (payload) {
+        case 'scan': select('viruses'); chooseSub('scan'); void startScan(null); break;
+        case 'findings': select('viruses'); chooseSub('findings'); break;
+        case 'openVpn': select('vpn'); chooseSub('vpn'); break;
+        case 'processes': case 'programs': case 'disks': case 'computer': case 'design': select(payload); break;
+      }
+    });
+    const stopThreat = listenDesktop('scan-threat-found', () => {
+      playUiSound('threat');
+      showDesktopNotice('Обнаружена угроза. Проверка продолжается.');
+    });
+    const stopActionError = listenDesktop<string>('tray-action-error', ({ payload }) => showDesktopNotice(payload));
     return () => {
       detachSounds();
       detachGuards();
       stopWatching();
+      stopTray();
+      stopThreat();
+      stopActionError();
+      clearTimeout(noticeTimer);
     };
   });
+
+  function showDesktopNotice(message: string) {
+    desktopNotice = message;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => (desktopNotice = ''), 8500);
+  }
 
   $effect(() => {
     document.documentElement.dataset.maximized = String(maximized);
@@ -259,9 +286,34 @@
       </div>
     </div>
   </div>
+  {#if desktopNotice}
+    <aside class="desktop-toast" aria-live="polite">
+      <span>{desktopNotice}</span>
+      {#if scan.report?.findings.length}
+        <button type="button" onclick={() => { select('viruses'); chooseSub('findings'); desktopNotice = ''; }}>Находки</button>
+      {/if}
+      <button type="button" aria-label="Скрыть уведомление" onclick={() => (desktopNotice = '')}>×</button>
+    </aside>
+  {/if}
 </div>
 
 <style>
+  .desktop-toast {
+    position: fixed;
+    z-index: 20;
+    inset: auto 136px 22px auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(380px, 70vw);
+    padding: 12px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-caption);
+  }
+  .desktop-toast button { border: 0; border-radius: var(--radius-xs); padding: 4px 6px; background: var(--surface-alt); color: var(--ink); cursor: pointer; }
   /* Окно прозрачное (tauri.conf.json: transparent, без тени). Скруглён только корень приложения;
      плавность изменения размера даёт contain (корень, сцена, прокручиваемая область). */
   :global(html),

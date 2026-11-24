@@ -119,7 +119,14 @@ impl VirusScanPort for ClamAvEngine {
 
     #[cfg(clamav_linked)]
     fn scan_workers(&self) -> usize {
-        std::thread::available_parallelism().map_or(1, |count| (count.get() - 1).clamp(1, 4))
+        std::thread::available_parallelism().map_or(1, |count| {
+            let threads = count.get();
+            if threads <= 4 {
+                threads.saturating_sub(1).max(1)
+            } else {
+                threads.min(8)
+            }
+        })
     }
 
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {

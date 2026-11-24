@@ -25,7 +25,7 @@ pub fn scan_computer(
 #[cfg(windows)]
 fn scan_volumes() -> Result<(Vec<String>, HashSet<String>), CoreError> {
     Ok((
-        crate::windows::win32_ffi::fixed_drive_roots(),
+        crate::windows::win32_ffi::local_drive_roots(),
         HashSet::new(),
     ))
 }

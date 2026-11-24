@@ -1,6 +1,7 @@
 import heeheeUrl from '../assets/heehee.wav';
 import clickUrl from '../assets/sounds/click.wav';
 import switchUrl from '../assets/sounds/switch.wav';
+import threatUrl from '../assets/sounds/threat.wav';
 
 const KEY = 'soundEnabled';
 
@@ -21,12 +22,13 @@ export function writeSoundEnabled(on: boolean): void {
   }
 }
 
-type SoundName = 'click' | 'switch' | 'heehee';
+type SoundName = 'click' | 'switch' | 'heehee' | 'threat';
 
 const SOURCES: Record<SoundName, { url: string; gain: number }> = {
   click: { url: clickUrl, gain: 1 },
   switch: { url: switchUrl, gain: 1 },
   heehee: { url: heeheeUrl, gain: 1 },
+  threat: { url: threatUrl, gain: 0.65 },
 };
 
 /*
@@ -110,7 +112,7 @@ export function playHeehee(): void {
 }
 
 /** Тихий щелчок интерфейса, если звук включён. Пока звук не готов, молчит (без запасного плеера). */
-export function playUiSound(kind: 'click' | 'switch'): void {
+export function playUiSound(kind: 'click' | 'switch' | 'threat'): void {
   if (!readSoundEnabled()) return;
   playBuffer(kind);
 }

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray",
+  "description": "События панели быстрых действий OCHISTKA",
+  "windows": ["tray-panel"],
+  "permissions": ["core:event:default"]
+}

@@ -1,5 +1,8 @@
 import { mount } from 'svelte';
+import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import App from './App.svelte';
+import TrayPanel from './components/TrayPanel.svelte';
 import { applyReduceMotion } from './lib/appearanceStore';
 
 // Уменьшенное движение берём только из настроек системы (prefers-reduced-motion).
@@ -14,4 +17,6 @@ if (!target) {
   throw new Error('В index.html нет контейнера #app');
 }
 
-mount(App, { target });
+const tray = new URLSearchParams(window.location.search).get('view') === 'tray'
+  || (isTauri() && getCurrentWindow().label === 'tray-panel');
+mount(tray ? TrayPanel : App, { target });

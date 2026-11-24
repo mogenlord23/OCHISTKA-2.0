@@ -11,6 +11,7 @@ pub mod processes;
 pub mod programs;
 pub mod services;
 pub mod speedtest;
+mod tray;
 pub mod tweaks;
 pub mod vpn;
 
@@ -38,6 +39,8 @@ fn show_startup_error() {
 
 pub fn run() {
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
+        .on_window_event(tray::window_event)
         .manage(AppState::new(
             ochistka_platform::current_system_info(),
             ochistka_platform::current_virus_scanner(),
@@ -90,6 +93,12 @@ pub fn run() {
                     });
                 }
             }
+            if let Err(error) = tray::install(app.handle()) {
+                eprintln!("не удалось создать значок OCHISTKA: {error}");
+                if let Some(panel) = app.get_webview_window("tray-panel") {
+                    let _ = panel.destroy();
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -98,6 +107,9 @@ pub fn run() {
             scan_start,
             scan_computer,
             scan_pick_folder,
+            tray::tray_action,
+            tray::tray_hover,
+            tray::tray_status,
             scan_start_with_progress,
             scan_cancel,
             clamav_status,

@@ -164,6 +164,7 @@ export interface ScanProgress {
   totalFiles: number;
   processedFiles: number;
   scannedFiles: number;
+  infectedFiles?: number;
   errors: number;
   skippedFiles: number;
 }

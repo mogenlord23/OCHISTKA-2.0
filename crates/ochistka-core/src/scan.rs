@@ -153,6 +153,7 @@ pub struct ScanProgress {
     pub total_files: u32,
     pub processed_files: u32,
     pub scanned_files: u32,
+    pub infected_files: u32,
     pub errors: u32,
     pub skipped_files: u32,
 }
@@ -337,6 +338,7 @@ fn report_progress(report: &ScanReport, total_files: u32) -> ScanProgress {
             .saturating_add(report.errors)
             .saturating_add(report.skipped_files),
         scanned_files: report.scanned_files,
+        infected_files: report.infected_files,
         errors: report.errors,
         skipped_files: report.skipped_files,
     }

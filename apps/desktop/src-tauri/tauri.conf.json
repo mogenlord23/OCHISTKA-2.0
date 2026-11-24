@@ -20,6 +20,22 @@
         "decorations": false,
         "transparent": true,
         "shadow": false
+      },
+      {
+        "label": "tray-panel",
+        "url": "index.html",
+        "title": "OCHISTKA — быстрые действия",
+        "width": 330,
+        "height": 300,
+        "minWidth": 330,
+        "minHeight": 300,
+        "visible": false,
+        "focus": false,
+        "resizable": false,
+        "decorations": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true,
+        "shadow": false
       }
     ],
     "security": {

@@ -20,6 +20,8 @@
   import type { CommandError, EngineStatus, SignaturesInfo } from '../lib/types';
 
   let { subsection }: { subsection: string } = $props();
+  const componentId = $props.id();
+  const inkClip = `${componentId}-ink`;
 
   /** Причина, по которой карантин помечает находки этой страницы (см. quarantineSelected). */
   const SCAN_REASON_PREFIX = 'проверка «Вирусы»';
@@ -83,8 +85,10 @@
     return 0.06 + (0.86 * processed) / (processed + 4096);
   });
   const statScanned = $derived(scan.progress?.scannedFiles ?? scan.report?.scannedFiles ?? 0);
+  const statFound = $derived(scan.progress?.infectedFiles ?? findings.length);
   const statSkipped = $derived(scan.report?.skippedFiles ?? scan.progress?.skippedFiles ?? 0);
   const statErrors = $derived(scan.report?.errors ?? scan.progress?.errors ?? 0);
+  const tileSize = (count: number) => `${Math.min(37, 146 / String(count).length)}cqi`;
   const gaugeValue = $derived(busy ? scan.progress?.totalFiles ? `${scanPercent}%` : `${statScanned}` : `${findings.length}`);
   const gaugeCaption = $derived(busy ? scan.progress?.totalFiles ? 'проверено' : 'файлов проверено' : 'находок');
   const gaugeLabel = $derived(
@@ -431,18 +435,17 @@
         <button
           type="button"
           class="gauge"
-          style:--fill={`${acidLevel * 100}%`}
           style:--number-scale={Math.min(29, 135 / gaugeValue.length)}
           onclick={start}
           disabled={busy || engine === null}
           aria-label={gaugeLabel}
         >
-          <AcidScan level={acidLevel} running={scan.phase === 'scanning'} />
+          <AcidScan level={acidLevel} running={scan.phase === 'scanning'} clipId={inkClip} />
           <span class="readout">
             <span class="value" data-testid={!busy || scan.progress?.totalFiles ? 'scan-percent' : undefined}>{gaugeValue}</span>
             <span class="caption">{gaugeCaption}</span>
           </span>
-          <span class="readout readout-ink" aria-hidden="true">
+          <span class="readout readout-ink" style:clip-path={`url(#${inkClip})`} aria-hidden="true">
             <span class="value" data-ink={gaugeValue}></span>
             <span class="caption" data-ink={gaugeCaption}></span>
           </span>
@@ -452,19 +455,19 @@
           <dl class="stats">
             <div class="stat">
               <dt>Проверено</dt>
-              <dd data-testid="scan-scanned">{statScanned}</dd>
+              <dd data-testid="scan-scanned" style:--count-size={tileSize(statScanned)}>{statScanned}</dd>
             </div>
             <div class="stat">
               <dt>Находки</dt>
-              <dd data-testid="scan-findings">{findings.length}</dd>
+              <dd data-testid="scan-findings" style:--count-size={tileSize(statFound)}>{statFound}</dd>
             </div>
             <div class="stat">
               <dt>Пропущено</dt>
-              <dd data-testid="scan-skipped">{statSkipped}</dd>
+              <dd data-testid="scan-skipped" style:--count-size={tileSize(statSkipped)}>{statSkipped}</dd>
             </div>
             <div class="stat">
               <dt>Ошибки</dt>
-              <dd data-testid="scan-errors">{statErrors}</dd>
+              <dd data-testid="scan-errors" style:--count-size={tileSize(statErrors)}>{statErrors}</dd>
             </div>
           </dl>
 
@@ -830,7 +833,10 @@
 
   .scanner-body {
     display: grid;
-    grid-template-columns: minmax(150px, 1fr) minmax(220px, 1.4fr);
+    grid-template-columns: minmax(0, 264px) minmax(0, 432px);
+    inline-size: 100%;
+    max-inline-size: 708px;
+    margin-inline: auto;
     align-items: stretch;
     gap: 12px;
   }
@@ -876,8 +882,6 @@
 
   .readout-ink {
     color: #182000;
-    clip-path: inset(calc(100% - var(--fill)) 0 0);
-    transition: clip-path 620ms cubic-bezier(0.23, 0.78, 0.32, 1);
   }
 
   .readout-ink [data-ink]::before {
@@ -916,7 +920,12 @@
   }
 
   .stat {
+    position: relative;
+    container-type: inline-size;
+    display: grid;
+    place-items: center;
     min-width: 0;
+    min-height: 108px;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     background: #202020;
@@ -924,6 +933,8 @@
   }
 
   .stat dt {
+    position: absolute;
+    inset: 10px 4px auto;
     font-size: var(--text-caption);
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -932,8 +943,8 @@
   }
 
   .stat dd {
-    margin: 2px 0 0;
-    font-size: clamp(1.6rem, 4cqi, 2.6rem);
+    margin: 0;
+    font-size: clamp(1.45rem, var(--count-size), 4.5rem);
     font-weight: 800;
     line-height: 1.05;
     font-variant-numeric: tabular-nums;
@@ -1204,7 +1215,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sweep, .readout-ink, .chevron, .folder-reveal {
+    .sweep, .chevron, .folder-reveal {
       transition: none;
     }
 
@@ -1215,7 +1226,6 @@
 
   /* Наш переключатель «меньше движения» в «Оформлении» делает то же самое. */
   :global(:root[data-reduce-motion='true']) .sweep,
-  :global(:root[data-reduce-motion='true']) .readout-ink,
   :global(:root[data-reduce-motion='true']) .folder-reveal,
   :global(:root[data-reduce-motion='true']) .chevron {
     transition: none;

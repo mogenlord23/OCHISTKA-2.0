@@ -8,6 +8,7 @@
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
   import { onDestroy, onMount, untrack } from 'svelte';
+  import { listenDesktop } from '../lib/tray';
   import poster from '../assets/pop-art.png';
   import chePink from '../assets/che-pink.png';
   import cheLime from '../assets/che-lime.png';
@@ -332,6 +333,8 @@
       requesting = false;
     }
   }
+
+  onMount(() => listenDesktop('tray-vpn-changed', () => { void refresh(); }));
 
   function onRulesSaved(rules: RoutingRules) {
     if (snapshot) snapshot = { ...snapshot, rules };
