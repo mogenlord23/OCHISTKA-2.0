@@ -6,6 +6,7 @@ import {
   clamavSignatures,
   clamavStatus,
   defaultScanTarget,
+  pickScanFolder,
   scanStart,
   type ScanProgress,
 } from '../lib/api';
@@ -43,6 +44,7 @@ vi.mock('../lib/api', async (importOriginal) => ({
   clamavStatus: vi.fn(),
   clamavSignatures: vi.fn(),
   defaultScanTarget: vi.fn(),
+  pickScanFolder: vi.fn(),
   scanStart: vi.fn(),
   assessFile: vi.fn(),
 }));
@@ -268,6 +270,7 @@ describe('VirusesPage scan', () => {
     await renderReady();
 
     const button = screen.getByRole('button', { name: START }) as HTMLButtonElement;
+    await fireEvent.click(screen.getByRole('button', { name: 'Проверить отдельную папку' }));
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.click(button);
 
@@ -322,7 +325,10 @@ describe('VirusesPage scan', () => {
     engineOk('');
     vi.mocked(scanStart).mockResolvedValue(report());
     await renderReady();
-    await fireEvent.click(screen.getByText('Проверить отдельную папку'));
+    const folderToggle = screen.getByText('Проверить отдельную папку');
+    const primary = screen.getByRole('button', { name: START });
+    expect(primary.compareDocumentPosition(folderToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await fireEvent.click(folderToggle);
 
     const button = screen.getByRole('button', { name: 'Проверить папку' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -334,6 +340,16 @@ describe('VirusesPage scan', () => {
     expect(button.disabled).toBe(false);
     await fireEvent.click(button);
     expect(scanStart).toHaveBeenCalledWith(DOWNLOADS, expect.any(Function));
+  });
+
+  it('lets the user select a folder in a dialog before starting the check', async () => {
+    engineOk('');
+    vi.mocked(pickScanFolder).mockResolvedValue(DOWNLOADS);
+    await renderReady();
+    await fireEvent.click(screen.getByText('Проверить отдельную папку'));
+    await fireEvent.click(screen.getByRole('button', { name: 'Выбрать папку' }));
+    expect((screen.getByLabelText('Папка для проверки') as HTMLInputElement).value).toBe(DOWNLOADS);
+    expect(scanStart).not.toHaveBeenCalled();
   });
 });
 
@@ -868,11 +884,10 @@ describe('VirusesPage signatures (round 29)', () => {
 
     const hint = await screen.findByTestId('signatures-missing');
     expect(hint.textContent).toContain('Базы проверки не загружены');
-    expect(hint.textContent).toContain(CLAMDB);
+    expect(hint.textContent).not.toContain(CLAMDB);
     expect(screen.queryByTestId('engine-unavailable')).toBeNull();
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Открыть папку баз' }));
-    await waitFor(() => expect(revealInExplorer).toHaveBeenCalledWith(CLAMDB));
+    expect(screen.queryByRole('button', { name: 'Открыть папку баз' })).toBeNull();
   });
 
   it('shows the loaded base and its signature count, and lets the check start', async () => {

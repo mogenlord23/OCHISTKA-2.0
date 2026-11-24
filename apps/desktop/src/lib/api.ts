@@ -168,6 +168,13 @@ export interface ScanProgress {
   skippedFiles: number;
 }
 
+export function pickScanFolder(): Promise<string | null> {
+  return invokeChecked(
+    (value): value is string | null => value === null || typeof value === 'string',
+    'scan_pick_folder',
+  );
+}
+
 export function scanStart(
   target: string | null,
   onProgress?: (progress: ScanProgress) => void,

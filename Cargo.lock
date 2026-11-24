@@ -2774,6 +2774,7 @@ dependencies = [
 name = "ochistka-core"
 version = "0.1.0"
 dependencies = [
+ "crossbeam-channel",
  "png",
  "serde",
  "serde_json",

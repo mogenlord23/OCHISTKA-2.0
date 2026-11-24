@@ -72,24 +72,30 @@
 
 <style>
   .findings {
+    display: grid;
+    gap: 7px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .finding {
-    margin: 0 0 8px;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    box-shadow: 0 0 0 2px #000;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
     font-size: var(--text-caption);
   }
+
+  .finding:focus-within { border-color: var(--accent); }
 
   .head {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    overflow-wrap: anywhere;
   }
 
   .path {

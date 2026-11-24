@@ -153,6 +153,21 @@ pub async fn scan_computer(
     run_scan(state, None, Some(on_progress)).await
 }
 
+#[tauri::command]
+pub async fn scan_pick_folder(window: tauri::Window) -> Result<Option<String>, CommandError> {
+    rfd::AsyncFileDialog::new()
+        .set_parent(&window)
+        .set_title("Выберите папку для проверки")
+        .pick_folder()
+        .await
+        .map(|folder| {
+            folder.path().to_str().map(str::to_owned).ok_or_else(|| {
+                CoreError::Probe("в имени папки есть неподдерживаемые символы".into()).into()
+            })
+        })
+        .transpose()
+}
+
 async fn run_scan(
     state: State<'_, AppState>,
     target: Option<String>,

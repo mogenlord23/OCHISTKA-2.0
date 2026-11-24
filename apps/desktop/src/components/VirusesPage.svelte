@@ -6,7 +6,7 @@
   import RemoveSelected from './RemoveSelected.svelte';
   import VirusBin from './VirusBin.svelte';
   import { onDestroy, onMount, tick } from 'svelte';
-  import { clamavSignatures, clamavStatus, defaultScanTarget, toCommandError } from '../lib/api';
+  import { clamavSignatures, clamavStatus, defaultScanTarget, pickScanFolder, toCommandError } from '../lib/api';
   import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
   import { revealInExplorer, toProgramsError } from '../lib/programsApi';
   import {
@@ -27,6 +27,9 @@
   let engine = $state<EngineStatus | null>(null);
   let engineError = $state<CommandError | null>(null);
   let signatures = $state<SignaturesInfo | null>(null);
+  let folderOpen = $state(false);
+  let choosingFolder = $state(false);
+  let folderNotice = $state('');
   let picked = $state<Record<number, boolean>>({});
   let journalEntries = $state<QuarantineEntry[]>([]);
   let journalNotice = $state('');
@@ -82,6 +85,8 @@
   const statScanned = $derived(scan.progress?.scannedFiles ?? scan.report?.scannedFiles ?? 0);
   const statSkipped = $derived(scan.report?.skippedFiles ?? scan.progress?.skippedFiles ?? 0);
   const statErrors = $derived(scan.report?.errors ?? scan.progress?.errors ?? 0);
+  const gaugeValue = $derived(busy ? scan.progress?.totalFiles ? `${scanPercent}%` : `${statScanned}` : `${findings.length}`);
+  const gaugeCaption = $derived(busy ? scan.progress?.totalFiles ? 'проверено' : 'файлов проверено' : 'находок');
   const gaugeLabel = $derived(
     scan.phase === 'scanning' || scan.phase === 'assessing'
       ? scan.progress?.totalFiles
@@ -268,15 +273,17 @@
     }
   });
 
-  /** Открывает папку баз в Проводнике: владелец кладёт туда файлы базы сам. */
-  async function openSignaturesDir() {
-    const dir = signatures?.dir ?? '';
-    if (dir === '') return;
-    actionNotice = '';
+  async function chooseFolder() {
+    if (busy || choosingFolder) return;
+    choosingFolder = true;
+    folderNotice = '';
     try {
-      await revealInExplorer(dir);
+      const path = await pickScanFolder();
+      if (path !== null) scan.target = path;
     } catch (err) {
-      actionNotice = toProgramsError(err).message;
+      folderNotice = toCommandError(err).message;
+    } finally {
+      choosingFolder = false;
     }
   }
 
@@ -361,6 +368,23 @@
   {/if}
 {/snippet}
 
+{#snippet panelTitle(title: string, kind: 'findings' | 'log' | 'quarantine')}
+  <div class="panel-title">
+    <span class="panel-icon" data-kind={kind} aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        {#if kind === 'findings'}
+          <path d="M12 3 5 6v5c0 4 2.7 7.5 7 10 4.3-2.5 7-6 7-10V6Z M9 12l2 2 4-4" />
+        {:else if kind === 'log'}
+          <path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M9 8h6m-6 4h6m-6 4h4" />
+        {:else}
+          <path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z M3 5h18v3H3Z M9 12h6" />
+        {/if}
+      </svg>
+    </span>
+    <h3>{title}</h3>
+  </div>
+{/snippet}
+
 {#snippet stationStatus()}
   {#if scan.phase === 'scanning'}
     {#if scan.progress}
@@ -407,26 +431,20 @@
         <button
           type="button"
           class="gauge"
-          class:filled={acidLevel === 1}
-          class:active={scan.phase === 'scanning'}
+          style:--fill={`${acidLevel * 100}%`}
+          style:--number-scale={Math.min(29, 135 / gaugeValue.length)}
           onclick={start}
           disabled={busy || engine === null}
           aria-label={gaugeLabel}
         >
           <AcidScan level={acidLevel} running={scan.phase === 'scanning'} />
           <span class="readout">
-            {#if scan.phase === 'scanning' || scan.phase === 'assessing'}
-              {#if scan.progress?.totalFiles}
-                <span class="value" data-testid="scan-percent">{scanPercent}%</span>
-                <span class="caption">проверено</span>
-              {:else}
-                <span class="value">{statScanned}</span>
-                <span class="caption">файлов проверено</span>
-              {/if}
-            {:else}
-              <span class="value" data-testid="scan-percent">{findings.length}</span>
-              <span class="caption">находок</span>
-            {/if}
+            <span class="value" data-testid={!busy || scan.progress?.totalFiles ? 'scan-percent' : undefined}>{gaugeValue}</span>
+            <span class="caption">{gaugeCaption}</span>
+          </span>
+          <span class="readout readout-ink" aria-hidden="true">
+            <span class="value" data-ink={gaugeValue}></span>
+            <span class="caption" data-ink={gaugeCaption}></span>
           </span>
         </button>
 
@@ -450,16 +468,6 @@
             </div>
           </dl>
 
-          <details class="folder">
-            <summary>Проверить отдельную папку</summary>
-            <label>
-              Папка для проверки
-              <input bind:value={scan.target} placeholder="Абсолютный путь к папке" disabled={busy} />
-            </label>
-            <button type="button" class="btn" onclick={startFolder} disabled={busy || engine === null || !scan.target.trim()}>
-              Проверить папку
-            </button>
-          </details>
         </div>
       </div>
 
@@ -484,6 +492,32 @@
         {/if}
       </div>
 
+      <div class="folder">
+        <button type="button" class="folder-toggle" aria-expanded={folderOpen}
+          onclick={() => (folderOpen = !folderOpen)}>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Проверить отдельную папку</span>
+          <span class="chevron" class:expanded={folderOpen} aria-hidden="true"></span>
+        </button>
+        <div class="folder-reveal" class:open={folderOpen} inert={!folderOpen}>
+          <div class="folder-clip"><div class="folder-content">
+            <label>
+              Папка для проверки
+              <input bind:value={scan.target} placeholder="Укажите путь или выберите папку" disabled={busy || choosingFolder} />
+            </label>
+            <div class="folder-actions">
+              <button type="button" class="btn" onclick={() => void chooseFolder()} disabled={busy || choosingFolder}>
+                Выбрать папку
+              </button>
+              <button type="button" class="btn go" onclick={startFolder} disabled={busy || choosingFolder || engine === null || !scan.target.trim()}>
+                Проверить папку
+              </button>
+            </div>
+            {#if folderNotice}<p class="empty" role="status">{folderNotice}</p>{/if}
+          </div></div>
+        </div>
+      </div>
+
       {#if !busy && !scan.report}
         <p class="hint">Проверка доступных файлов на локальных дисках компьютера.</p>
       {/if}
@@ -495,15 +529,8 @@
       {#if engine && !engine.available}
         {#if signatures?.enginePresent}
           <p class="empty" data-testid="signatures-missing">
-            Базы проверки не загружены, поэтому проверка идёт по признакам: программа ищет
-            подозрительные файлы, но не заменяет базу вирусов. Папка баз:
-            <span class="path selectable">{signatures.dir}</span>
+            Базы проверки не загружены. Доступна проверка по признакам.
           </p>
-          <div class="actions">
-            <button type="button" class="btn" onclick={() => void openSignaturesDir()}>
-              Открыть папку баз
-            </button>
-          </div>
         {:else if signatures?.enginePresent === false}
           <p class="empty" data-testid="engine-unavailable">
             Встроенный движок вирусов в этой сборке не собран, поэтому проверка идёт по признакам:
@@ -527,15 +554,15 @@
     <div class="bottom">
       <section class="findings-panel" aria-label="Находки проверки">
         <div class="panel-head">
-          <h3>Находки</h3>
-          <span class="reason">Выбрано: {pickedCount}</span>
+          {@render panelTitle('Находки', 'findings')}
+          <span class="selection-count">Выбрано: {pickedCount}</span>
         </div>
         {#if actionNotice}
           <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
         {/if}
         <div class="list-scroll">
           {#if findings.length === 0}
-            {@render findingsEmpty()}
+            <div class="empty-state">{@render findingsEmpty()}</div>
           {:else}
             <FindingsList
               {findings}
@@ -566,9 +593,16 @@
 {/if}
 
 {#if subsection === 'findings'}
-  {#if findings.length === 0}
-    {@render findingsEmpty()}
-  {:else}
+  <section class="findings-panel workspace" aria-label="Находки проверки">
+    <div class="panel-head">
+      {@render panelTitle('Находки', 'findings')}
+      {#if findings.length > 0}
+        <span class="selection-count">Выбрано: {pickedCount}</span>
+      {/if}
+    </div>
+    {#if findings.length === 0}
+      <div class="empty-state">{@render findingsEmpty()}</div>
+    {:else}
     {#if scan.notice}
       <p class="empty" role="status">{scan.notice}</p>
     {/if}
@@ -578,10 +612,6 @@
           .firstMessage}
       </p>
     {/if}
-    <div class="actions bar">
-      <span class="reason">Выбрано: {pickedCount}</span>
-      <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
-    </div>
     {#if actionNotice}
       <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
     {/if}
@@ -592,36 +622,41 @@
       onToggle={toggleFinding}
       onOpenMenu={openFindingMenu}
     />
-  {/if}
+    <div class="findings-tools">
+      <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
+    </div>
+    {/if}
+  </section>
 {/if}
 
 {#if subsection === 'log'}
-  {#if engine && !engine.available}
-    <p class="empty panel selectable" data-testid="engine-log">
-      Почему проверка недоступна: {engine.reason}. Технические подробности:
-      docs/status/clamav-build.md.
-    </p>
-  {/if}
+  <div class="journal">
+  <section class="findings-panel workspace" aria-label="Журнал проверки">
+    <div class="panel-head">{@render panelTitle('Журнал проверки', 'log')}</div>
+    {#if scan.runs.length === 0}
+      <div class="empty-state"><p class="empty">Проверок в этой сессии пока не было.</p></div>
+    {:else}
+      <ul class="log selectable">
+        {#each scan.runs as run (run.id)}
+          <li class="run-row" data-status={run.status}>
+            <time>{run.startedAt}</time>
+            <div class="run-detail">
+              <strong>{run.target}</strong>
+              <p>{runSummary(run)}</p>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 
-  {#if scan.runs.length === 0}
-    <p class="empty panel">Проверок в этой сессии пока не было.</p>
-  {:else}
-    <ul class="log panel selectable">
-      {#each scan.runs as run (run.id)}
-        <li>
-          {run.startedAt} · {run.target} · {runSummary(run)}
-        </li>
-      {/each}
-    </ul>
-  {/if}
-
-  <section class="quarantine-block panel">
-    <h3>Карантин от проверок</h3>
+  <section class="quarantine-block findings-panel" aria-label="Карантин от проверок">
+    <div class="panel-head">{@render panelTitle('Карантин от проверок', 'quarantine')}</div>
     {#if journalNotice}
       <p class="empty" role="status">{journalNotice}</p>
     {/if}
     {#if journalEntries.length === 0}
-      <p class="empty">В карантине от проверок пусто.</p>
+      <div class="empty-state"><p class="empty">В карантине от проверок пусто.</p></div>
     {:else}
       <ul class="quarantine-list">
         {#each journalEntries as entry (entry.id)}
@@ -647,6 +682,19 @@
       </ul>
     {/if}
   </section>
+  {#if engine && !engine.available}
+    <details class="engine-details">
+      <summary>Сведения о базах проверки</summary>
+      <p class="empty selectable" data-testid="engine-log">
+        Почему проверка по базе недоступна: {engine.reason}. Технические подробности:
+        docs/status/clamav-build.md.
+      </p>
+      {#if signatures?.enginePresent && signatures.dir}
+        <p class="path selectable">{signatures.dir}</p>
+      {/if}
+    </details>
+  {/if}
+  </div>
 {/if}
 
 {#if menu}
@@ -661,7 +709,6 @@
 {/if}
 
 <style>
-  .panel,
   .alert {
     margin: 0 0 8px;
     padding: 16px;
@@ -680,14 +727,17 @@
     color: var(--ink);
   }
 
-  .log li,
   .quarantine-list li {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
     color: var(--ink-soft);
   }
 
   .quarantine-list {
+    display: grid;
+    gap: 8px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -758,14 +808,6 @@
     color: var(--muted);
   }
 
-  .bar {
-    margin: 0 0 8px;
-    padding: 10px 14px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    box-shadow: 0 0 0 2px #000;
-  }
-
   .scan-screen {
     position: relative;
     display: flex;
@@ -795,6 +837,7 @@
 
   .gauge {
     position: relative;
+    container-type: inline-size;
     display: grid;
     place-items: center;
     width: 100%;
@@ -803,7 +846,7 @@
     overflow: hidden;
     border: 0;
     border-radius: var(--radius-sm);
-    background: #202020;
+    background: radial-gradient(ellipse at 50% 110%, #243719, #191c19 62%, #141614);
     padding: 0;
     font: inherit;
   }
@@ -816,41 +859,44 @@
   }
 
   .readout {
-    position: relative;
+    position: absolute;
+    inset: 0;
     z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     max-width: 100%;
     padding: 8px;
     text-align: center;
+    text-shadow: none;
+    pointer-events: none;
+    color: #fff;
   }
 
-  .gauge.active .readout {
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    background: #161b11eb;
+  .readout-ink {
+    color: #182000;
+    clip-path: inset(calc(100% - var(--fill)) 0 0);
+    transition: clip-path 620ms cubic-bezier(0.23, 0.78, 0.32, 1);
+  }
+
+  .readout-ink [data-ink]::before {
+    content: attr(data-ink);
   }
 
   .value {
     max-width: 100%;
     overflow-wrap: anywhere;
-    font-size: clamp(3rem, 11cqi, 7rem);
+    font-size: clamp(1.7rem, calc(var(--number-scale) * 1cqi), 6.7rem);
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    color: #fff;
   }
 
   .caption {
     margin-top: 4px;
-    font-size: clamp(0.9rem, 2.4cqi, 1.6rem);
-    color: #fff;
-  }
-
-  .gauge.filled .value,
-  .gauge.filled .caption {
-    color: #000;
+    font-size: clamp(0.82rem, 6cqi, 1.32rem);
+    font-weight: 750;
   }
 
   .scanner-details {
@@ -895,13 +941,65 @@
   }
 
   .folder {
-    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
   }
 
-  .folder summary {
-    cursor: pointer;
-    color: var(--ink-soft);
+  .folder-toggle {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 12px;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
   }
+
+  .folder-toggle:hover { background: var(--surface-alt); }
+  .folder-toggle svg { width: 18px; color: var(--accent); }
+  .folder-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .chevron {
+    width: 8px;
+    height: 8px;
+    border: solid var(--muted);
+    border-width: 0 2px 2px 0;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform 230ms ease;
+  }
+
+  .chevron.expanded { transform: translateY(2px) rotate(225deg); }
+
+  .folder-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    transition: grid-template-rows 230ms ease, visibility 0s linear 230ms;
+  }
+
+  .folder-reveal.open {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .folder-clip { min-height: 0; overflow: hidden; }
+
+  .folder-content {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .folder-content label { margin: 0; }
+  .folder-content input { min-width: 0; }
+  .folder-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .folder-actions .btn { width: auto; flex: 1 0 auto; }
 
   .btn {
     width: 100%;
@@ -957,12 +1055,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 12px;
     padding: 16px;
-    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
   }
 
   .scanner {
@@ -1024,23 +1122,59 @@
     flex-direction: column;
     min-height: 0;
     padding: 16px;
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--surface);
-    box-shadow: 0 0 0 2px #000;
     font-size: var(--text-caption);
   }
 
   .panel-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
 
   .panel-head h3 {
     margin: 0;
   }
+
+  .panel-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .panel-icon {
+    display: grid;
+    flex: 0 0 34px;
+    place-items: center;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--black);
+  }
+  .panel-icon svg { width: 20px; }
+  .panel-icon[data-kind='quarantine'] { background: var(--surface-alt); color: var(--accent); }
+
+  .selection-count {
+    flex: none;
+    padding: 5px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty-state {
+    display: grid;
+    align-items: center;
+    min-height: 60px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
+  }
+
+  .workspace { min-width: 0; }
+  .findings-tools { padding-top: 8px; }
+  .journal { display: grid; gap: 12px; }
 
   .list-scroll {
     min-height: 0;
@@ -1069,12 +1203,8 @@
     font-size: var(--text-small);
   }
 
-  .empty.panel {
-    margin-bottom: 8px;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .sweep {
+    .sweep, .readout-ink, .chevron, .folder-reveal {
       transition: none;
     }
 
@@ -1084,7 +1214,10 @@
   }
 
   /* Наш переключатель «меньше движения» в «Оформлении» делает то же самое. */
-  :global(:root[data-reduce-motion='true']) .sweep {
+  :global(:root[data-reduce-motion='true']) .sweep,
+  :global(:root[data-reduce-motion='true']) .readout-ink,
+  :global(:root[data-reduce-motion='true']) .folder-reveal,
+  :global(:root[data-reduce-motion='true']) .chevron {
     transition: none;
   }
 
@@ -1093,10 +1226,39 @@
   }
 
   .log {
+    display: grid;
+    gap: 7px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
+
+  .run-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
+  }
+
+  .run-row[data-status='cancelled'] { border-inline-start-color: var(--muted); }
+  .run-row[data-status='failed'] { border-inline-start-color: var(--danger, #ff758d); }
+  .run-row time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .run-detail { overflow-wrap: anywhere; color: var(--ink); }
+  .run-detail p { margin: 3px 0 0; color: var(--ink-soft); }
+  .engine-details {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-small);
+  }
+  .engine-details summary { cursor: pointer; }
+  .engine-details p { margin: 8px 0 0; }
 
   .path {
     color: var(--muted);

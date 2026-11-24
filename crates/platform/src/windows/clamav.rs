@@ -7,7 +7,7 @@ use ochistka_core::scan::{check_signatures_dir, EngineStatus, FileVerdict, Virus
 use ochistka_core::system::CoreError;
 
 #[cfg(clamav_linked)]
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard};
 
 #[cfg(clamav_linked)]
 use super::clamav_ffi::Engine;
@@ -67,9 +67,7 @@ pub fn signatures_files(dir: &std::path::Path) -> u32 {
 pub struct ClamAvEngine {
     reason: String,
     #[cfg(clamav_linked)]
-    native: Mutex<Option<Engine>>,
-    #[cfg(clamav_linked)]
-    signatures: Mutex<Option<u32>>,
+    native: RwLock<Option<(Engine, u32)>>,
 }
 
 impl ClamAvEngine {
@@ -79,8 +77,7 @@ impl ClamAvEngine {
         {
             Self {
                 reason: NO_SIGNATURES_REASON.to_string(),
-                native: Mutex::new(None),
-                signatures: Mutex::new(None),
+                native: RwLock::new(None),
             }
         }
         #[cfg(not(clamav_linked))]
@@ -94,22 +91,20 @@ impl ClamAvEngine {
         Self {
             reason: NOT_BUILT_REASON.to_string(),
             #[cfg(clamav_linked)]
-            native: Mutex::new(None),
-            #[cfg(clamav_linked)]
-            signatures: Mutex::new(None),
+            native: RwLock::new(None),
         }
     }
 
     #[cfg(clamav_linked)]
-    fn lock_native(&self) -> MutexGuard<'_, Option<Engine>> {
-        self.native.lock().unwrap_or_else(PoisonError::into_inner)
+    fn read_native(&self) -> RwLockReadGuard<'_, Option<(Engine, u32)>> {
+        self.native.read().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
 impl VirusScanPort for ClamAvEngine {
     fn engine_status(&self) -> EngineStatus {
         #[cfg(clamav_linked)]
-        let loaded = self.lock_native().is_some();
+        let loaded = self.read_native().is_some();
         #[cfg(not(clamav_linked))]
         let loaded = false;
         EngineStatus {
@@ -122,11 +117,16 @@ impl VirusScanPort for ClamAvEngine {
         }
     }
 
+    #[cfg(clamav_linked)]
+    fn scan_workers(&self) -> usize {
+        std::thread::available_parallelism().map_or(1, |count| (count.get() - 1).clamp(1, 4))
+    }
+
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError> {
         #[cfg(clamav_linked)]
         {
-            let guard = self.lock_native();
-            let engine = guard
+            let guard = self.read_native();
+            let (engine, _) = guard
                 .as_ref()
                 .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
             #[cfg(windows)]
@@ -152,8 +152,8 @@ impl VirusScanPort for ClamAvEngine {
         path: &str,
     ) -> Result<(FileVerdict, Option<ochistka_core::quarantine::FileIdentity>), CoreError> {
         use crate::linux::file_identity::{open_regular_no_links, scan_open_file};
-        let guard = self.lock_native();
-        let engine = guard
+        let guard = self.read_native();
+        let (engine, _) = guard
             .as_ref()
             .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
         let file = open_regular_no_links(std::path::Path::new(path))
@@ -179,11 +179,8 @@ impl VirusScanPort for ClamAvEngine {
         {
             let (engine, signatures) = Engine::load(dir)
                 .map_err(|err| CoreError::Probe(format!("базы не загружены: {err}")))?;
-            *self.lock_native() = Some(engine);
-            *self
-                .signatures
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner) = Some(signatures);
+            *self.native.write().unwrap_or_else(PoisonError::into_inner) =
+                Some((engine, signatures));
             Ok(())
         }
         #[cfg(not(clamav_linked))]
@@ -195,10 +192,9 @@ impl VirusScanPort for ClamAvEngine {
     fn signature_count(&self) -> Option<u32> {
         #[cfg(clamav_linked)]
         {
-            *self
-                .signatures
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
+            self.read_native()
+                .as_ref()
+                .map(|(_, signatures)| *signatures)
         }
         #[cfg(not(clamav_linked))]
         {

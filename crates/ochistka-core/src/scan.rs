@@ -1,6 +1,5 @@
 //! Проверка папки: обход, вызов движка по файлу через порт и сбор находок. Без кода ОС.
-//! Движок видит только один файл за раз (`VirusScanPort::scan_file`); обход, лимит размера и
-//! отмену делает ядро.
+//! Обход, ограничения, очередь файлов и отмена управляются ядром.
 
 use std::sync::atomic::AtomicBool;
 
@@ -88,6 +87,10 @@ pub trait VirusScanPort: Send + Sync {
     fn engine_status(&self) -> EngineStatus;
     fn mode(&self) -> ScanMode {
         ScanMode::Signatures
+    }
+    /// Число одновременных вызовов, которое поддерживает движок.
+    fn scan_workers(&self) -> usize {
+        1
     }
     /// Проверяет один файл. Вызывается только при доступном движке.
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError>;
@@ -209,28 +212,27 @@ pub fn sweep_with_progress(
         mode: port.mode(),
         ..ScanReport::default()
     };
-    let mut current = ScanProgress {
-        total_files: u32::try_from(files.len()).unwrap_or(u32::MAX),
-        ..ScanProgress::default()
-    };
-    progress(current.clone());
-    for (path, size) in files {
-        if is_cancelled(cancel) {
-            return Err(CoreError::Cancelled);
+    let total = u32::try_from(files.len()).unwrap_or(u32::MAX);
+    progress(report_progress(&report, total));
+    with_scan_queue(port, cancel, |queue| {
+        for (path, size) in files {
+            if is_cancelled(cancel) {
+                return Err(CoreError::Cancelled);
+            }
+            let changed = if size > MAX_FILE_BYTES {
+                report.skipped_files += 1;
+                true
+            } else {
+                queue.submit(path, &mut report)?
+            };
+            if changed {
+                progress(report_progress(&report, total));
+            }
         }
-        if size > MAX_FILE_BYTES {
-            report.skipped_files += 1;
-            current.skipped_files = report.skipped_files;
-            current.processed_files += 1;
-            progress(current.clone());
-            continue;
-        }
-        scan_file(port, path, &mut report)?;
-        current.processed_files += 1;
-        current.scanned_files = report.scanned_files;
-        current.errors = report.errors;
-        progress(current.clone());
-    }
+        queue.drain(&mut report, |report| {
+            progress(report_progress(report, total))
+        })
+    })?;
     Ok(report)
 }
 
@@ -273,56 +275,63 @@ pub fn sweep_computer_scoped(
     }
     progress(ScanProgress::default());
 
-    while let Some((dir, depth)) = stack.pop() {
-        if is_cancelled(cancel) {
-            return Err(CoreError::Cancelled);
-        }
-        if depth > MAX_COMPUTER_DEPTH
-            || !matches!(fs.metadata(&dir), Ok(meta) if meta.is_dir && !meta.is_symlink)
-        {
-            report.incomplete = true;
-            continue;
-        }
-        let Ok(entries) = fs.read_scan_dir(&dir, excluded) else {
-            report.incomplete = true;
-            continue;
-        };
-
-        let mut priority = Vec::new();
-        for entry in entries {
+    with_scan_queue(port, cancel, |queue| {
+        while let Some((dir, depth)) = stack.pop() {
             if is_cancelled(cancel) {
                 return Err(CoreError::Cancelled);
             }
-            if entry.meta.is_symlink {
-                report.skipped_files = report.skipped_files.saturating_add(1);
-            } else if entry.meta.is_dir {
-                let next = (entry.path, depth + 1);
-                if ["Users", "Downloads", "Desktop", "home"]
-                    .iter()
-                    .any(|name| entry.name.eq_ignore_ascii_case(name))
-                {
-                    priority.push(next);
-                } else {
-                    stack.push(next);
-                }
+            if depth > MAX_COMPUTER_DEPTH
+                || !matches!(fs.metadata(&dir), Ok(meta) if meta.is_dir && !meta.is_symlink)
+            {
+                report.incomplete = true;
                 continue;
-            } else if entry.meta.size > MAX_FILE_BYTES {
-                report.skipped_files = report.skipped_files.saturating_add(1);
-            } else {
-                scan_file(port, entry.path, &mut report)?;
             }
-            progress(computer_progress(&report));
+            let Ok(entries) = fs.read_scan_dir(&dir, excluded) else {
+                report.incomplete = true;
+                continue;
+            };
+
+            let mut priority = Vec::new();
+            for entry in entries {
+                if is_cancelled(cancel) {
+                    return Err(CoreError::Cancelled);
+                }
+                let changed = if entry.meta.is_symlink {
+                    report.skipped_files = report.skipped_files.saturating_add(1);
+                    true
+                } else if entry.meta.is_dir {
+                    let next = (entry.path, depth + 1);
+                    if ["Users", "Downloads", "Desktop", "home"]
+                        .iter()
+                        .any(|name| entry.name.eq_ignore_ascii_case(name))
+                    {
+                        priority.push(next);
+                    } else {
+                        stack.push(next);
+                    }
+                    continue;
+                } else if entry.meta.size > MAX_FILE_BYTES {
+                    report.skipped_files = report.skipped_files.saturating_add(1);
+                    true
+                } else {
+                    queue.submit(entry.path, &mut report)?
+                };
+                if changed {
+                    progress(report_progress(&report, 0));
+                }
+            }
+            stack.extend(priority.into_iter().rev());
         }
-        stack.extend(priority.into_iter().rev());
-    }
+        queue.drain(&mut report, |report| progress(report_progress(report, 0)))
+    })?;
 
     report.incomplete |= report.skipped_files > 0 || report.errors > 0;
     Ok(report)
 }
 
-fn computer_progress(report: &ScanReport) -> ScanProgress {
+fn report_progress(report: &ScanReport, total_files: u32) -> ScanProgress {
     ScanProgress {
-        total_files: 0,
+        total_files,
         processed_files: report
             .scanned_files
             .saturating_add(report.errors)
@@ -333,12 +342,123 @@ fn computer_progress(report: &ScanReport) -> ScanProgress {
     }
 }
 
-fn scan_file(
+type Verdict = Result<(FileVerdict, Option<FileIdentity>), CoreError>;
+
+struct Workers {
+    jobs: crossbeam_channel::Sender<String>,
+    results: crossbeam_channel::Receiver<(String, Verdict)>,
+    pending: usize,
+    capacity: usize,
+}
+
+struct ScanQueue<'a> {
+    port: &'a dyn VirusScanPort,
+    cancel: &'a AtomicBool,
+    workers: Option<Workers>,
+}
+
+fn with_scan_queue<T>(
     port: &dyn VirusScanPort,
+    cancel: &AtomicBool,
+    run: impl FnOnce(&mut ScanQueue<'_>) -> Result<T, CoreError>,
+) -> Result<T, CoreError> {
+    let workers = port.scan_workers().clamp(1, 8);
+    if workers == 1 {
+        return run(&mut ScanQueue {
+            port,
+            cancel,
+            workers: None,
+        });
+    }
+    std::thread::scope(|scope| {
+        let capacity = workers * 2;
+        let (jobs, tasks) = crossbeam_channel::bounded::<String>(capacity);
+        let (finished, results) = crossbeam_channel::unbounded();
+        for _ in 0..workers {
+            let (tasks, finished) = (tasks.clone(), finished.clone());
+            scope.spawn(move || {
+                while let Ok(path) = tasks.recv() {
+                    let verdict = if is_cancelled(cancel) {
+                        Err(CoreError::Cancelled)
+                    } else {
+                        port.scan_file_with_identity(&path)
+                    };
+                    if finished.send((path, verdict)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+        drop((tasks, finished));
+        run(&mut ScanQueue {
+            port,
+            cancel,
+            workers: Some(Workers {
+                jobs,
+                results,
+                pending: 0,
+                capacity,
+            }),
+        })
+    })
+}
+
+impl ScanQueue<'_> {
+    fn submit(&mut self, path: String, report: &mut ScanReport) -> Result<bool, CoreError> {
+        let Some(workers) = &mut self.workers else {
+            let verdict = self.port.scan_file_with_identity(&path);
+            record_verdict(path, verdict, report)?;
+            return Ok(true);
+        };
+        workers
+            .jobs
+            .send(path)
+            .map_err(|_| workers_disconnected())?;
+        workers.pending += 1;
+        if workers.pending == workers.capacity {
+            self.receive(report)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn receive(&mut self, report: &mut ScanReport) -> Result<(), CoreError> {
+        if is_cancelled(self.cancel) {
+            return Err(CoreError::Cancelled);
+        }
+        let workers = self.workers.as_mut().expect("queue has worker threads");
+        let (path, verdict) = workers.results.recv().map_err(|_| workers_disconnected())?;
+        workers.pending -= 1;
+        record_verdict(path, verdict, report)
+    }
+
+    fn drain(
+        &mut self,
+        report: &mut ScanReport,
+        mut progress: impl FnMut(&ScanReport),
+    ) -> Result<(), CoreError> {
+        while self
+            .workers
+            .as_ref()
+            .is_some_and(|workers| workers.pending > 0)
+        {
+            self.receive(report)?;
+            progress(report);
+        }
+        Ok(())
+    }
+}
+
+fn workers_disconnected() -> CoreError {
+    CoreError::Probe("очередь проверки остановилась".into())
+}
+
+fn record_verdict(
     path: String,
+    verdict: Verdict,
     report: &mut ScanReport,
 ) -> Result<(), CoreError> {
-    match port.scan_file_with_identity(&path) {
+    match verdict {
         Ok((verdict, identity)) => {
             report.scanned_files = report.scanned_files.saturating_add(1);
             if let FileVerdict::Found { signature } = verdict {
@@ -437,6 +557,49 @@ mod tests {
 
         assert_eq!(report.scanned_files, 2);
         assert!(!report.incomplete);
+    }
+
+    #[test]
+    fn computer_scan_uses_the_workers_offered_by_the_engine() {
+        use std::sync::{Condvar, Mutex};
+
+        struct ConcurrentEngine(Mutex<usize>, Condvar);
+        impl VirusScanPort for ConcurrentEngine {
+            fn engine_status(&self) -> EngineStatus {
+                FakeEngine::ready().engine_status()
+            }
+
+            fn scan_workers(&self) -> usize {
+                2
+            }
+
+            fn scan_file(&self, _: &str) -> Result<FileVerdict, CoreError> {
+                let mut calls = self.0.lock().unwrap();
+                *calls += 1;
+                self.1.notify_all();
+                let (_calls, deadline) = self
+                    .1
+                    .wait_timeout_while(calls, std::time::Duration::from_secs(2), |calls| {
+                        *calls < 2
+                    })
+                    .unwrap();
+                assert!(!deadline.timed_out(), "files were scanned serially");
+                Ok(FileVerdict::Clean)
+            }
+
+            fn load_signatures(&self, _: &str) -> Result<(), CoreError> {
+                Ok(())
+            }
+        }
+
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\one.txt"), b"one", 1);
+        fs.file(&format!("{ROOT}\\two.txt"), b"two", 1);
+        let engine = ConcurrentEngine(Mutex::new(0), Condvar::new());
+        let report =
+            sweep_computer(&fs, &engine, &[ROOT.into()], &no_cancel(), &mut |_| {}).unwrap();
+
+        assert_eq!(report.scanned_files, 2);
     }
 
     #[test]

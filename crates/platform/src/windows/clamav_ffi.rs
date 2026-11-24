@@ -93,16 +93,19 @@ pub struct Engine {
     raw: NonNull<ClEngine>,
 }
 
-// SAFETY: после `cl_engine_compile` движок используется только на чтение в `cl_scanfile`;
-// доступ из нескольких потоков сериализует `Mutex` в `clamav.rs`, поэтому `Send` достаточно.
+// SAFETY: после компиляции используется только потокобезопасный API сканирования libclamav.
+// clamd так же разделяет скомпилированный движок. Владелец в clamav.rs защищает его время
+// жизни RwLock. Каждый вызов передаёт собственные опции и копирует имя сигнатуры до возврата.
 unsafe impl Send for Engine {}
+unsafe impl Sync for Engine {}
 
 impl Engine {
     /// Загружает и компилирует сигнатуры из папки. Возвращает движок и число сигнатур.
     /// Ошибка содержит код библиотеки.
     pub fn load(dir: &str) -> Result<(Self, u32), String> {
-        // SAFETY: `cl_init` не принимает указателей; повторный вызов безопасен (возвращает успех).
-        if unsafe { cl_init(CL_INIT_DEFAULT) } != CL_SUCCESS {
+        static INIT: std::sync::OnceLock<c_int> = std::sync::OnceLock::new();
+        // SAFETY: cl_init не принимает указателей. OnceLock вызывает его до сканирования один раз.
+        if *INIT.get_or_init(|| unsafe { cl_init(CL_INIT_DEFAULT) }) != CL_SUCCESS {
             return Err("cl_init завершился с ошибкой".into());
         }
         // SAFETY: `cl_engine_new` не принимает аргументов; результат проверяется на NULL ниже.
@@ -165,7 +168,7 @@ impl Engine {
         let mut scanned: c_ulong = 0;
         let mut options = ClScanOptions::default();
         // SAFETY: дескриптор остаётся открытым на протяжении вызова, указатели живут
-        // достаточно долго; скомпилированный движок защищён Mutex вызывающего кода.
+        // достаточно долго. Владелец удерживает движок до возврата.
         let code = unsafe {
             cl_scandesc(
                 file.as_raw_fd(),
