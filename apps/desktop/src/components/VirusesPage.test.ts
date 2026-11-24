@@ -22,7 +22,6 @@ import { scanCancel } from '../lib/scanControl';
 import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
 import { resetScanState, scan } from '../lib/scanState.svelte';
 import type { ScanReport } from '../lib/types';
-import VirusBin from './VirusBin.svelte';
 
 vi.mock('../lib/scanControl', () => ({ scanCancel: vi.fn() }));
 
@@ -142,7 +141,7 @@ describe('VirusesPage scan', () => {
 
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
     expect(screen.queryByText(/Проверено не всё/)).toBeNull();
   });
 
@@ -168,16 +167,16 @@ describe('VirusesPage scan', () => {
       mode: 'signatures',
       findings: [{ path: 'C:\\Users\\Slava\\Downloads\\invoice.pdf.exe', signature: 'Win.Test.X' }],
     });
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
     expect(screen.queryByTestId('scan-sweep')).toBeNull();
     await waitFor(() =>
       expect(assessFile).toHaveBeenCalledWith('C:\\Users\\Slava\\Downloads\\invoice.pdf.exe'),
     );
 
     await view.rerender({ subsection: 'findings' });
-    expect(screen.getByText('Win.Test.X')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.Test.X')).toBeTruthy();
     expect(await screen.findByText(/Подсказка: 70\/100/)).toBeTruthy();
-    const remove = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
+    const remove = screen.getByRole('button', { name: 'Удалить выбранное' }) as HTMLButtonElement;
     expect(remove.disabled).toBe(true);
   });
 
@@ -229,15 +228,15 @@ describe('VirusesPage scan', () => {
 
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 2.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
 
     await view.rerender({ subsection: 'findings' });
     const notice = await screen.findByText(/Не удалось оценить файлов/);
     expect(notice.textContent).toContain('Не удалось оценить файлов: 1');
     expect(notice.textContent).toContain('файл недоступен');
     // Сканирование завершилось, второй файл оценён.
-    expect(screen.getByText('Win.Bad.A')).toBeTruthy();
-    expect(screen.getByText('Win.Good.B')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.Bad.A')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.Good.B')).toBeTruthy();
     expect(await screen.findByText(/Подсказка: 40\/100/)).toBeTruthy();
     expect(screen.getAllByRole('meter')).toHaveLength(1);
   });
@@ -257,10 +256,11 @@ describe('VirusesPage scan', () => {
     });
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    expect(await screen.findByText('Обработано файлов: 4 из 10. Проверено: 3.')).toBeTruthy();
+    expect(await screen.findByText('Идёт проверка…')).toBeTruthy();
+    expect(screen.queryByText(/Обработано файлов/)).toBeNull();
     expect(screen.getByTestId('scan-sweep').style.width).toBe('40%');
     finish(report());
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
   });
 
   it('FND-0183: while scanning the button and input are disabled and scanStart is called once', async () => {
@@ -283,7 +283,7 @@ describe('VirusesPage scan', () => {
     expect(scanStart).toHaveBeenCalledWith(null, expect.any(Function));
 
     finish(report());
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
     await waitFor(() =>
       expect(
         (screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled,
@@ -302,10 +302,11 @@ describe('VirusesPage scan', () => {
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
     expect(scanStart).toHaveBeenCalledWith(null, expect.any(Function));
-    expect(await screen.findByText('Обработано файлов: 4. Проверено: 3.')).toBeTruthy();
+    expect(await screen.findByText('Идёт проверка…')).toBeTruthy();
+    expect(screen.queryByText(/Обработано файлов/)).toBeNull();
     expect(screen.queryByTestId('scan-percent')).toBeNull();
     finish(report());
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
   });
 
   it('FND-0097: shows the visible reason when the engine is unavailable', async () => {
@@ -366,7 +367,7 @@ describe('VirusesPage findings', () => {
     vi.mocked(scanStart).mockResolvedValue(report([]));
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
 
     await view.rerender({ subsection: 'findings' });
     expect(screen.getByText('Угроз не найдено.')).toBeTruthy();
@@ -399,7 +400,7 @@ describe('VirusesPage findings', () => {
     vi.mocked(scanStart).mockResolvedValue({ ...report([]), ...partialReport });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
     await view.rerender({ subsection: 'findings' });
     expect(screen.getByText(expected)).toBeTruthy();
     expect(screen.queryByText('Угроз не найдено.')).toBeNull();
@@ -410,7 +411,7 @@ describe('VirusesPage findings', () => {
     vi.mocked(scanStart).mockResolvedValue({ ...report([]), scannedFiles: 0 });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 0. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
     await view.rerender({ subsection: 'findings' });
     expect(screen.getByText('Проверять нечего.')).toBeTruthy();
     expect(screen.queryByText('Угроз не найдено.')).toBeNull();
@@ -427,7 +428,7 @@ describe('VirusesPage findings', () => {
     });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await screen.findByText('Проверка завершена.');
 
     await view.rerender({ subsection: 'findings' });
     const meter = await screen.findByRole('meter');
@@ -453,11 +454,11 @@ describe('VirusesPage findings', () => {
 
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+    await screen.findByText('Проверка завершена.');
 
     await view.rerender({ subsection: 'findings' });
-    expect(await screen.findByText('Win.Dup.A')).toBeTruthy();
-    expect(screen.getByText('Win.Dup.B')).toBeTruthy();
+    expect(await screen.findByText('Причина: сигнатура Win.Dup.A')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.Dup.B')).toBeTruthy();
     expect(screen.getAllByText(path)).toHaveLength(2);
     expect(errors).not.toHaveBeenCalled();
     errors.mockRestore();
@@ -471,7 +472,7 @@ describe('VirusesPage findings', () => {
     vi.mocked(assessFile).mockResolvedValue({ score: 0, reasons: [] });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await screen.findByText('Проверка завершена.');
 
     await view.rerender({ subsection: 'findings' });
     expect(await screen.findByText('Подсказка: 0/100 — признаков не найдено')).toBeTruthy();
@@ -495,7 +496,7 @@ describe('VirusesPage journal', () => {
     vi.mocked(assessFile).mockResolvedValue({ score: 10, reasons: [] });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await screen.findByText('Проверка завершена.');
 
     await view.rerender({ subsection: 'log' });
     expect(screen.queryByText('Проверок в этой сессии пока не было.')).toBeNull();
@@ -515,7 +516,7 @@ describe('VirusesPage journal', () => {
 
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
+    await screen.findByText('Проверка завершена.');
     const again = (await screen.findByRole('button', {
       name: START,
     })) as HTMLButtonElement;
@@ -549,7 +550,7 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
     expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
 
     finish(report());
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
     cleanup();
     render(VirusesPage, { props: { subsection: 'log' } });
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
@@ -575,7 +576,7 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
     ).toBe(true);
 
     finishAssess({ score: 1, reasons: [] });
-    expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();
+    expect(await screen.findByText('Проверка завершена.')).toBeTruthy();
   });
 
   it('FND-0026: the stop button cancels the scan and shows a cancelled notice', async () => {
@@ -618,46 +619,44 @@ describe('VirusesPage scan screen (round 28)', () => {
     });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+    await screen.findByText('Проверка завершена.');
     return { view, a, b };
   }
 
-  it('shows the station, the findings panel on the right and the bin with the report count', async () => {
+  it('puts the removal action beneath the findings and omits the bin and selection count', async () => {
     const { a } = await twoFindings();
 
-    expect(screen.getByTestId('scan-station')).toBeTruthy();
-    expect(screen.getByTestId('findings-list')).toBeTruthy();
-    expect(screen.getByTestId('virus-bin')).toBeTruthy();
-    expect(screen.getByTestId('bin-count').textContent).toBe('2');
-    // Находки видны в правой панели, а не только в подразделе «Находки».
-    expect(screen.getByText('Win.A.Test')).toBeTruthy();
-    expect(screen.getByText(a)).toBeTruthy();
+    const panel = screen.getByRole('region', { name: 'Находки проверки' });
+    const list = within(panel).getByTestId('findings-list');
+    const remove = within(panel).getByRole('button', { name: 'Удалить выбранное' });
+    expect(list.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId('virus-bin')).toBeNull();
+    expect(within(panel).queryByText(/Выбрано:/)).toBeNull();
+    expect(within(list).getByText('a.exe')).toBeTruthy();
+    expect(within(list).getByText(a)).toBeTruthy();
   });
 
-  it('counts selected findings and keeps the choice when switching subsections', async () => {
+  it('selects by clicking the row and keeps the choice when switching subsections', async () => {
     const { view } = await twoFindings();
-
-    expect(screen.getByText('Выбрано: 0')).toBeTruthy();
-    await fireEvent.click(screen.getAllByRole('checkbox')[0]);
-    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+    await fireEvent.click(screen.getByText('a.exe'));
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox')[0].checked).toBe(true);
 
     await view.rerender({ subsection: 'findings' });
-    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
-    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    const boxes = screen.getAllByRole<HTMLInputElement>('checkbox');
     expect(boxes[0].checked).toBe(true);
     expect(boxes[1].checked).toBe(false);
 
     await view.rerender({ subsection: 'scan' });
-    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox')[0].checked).toBe(true);
   });
 
   it('unselects a finding when its checkbox is clicked again', async () => {
     await twoFindings();
-    const box = screen.getAllByRole('checkbox')[0];
+    const box = screen.getAllByRole<HTMLInputElement>('checkbox')[0];
     await fireEvent.click(box);
-    expect(screen.getByText('Выбрано: 1')).toBeTruthy();
+    expect(box.checked).toBe(true);
     await fireEvent.click(box);
-    expect(screen.getByText('Выбрано: 0')).toBeTruthy();
+    expect(box.checked).toBe(false);
   });
 });
 
@@ -674,18 +673,6 @@ describe('VirusesPage scan screen motion (round 28)', () => {
     delete document.documentElement.dataset.reduceMotion;
   });
 
-  /** Находки после проверки: становится видно, что полёт закончился. */
-  async function scanWithOneFinding(): Promise<void> {
-    engineOk();
-    vi.mocked(scanStart).mockResolvedValue(
-      report([{ path: `${DOWNLOADS}\\evil.exe`, signature: 'Win.Evil.Test' }]),
-    );
-    vi.mocked(assessFile).mockResolvedValue({ score: 10, reasons: [] });
-    await renderReady();
-    await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
-  }
-
   it('starts from the square and fills the acid tank only after the report arrives', async () => {
     engineOk();
     let finish: (value: ScanReport) => void = () => {};
@@ -701,49 +688,34 @@ describe('VirusesPage scan screen motion (round 28)', () => {
     const station = screen.getByTestId('scan-station');
     const acid = screen.getByTestId('scan-liquid');
     expect(station.dataset.state).toBe('scanning');
-    expect(screen.getByTestId('falling-viruses')).toBeTruthy();
+    expect(screen.getByTestId('scan-reflections')).toBeTruthy();
     const initialLevel = Number(acid.dataset.level);
     progress({ processedFiles: 4096, scannedFiles: 4000, totalFiles: 0, skippedFiles: 96, errors: 0 });
     await waitFor(() => expect(Number(acid.dataset.level)).toBeGreaterThan(initialLevel));
     expect(Number(acid.dataset.level)).toBeLessThan(100);
 
     finish(report());
-    await screen.findByText('Проверено файлов: 5. Находок: 0.');
-    expect(screen.queryByTestId('falling-viruses')).toBeNull();
+    await screen.findByText('Проверка завершена.');
+    expect(screen.queryByTestId('scan-reflections')).toBeNull();
     expect(acid.dataset.level).toBe('100');
     expect(screen.getByTestId('scan-station').dataset.state).toBe('clean');
   });
 
-  it('flies findings into the bin, then closes the lid and keeps the count', async () => {
-    await scanWithOneFinding();
-
-    expect(screen.getByTestId('bin-flight')).toBeTruthy();
-    expect(screen.getByTestId('virus-bin').dataset.state).toBe('filling');
-    expect(screen.getByTestId('bin-count').textContent).toBe('1');
-
-    await waitFor(() => expect(screen.queryByTestId('bin-flight')).toBeNull(), { timeout: 2000 });
-    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
-    expect(screen.getByTestId('bin-count').textContent).toBe('1');
-  });
-
-  it('keeps everything still when the system asks for less motion', async () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => REDUCED),
-    );
-    await scanWithOneFinding();
-
-    expect(screen.queryByTestId('bin-flight')).toBeNull();
-    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
-    expect(screen.getByTestId('bin-count').textContent).toBe('1');
-  });
-
-  it('keeps everything still with the in-app reduce-motion switch', async () => {
-    document.documentElement.dataset.reduceMotion = 'true';
-    await scanWithOneFinding();
-
-    expect(screen.queryByTestId('bin-flight')).toBeNull();
-    expect(screen.getByTestId('virus-bin').dataset.state).toBe('closed');
+  it.each(['system', 'app'])('disables liquid reflections with the %s motion preference', async (preference) => {
+    if (preference === 'system') {
+      vi.stubGlobal('matchMedia', vi.fn(() => REDUCED));
+    } else {
+      document.documentElement.dataset.reduceMotion = 'true';
+    }
+    engineOk();
+    let finish: (value: ScanReport) => void = () => {};
+    vi.mocked(scanStart).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(screen.getByText('Подготавливаем список файлов…')).toBeTruthy();
+    expect(screen.queryByTestId('scan-reflections')).toBeNull();
+    finish(report());
+    await screen.findByText('Проверка завершена.');
   });
 });
 
@@ -756,7 +728,7 @@ describe('VirusesPage findings context menu (round 28)', () => {
     vi.mocked(assessFile).mockResolvedValue({ score: 5, reasons: [] });
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await screen.findByText('Проверка завершена.');
     await view.rerender({ subsection: 'findings' });
     await screen.findByTestId('finding');
   }
@@ -813,21 +785,10 @@ describe('VirusesPage findings context menu (round 28)', () => {
 });
 
 describe('VirusesPage remove button (round 28)', () => {
-  const REASON = 'Пока нельзя убрать: перенос файлов ещё не готов';
-
-  it('shows «Убрать выбранные» next to the bin, disabled with a plain reason', async () => {
+  it('shows no removal action before there are findings', async () => {
     engineOk();
-    const view = render(VirusesPage, { props: { subsection: 'scan' } });
-    await waitFor(() =>
-      expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(
-        false,
-      ),
-    );
-
-    const button = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(screen.getByTestId('remove-reason').textContent).toBe(REASON);
-    view.unmount();
+    await renderReady();
+    expect(screen.queryByRole('button', { name: 'Удалить выбранное' })).toBeNull();
   });
 
   it('keeps the button off even with a selection while the transfer is not ready', async () => {
@@ -838,10 +799,10 @@ describe('VirusesPage remove button (round 28)', () => {
     vi.mocked(assessFile).mockResolvedValue({ score: 5, reasons: [] });
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 1.');
+    await screen.findByText('Проверка завершена.');
 
     await fireEvent.click(screen.getAllByRole('checkbox')[0]);
-    const button = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Удалить выбранное' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     await fireEvent.click(button);
     expect(quarantineFindings).not.toHaveBeenCalled();
@@ -855,16 +816,6 @@ describe('VirusesPage remove button (round 28)', () => {
     expect(FINDINGS_TRANSFER_READY).toBe(false);
   });
 
-  it('plays the bin throw only as a visual state of the bin', async () => {
-    const view = render(VirusBin, { props: { count: 2, state: 'throwing' } });
-    expect(screen.getAllByTestId('bin-throw')).toHaveLength(3);
-    expect(screen.getByTestId('virus-bin').dataset.state).toBe('throwing');
-    view.unmount();
-
-    const idle = render(VirusBin, { props: { count: 0 } });
-    expect(screen.queryByTestId('bin-throw')).toBeNull();
-    idle.unmount();
-  });
 });
 
 describe('VirusesPage signatures (round 29)', () => {
@@ -890,7 +841,7 @@ describe('VirusesPage signatures (round 29)', () => {
     expect(screen.queryByRole('button', { name: 'Открыть папку баз' })).toBeNull();
   });
 
-  it('shows the loaded base and its signature count, and lets the check start', async () => {
+  it('lets the check start without showing the loaded signature count', async () => {
     vi.mocked(clamavStatus).mockResolvedValue({ available: true, reason: '' });
     vi.mocked(clamavSignatures).mockResolvedValue({
       dir: CLAMDB,
@@ -901,14 +852,13 @@ describe('VirusesPage signatures (round 29)', () => {
     vi.mocked(defaultScanTarget).mockResolvedValue(DOWNLOADS);
     render(VirusesPage, { props: { subsection: 'scan' } });
 
-    expect(await screen.findByTestId('signatures-loaded')).toBeTruthy();
-    expect(screen.getByText('База загружена: сигнатур — 1234.')).toBeTruthy();
     await waitFor(() =>
       expect((screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled).toBe(
         false,
       ),
     );
     expect(screen.queryByTestId('signatures-missing')).toBeNull();
+    expect(screen.queryByText(/База загружена|1234/)).toBeNull();
   });
 
   it('never claims the engine is missing when its state is unknown', async () => {
@@ -955,19 +905,18 @@ describe('VirusesPage findings: selection and quarantine', () => {
 
     const view = await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
-    await screen.findByText('Проверено файлов: 5. Находок: 2.');
+    await screen.findByText('Проверка завершена.');
     await view.rerender({ subsection: 'findings' });
     await screen.findAllByText(/Подсказка: 30\/100/);
 
-    const move = screen.getByRole('button', { name: 'Убрать выбранные' }) as HTMLButtonElement;
+    const move = screen.getByRole('button', { name: 'Удалить выбранное' }) as HTMLButtonElement;
     expect(move.disabled).toBe(true);
     await fireEvent.click(screen.getAllByRole('checkbox')[0]);
     expect(move.disabled).toBe(true);
     await fireEvent.click(move);
     expect(quarantineFindings).not.toHaveBeenCalled();
     expect(screen.getByText('Пока нельзя убрать: перенос файлов ещё не готов')).toBeTruthy();
-    expect(screen.getByText('Win.A.Test')).toBeTruthy();
-    expect(screen.getByText('Win.B.Test')).toBeTruthy();
+    expect(screen.getByText('Причина: сигнатура Win.A.Test')).toBeTruthy();
     expect(screen.getByText('Причина: сигнатура Win.B.Test')).toBeTruthy();
   });
 

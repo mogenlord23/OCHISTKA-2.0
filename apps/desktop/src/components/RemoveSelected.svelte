@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Кнопка «Убрать выбранные» и причина, по которой она сейчас выключена.
+  /** Кнопка «Удалить выбранное» и причина, по которой она сейчас выключена.
       Пока перенос в карантин не доказан, кнопка выключена — но причина написана простыми словами. */
   let {
     disabled,
@@ -13,7 +13,7 @@
 </script>
 
 <div class="remove">
-  <button type="button" {disabled} onclick={() => onremove?.()}>Убрать выбранные</button>
+  <button type="button" {disabled} onclick={() => onremove?.()}>Удалить выбранное</button>
   {#if reason}
     <span class="reason" data-testid="remove-reason">{reason}</span>
   {/if}

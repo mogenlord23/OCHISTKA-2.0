@@ -4,8 +4,7 @@
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import FindingsList from './FindingsList.svelte';
   import RemoveSelected from './RemoveSelected.svelte';
-  import VirusBin from './VirusBin.svelte';
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { clamavSignatures, clamavStatus, defaultScanTarget, pickScanFolder, toCommandError } from '../lib/api';
   import { FINDINGS_TRANSFER_READY, removeAllowed } from '../lib/scanCapabilities';
   import { revealInExplorer, toProgramsError } from '../lib/programsApi';
@@ -36,12 +35,6 @@
   let journalEntries = $state<QuarantineEntry[]>([]);
   let journalNotice = $state('');
   let confirmPurgeId = $state<string | null>(null);
-
-  /** Полёт находок в корзину: сколько фигур летит и открыта ли крышка. */
-  const FLIGHT_MS = 520;
-  let flight = $state<{ id: number; count: number } | null>(null);
-  let flightSeq = 0;
-  let binState = $state<'idle' | 'filling' | 'closed' | 'throwing'>('idle');
 
   /** Меню находки: где открылось и куда вернуть фокус. */
   let menu = $state<{ index: number; x: number; y: number } | null>(null);
@@ -99,14 +92,6 @@
       : 'Запустить проверку в квадрате',
   );
 
-  /** Движение отключают и системная настройка, и наш переключатель в «Оформлении». */
-  function reducedMotion(): boolean {
-    if (typeof window === 'undefined') return false;
-    if (document.documentElement.dataset.reduceMotion === 'true') return true;
-    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-  }
-
-  // Кнопка «Убрать выбранные»: перенос пока запрещён бэкендом, поэтому причина простая и понятная.
   const canRemove = $derived(removeAllowed(FINDINGS_TRANSFER_READY, pickedCount, busy));
   const removeReason = $derived(
     FINDINGS_TRANSFER_READY
@@ -115,33 +100,13 @@
         : ''
       : 'Пока нельзя убрать: перенос файлов ещё не готов',
   );
-  let throwTimer: number | undefined;
-
-  onDestroy(() => {
-    if (throwTimer) window.clearTimeout(throwTimer);
-  });
-
-  /** «Корзина выбрасывает»: крышка открыта, фигуры улетают, счётчик обнуляется отчётом. */
-  function playThrow() {
-    if (reducedMotion()) {
-      binState = 'closed';
-      return;
-    }
-    if (throwTimer) window.clearTimeout(throwTimer);
-    binState = 'throwing';
-    throwTimer = window.setTimeout(() => {
-      binState = 'idle';
-      throwTimer = undefined;
-    }, FLIGHT_MS);
-  }
 
   async function removeSelected() {
     if (!canRemove) return;
     const selected = findings.filter((_, index) => picked[index]);
     actionNotice = '';
     try {
-      const moved = await quarantineSelected(selected);
-      if (moved > 0) playThrow();
+      await quarantineSelected(selected);
     } catch (err) {
       actionNotice = toDisksError(err).message;
     }
@@ -152,30 +117,6 @@
     void scan.report;
     picked = {};
     menu = null;
-  });
-
-  // Находки слетаются в корзину после отчёта, крышка закрывается в конце.
-  // Без движения состояние меняется сразу: ни полёта, ни ожидания.
-  $effect(() => {
-    const report = scan.report;
-    if (!report) {
-      flight = null;
-      binState = 'idle';
-      return;
-    }
-    if (report.findings.length === 0 || reducedMotion()) {
-      flight = null;
-      // Пока корзина «выбрасывает», её вид не перебиваем.
-      if (binState !== 'throwing') binState = 'closed';
-      return;
-    }
-    flight = { id: ++flightSeq, count: Math.min(3, report.findings.length) };
-    binState = 'filling';
-    const timer = window.setTimeout(() => {
-      binState = 'closed';
-      flight = null;
-    }, FLIGHT_MS);
-    return () => window.clearTimeout(timer);
   });
 
   function toggleFinding(index: number, next: boolean) {
@@ -270,6 +211,7 @@
     } catch (err) {
       engineError = toCommandError(err);
     }
+    if (engine?.available) return;
     try {
       signatures = await clamavSignatures();
     } catch {
@@ -391,21 +333,13 @@
 
 {#snippet stationStatus()}
   {#if scan.phase === 'scanning'}
-    {#if scan.progress}
-      <p>
-        Обработано файлов: {scan.progress.processedFiles}{scan.progress.totalFiles > 0
-          ? ` из ${scan.progress.totalFiles}`
-          : ''}. Проверено: {scan.progress.scannedFiles}.
-      </p>
-    {:else}
-      <p>Подготавливаем список файлов…</p>
-    {/if}
+    <p>{scan.progress ? 'Идёт проверка…' : 'Подготавливаем список файлов…'}</p>
   {:else if scan.phase === 'assessing'}
     <p>Оцениваем находки…</p>
   {:else if scan.notice}
     <p>{scan.notice}</p>
   {:else if scan.report}
-    <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
+    <p>Проверка завершена.</p>
     {#if scan.report.mode === 'signs'}
       <p>Результат проверки по признакам, без базы сигнатур.</p>
     {/if}
@@ -417,6 +351,42 @@
   {:else}
     <p>Готово к проверке.</p>
   {/if}
+{/snippet}
+
+{#snippet findingsPanel(inScanner: boolean)}
+  <section class="findings-panel workspace" aria-label="Находки проверки">
+    <div class="panel-head">
+      {@render panelTitle('Находки', 'findings')}
+    </div>
+    {#if findings.length === 0}
+      <div class="empty-state">{@render findingsEmpty()}</div>
+    {:else}
+      {#if !inScanner && scan.notice}
+        <p class="empty" role="status">{scan.notice}</p>
+      {/if}
+      {#if !inScanner && scan.assessFailures.count > 0}
+        <p class="empty" role="status">
+          Не удалось оценить файлов: {scan.assessFailures.count}. Причина: {scan.assessFailures
+            .firstMessage}
+        </p>
+      {/if}
+      {#if actionNotice}
+        <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
+      {/if}
+      <div class:list-scroll={inScanner}>
+        <FindingsList
+          {findings}
+          suspicions={scan.suspicions}
+          selected={picked}
+          onToggle={toggleFinding}
+          onOpenMenu={openFindingMenu}
+        />
+      </div>
+      <div class="findings-tools">
+        <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
+      </div>
+    {/if}
+  </section>
 {/snippet}
 
 {#if subsection === 'scan'}
@@ -546,90 +516,14 @@
           </p>
         {/if}
       {/if}
-
-      {#if engine?.available && signatures?.signatures}
-        <p class="hint" data-testid="signatures-loaded">
-          База загружена: сигнатур — {signatures.signatures}.
-        </p>
-      {/if}
     </section>
 
-    <div class="bottom">
-      <section class="findings-panel" aria-label="Находки проверки">
-        <div class="panel-head">
-          {@render panelTitle('Находки', 'findings')}
-          <span class="selection-count">Выбрано: {pickedCount}</span>
-        </div>
-        {#if actionNotice}
-          <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
-        {/if}
-        <div class="list-scroll">
-          {#if findings.length === 0}
-            <div class="empty-state">{@render findingsEmpty()}</div>
-          {:else}
-            <FindingsList
-              {findings}
-              suspicions={scan.suspicions}
-              selected={picked}
-              onToggle={toggleFinding}
-              onOpenMenu={openFindingMenu}
-            />
-          {/if}
-        </div>
-      </section>
-
-      <aside class="bin-card" aria-label="Корзина находок">
-        <VirusBin count={findings.length} state={binState} />
-        <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
-      </aside>
-    </div>
-
-    {#if flight}
-      {@const current = flight}
-      <div class="flight" data-testid="bin-flight" aria-hidden="true">
-        {#each Array.from({ length: current.count }, (_, index) => index) as drop (drop)}
-          <span class="drop" style:--drop-index={drop}></span>
-        {/each}
-      </div>
-    {/if}
+    {@render findingsPanel(true)}
   </div>
 {/if}
 
 {#if subsection === 'findings'}
-  <section class="findings-panel workspace" aria-label="Находки проверки">
-    <div class="panel-head">
-      {@render panelTitle('Находки', 'findings')}
-      {#if findings.length > 0}
-        <span class="selection-count">Выбрано: {pickedCount}</span>
-      {/if}
-    </div>
-    {#if findings.length === 0}
-      <div class="empty-state">{@render findingsEmpty()}</div>
-    {:else}
-    {#if scan.notice}
-      <p class="empty" role="status">{scan.notice}</p>
-    {/if}
-    {#if scan.assessFailures.count > 0}
-      <p class="empty" role="status">
-        Не удалось оценить файлов: {scan.assessFailures.count}. Причина: {scan.assessFailures
-          .firstMessage}
-      </p>
-    {/if}
-    {#if actionNotice}
-      <p class="empty" role="status" data-testid="finding-action">{actionNotice}</p>
-    {/if}
-    <FindingsList
-      {findings}
-      suspicions={scan.suspicions}
-      selected={picked}
-      onToggle={toggleFinding}
-      onOpenMenu={openFindingMenu}
-    />
-    <div class="findings-tools">
-      <RemoveSelected disabled={!canRemove} reason={removeReason} onremove={removeSelected} />
-    </div>
-    {/if}
-  </section>
+  {@render findingsPanel(false)}
 {/if}
 
 {#if subsection === 'log'}
@@ -812,33 +706,33 @@
   }
 
   .scan-screen {
-    position: relative;
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
     gap: 16px;
-    min-height: 0;
   }
 
-  /* Карточка проверки в духе карточки скорости из «Сети»: большая шкала, цифры, одна кнопка. */
   .card.scanner {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
     padding: 16px;
-    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
   }
 
   .scanner-body {
     display: grid;
-    grid-template-columns: minmax(0, 264px) minmax(0, 432px);
-    inline-size: 100%;
-    max-inline-size: 708px;
-    margin-inline: auto;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
     gap: 12px;
+  }
+
+  @container (min-width: 390px) {
+    .scanner-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   }
 
   .gauge {
@@ -846,7 +740,8 @@
     container-type: inline-size;
     display: grid;
     place-items: center;
-    width: 100%;
+    width: min(100%, 240px);
+    justify-self: center;
     aspect-ratio: 1;
     min-width: 0;
     overflow: hidden;
@@ -925,8 +820,8 @@
     display: grid;
     place-items: center;
     min-width: 0;
-    min-height: 108px;
-    padding: 8px 10px;
+    min-height: 76px;
+    padding: 25px 8px 8px;
     border-radius: var(--radius-sm);
     background: #202020;
     text-align: center;
@@ -944,7 +839,7 @@
 
   .stat dd {
     margin: 0;
-    font-size: clamp(1.45rem, var(--count-size), 4.5rem);
+    font-size: clamp(1.2rem, var(--count-size), 2.25rem);
     font-weight: 800;
     line-height: 1.05;
     font-variant-numeric: tabular-nums;
@@ -1054,80 +949,6 @@
     margin: 0 0 4px;
   }
 
-  .bottom {
-    display: grid;
-    flex: 1 1 auto;
-    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
-    gap: 16px;
-    min-height: 0;
-  }
-
-  .bin-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--surface-alt);
-  }
-
-  .scanner {
-    container-type: inline-size;
-  }
-
-  .flight {
-    position: absolute;
-    inset: 0;
-    z-index: 3;
-    pointer-events: none;
-  }
-
-  .drop {
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    background: var(--accent);
-    animation: fly 480ms cubic-bezier(0.4, 0, 0.7, 1) both;
-    animation-delay: calc(var(--drop-index) * 60ms);
-  }
-
-  .drop:nth-child(1) {
-    border-radius: 50%;
-  }
-
-  .drop:nth-child(2) {
-    border-radius: var(--radius-xs);
-  }
-
-  .drop:nth-child(3) {
-    border-radius: 0;
-    clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  }
-
-  @keyframes fly {
-    0% {
-      left: 70%;
-      top: 20%;
-      opacity: 0;
-      transform: scale(0.6);
-    }
-    16% {
-      opacity: 1;
-    }
-    86% {
-      opacity: 1;
-    }
-    100% {
-      left: 26%;
-      top: 82%;
-      opacity: 0;
-      transform: scale(0.8);
-    }
-  }
-
   .findings-panel {
     display: flex;
     flex-direction: column;
@@ -1164,15 +985,6 @@
   .panel-icon svg { width: 20px; }
   .panel-icon[data-kind='quarantine'] { background: var(--surface-alt); color: var(--accent); }
 
-  .selection-count {
-    flex: none;
-    padding: 5px 9px;
-    border-radius: var(--radius-pill);
-    background: var(--surface-alt);
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-  }
-
   .empty-state {
     display: grid;
     align-items: center;
@@ -1186,12 +998,6 @@
   .workspace { min-width: 0; }
   .findings-tools { padding-top: 8px; }
   .journal { display: grid; gap: 12px; }
-
-  .list-scroll {
-    min-height: 0;
-    overflow: hidden auto;
-    overscroll-behavior: contain;
-  }
 
   .sweep {
     height: 100%;
@@ -1218,10 +1024,6 @@
     .sweep, .chevron, .folder-reveal {
       transition: none;
     }
-
-    .drop {
-      animation: none;
-    }
   }
 
   /* Наш переключатель «меньше движения» в «Оформлении» делает то же самое. */
@@ -1229,10 +1031,6 @@
   :global(:root[data-reduce-motion='true']) .folder-reveal,
   :global(:root[data-reduce-motion='true']) .chevron {
     transition: none;
-  }
-
-  :global(:root[data-reduce-motion='true']) .drop {
-    animation: none;
   }
 
   .log {
@@ -1279,36 +1077,15 @@
     color: var(--muted);
   }
 
-  @media (max-width: 980px) {
+  @media (min-width: 1080px) {
     .scan-screen {
-      flex: none;
-    }
-
-    .bottom {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
     .list-scroll {
-      overflow: visible;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .scan-screen {
-      gap: 8px;
-    }
-
-    .scanner-body {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .gauge {
-      width: min(100%, 240px);
-      justify-self: center;
-    }
-
-    .findings-panel {
-      padding: 12px;
+      max-height: 52vh;
+      overflow: hidden auto;
+      overscroll-behavior: contain;
     }
   }
 </style>

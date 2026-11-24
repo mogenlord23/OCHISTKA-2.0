@@ -7,30 +7,15 @@ import pageSource from './VirusesPage.svelte?raw';
 describe('VirusesPage reduced motion', () => {
   const css = pageSource.slice(pageSource.indexOf('<style>'));
 
-  it('turns every moving part off under prefers-reduced-motion: reduce', () => {
-    const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
-    expect(match).not.toBeNull();
-    const block = match?.[1] ?? '';
-    expect(block).toMatch(/\.sweep\s*\{[^}]*transition:\s*none/);
-    expect(block).toMatch(/\.beam\s*\{[^}]*display:\s*none/);
-    expect(block).toMatch(/\.gauge\.running\s*\{[^}]*animation:\s*none/);
-    expect(block).toMatch(/\.drop\s*\{[^}]*animation:\s*none/);
-  });
-
-  it('does the same for the in-app reduce-motion switch', () => {
-    expect(css).toMatch(
-      /:root\[data-reduce-motion='true'\]\)\s*\.sweep\s*\{[^}]*transition:\s*none/,
-    );
-    expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.beam\s*\{[^}]*display:\s*none/);
-    expect(css).toMatch(
-      /:root\[data-reduce-motion='true'\]\)\s*\.gauge\.running\s*\{[^}]*animation:\s*none/,
-    );
-    expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.drop\s*\{[^}]*animation:\s*none/);
+  it('disables scan transitions for system and in-app motion preferences', () => {
+    const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n  \}/);
+    expect(match?.[1]).toMatch(/\.sweep,\s*\.chevron,\s*\.folder-reveal\s*\{[^}]*transition:\s*none/);
+    expect(css).toMatch(/:root\[data-reduce-motion='true'\]\)\s*\.sweep,[\s\S]*?transition:\s*none/);
   });
 
   it('keeps the scanning state visible as text, not only as motion', () => {
     expect(pageSource).toContain('Подготавливаем список файлов');
-    expect(pageSource).toContain('Обработано файлов');
+    expect(pageSource).toContain('Идёт проверка');
   });
 });
 
@@ -40,32 +25,5 @@ describe('VpnPage reduced motion', () => {
     const css = source.slice(source.indexOf('<style>'));
     const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
     expect(match?.[1] ?? '').toMatch(/\.pane\s*\{[^}]*animation:\s*none/);
-  });
-});
-
-describe('VirusesPage scan screen layout (round 28)', () => {
-  it('puts the findings beside the bin and stacks both at 980px', () => {
-    const css = pageSource.slice(pageSource.indexOf('<style>'));
-    expect(css).toMatch(
-      /\.bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(220px,\s*1fr\)/,
-    );
-    expect(css).toMatch(
-      /@media \(max-width: 980px\)\s*\{[\s\S]*?\.bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
-    );
-    expect(css).toMatch(/@media \(max-width: 720px\)/);
-  });
-
-  it('scrolls only the findings list, not the scanner card', () => {
-    const css = pageSource.slice(pageSource.indexOf('<style>'));
-    const scroll = css.match(/\.list-scroll\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(scroll).toMatch(/overflow:\s*hidden auto/);
-    const card = css.match(/\.card\.scanner\s*\{([^}]*)\}/)?.[1] ?? '';
-    expect(card).not.toMatch(/overflow(-y)?:\s*(auto|scroll)/);
-  });
-
-  it('draws the bin as inline vector shapes, without raster images', async () => {
-    const source = (await import('./VirusBin.svelte?raw')).default;
-    expect(source).toContain('<svg');
-    expect(source).not.toMatch(/<img|<image/);
   });
 });

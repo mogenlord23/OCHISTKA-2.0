@@ -46,26 +46,28 @@
         onchange={(next) => onToggle?.(index, next)}
       >
         <span class="head">
-          <strong>{finding.signature}</strong>
+          <strong>{finding.path.split(/[\\/]/).pop() || finding.path}</strong>
           <span class="path selectable">{finding.path}</span>
         </span>
+        <span class="details">
+          <small>Причина: сигнатура {finding.signature}</small>
+          {#if score}
+            <span
+              class="meter"
+              role="meter"
+              aria-label="Подсказка о подозрительности"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow={score.score}
+            >
+              <span style:width="{score.score}%"></span>
+            </span>
+            <small>
+              Подсказка: {score.score}/100 — {score.reasons.join('; ') || 'признаков не найдено'}
+            </small>
+          {/if}
+        </span>
       </Check>
-      <small>Причина: сигнатура {finding.signature}</small>
-      {#if score}
-        <div
-          class="meter"
-          role="meter"
-          aria-label="Подсказка о подозрительности"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow={score.score}
-        >
-          <span style:width="{score.score}%"></span>
-        </div>
-        <small>
-          Подсказка: {score.score}/100 — {score.reasons.join('; ') || 'признаков не найдено'}
-        </small>
-      {/if}
     </li>
   {/each}
 </ul>
@@ -81,7 +83,6 @@
 
   .finding {
     min-width: 0;
-    padding: 12px 14px;
     border: 1px solid var(--border);
     border-inline-start: 3px solid var(--accent);
     border-radius: var(--radius-sm);
@@ -90,6 +91,23 @@
   }
 
   .finding:focus-within { border-color: var(--accent); }
+
+  .finding > :global(label) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 10px;
+    padding: 12px 14px;
+  }
+
+  .finding :global(.box) {
+    transition-property: transform;
+  }
+
+  .details {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 
   .head {
     display: flex;
@@ -104,6 +122,7 @@
   }
 
   .meter {
+    display: block;
     height: 8px;
     margin: 8px 0 6px;
     border-radius: var(--radius-xs);
