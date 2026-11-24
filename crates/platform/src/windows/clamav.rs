@@ -308,6 +308,41 @@ mod tests {
                 engine.scan_file(&clean.to_string_lossy()).unwrap(),
                 FileVerdict::Clean
             );
+
+            let samples = folder.join("samples");
+            let other = folder.join("other");
+            std::fs::create_dir(&samples).unwrap();
+            std::fs::create_dir(&other).unwrap();
+            std::fs::rename(&sample, samples.join("sample.bin")).unwrap();
+            std::fs::rename(&clean, other.join("clean.txt")).unwrap();
+            for index in 0..126 {
+                std::fs::write(other.join(format!("note-{index}.txt")), b"just a note").unwrap();
+            }
+            let started = std::time::Instant::now();
+            let mut first_file = None;
+            let report = ochistka_core::scan::sweep_computer(
+                &crate::windows_cleanup::WindowsFs,
+                &engine,
+                &[
+                    samples.to_string_lossy().into_owned(),
+                    other.to_string_lossy().into_owned(),
+                ],
+                &std::sync::atomic::AtomicBool::new(false),
+                &mut |progress| {
+                    if progress.scanned_files == 1 && first_file.is_none() {
+                        first_file = Some(started.elapsed());
+                    }
+                },
+            )
+            .unwrap();
+            assert_eq!(report.scanned_files, 128);
+            assert_eq!(report.infected_files, 1);
+            assert!(!report.incomplete);
+            println!(
+                "128 temporary files: first result {:?}, total {:?}",
+                first_file.unwrap(),
+                started.elapsed()
+            );
             std::fs::remove_dir_all(&folder).ok();
         }
 

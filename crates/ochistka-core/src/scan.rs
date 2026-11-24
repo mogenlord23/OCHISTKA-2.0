@@ -13,6 +13,8 @@ use crate::system::CoreError;
 
 /// Файлы больше этого размера движок не читает: они попадают в `skipped_files`.
 pub const MAX_FILE_BYTES: u64 = 200 * 1024 * 1024;
+/// Предохранитель для патологически глубоких деревьев при проверке компьютера.
+const MAX_COMPUTER_DEPTH: u32 = 128;
 
 #[derive(Serialize, TS, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +25,15 @@ pub struct Finding {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub identity: Option<FileIdentity>,
+}
+
+#[derive(Serialize, TS, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "ScanMode.ts")]
+pub enum ScanMode {
+    #[default]
+    Signatures,
+    Signs,
 }
 
 #[derive(Serialize, TS, Clone, Debug, Default, PartialEq)]
@@ -38,6 +49,7 @@ pub struct ScanReport {
     // Часть дерева не проверена из-за лимитов обхода или недоступных папок.
     pub incomplete: bool,
     pub findings: Vec<Finding>,
+    pub mode: ScanMode,
 }
 
 #[derive(Serialize, TS, Clone, Debug, PartialEq)]
@@ -74,6 +86,9 @@ pub enum FileVerdict {
 /// Порт движка. Реализации живут в `crates/platform`; без `unsafe` снаружи FFI-модуля.
 pub trait VirusScanPort: Send + Sync {
     fn engine_status(&self) -> EngineStatus;
+    fn mode(&self) -> ScanMode {
+        ScanMode::Signatures
+    }
     /// Проверяет один файл. Вызывается только при доступном движке.
     fn scan_file(&self, path: &str) -> Result<FileVerdict, CoreError>;
     /// Если платформа не поддерживает проверку открытого объекта, идентичность отсутствует.
@@ -191,6 +206,7 @@ pub fn sweep_with_progress(
 
     let mut report = ScanReport {
         incomplete: !complete,
+        mode: port.mode(),
         ..ScanReport::default()
     };
     let mut current = ScanProgress {
@@ -209,27 +225,123 @@ pub fn sweep_with_progress(
             progress(current.clone());
             continue;
         }
-        match port.scan_file_with_identity(&path) {
-            Ok((verdict, identity)) => {
-                report.scanned_files += 1;
-                if let FileVerdict::Found { signature } = verdict {
-                    report.infected_files += 1;
-                    report.findings.push(Finding {
-                        path,
-                        signature,
-                        identity,
-                    });
-                }
-            }
-            Err(CoreError::Cancelled) => return Err(CoreError::Cancelled),
-            Err(_) => report.errors += 1,
-        }
+        scan_file(port, path, &mut report)?;
         current.processed_files += 1;
         current.scanned_files = report.scanned_files;
         current.errors = report.errors;
         progress(current.clone());
     }
     Ok(report)
+}
+
+/// Проверяет системные корни по мере обхода. Нулевой total_files означает неизвестный объём.
+pub fn sweep_computer(
+    fs: &dyn FsPort,
+    port: &dyn VirusScanPort,
+    roots: &[String],
+    cancel: &AtomicBool,
+    progress: &mut dyn FnMut(ScanProgress),
+) -> Result<ScanReport, CoreError> {
+    let status = port.engine_status();
+    if !status.available {
+        return Err(CoreError::EngineMissing(status.reason));
+    }
+    if roots.is_empty() {
+        return Err(CoreError::Probe("нет локальных дисков для проверки".into()));
+    }
+
+    let mut report = ScanReport {
+        mode: port.mode(),
+        ..ScanReport::default()
+    };
+    let mut stack = Vec::new();
+    for root in roots.iter().rev() {
+        validate_target(root)?;
+        stack.push((root.clone(), 0u32));
+    }
+    progress(ScanProgress::default());
+
+    while let Some((dir, depth)) = stack.pop() {
+        if is_cancelled(cancel) {
+            return Err(CoreError::Cancelled);
+        }
+        if depth > MAX_COMPUTER_DEPTH
+            || !matches!(fs.metadata(&dir), Ok(meta) if meta.is_dir && !meta.is_symlink)
+        {
+            report.incomplete = true;
+            continue;
+        }
+        let Ok(entries) = fs.read_dir(&dir) else {
+            report.incomplete = true;
+            continue;
+        };
+
+        let mut priority = Vec::new();
+        for entry in entries {
+            if is_cancelled(cancel) {
+                return Err(CoreError::Cancelled);
+            }
+            if entry.meta.is_symlink {
+                report.skipped_files = report.skipped_files.saturating_add(1);
+            } else if entry.meta.is_dir {
+                let next = (entry.path, depth + 1);
+                if ["Users", "Downloads", "Desktop", "home"]
+                    .iter()
+                    .any(|name| entry.name.eq_ignore_ascii_case(name))
+                {
+                    priority.push(next);
+                } else {
+                    stack.push(next);
+                }
+                continue;
+            } else if entry.meta.size > MAX_FILE_BYTES {
+                report.skipped_files = report.skipped_files.saturating_add(1);
+            } else {
+                scan_file(port, entry.path, &mut report)?;
+            }
+            progress(computer_progress(&report));
+        }
+        stack.extend(priority.into_iter().rev());
+    }
+
+    report.incomplete |= report.skipped_files > 0 || report.errors > 0;
+    Ok(report)
+}
+
+fn computer_progress(report: &ScanReport) -> ScanProgress {
+    ScanProgress {
+        total_files: 0,
+        processed_files: report
+            .scanned_files
+            .saturating_add(report.errors)
+            .saturating_add(report.skipped_files),
+        scanned_files: report.scanned_files,
+        errors: report.errors,
+        skipped_files: report.skipped_files,
+    }
+}
+
+fn scan_file(
+    port: &dyn VirusScanPort,
+    path: String,
+    report: &mut ScanReport,
+) -> Result<(), CoreError> {
+    match port.scan_file_with_identity(&path) {
+        Ok((verdict, identity)) => {
+            report.scanned_files = report.scanned_files.saturating_add(1);
+            if let FileVerdict::Found { signature } = verdict {
+                report.infected_files = report.infected_files.saturating_add(1);
+                report.findings.push(Finding {
+                    path,
+                    signature,
+                    identity,
+                });
+            }
+        }
+        Err(CoreError::Cancelled) => return Err(CoreError::Cancelled),
+        Err(_) => report.errors = report.errors.saturating_add(1),
+    }
+    Ok(())
 }
 
 fn is_cancelled(cancel: &AtomicBool) -> bool {
@@ -250,6 +362,62 @@ mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     const ROOT: &str = "C:\\Users\\Slava\\Downloads";
+
+    #[test]
+    fn computer_scan_reports_unknown_total_and_scans_each_root() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\eicar.com"), b"test", 1);
+        fs.file("D:\\Data\\clean.txt", b"clean", 1);
+        let engine = FakeEngine::ready();
+        let mut updates = Vec::new();
+        let report = sweep_computer(
+            &fs,
+            &engine,
+            &[ROOT.into(), "D:\\Data".into()],
+            &AtomicBool::new(false),
+            &mut |update| updates.push(update),
+        )
+        .unwrap();
+        assert_eq!(report.scanned_files, 2);
+        assert_eq!(report.infected_files, 1);
+        assert!(!report.incomplete);
+        assert!(updates.iter().all(|update| update.total_files == 0));
+        assert_eq!(updates.last().unwrap().processed_files, 2);
+    }
+
+    #[test]
+    fn computer_scan_continues_past_an_unavailable_root_and_skips_links() {
+        let fs = FakeFs::new();
+        fs.link(&format!("{ROOT}\\junction"));
+        fs.file(&format!("{ROOT}\\clean.txt"), b"clean", 1);
+        let report = sweep_computer(
+            &fs,
+            &FakeEngine::ready(),
+            &["D:\\".into(), ROOT.into()],
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(report.incomplete);
+        assert_eq!(report.skipped_files, 1);
+        assert_eq!(report.scanned_files, 1);
+    }
+
+    #[test]
+    fn computer_scan_honors_cancellation_between_files() {
+        let fs = FakeFs::new();
+        fs.file(&format!("{ROOT}\\a.txt"), b"a", 1);
+        fs.file(&format!("{ROOT}\\b.txt"), b"b", 1);
+        let cancel = AtomicBool::new(false);
+        let engine = FakeEngine::ready();
+        let result = sweep_computer(&fs, &engine, &[ROOT.into()], &cancel, &mut |update| {
+            if update.processed_files == 1 {
+                cancel.store(true, Ordering::SeqCst);
+            }
+        });
+        assert!(matches!(result, Err(CoreError::Cancelled)));
+        assert_eq!(engine.calls.load(Ordering::SeqCst), 1);
+    }
 
     /// Движок в памяти: заражён файл, если его имя в `infected`; в `broken` — ошибка чтения.
     struct FakeEngine {

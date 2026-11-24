@@ -23,6 +23,17 @@ use ochistka_core::programs::ProgramsPort;
 use ochistka_core::scan::VirusScanPort;
 use ochistka_core::system::SystemInfoPort;
 
+pub fn computer_scan_roots() -> Result<Vec<String>, ochistka_core::system::CoreError> {
+    #[cfg(windows)]
+    return Ok(windows::win32_ffi::fixed_drive_roots());
+
+    #[cfg(not(windows))]
+    Err(ochistka_core::system::CoreError::Unsupported {
+        feature: "проверка компьютера".into(),
+        os: std::env::consts::OS.into(),
+    })
+}
+
 /// Адаптер текущей ОС. На прочих ОС, кроме Windows и macOS, — заглушка Linux.
 #[cfg(target_os = "windows")]
 pub fn current_system_info() -> Box<dyn SystemInfoPort> {

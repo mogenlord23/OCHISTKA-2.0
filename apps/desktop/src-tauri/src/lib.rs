@@ -18,7 +18,8 @@ use std::sync::Arc;
 
 use commands::{
     assess_file, clamav_load_signatures, clamav_signatures, clamav_status, default_scan_target,
-    get_system_overview, scan_cancel, scan_start, scan_start_with_progress, AppState,
+    get_system_overview, scan_cancel, scan_computer, scan_start, scan_start_with_progress,
+    AppState,
 };
 
 /// Показывает родное окно с сообщением об ошибке запуска (в релизе нет консоли).
@@ -95,6 +96,7 @@ pub fn run() {
             appearance::appearance_request,
             get_system_overview,
             scan_start,
+            scan_computer,
             scan_start_with_progress,
             scan_cancel,
             clamav_status,

@@ -47,10 +47,11 @@ vi.mock('../lib/api', async (importOriginal) => ({
 }));
 
 const DOWNLOADS = 'C:\\Users\\Slava\\Downloads';
-const START = 'Начать проверку';
+const START = 'Проверить компьютер';
 const CLAMDB = 'C:\\Users\\Slava\\AppData\\Local\\OCHISTKA\\clamdb';
 
 beforeEach(() => {
+  vi.mocked(defaultScanTarget).mockResolvedValue('');
   vi.mocked(listQuarantine).mockResolvedValue([]);
   vi.mocked(clamavSignatures).mockResolvedValue({
     dir: CLAMDB,
@@ -80,6 +81,7 @@ function report(findings: ScanReport['findings'] = []): ScanReport {
     errors: 0,
     skippedFiles: 0,
     incomplete: false,
+    mode: 'signatures',
     findings,
   };
 }
@@ -127,7 +129,7 @@ describe('VirusesPage scan', () => {
     await renderReady();
     await fireEvent.click(screen.getByRole('button', { name: START }));
     expect(
-      await screen.findByText('Проверено не всё: часть папок недоступна или слишком много файлов.'),
+      await screen.findByText(/Проверено не всё: некоторые файлы или папки недоступны/),
     ).toBeTruthy();
   });
 
@@ -160,6 +162,7 @@ describe('VirusesPage scan', () => {
       errors: 0,
       skippedFiles: 0,
       incomplete: false,
+      mode: 'signatures',
       findings: [{ path: 'C:\\Users\\Slava\\Downloads\\invoice.pdf.exe', signature: 'Win.Test.X' }],
     });
     expect(await screen.findByText('Проверено файлов: 5. Находок: 1.')).toBeTruthy();
@@ -273,30 +276,32 @@ describe('VirusesPage scan', () => {
     expect(screen.getByRole('button', { name: 'Остановить' })).toBeTruthy();
     expect(input.disabled).toBe(true);
     expect(scanStart).toHaveBeenCalledTimes(1);
-    expect(scanStart).toHaveBeenCalledWith(DOWNLOADS, expect.any(Function));
+    expect(scanStart).toHaveBeenCalledWith(null, expect.any(Function));
 
     finish(report());
     expect(await screen.findByText('Проверено файлов: 5. Находок: 0.')).toBeTruthy();
     await waitFor(() =>
       expect(
-        (screen.getByRole('button', { name: 'Проверить снова' }) as HTMLButtonElement).disabled,
+        (screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled,
       ).toBe(false),
     );
     expect(input.disabled).toBe(false);
   });
 
-  it('FND-0183: empty or whitespace target does not call scanStart', async () => {
+  it('starts a computer scan with no selection and shows progress without a percentage', async () => {
     engineOk('');
-    render(VirusesPage, { props: { subsection: 'scan' } });
-    const button = (await screen.findByRole('button', { name: START })) as HTMLButtonElement;
-    await screen.findByText('Укажите папку для проверки');
-    await fireEvent.click(button);
-    expect(scanStart).not.toHaveBeenCalled();
-
-    const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
-    await fireEvent.input(input, { target: { value: '   ' } });
-    await fireEvent.click(button);
-    expect(scanStart).not.toHaveBeenCalled();
+    let finish: (value: ScanReport) => void = () => {};
+    vi.mocked(scanStart).mockImplementation((_target, onProgress) => {
+      onProgress?.({ totalFiles: 0, processedFiles: 4, scannedFiles: 3, errors: 1, skippedFiles: 0 });
+      return new Promise((resolve) => (finish = resolve));
+    });
+    await renderReady();
+    await fireEvent.click(screen.getByRole('button', { name: START }));
+    expect(scanStart).toHaveBeenCalledWith(null, expect.any(Function));
+    expect(await screen.findByText('Обработано файлов: 4. Проверено: 3.')).toBeTruthy();
+    expect(screen.queryByTestId('scan-percent')).toBeNull();
+    finish(report());
+    await screen.findByText('Проверено файлов: 5. Находок: 0.');
   });
 
   it('FND-0097: shows the visible reason when the engine is unavailable', async () => {
@@ -312,18 +317,22 @@ describe('VirusesPage scan', () => {
     expect(screen.queryByText('Укажите папку для проверки')).toBeNull();
   });
 
-  it('FND-0097: shows the visible reason when the target is empty, and hides it when valid', async () => {
+  it('enables the separate folder action only for a nonempty path', async () => {
     engineOk('');
-    render(VirusesPage, { props: { subsection: 'scan' } });
+    vi.mocked(scanStart).mockResolvedValue(report());
+    await renderReady();
+    await fireEvent.click(screen.getByText('Проверить отдельную папку'));
 
-    expect(await screen.findByText('Укажите папку для проверки')).toBeTruthy();
-    expect(screen.queryByTestId('engine-unavailable')).toBeNull();
+    const button = screen.getByRole('button', { name: 'Проверить папку' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
 
     const input = screen.getByLabelText('Папка для проверки') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: DOWNLOADS } });
     expect(scan.target).toBe(DOWNLOADS);
     expect(input.value).toBe(DOWNLOADS);
-    await waitFor(() => expect(screen.queryByText('Укажите папку для проверки')).toBeNull());
+    expect(button.disabled).toBe(false);
+    await fireEvent.click(button);
+    expect(scanStart).toHaveBeenCalledWith(DOWNLOADS, expect.any(Function));
   });
 });
 
@@ -475,7 +484,7 @@ describe('VirusesPage journal', () => {
     expect(screen.queryByText('Проверок в этой сессии пока не было.')).toBeNull();
     const items = screen.getAllByRole('listitem');
     expect(items).toHaveLength(1);
-    expect(items[0].textContent).toContain(DOWNLOADS);
+    expect(items[0].textContent).toContain('Компьютер');
     expect(items[0].textContent).toContain('проверено 5, находок 1');
   });
 
@@ -491,7 +500,7 @@ describe('VirusesPage journal', () => {
     await fireEvent.click(screen.getByRole('button', { name: START }));
     await screen.findByText('Проверено файлов: 5. Находок: 0.');
     const again = (await screen.findByRole('button', {
-      name: 'Проверить снова',
+      name: START,
     })) as HTMLButtonElement;
     await waitFor(() => expect(again.disabled).toBe(false));
     await fireEvent.click(again);
@@ -545,7 +554,7 @@ describe('VirusesPage shared scan state (FND-0018, FND-0098, FND-0026)', () => {
     expect(screen.queryByTestId('scan-sweep')).toBeNull();
     // Во время оценки новая проверка не начинается: кнопка выключена.
     expect(
-      (screen.getByRole('button', { name: 'Проверить снова' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: START }) as HTMLButtonElement).disabled,
     ).toBe(true);
 
     finishAssess({ score: 1, reasons: [] });

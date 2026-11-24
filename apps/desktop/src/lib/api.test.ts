@@ -42,6 +42,7 @@ const report: ScanReport = {
   errors: 0,
   skippedFiles: 0,
   incomplete: false,
+  mode: 'signatures',
   findings: [],
 };
 
@@ -196,6 +197,7 @@ describe('runtime shape checks', () => {
       errors: 0,
       skippedFiles: 0,
       incomplete: false,
+      mode: 'signatures',
       findings: [finding],
     };
     invokeMock.mockResolvedValue(withFindings);

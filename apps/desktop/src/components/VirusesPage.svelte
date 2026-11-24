@@ -48,10 +48,6 @@
   const findings = $derived(scan.report?.findings ?? []);
   const pickedCount = $derived(findings.filter((_, index) => picked[index]).length);
 
-  const startBlockReason = $derived(
-    busy ? '' : scan.target.trim() === '' ? 'Укажите папку для проверки' : '',
-  );
-
   /** Вид станции: идёт проверка, есть находки, чисто или проверить не удалось. */
   const stationState = $derived(
     scan.phase !== 'idle'
@@ -90,7 +86,9 @@
   const statErrors = $derived(scan.report?.errors ?? scan.progress?.errors ?? 0);
   const gaugeLabel = $derived(
     scan.phase === 'scanning' || scan.phase === 'assessing'
-      ? `Проверка ${scanPercent}%`
+      ? scan.progress?.totalFiles
+        ? `Проверка ${scanPercent}%`
+        : `Проверено файлов: ${statScanned}`
       : `Находок: ${findings.length}`,
   );
 
@@ -251,15 +249,14 @@
   }
 
   onMount(async () => {
-    // Сначала папка: кнопка проверки включается, когда известен движок, и к этому моменту путь
-    // уже подставлен, иначе первое нажатие ничего бы не сделало.
     if (scan.target === '') {
-      try {
-        const fallback = await defaultScanTarget();
-        if (scan.target === '') scan.target = fallback;
-      } catch {
-        // Пустое поле — пользователь укажет папку сам.
-      }
+      void defaultScanTarget()
+        .then((fallback) => {
+          if (scan.target === '') scan.target = fallback;
+        })
+        .catch(() => {
+          // Поле остаётся пустым, основной запуск не зависит от этой подсказки.
+        });
     }
     try {
       engine = await clamavStatus();
@@ -302,6 +299,11 @@
   });
 
   function start() {
+    if (busy) return;
+    void startScan(null);
+  }
+
+  function startFolder() {
     if (busy || scan.target.trim() === '') return;
     void startScan(scan.target.trim());
   }
@@ -338,7 +340,7 @@
     if (run.status === 'cancelled') {
       return 'отменена';
     }
-    const skipped = run.skipped > 0 ? `, пропущено ${run.skipped} (больше 200 МБ)` : '';
+    const skipped = run.skipped > 0 ? `, пропущено ${run.skipped}` : '';
     return `проверено ${run.scanned}, находок ${run.infected}${skipped}`;
   }
 </script>
@@ -353,6 +355,8 @@
       <p class="empty">Проверить не удалось: файлов без проверки — {scan.report.errors}.</p>
     {:else if scan.report.incomplete || scan.report.skippedFiles > 0}
       <p class="empty">Проверено не всё: часть файлов или папок осталась без проверки.</p>
+    {:else if scan.report.mode === 'signs'}
+      <p class="empty">Подозрительных признаков не найдено.</p>
     {:else}
       <p class="empty">Угроз не найдено.</p>
     {/if}
@@ -363,8 +367,9 @@
   {#if scan.phase === 'scanning'}
     {#if scan.progress}
       <p>
-        Обработано файлов: {scan.progress.processedFiles} из {scan.progress.totalFiles}. Проверено:
-        {scan.progress.scannedFiles}.
+        Обработано файлов: {scan.progress.processedFiles}{scan.progress.totalFiles > 0
+          ? ` из ${scan.progress.totalFiles}`
+          : ''}. Проверено: {scan.progress.scannedFiles}.
       </p>
     {:else}
       <p>Подготавливаем список файлов…</p>
@@ -375,9 +380,12 @@
     <p>{scan.notice}</p>
   {:else if scan.report}
     <p>Проверено файлов: {scan.report.scannedFiles}. Находок: {scan.report.infectedFiles}.</p>
+    {#if scan.report.mode === 'signs'}
+      <p>Результат проверки по признакам, без базы сигнатур.</p>
+    {/if}
     {#if scan.report.incomplete || scan.report.errors > 0 || scan.report.skippedFiles > 0}
       <p class="alert" role="status">
-        Проверено не всё: часть папок недоступна или слишком много файлов.
+        Проверено не всё: некоторые файлы или папки недоступны, пропущены либо превышают лимиты проверки.
       </p>
     {/if}
   {:else}
@@ -411,8 +419,13 @@
           {/if}
           <div class="readout">
             {#if scan.phase === 'scanning' || scan.phase === 'assessing'}
-              <span class="value" data-testid="scan-percent">{scanPercent}%</span>
-              <span class="caption">проверено</span>
+              {#if scan.progress?.totalFiles}
+                <span class="value" data-testid="scan-percent">{scanPercent}%</span>
+                <span class="caption">проверено</span>
+              {:else}
+                <span class="value">{statScanned}</span>
+                <span class="caption">файлов проверено</span>
+              {/if}
             {:else}
               <span class="value" data-testid="scan-percent">{findings.length}</span>
               <span class="caption">находок</span>
@@ -440,16 +453,27 @@
             </div>
           </dl>
 
-          <label class="folder">
-            Папка для проверки
-            <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
-          </label>
+          <details class="folder">
+            <summary>Проверить отдельную папку</summary>
+            <label>
+              Папка для проверки
+              <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
+            </label>
+            <button type="button" class="btn" onclick={startFolder} disabled={busy || engine === null || !scan.target.trim()}>
+              Проверить папку
+            </button>
+          </details>
         </div>
       </div>
 
       <div class="track" aria-hidden="true">
         {#if scan.phase === 'scanning'}
-          <div class="sweep" data-testid="scan-sweep" style:width={`${sweepWidth}%`}></div>
+          <div
+            class="sweep"
+            class:indeterminate={scan.progress?.totalFiles === 0}
+            data-testid="scan-sweep"
+            style:width={`${scan.progress?.totalFiles === 0 ? 100 : sweepWidth}%`}
+          ></div>
         {/if}
       </div>
 
@@ -458,18 +482,18 @@
           <button type="button" class="btn" onclick={() => void cancelScan()}>Остановить</button>
         {:else}
           <button type="button" class="btn go" onclick={start} disabled={busy || engine === null}>
-            {scan.report ? 'Проверить снова' : 'Начать проверку'}
+            Проверить компьютер
           </button>
         {/if}
       </div>
 
+      {#if !busy && !scan.report}
+        <p class="hint">Проверка доступных файлов на локальных дисках компьютера.</p>
+      {/if}
+
       <div class="msg" aria-live="polite">
         {@render stationStatus()}
       </div>
-
-      {#if startBlockReason}
-        <p class="msg note">{startBlockReason}</p>
-      {/if}
 
       {#if engine && !engine.available}
         {#if signatures?.enginePresent}
@@ -876,6 +900,11 @@
     margin: 0;
   }
 
+  .folder summary {
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+
   .btn {
     width: 100%;
     min-height: 38px;
@@ -916,10 +945,6 @@
 
   .msg p {
     margin: 0 0 4px;
-  }
-
-  .msg.note {
-    color: var(--muted);
   }
 
   .bottom {
@@ -1063,6 +1088,10 @@
     height: 100%;
     background: var(--accent);
     transition: width 0.2s ease-out;
+  }
+
+  .sweep.indeterminate {
+    opacity: 0.45;
   }
 
   .empty {

@@ -9,8 +9,8 @@ use ochistka_core::assess::{assess_path, NoModel, SuspicionModel};
 use ochistka_core::fs::{FsPort, Limits};
 use ochistka_core::heuristic::FileFacts;
 use ochistka_core::scan::{
-    sweep, sweep_with_progress, EngineStatus, ScanProgress, ScanReport, SignaturesInfo,
-    VirusScanPort,
+    sweep, sweep_computer, sweep_with_progress, EngineStatus, ScanProgress, ScanReport,
+    SignaturesInfo, VirusScanPort,
 };
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use serde::Serialize;
@@ -132,7 +132,7 @@ pub async fn scan_start(
     state: State<'_, AppState>,
     target: String,
 ) -> Result<ScanReport, CommandError> {
-    run_scan(state, target, None).await
+    run_scan(state, Some(target), None).await
 }
 
 #[tauri::command]
@@ -141,12 +141,20 @@ pub async fn scan_start_with_progress(
     target: String,
     on_progress: tauri::ipc::Channel<ScanProgress>,
 ) -> Result<ScanReport, CommandError> {
-    run_scan(state, target, Some(on_progress)).await
+    run_scan(state, Some(target), Some(on_progress)).await
+}
+
+#[tauri::command]
+pub async fn scan_computer(
+    state: State<'_, AppState>,
+    on_progress: tauri::ipc::Channel<ScanProgress>,
+) -> Result<ScanReport, CommandError> {
+    run_scan(state, None, Some(on_progress)).await
 }
 
 async fn run_scan(
     state: State<'_, AppState>,
-    target: String,
+    target: Option<String>,
     on_progress: Option<tauri::ipc::Channel<ScanProgress>>,
 ) -> Result<ScanReport, CommandError> {
     let guard = try_begin_scan(&state.scan_running)?;
@@ -163,24 +171,37 @@ async fn run_scan(
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
         let mut last_sent = std::time::Instant::now();
-        sweep_with_progress(
-            files.as_ref(),
-            scanner.as_ref(),
-            &target,
-            &cancel,
-            Limits::default(),
-            &mut |update| {
-                if update.processed_files == 0
-                    || update.processed_files == update.total_files
-                    || last_sent.elapsed() >= std::time::Duration::from_millis(100)
-                {
-                    if let Some(channel) = &on_progress {
-                        let _ = channel.send(update);
-                    }
-                    last_sent = std::time::Instant::now();
+        let mut progress = |update: ScanProgress| {
+            if update.processed_files == 0
+                || update.processed_files == update.total_files
+                || last_sent.elapsed() >= std::time::Duration::from_millis(100)
+            {
+                if let Some(channel) = &on_progress {
+                    let _ = channel.send(update);
                 }
-            },
-        )
+                last_sent = std::time::Instant::now();
+            }
+        };
+        match target {
+            Some(target) => sweep_with_progress(
+                files.as_ref(),
+                scanner.as_ref(),
+                &target,
+                &cancel,
+                Limits::default(),
+                &mut progress,
+            ),
+            None => {
+                let roots = ochistka_platform::computer_scan_roots()?;
+                sweep_computer(
+                    files.as_ref(),
+                    scanner.as_ref(),
+                    &roots,
+                    &cancel,
+                    &mut progress,
+                )
+            }
+        }
         .map_err(CommandError::from)
     })
     .await

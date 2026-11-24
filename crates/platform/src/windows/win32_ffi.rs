@@ -11,6 +11,31 @@ use ::windows::Win32::UI::WindowsAndMessaging::{
     SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, WM_SETTINGCHANGE,
 };
 
+/// Корни фиксированных дисков. WinAPI исключает съёмные, сетевые и неизвестные тома.
+pub fn fixed_drive_roots() -> Vec<String> {
+    use ::windows::Win32::Storage::FileSystem::{GetDriveTypeW, GetLogicalDrives};
+    use ::windows::Win32::System::WindowsProgramming::DRIVE_FIXED;
+
+    // SAFETY: GetLogicalDrives не принимает указателей и только читает сведения о томах.
+    let drives = unsafe { GetLogicalDrives() };
+    let mut roots: Vec<_> = (b'A'..=b'Z')
+        .filter(|letter| drives & (1 << (letter - b'A')) != 0)
+        .filter_map(|letter| {
+            let root = [u16::from(letter), u16::from(b':'), u16::from(b'\\'), 0];
+            // SAFETY: root содержит имя диска с завершающим нулём и живёт до конца вызова.
+            (unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) } == DRIVE_FIXED)
+                .then(|| format!("{}:\\", char::from(letter)))
+        })
+        .collect();
+    if let Some(profile) = std::env::var_os("USERPROFILE") {
+        let name = profile.to_string_lossy();
+        if let Some(prefix) = name.get(..2) {
+            roots.sort_by_key(|root| !root[..2].eq_ignore_ascii_case(prefix));
+        }
+    }
+    roots
+}
+
 /// Ошибка `windows` с кодом 0 («Операция успешно завершена») не ошибка: вызов отработал,
 /// просто Windows не выставила код. Настоящий успех проверяется чтением реестра.
 fn tolerate_code_zero(result: ::windows::core::Result<()>) -> Result<(), String> {

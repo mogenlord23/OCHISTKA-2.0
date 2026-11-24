@@ -60,11 +60,12 @@ function addRun(run: Omit<Run, 'id' | 'startedAt'>): void {
   scan.runs = [{ id: nextRunId++, startedAt: now(), ...run }, ...scan.runs];
 }
 
-export async function startScan(path: string): Promise<void> {
+export async function startScan(path: string | null): Promise<void> {
   if (scan.phase !== 'idle' || path === '') {
     return;
   }
   scan.phase = 'scanning';
+  const target = path ?? 'Компьютер';
   scan.progress = null;
   cancelRequested = false;
   scan.error = null;
@@ -84,7 +85,7 @@ export async function startScan(path: string): Promise<void> {
     if (cancelRequested || command.kind === 'cancelled') {
       scan.notice = 'Проверка отменена';
       addRun({
-        target: path,
+        target,
         status: 'cancelled',
         scanned: 0,
         infected: 0,
@@ -94,7 +95,7 @@ export async function startScan(path: string): Promise<void> {
     } else {
       scan.error = command;
       addRun({
-        target: path,
+        target,
         status: 'failed',
         scanned: 0,
         infected: 0,
@@ -106,9 +107,10 @@ export async function startScan(path: string): Promise<void> {
     return;
   }
   acceptingProgress = false;
+  scan.progress = null;
   scan.report = result;
   addRun({
-    target: path,
+    target,
     status: 'done',
     scanned: result.scannedFiles,
     infected: result.infectedFiles,
@@ -120,26 +122,16 @@ export async function startScan(path: string): Promise<void> {
   try {
     let failureCount = 0;
     let firstFailure = '';
-    const scores = await Promise.all(
-      result.findings.map(async (finding) => {
-        try {
-          return [finding.path, await assessFile(finding.path)] as const;
-        } catch (err) {
-          failureCount += 1;
-          if (firstFailure === '') {
-            firstFailure = toCommandError(err).message;
-          }
-          return [finding.path, null] as const;
-        }
-      }),
-    );
-    scan.assessFailures = { count: failureCount, firstMessage: firstFailure };
     const next: Record<string, Suspicion> = {};
-    for (const [findingPath, score] of scores) {
-      if (score) {
-        next[findingPath] = score;
+    for (const finding of result.findings) {
+      try {
+        next[finding.path] = await assessFile(finding.path);
+      } catch (err) {
+        failureCount += 1;
+        if (firstFailure === '') firstFailure = toCommandError(err).message;
       }
     }
+    scan.assessFailures = { count: failureCount, firstMessage: firstFailure };
     scan.suspicions = next;
   } finally {
     scan.phase = 'idle';

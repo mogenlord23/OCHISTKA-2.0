@@ -9,7 +9,7 @@ use std::path::Path;
 
 use ochistka_core::assess::{assess_path, NoModel};
 use ochistka_core::fs::FsPort;
-use ochistka_core::scan::{EngineStatus, FileVerdict, VirusScanPort};
+use ochistka_core::scan::{EngineStatus, FileVerdict, ScanMode, VirusScanPort};
 use ochistka_core::system::CoreError;
 
 use super::files::file_facts;
@@ -29,6 +29,10 @@ impl<F: FsPort + Send + Sync> SuspicionEngine<F> {
 }
 
 impl<F: FsPort + Send + Sync> VirusScanPort for SuspicionEngine<F> {
+    fn mode(&self) -> ScanMode {
+        ScanMode::Signs
+    }
+
     fn engine_status(&self) -> EngineStatus {
         EngineStatus {
             available: true,

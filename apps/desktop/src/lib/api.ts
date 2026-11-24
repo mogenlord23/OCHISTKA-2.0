@@ -111,6 +111,7 @@ export function isScanReport(value: unknown): value is ScanReport {
     isNum(value.errors) &&
     isNum(value.skippedFiles) &&
     typeof value.incomplete === 'boolean' &&
+    (value.mode === 'signatures' || value.mode === 'signs') &&
     Array.isArray(value.findings) &&
     value.findings.every(isFinding)
   );
@@ -168,9 +169,14 @@ export interface ScanProgress {
 }
 
 export function scanStart(
-  target: string,
+  target: string | null,
   onProgress?: (progress: ScanProgress) => void,
 ): Promise<ScanReport> {
+  if (target === null) {
+    const channel = new Channel<ScanProgress>();
+    if (onProgress) channel.onmessage = onProgress;
+    return invokeChecked(isScanReport, 'scan_computer', { onProgress: channel });
+  }
   if (!onProgress) return invokeChecked(isScanReport, 'scan_start', { target });
   const channel = new Channel<ScanProgress>();
   channel.onmessage = onProgress;

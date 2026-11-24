@@ -14,10 +14,6 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rustc-check-cfg=cfg(clamav_linked)");
 
-    if env::var_os("CARGO_FEATURE_LIBCLAMAV").is_none() {
-        return;
-    }
-
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let root = manifest
         .parent()
@@ -26,6 +22,17 @@ fn main() {
     let Some(root) = root else {
         return;
     };
+
+    println!(
+        "cargo:rerun-if-changed={}",
+        root.join("VERSION.txt").display()
+    );
+    println!("cargo:rerun-if-changed={}", root.join("bin").display());
+    println!("cargo:rerun-if-changed={}", root.join("lib").display());
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_LIBCLAMAV");
+    if env::var_os("CARGO_FEATURE_LIBCLAMAV").is_none() {
+        return;
+    }
 
     let dll = root.join("bin/libclamav.dll");
     let import_lib = root.join("lib/clamav.lib");
@@ -36,7 +43,6 @@ fn main() {
         return;
     }
 
-    println!("cargo:rerun-if-changed={}", root.join("bin").display());
     println!(
         "cargo:rustc-link-search=native={}",
         root.join("lib").display()
