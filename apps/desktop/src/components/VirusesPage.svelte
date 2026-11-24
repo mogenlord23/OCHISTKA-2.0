@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AcidScan from './AcidScan.svelte';
   import Check from './Check.svelte';
   import ContextMenu, { type MenuItem } from './ContextMenu.svelte';
   import FindingsList from './FindingsList.svelte';
@@ -52,7 +53,7 @@
   const stationState = $derived(
     scan.phase !== 'idle'
       ? 'scanning'
-      : error || (engine && !engine.available)
+      : error
         ? 'failed'
         : scan.report
           ? scan.report.findings.length > 0
@@ -63,24 +64,21 @@
           : 'idle',
   );
 
-  /** Заполнение шкалы: ход проверки, а после отчёта — полная. */
-  const scanFraction = $derived(
-    scan.phase === 'scanning'
-      ? scan.progress && scan.progress.totalFiles > 0
-        ? Math.min(1, scan.progress.processedFiles / scan.progress.totalFiles)
-        : 0
-      : scan.phase === 'assessing'
-        ? 1
-        : scan.report
-          ? 1
-          : 0,
-  );
-  const scanPercent = $derived(Math.round(scanFraction * 100));
   const sweepWidth = $derived(
     scan.progress && scan.progress.totalFiles > 0
-      ? (scan.progress.processedFiles / scan.progress.totalFiles) * 100
+      ? Math.min(100, (scan.progress.processedFiles / scan.progress.totalFiles) * 100)
       : 0,
   );
+  const scanPercent = $derived(Math.round(sweepWidth));
+  // Для всего компьютера объём заранее неизвестен. Уровень реагирует на обработку,
+  // а числом рядом остаётся количество файлов. Полный бак требует отчёта.
+  const acidLevel = $derived.by(() => {
+    if (scan.report) return 1;
+    if (scan.phase !== 'scanning') return 0;
+    if (scan.progress?.totalFiles) return Math.min(0.97, sweepWidth / 100);
+    const processed = scan.progress?.processedFiles ?? 0;
+    return 0.06 + (0.86 * processed) / (processed + 4096);
+  });
   const statScanned = $derived(scan.progress?.scannedFiles ?? scan.report?.scannedFiles ?? 0);
   const statSkipped = $derived(scan.report?.skippedFiles ?? scan.progress?.skippedFiles ?? 0);
   const statErrors = $derived(scan.report?.errors ?? scan.progress?.errors ?? 0);
@@ -89,7 +87,7 @@
       ? scan.progress?.totalFiles
         ? `Проверка ${scanPercent}%`
         : `Проверено файлов: ${statScanned}`
-      : `Находок: ${findings.length}`,
+      : 'Запустить проверку в квадрате',
   );
 
   /** Движение отключают и системная настройка, и наш переключатель в «Оформлении». */
@@ -406,18 +404,17 @@
       aria-label="Проверка компьютера"
     >
       <div class="scanner-body">
-        <div
+        <button
+          type="button"
           class="gauge"
-          class:running={scan.phase === 'scanning' || scan.phase === 'assessing'}
-          class:filled={scanFraction >= 0.5}
-          role="img"
+          class:filled={acidLevel === 1}
+          class:active={scan.phase === 'scanning'}
+          onclick={start}
+          disabled={busy || engine === null}
           aria-label={gaugeLabel}
         >
-          <div class="fill" aria-hidden="true" style:height={`${scanFraction * 100}%`}></div>
-          {#if scan.phase === 'scanning'}
-            <span class="beam" data-testid="scan-beam" aria-hidden="true"></span>
-          {/if}
-          <div class="readout">
+          <AcidScan level={acidLevel} running={scan.phase === 'scanning'} />
+          <span class="readout">
             {#if scan.phase === 'scanning' || scan.phase === 'assessing'}
               {#if scan.progress?.totalFiles}
                 <span class="value" data-testid="scan-percent">{scanPercent}%</span>
@@ -430,8 +427,8 @@
               <span class="value" data-testid="scan-percent">{findings.length}</span>
               <span class="caption">находок</span>
             {/if}
-          </div>
-        </div>
+          </span>
+        </button>
 
         <div class="scanner-details">
           <dl class="stats">
@@ -457,7 +454,7 @@
             <summary>Проверить отдельную папку</summary>
             <label>
               Папка для проверки
-              <input bind:value={scan.target} placeholder="C:\Users\Имя\Downloads" disabled={busy} />
+              <input bind:value={scan.target} placeholder="Абсолютный путь к папке" disabled={busy} />
             </label>
             <button type="button" class="btn" onclick={startFolder} disabled={busy || engine === null || !scan.target.trim()}>
               Проверить папку
@@ -804,23 +801,18 @@
     aspect-ratio: 1;
     min-width: 0;
     overflow: hidden;
+    border: 0;
     border-radius: var(--radius-sm);
     background: #202020;
+    padding: 0;
+    font: inherit;
   }
 
-  .gauge .fill {
-    position: absolute;
-    inset: auto 0 0;
-    background: linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) 45%, #000));
-    transition: height 0.18s linear;
-  }
-
-  .gauge:not(.running) .fill {
-    transition: none;
-  }
-
-  .gauge.running {
-    animation: press-pulse 1.6s ease-in-out infinite;
+  .gauge:not(:disabled) { cursor: pointer; }
+  .gauge:disabled { opacity: 1; }
+  .gauge:hover:not(:disabled), .gauge:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .readout {
@@ -832,6 +824,12 @@
     max-width: 100%;
     padding: 8px;
     text-align: center;
+  }
+
+  .gauge.active .readout {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: #161b11eb;
   }
 
   .value {
@@ -971,21 +969,6 @@
     container-type: inline-size;
   }
 
-  /* Луч по шкале: только пока идёт проверка. */
-  .beam {
-    position: absolute;
-    inset: 0 auto 0 -40%;
-    width: 40%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      color-mix(in srgb, var(--accent) 30%, transparent),
-      transparent
-    );
-    animation: beam-sweep 1.6s linear infinite;
-    pointer-events: none;
-  }
-
   .flight {
     position: absolute;
     inset: 0;
@@ -1013,25 +996,6 @@
   .drop:nth-child(3) {
     border-radius: 0;
     clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  }
-
-  @keyframes beam-sweep {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(360%);
-    }
-  }
-
-  @keyframes press-pulse {
-    0%,
-    100% {
-      box-shadow: 0 0 0 1px var(--accent);
-    }
-    50% {
-      box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 25%, transparent);
-    }
   }
 
   @keyframes fly {
@@ -1114,14 +1078,6 @@
       transition: none;
     }
 
-    .beam {
-      display: none;
-    }
-
-    .gauge.running {
-      animation: none;
-    }
-
     .drop {
       animation: none;
     }
@@ -1130,14 +1086,6 @@
   /* Наш переключатель «меньше движения» в «Оформлении» делает то же самое. */
   :global(:root[data-reduce-motion='true']) .sweep {
     transition: none;
-  }
-
-  :global(:root[data-reduce-motion='true']) .beam {
-    display: none;
-  }
-
-  :global(:root[data-reduce-motion='true']) .gauge.running {
-    animation: none;
   }
 
   :global(:root[data-reduce-motion='true']) .drop {

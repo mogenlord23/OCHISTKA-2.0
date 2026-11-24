@@ -7,6 +7,7 @@ import {
   clamavStatus,
   defaultScanTarget,
   scanStart,
+  type ScanProgress,
 } from '../lib/api';
 import { revealInExplorer } from '../lib/programsApi';
 import {
@@ -669,21 +670,31 @@ describe('VirusesPage scan screen motion (round 28)', () => {
     await screen.findByText('Проверено файлов: 5. Находок: 1.');
   }
 
-  it('shows the beam only while scanning and marks the station state', async () => {
+  it('starts from the square and fills the acid tank only after the report arrives', async () => {
     engineOk();
     let finish: (value: ScanReport) => void = () => {};
-    vi.mocked(scanStart).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    let progress: (value: ScanProgress) => void = () => {};
+    vi.mocked(scanStart).mockImplementation((_path, onProgress) => {
+      progress = onProgress ?? (() => {});
+      return new Promise((resolve) => (finish = resolve));
+    });
 
     await renderReady();
-    await fireEvent.click(screen.getByRole('button', { name: START }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Запустить проверку в квадрате' }));
 
     const station = screen.getByTestId('scan-station');
+    const acid = screen.getByTestId('scan-liquid');
     expect(station.dataset.state).toBe('scanning');
-    expect(screen.getByTestId('scan-beam')).toBeTruthy();
+    expect(screen.getByTestId('falling-viruses')).toBeTruthy();
+    const initialLevel = Number(acid.dataset.level);
+    progress({ processedFiles: 4096, scannedFiles: 4000, totalFiles: 0, skippedFiles: 96, errors: 0 });
+    await waitFor(() => expect(Number(acid.dataset.level)).toBeGreaterThan(initialLevel));
+    expect(Number(acid.dataset.level)).toBeLessThan(100);
 
     finish(report());
     await screen.findByText('Проверено файлов: 5. Находок: 0.');
-    expect(screen.queryByTestId('scan-beam')).toBeNull();
+    expect(screen.queryByTestId('falling-viruses')).toBeNull();
+    expect(acid.dataset.level).toBe('100');
     expect(screen.getByTestId('scan-station').dataset.state).toBe('clean');
   });
 
