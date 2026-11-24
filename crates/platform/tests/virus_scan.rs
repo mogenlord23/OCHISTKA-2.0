@@ -15,6 +15,42 @@ use ochistka_core::system::CoreError;
 use ochistka_platform::windows::clamav::ClamAvEngine;
 use ochistka_platform::windows_cleanup::WindowsFs;
 
+#[cfg(all(windows, feature = "libclamav"))]
+#[test]
+#[ignore = "requires a verified official CVD in OCHISTKA_OFFICIAL_CLAMDB"]
+fn embedded_clamav_scans_with_official_database() {
+    let database = std::env::var("OCHISTKA_OFFICIAL_CLAMDB")
+        .expect("provide the isolated directory containing a verified official CVD");
+    let scanner = ClamAvEngine::build();
+    scanner
+        .load_signatures(&database)
+        .expect("load official ClamAV signatures in OCHISTKA");
+    assert!(scanner.engine_status().available);
+    let signatures = scanner.signature_count().expect("signature count");
+    assert!(signatures > 0);
+
+    let sample = temp_folder("official-clamav-clean");
+    std::fs::write(
+        sample.join("note.txt"),
+        b"OCHISTKA official database smoke test",
+    )
+    .unwrap();
+    let report = ochistka_core::scan::sweep_computer(
+        &WindowsFs,
+        &scanner,
+        &[as_target(&sample)],
+        &no_cancel(),
+        &mut |_| {},
+    )
+    .unwrap();
+    std::fs::remove_dir_all(&sample).unwrap();
+    assert_eq!(report.mode, ochistka_core::scan::ScanMode::Signatures);
+    assert_eq!(report.scanned_files, 1);
+    assert_eq!(report.infected_files, 0);
+    assert!(!report.incomplete);
+    println!("official database: {signatures} loaded signatures; clean test file scanned");
+}
+
 const EICAR: &[u8] = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
 /// Собственный безвредный образец для тестов на диске.
