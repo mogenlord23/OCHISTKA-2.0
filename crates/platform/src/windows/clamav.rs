@@ -25,19 +25,28 @@ pub const fn engine_present() -> bool {
     cfg!(clamav_linked)
 }
 
-/// Папка баз по умолчанию: `%LOCALAPPDATA%\OCHISTKA\clamdb`. Её наполняет владелец.
+/// Папка баз в пользовательском каталоге данных текущей ОС.
 pub fn default_signatures_dir() -> Option<std::path::PathBuf> {
-    let base = std::env::var_os("LOCALAPPDATA")?;
-    Some(
-        std::path::PathBuf::from(base)
-            .join("OCHISTKA")
-            .join("clamdb"),
-    )
+    use std::path::PathBuf;
+    #[cfg(windows)]
+    let base = PathBuf::from(std::env::var_os("LOCALAPPDATA")?);
+    #[cfg(target_os = "macos")]
+    let base = PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support");
+    #[cfg(target_os = "linux")]
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .or_else(|| Some(PathBuf::from(std::env::var_os("HOME")?).join(".local/share")))?;
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+    return Some(base.join("OCHISTKA").join("clamdb"));
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+    None
 }
 
 /// Создаёт папку баз, если её нет, и возвращает путь.
 pub fn ensure_signatures_dir() -> Result<std::path::PathBuf, String> {
-    let dir = default_signatures_dir().ok_or_else(|| "не найден %LOCALAPPDATA%".to_string())?;
+    let dir = default_signatures_dir()
+        .ok_or_else(|| "папка данных пользователя не найдена".to_string())?;
     std::fs::create_dir_all(&dir).map_err(|err| format!("папка баз не создана: {err}"))?;
     Ok(dir)
 }
@@ -120,9 +129,15 @@ impl VirusScanPort for ClamAvEngine {
             let engine = guard
                 .as_ref()
                 .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
-            engine
-                .scan(path)
-                .map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
+            #[cfg(windows)]
+            let result = engine.scan(path);
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            let result = {
+                let file = crate::computer_scan::open_regular(std::path::Path::new(path))
+                    .map_err(|err| CoreError::Probe(err.to_string()))?;
+                engine.scan_open_file(&file)
+            };
+            result.map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
         }
         #[cfg(not(clamav_linked))]
         {
@@ -143,12 +158,18 @@ impl VirusScanPort for ClamAvEngine {
             .ok_or_else(|| CoreError::EngineMissing(self.reason.clone()))?;
         let file = open_regular_no_links(std::path::Path::new(path))
             .map_err(|err| CoreError::Probe(err.to_string()))?;
-        let (verdict, identity) = scan_open_file(&file, |opened| {
+        let scan = |opened: &std::fs::File| {
             engine
                 .scan_open_file(opened)
                 .map_err(|err| CoreError::Probe(format!("движок не проверил файл: {err}")))
-        })?;
-        Ok((verdict, Some(identity)))
+        };
+        if matches!(scan(&file)?, FileVerdict::Clean) {
+            return Ok((FileVerdict::Clean, None));
+        }
+        // Хеш идентичности и повторная проверка нужны только для находок.
+        let (verdict, identity) = scan_open_file(&file, scan)?;
+        let identity = matches!(verdict, FileVerdict::Found { .. }).then_some(identity);
+        Ok((verdict, identity))
     }
 
     fn load_signatures(&self, dir: &str) -> Result<(), CoreError> {

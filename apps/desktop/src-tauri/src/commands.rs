@@ -9,8 +9,8 @@ use ochistka_core::assess::{assess_path, SuspicionModel};
 use ochistka_core::fs::{FsPort, Limits};
 use ochistka_core::heuristic::FileFacts;
 use ochistka_core::scan::{
-    sweep, sweep_computer, sweep_with_progress, EngineStatus, ScanProgress, ScanReport,
-    SignaturesInfo, VirusScanPort,
+    sweep, sweep_with_progress, EngineStatus, ScanProgress, ScanReport, SignaturesInfo,
+    VirusScanPort,
 };
 use ochistka_core::system::{CoreError, SystemInfoPort, SystemOverview};
 use ochistka_platform::pe_model::PeHeaderModel;
@@ -192,16 +192,12 @@ async fn run_scan(
                 Limits::default(),
                 &mut progress,
             ),
-            None => {
-                let roots = ochistka_platform::computer_scan_roots()?;
-                sweep_computer(
-                    files.as_ref(),
-                    scanner.as_ref(),
-                    &roots,
-                    &cancel,
-                    &mut progress,
-                )
-            }
+            None => ochistka_platform::computer_scan::scan_computer(
+                files.as_ref(),
+                scanner.as_ref(),
+                &cancel,
+                &mut progress,
+            ),
         }
         .map_err(CommandError::from)
     })

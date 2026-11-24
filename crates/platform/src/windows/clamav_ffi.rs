@@ -17,13 +17,26 @@ pub struct ClEngine {
 
 /// Опции сканирования (`struct cl_scan_options` в ClamAV 1.4.6).
 #[repr(C)]
-#[derive(Default)]
 pub struct ClScanOptions {
     pub general: u32,
     pub parse: u32,
     pub heuristic: u32,
     pub mail: u32,
     pub dev: u32,
+}
+
+impl Default for ClScanOptions {
+    fn default() -> Self {
+        // ClamAV 1.4 clamscan: встроенные парсеры от ARCHIVE до IMAGE.
+        // Fuzzy-hash изображений и эвристические вердикты отдельно не включаем.
+        Self {
+            general: 0,
+            parse: 0x0fff,
+            heuristic: 0,
+            mail: 0,
+            dev: 0,
+        }
+    }
 }
 
 /// Коды результата из `clamav.h`.
@@ -45,6 +58,7 @@ extern "C" {
         dboptions: c_uint,
     ) -> c_int;
     fn cl_engine_compile(engine: *mut ClEngine) -> c_int;
+    #[cfg(windows)]
     fn cl_scanfile(
         filename: *const c_char,
         virname: *mut *const c_char,
@@ -52,7 +66,7 @@ extern "C" {
         engine: *const ClEngine,
         scanoptions: *mut ClScanOptions,
     ) -> c_int;
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn cl_scandesc(
         desc: c_int,
         filename: *const c_char,
@@ -113,6 +127,7 @@ impl Engine {
     }
 
     /// Проверяет один файл. Возвращает вердикт или текст ошибки библиотеки.
+    #[cfg(windows)]
     pub fn scan(&self, path: &str) -> Result<FileVerdict, String> {
         let file = CString::new(path).map_err(|_| "путь содержит нулевой байт".to_string())?;
         let mut virus: *const c_char = std::ptr::null();
@@ -132,8 +147,8 @@ impl Engine {
         Self::verdict(code, virus)
     }
 
-    /// Linux: проверка именно открытого файлового дескриптора, без повторного открытия пути.
-    #[cfg(target_os = "linux")]
+    /// Проверяет открытый файловый дескриптор без повторного открытия пути.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub fn scan_open_file(&self, file: &std::fs::File) -> Result<FileVerdict, String> {
         use std::os::fd::AsRawFd;
         let mut virus: *const c_char = std::ptr::null();

@@ -68,21 +68,15 @@ impl FsPort for WindowsFs {
     }
 
     fn read_dir(&self, path: &str) -> Result<Vec<DirEntry>, CleanupError> {
-        let reader = fs::read_dir(path).map_err(|err| io_error(path, err))?;
-        let mut entries = Vec::new();
-        for entry in reader {
-            // Ошибку нельзя скрывать: вызывающий должен сообщить о неполном обходе.
-            let entry = entry.map_err(|err| io_error(path, err))?;
-            let entry_path = entry.path();
-            let metadata = fs::symlink_metadata(&entry_path)
-                .map_err(|err| io_error(&entry_path.to_string_lossy(), err))?;
-            entries.push(DirEntry {
-                name: entry.file_name().to_string_lossy().into_owned(),
-                path: entry_path.to_string_lossy().into_owned(),
-                meta: meta_from(&metadata),
-            });
-        }
-        Ok(entries)
+        list_entries(path, &|_| false, false)
+    }
+
+    fn read_scan_dir(
+        &self,
+        path: &str,
+        excluded: &dyn Fn(&str) -> bool,
+    ) -> Result<Vec<DirEntry>, CleanupError> {
+        list_entries(path, excluded, true)
     }
 
     fn child(&self, dir: &str, name: &str) -> String {
@@ -90,8 +84,11 @@ impl FsPort for WindowsFs {
     }
 
     fn open(&self, path: &str) -> Result<Box<dyn Read + Send>, CleanupError> {
-        fs::File::open(path)
-            .map(|file| Box::new(file) as Box<dyn Read + Send>)
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        let file = crate::computer_scan::open_regular(Path::new(path));
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        let file = fs::File::open(path);
+        file.map(|file| Box::new(file) as Box<dyn Read + Send>)
             .map_err(|err| io_error(path, err))
     }
 
@@ -125,6 +122,59 @@ impl FsPort for WindowsFs {
     fn remove_dir(&self, path: &str) -> Result<(), CleanupError> {
         fs::remove_dir(path).map_err(|err| io_error(path, err))
     }
+}
+
+fn list_entries(
+    path: &str,
+    excluded: &dyn Fn(&str) -> bool,
+    restrict_to_volume: bool,
+) -> Result<Vec<DirEntry>, CleanupError> {
+    #[cfg(unix)]
+    use std::os::unix::fs::MetadataExt;
+    #[cfg(unix)]
+    let device = if restrict_to_volume {
+        Some(
+            fs::symlink_metadata(path)
+                .map_err(|err| io_error(path, err))?
+                .dev(),
+        )
+    } else {
+        None
+    };
+
+    let reader = fs::read_dir(path).map_err(|err| io_error(path, err))?;
+    let mut entries = Vec::new();
+    for entry in reader {
+        let entry = entry.map_err(|err| io_error(path, err))?;
+        let entry_path = entry.path();
+        let entry_path = match entry_path.to_str() {
+            Some(path) => path,
+            None => {
+                return Err(CleanupError::Io(
+                    "путь содержит недопустимые символы".into(),
+                ))
+            }
+        };
+        if excluded(entry_path) {
+            continue;
+        }
+        // DirEntry использует метаданные из перечисления Windows и не разыменовывает ссылки.
+        let metadata = entry.metadata().map_err(|err| io_error(entry_path, err))?;
+        #[cfg(unix)]
+        if device.is_some_and(|dev| dev != metadata.dev()) {
+            continue;
+        }
+        if restrict_to_volume && !metadata.is_dir() && !metadata.is_file() && !metadata.is_symlink()
+        {
+            continue;
+        }
+        entries.push(DirEntry {
+            name: entry.file_name().to_string_lossy().into_owned(),
+            path: entry_path.into(),
+            meta: meta_from(&metadata),
+        });
+    }
+    Ok(entries)
 }
 
 fn copy_then_remove(from: &str, to: &str) -> Result<(), CleanupError> {

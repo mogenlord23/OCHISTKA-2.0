@@ -2802,8 +2802,10 @@ name = "ochistka-platform"
 version = "0.1.0"
 dependencies = [
  "image",
+ "libc",
  "netstat2",
  "ochistka-core",
+ "pkg-config",
  "reqwest",
  "serde",
  "serde_json",

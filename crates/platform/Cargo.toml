@@ -18,6 +18,12 @@ sysinfo = "0.40.4"
 tract-onnx = { version = "=0.23.10", default-features = false }
 url = "2"
 
+[build-dependencies]
+pkg-config = "0.3"
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+libc = "0.2"
+
 # Реестр Windows: только чтение, только под Windows (безопасная обёртка над WinAPI).
 [target.'cfg(windows)'.dependencies]
 windows-icons = "0.4.0"

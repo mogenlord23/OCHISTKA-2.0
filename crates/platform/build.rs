@@ -13,7 +13,29 @@ use std::path::{Path, PathBuf};
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rustc-check-cfg=cfg(clamav_linked)");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_LIBCLAMAV");
+    if env::var_os("CARGO_FEATURE_LIBCLAMAV").is_none() {
+        return;
+    }
 
+    match env::var("CARGO_CFG_TARGET_OS").as_deref() {
+        Ok("linux" | "macos") => {
+            if pkg_config::Config::new()
+                .atleast_version("1.4")
+                .probe("libclamav")
+                .is_ok()
+            {
+                println!("cargo:rustc-cfg=clamav_linked");
+            } else {
+                println!("cargo:warning=libclamav включён, но pkg-config не нашёл libclamav 1.4 или новее");
+            }
+        }
+        Ok("windows") => link_windows(),
+        _ => {}
+    }
+}
+
+fn link_windows() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let root = manifest
         .parent()
@@ -29,11 +51,6 @@ fn main() {
     );
     println!("cargo:rerun-if-changed={}", root.join("bin").display());
     println!("cargo:rerun-if-changed={}", root.join("lib").display());
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_LIBCLAMAV");
-    if env::var_os("CARGO_FEATURE_LIBCLAMAV").is_none() {
-        return;
-    }
-
     let dll = root.join("bin/libclamav.dll");
     let import_lib = root.join("lib/clamav.lib");
     if !dll.is_file() || !import_lib.is_file() {

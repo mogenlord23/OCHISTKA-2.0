@@ -242,6 +242,18 @@ pub fn sweep_computer(
     cancel: &AtomicBool,
     progress: &mut dyn FnMut(ScanProgress),
 ) -> Result<ScanReport, CoreError> {
+    sweep_computer_scoped(fs, port, roots, &|_| false, cancel, progress)
+}
+
+/// Вложенные точки монтирования исключены из обхода родительского тома.
+pub fn sweep_computer_scoped(
+    fs: &dyn FsPort,
+    port: &dyn VirusScanPort,
+    roots: &[String],
+    excluded: &dyn Fn(&str) -> bool,
+    cancel: &AtomicBool,
+    progress: &mut dyn FnMut(ScanProgress),
+) -> Result<ScanReport, CoreError> {
     let status = port.engine_status();
     if !status.available {
         return Err(CoreError::EngineMissing(status.reason));
@@ -271,7 +283,7 @@ pub fn sweep_computer(
             report.incomplete = true;
             continue;
         }
-        let Ok(entries) = fs.read_dir(&dir) else {
+        let Ok(entries) = fs.read_scan_dir(&dir, excluded) else {
             report.incomplete = true;
             continue;
         };
@@ -401,6 +413,30 @@ mod tests {
         assert!(report.incomplete);
         assert_eq!(report.skipped_files, 1);
         assert_eq!(report.scanned_files, 1);
+    }
+
+    #[test]
+    fn computer_scan_only_enters_a_nested_volume_as_its_own_root() {
+        let fs = FakeFs::new();
+        let volume = format!("{ROOT}\\volume");
+        let remote = format!("{ROOT}\\remote");
+        fs.file(&format!("{ROOT}\\a.txt"), b"a", 1);
+        fs.file(&format!("{volume}\\b.txt"), b"b", 1);
+        fs.file(&format!("{remote}\\remote.txt"), b"c", 1);
+        let engine = FakeEngine::ready();
+
+        let report = sweep_computer_scoped(
+            &fs,
+            &engine,
+            &[ROOT.into(), volume.clone()],
+            &|path| path == volume || path == remote,
+            &no_cancel(),
+            &mut |_| {},
+        )
+        .unwrap();
+
+        assert_eq!(report.scanned_files, 2);
+        assert!(!report.incomplete);
     }
 
     #[test]

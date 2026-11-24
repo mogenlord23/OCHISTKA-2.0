@@ -56,6 +56,16 @@ pub trait FsPort: Send + Sync {
     /// Метаданные пути; ссылки не разыменовываются.
     fn metadata(&self, path: &str) -> Result<Meta, CleanupError>;
     fn read_dir(&self, path: &str) -> Result<Vec<DirEntry>, CleanupError>;
+    /// Читает каталог в пределах тома. Отдельные точки монтирования обходятся как корни.
+    fn read_scan_dir(
+        &self,
+        path: &str,
+        excluded: &dyn Fn(&str) -> bool,
+    ) -> Result<Vec<DirEntry>, CleanupError> {
+        let mut entries = self.read_dir(path)?;
+        entries.retain(|entry| !excluded(&entry.path));
+        Ok(entries)
+    }
     /// Склеивает папку и имя по правилам ОС.
     fn child(&self, dir: &str, name: &str) -> String;
     fn open(&self, path: &str) -> Result<Box<dyn Read + Send>, CleanupError>;

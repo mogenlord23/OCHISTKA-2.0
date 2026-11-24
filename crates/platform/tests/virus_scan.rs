@@ -308,9 +308,22 @@ fn embedded_clamav_loads_a_test_base_and_detects_the_marker() {
     )
     .unwrap();
     let sample = root.join("sample.bin");
-    let clean = root.join("clean.txt");
+    let clean = root.join("чистый.txt");
+    let compressed = root.join("sample.txt.gz");
     std::fs::write(&sample, MARKER).unwrap();
     std::fs::write(&clean, b"clean test file").unwrap();
+    // gzip с тем же безвредным маркером, сохранённым в сжатом виде.
+    std::fs::write(
+        &compressed,
+        [
+            0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x0a, 0xf3, 0x77, 0xf6, 0xf0,
+            0x0c, 0x0e, 0xf1, 0x76, 0xd4, 0x75, 0xf6, 0x71, 0xf4, 0x75, 0x0c, 0xd3, 0x0d, 0x71,
+            0x0d, 0x0e, 0xd1, 0xf5, 0x75, 0x0c, 0xf2, 0x76, 0x0d, 0xd2, 0x35, 0x30, 0x34, 0x32,
+            0x36, 0x31, 0x35, 0x33, 0xb7, 0xb0, 0x74, 0x74, 0x72, 0x76, 0x71, 0x75, 0x03, 0x00,
+            0x75, 0x76, 0x73, 0x79, 0x2c, 0x00, 0x00, 0x00,
+        ],
+    )
+    .unwrap();
     let engine = ClamAvEngine::build();
     engine.load_signatures(&as_target(&signatures)).unwrap();
     assert!(engine.engine_status().available);
@@ -322,6 +335,10 @@ fn embedded_clamav_loads_a_test_base_and_detects_the_marker() {
         engine.scan_file(&as_target(&clean)).unwrap(),
         FileVerdict::Clean
     );
+    assert!(matches!(
+        engine.scan_file(&as_target(&compressed)),
+        Ok(FileVerdict::Found { .. })
+    ));
     let corrupted = root.join("corrupted");
     std::fs::create_dir(&corrupted).unwrap();
     std::fs::write(
