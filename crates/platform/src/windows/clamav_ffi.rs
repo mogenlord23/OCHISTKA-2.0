@@ -47,6 +47,16 @@ const CL_VIRUS: c_int = 1;
 const CL_INIT_DEFAULT: c_uint = 0;
 const CL_DB_STDOPT: c_uint = 0x2 | 0x8 | 0x2000;
 
+fn clamav_path(path: &str) -> Result<CString, String> {
+    #[cfg(windows)]
+    let path = if path.contains('/') {
+        std::borrow::Cow::Owned(path.replace('/', "\\"))
+    } else {
+        std::borrow::Cow::Borrowed(path)
+    };
+    CString::new(path.as_bytes()).map_err(|_| "путь содержит нулевой байт".to_string())
+}
+
 #[link(name = "clamav")]
 extern "C" {
     fn cl_init(options: c_uint) -> c_int;
@@ -100,7 +110,7 @@ impl Engine {
             .ok_or_else(|| "cl_engine_new вернул NULL".to_string())?;
         let engine = Self { raw };
 
-        let path = CString::new(dir).map_err(|_| "путь содержит нулевой байт".to_string())?;
+        let path = clamav_path(dir)?;
         let mut signatures: c_uint = 0;
         // SAFETY: `path` живёт до конца вызова; `engine.raw` валиден, пока жив `engine`
         // (его освободит Drop, даже если загрузка ниже вернёт ошибку).
@@ -129,7 +139,7 @@ impl Engine {
     /// Проверяет один файл. Возвращает вердикт или текст ошибки библиотеки.
     #[cfg(windows)]
     pub fn scan(&self, path: &str) -> Result<FileVerdict, String> {
-        let file = CString::new(path).map_err(|_| "путь содержит нулевой байт".to_string())?;
+        let file = clamav_path(path)?;
         let mut virus: *const c_char = std::ptr::null();
         let mut scanned: c_ulong = 0;
         let mut options = ClScanOptions::default();

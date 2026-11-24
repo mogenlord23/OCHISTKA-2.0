@@ -335,6 +335,18 @@ fn embedded_clamav_loads_a_test_base_and_detects_the_marker() {
         engine.scan_file(&as_target(&clean)).unwrap(),
         FileVerdict::Clean
     );
+    #[cfg(windows)]
+    {
+        let mixed_separators = as_target(&root).replace('\\', "/");
+        let signatures = format!("{mixed_separators}/signatures");
+        engine.load_signatures(&signatures).unwrap();
+        assert_eq!(
+            engine
+                .scan_file(&format!("{mixed_separators}/чистый.txt"))
+                .unwrap(),
+            FileVerdict::Clean
+        );
+    }
     assert!(matches!(
         engine.scan_file(&as_target(&compressed)),
         Ok(FileVerdict::Found { .. })
