@@ -3,12 +3,16 @@
   import { t } from '../lib/i18n.svelte';
   import type { Snippet } from 'svelte';
 
-  let { maximized = false, children }: { maximized?: boolean; children?: Snippet } = $props();
+  let {
+    maximized = false,
+    alignCursorGrid = false,
+    children,
+  }: { maximized?: boolean; alignCursorGrid?: boolean; children?: Snippet } = $props();
 
   const win = getCurrentWindow();
 </script>
 
-<header class="titlebar" data-tauri-drag-region>
+<header class="titlebar" class:cursor-grid={alignCursorGrid} data-tauri-drag-region>
   <div class="tabs" data-tauri-drag-region>
     {@render children?.()}
   </div>
@@ -45,7 +49,7 @@
     align-items: stretch;
     flex: none;
     min-width: 0;
-    gap: 8px;
+    gap: var(--content-gap, 8px);
     min-height: var(--subtabs-height);
     user-select: none;
   }
@@ -67,7 +71,27 @@
 
   .controls {
     display: flex;
-    gap: 8px;
+    gap: var(--content-gap, 8px);
+  }
+
+  .titlebar.cursor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--cursor-tile-min), 1fr));
+  }
+
+  .cursor-grid .tabs {
+    grid-column: 1 / -2;
+  }
+
+  .cursor-grid .controls {
+    grid-column: -2 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: min(var(--content-gap), calc((100% - 3 * var(--subtabs-height)) / 2));
+  }
+
+  .cursor-grid button {
+    width: 100%;
   }
 
   button {

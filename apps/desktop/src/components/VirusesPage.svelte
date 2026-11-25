@@ -709,7 +709,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: var(--section-inset);
+    gap: var(--content-gap);
   }
 
   .card.scanner {

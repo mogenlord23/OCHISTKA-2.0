@@ -19,22 +19,30 @@ beforeAll(() => {
 afterEach(() => cleanup());
 
 describe('Navigation rail', () => {
-  it('renders all seven tiles with a visible label each', () => {
+  it('renders all seven tiles with an accessible name and an animated visual label', () => {
     render(Navigation, { active: 'vpn', onSelect: () => {} });
     const nav = screen.getByRole('navigation', { name: 'Навигация' });
     const buttons = within(nav).getAllByRole('button');
     expect(buttons).toHaveLength(SECTIONS.length);
     for (const button of buttons) {
       expect(button.querySelector('.label')?.textContent?.trim()).toBeTruthy();
+      expect(button.querySelector('.label')?.getAttribute('aria-hidden')).toBe('true');
     }
   });
 
   it('gives the side rail and inter-tile gaps the same inset', () => {
     expect(source).toMatch(/--gap:\s*var\(--frame-inset, 14px\)/);
     expect(source).toMatch(/gap:\s*var\(--gap\)/);
-    expect(source).toMatch(/padding:\s*var\(--gap\)/);
+    expect(source).toMatch(/padding:\s*var\(--gap\) var\(--gap\) 0/);
+    expect(source).toMatch(/--tile:\s*var\(--rail-tile, 88px\)/);
     expect(source).toMatch(/width:\s*var\(--tile\)/);
     expect(source).toMatch(/height:\s*var\(--tile\)/);
+  });
+
+  it('reveals labels on hover and keyboard focus while keeping the tile size fixed', () => {
+    expect(source).toMatch(/\.label\s*\{[^}]*opacity:\s*0/);
+    expect(source).toMatch(/:is\(:hover, :focus-visible\) \.label\s*\{[^}]*opacity:\s*1/);
+    expect(source).toMatch(/:is\(:hover, :focus-visible\) :global\(svg\)\s*\{[^}]*transform:[^}]*scale\(/);
   });
 
   it('applies the selected state immediately to a single tile', () => {

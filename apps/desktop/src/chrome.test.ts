@@ -56,7 +56,7 @@ describe('dock panel (item 1)', () => {
     expect(block).not.toMatch(/border-color/);
     expect(block).toMatch(/background-color:\s*var\(--black\)/);
     expect(block).not.toMatch(/@media/);
-    expect(block).toMatch(/height:\s*96px/);
+    expect(block).toMatch(/height:\s*calc\(var\(--rail-tile\) \+ 2 \* var\(--dock-gap\)\)/);
   });
 });
 

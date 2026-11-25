@@ -154,7 +154,7 @@
 </script>
 
 {#snippet toolbar()}
-  <TitleBar {maximized}>
+  <TitleBar {maximized} alignCursorGrid={activeId === 'design' && activeSub === 'cursors'}>
     <Subtabs items={section.subsections} active={activeSub} onSelect={chooseSub} />
   </TitleBar>
 {/snippet}
@@ -392,8 +392,7 @@
     --section-gap: var(--frame-inset);
     --selection-duration: 190ms;
     --selection-ease: cubic-bezier(0.2, 0, 0, 1);
-    --dock-closed-height: 28px;
-    --rail-tile: clamp(64px, calc((100dvh - var(--dock-closed-height) - 8 * var(--frame-inset)) / 7), 88px);
+    --rail-tile: 88px;
     --side-width: calc(var(--rail-tile) + 2 * var(--frame-inset));
     display: flex;
     flex-direction: column;
@@ -535,7 +534,6 @@
   .side {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     flex: none;
     width: var(--side-width);
     background: var(--window);
@@ -544,27 +542,23 @@
     overflow: hidden;
   }
 
-  /* Свёрнутый блок — только стрелка (высота 20 + нижний отступ 8). Раскрытая часть лежит
-     над стрелкой поверх панели и не сдвигает пункты: на низком окне она перекрывает низ
-     панели только пока открыта, а не выталкивает пункты за край. */
+  /* Стрелка держится рядом с последней плиткой при любой высоте окна. */
   .dock {
+    --dock-gap: var(--content-gap);
     position: relative;
     z-index: 10;
     background-color: var(--window);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-bottom: 8px;
+    padding-block: var(--dock-gap);
   }
 
-  /* Раскрытие: карточка 96 px «вырастает» снизу (clip-path) и чуть поднимается (transform), без смены
-     высоты, без прозрачности (плитка под ней не просвечивает) и без пересчёта соседей. Открытие
-     200 мс, закрытие быстрее, 160 мс. */
+  /* Карточка раскрывается над стрелкой. Поля вокруг последней плитки закрывают и её углы. */
   .bottom-wrap {
     position: absolute;
-    right: 6px;
-    bottom: 28px;
-    left: 6px;
+    inset-inline: 0;
+    bottom: calc(100% - var(--dock-gap));
     z-index: 10;
     isolation: isolate;
     overflow: hidden;
@@ -589,15 +583,13 @@
       visibility 0s;
   }
 
-  /* Размер карточки один при любом окне: 96 px по высоте (на минимальном окне её верх на 588 px,
-     ровно на верхней границе последней плитки панели, поэтому плитка не торчит полоской). */
   .bottom {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    height: 96px;
+    height: calc(var(--rail-tile) + 2 * var(--dock-gap));
     min-height: 0;
     padding: 0 10px;
     overflow: hidden;

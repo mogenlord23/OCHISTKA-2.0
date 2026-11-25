@@ -688,7 +688,7 @@
   }
 
   .pane {
-    gap: var(--section-gap, 14px);
+    gap: var(--content-gap, 8px);
   }
 
   .pane[hidden] { display: none; }

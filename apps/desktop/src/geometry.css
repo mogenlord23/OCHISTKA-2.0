@@ -7,7 +7,9 @@
 :root {
   --radius-limit: 12px;
   --section-inset: 14px;
+  --content-gap: 8px;
   --card-inset: 16px;
+  --cursor-tile-min: 128px;
 }
 
 /* Процент следует за размером поверхности. Для элементов с заданной короткой

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import App from './App.svelte';
 import TitleBar from './components/TitleBar.svelte';
+import desktopConfig from '../src-tauri/tauri.conf.json';
 
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
@@ -19,6 +20,11 @@ afterEach(() => {
 });
 
 describe('shell', () => {
+  it('opens the main window at the minimum size that fits the full navigation and cursor grid', () => {
+    const main = desktopConfig.app.windows.find((window) => window.label === 'main');
+    expect(main).toMatchObject({ width: 900, minWidth: 900, height: 760, minHeight: 760 });
+  });
+
   it('draws window buttons as inline SVG and swaps the maximise glyph when maximised', () => {
     const { container, rerender } = render(TitleBar, { props: { maximized: false } });
     expect(container.querySelectorAll('.controls button svg').length).toBe(3);

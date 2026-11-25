@@ -45,7 +45,7 @@
       aria-current={active === section.id ? 'page' : undefined}
     >
       <SectionIcon id={section.id} />
-      <span class="label">{t(section.titleKey)}</span>
+      <span class="label" aria-hidden="true">{t(section.titleKey)}</span>
     </button>
   {/each}
 </nav>
@@ -61,7 +61,7 @@
     align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: var(--gap);
+    padding: var(--gap) var(--gap) 0;
     background: var(--window);
   }
 
@@ -85,12 +85,9 @@
     --corner-size: var(--tile);
     position: relative;
     z-index: 1;
-    display: flex;
+    display: grid;
     flex: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    place-items: center;
     width: var(--tile);
     height: var(--tile);
     padding: 0;
@@ -115,20 +112,19 @@
   }
 
   .item :global(svg) {
-    flex: none;
-    width: calc(var(--tile) * 0.36);
-    height: calc(var(--tile) * 0.36);
+    width: 42px;
+    height: 42px;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
     shape-rendering: geometricPrecision;
-    transition: transform 150ms ease;
+    transition: transform 180ms var(--selection-ease, ease-out);
   }
 
-  .item:hover :global(svg) {
-    transform: scale(1.08);
+  .item:is(:hover, :focus-visible) :global(svg) {
+    transform: translateY(-9px) scale(0.76);
   }
 
   .item :global(svg .knob) {
@@ -140,6 +136,8 @@
   }
 
   .label {
+    position: absolute;
+    inset: auto 0 18px;
     box-sizing: border-box;
     max-width: 100%;
     padding: 0 4px;
@@ -150,5 +148,26 @@
     text-align: center;
     text-overflow: clip;
     white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition:
+      opacity 160ms ease,
+      transform 180ms var(--selection-ease, ease-out);
+    pointer-events: none;
+  }
+
+  .item:is(:hover, :focus-visible) .label {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (hover: none) {
+    .item :global(svg) {
+      transform: translateY(-9px) scale(0.76);
+    }
+    .label {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>

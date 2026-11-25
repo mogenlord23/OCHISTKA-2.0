@@ -20,6 +20,13 @@ afterEach(() => {
 });
 
 describe('TitleBar', () => {
+  it('enables the cursor grid alignment only when requested', async () => {
+    const { container, rerender } = render(TitleBar);
+    expect(container.querySelector('header')?.classList.contains('cursor-grid')).toBe(false);
+    await rerender({ alignCursorGrid: true });
+    expect(container.querySelector('header')?.classList.contains('cursor-grid')).toBe(true);
+  });
+
   it('keeps the window toolbar free of branding', () => {
     render(TitleBar);
     expect(screen.queryByLabelText('OCHISTKA')).toBeNull();

@@ -437,8 +437,8 @@
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    gap: var(--section-inset);
-    margin-bottom: var(--section-inset);
+    gap: var(--content-gap);
+    margin-bottom: var(--content-gap);
     padding: var(--card-inset);
     border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
@@ -504,8 +504,8 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--section-inset);
-    margin-bottom: var(--section-inset);
+    gap: var(--content-gap);
+    margin-bottom: var(--content-gap);
   }
 
   .tile {
@@ -569,7 +569,7 @@
 
   .card,
   .alert {
-    margin-bottom: var(--section-inset);
+    margin-bottom: var(--content-gap);
     padding: var(--card-inset);
     border-radius: var(--radius-adaptive);
     background: var(--black, #080808);

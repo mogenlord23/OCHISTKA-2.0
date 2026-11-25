@@ -535,7 +535,7 @@
      стоит по центру общей области раздела. */
   .grid {
     display: grid;
-    gap: 8px;
+    gap: var(--content-gap);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -547,7 +547,7 @@
   }
 
   .grid-cursor {
-    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--cursor-tile-min), 1fr));
     --tile-ratio: 128 / 94;
   }
 
