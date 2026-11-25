@@ -40,11 +40,11 @@ export function pageAllowsWink(): boolean {
 }
 
 /** Расположение глаза в координатах картинки 1024x1536 (правый глаз зрителя). */
-export const EYE = { x: 612, y: 755, w: 123, h: 57, imgW: 1024, imgH: 1536, focusY: 0.3 };
+export const EYE = { x: 612, y: 755, w: 123, h: 57, imgW: 1024, imgH: 1536, focusY: 0.43 };
 
-/** Масштаб и сдвиг картинки при object-fit: cover; object-position: 50% 30%. */
-export function coverGeometry(boxW: number, boxH: number) {
-  const scale = Math.max(boxW / EYE.imgW, boxH / EYE.imgH);
+/** Масштаб и сдвиг портрета внутри панели, включая видимые поля. */
+export function portraitGeometry(boxW: number, boxH: number) {
+  const scale = Math.min(boxW / EYE.imgW, boxH / EYE.imgH);
   return {
     scale,
     offsetX: (boxW - EYE.imgW * scale) * 0.5,

@@ -67,6 +67,12 @@ describe('dock panel (item 1)', () => {
     expect(APP).toMatch(/\.dock\s*\{[^}]*flex:\s*1/);
     expect(APP).toMatch(/\.dock\s*\{[^}]*justify-content:\s*center/);
   });
+
+  it('opens the menu upward within the navigation rail at every size', () => {
+    expect(APP).toMatch(/\.bottom-wrap\s*\{[^}]*inset-inline:\s*0/);
+    expect(APP).not.toMatch(/inset-inline:\s*auto\s+100%/);
+    expect(APP).toMatch(/\.handle\s*\{[^}]*width:\s*var\(--dock-button-size\);\s*height:\s*var\(--dock-button-size\)/);
+  });
 });
 
 describe('context menu position (item 9.3)', () => {

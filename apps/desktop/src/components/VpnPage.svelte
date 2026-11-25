@@ -14,7 +14,7 @@
   import { slideInOnChange } from '../lib/slideInOnChange';
   import poster from '../assets/pop-art.png';
   import { playHeehee } from '../lib/sound';
-  import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
+  import { portraitGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
@@ -381,7 +381,7 @@
   /** Подмигивание: раз в 20-40 с, только когда окно видно и в фокусе и нет нажатия. */
   function wink() {
     if (!portraitWrap) return;
-    const g = coverGeometry(portraitWrap.clientWidth, portraitWrap.clientHeight);
+    const g = portraitGeometry(portraitWrap.clientWidth, portraitWrap.clientHeight);
     eyeStyle =
       `left:${g.offsetX + EYE.x * g.scale}px;top:${g.offsetY + EYE.y * g.scale}px;` +
       `width:${EYE.w * g.scale}px;height:${EYE.h * g.scale}px`;
@@ -630,21 +630,34 @@
   }
 
   .portrait-wrap {
+    --portrait-width: min(100cqw, 100cqh * 2 / 3);
+    --portrait-height: calc(var(--portrait-width) * 1.5);
     position: relative;
     flex: 1;
     min-height: 0;
+    container-type: size;
+    overflow: hidden;
+    border-radius: var(--radius-adaptive);
+    background: #050505;
+  }
+
+  .portrait-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 50%;
+    background: repeating-linear-gradient(to bottom, #ff168c 0 8px, #050505 8px 16px);
   }
 
   .poster .portrait {
     position: absolute;
-    inset: 0;
-    height: 100%;
-    width: 100%;
-    border-radius: var(--radius-adaptive);
+    top: calc((100cqh - var(--portrait-height)) * 0.43);
+    left: 50%;
+    width: var(--portrait-width);
+    height: auto;
+    transform: translateX(-50%);
+    mask-image: linear-gradient(#000 92%, transparent);
     user-select: none;
     pointer-events: none;
-    object-fit: cover;
-    object-position: 50% 30%;
   }
 
   /* Нажатие уже играет собственную анимацию: общее сжатие кнопки на постере
@@ -927,7 +940,8 @@
 
   .vpn-dashboard {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     flex: 1;
     gap: var(--content-gap);
     min-height: 160px;
@@ -1067,20 +1081,23 @@
     y: var(--card-inset);
     width: var(--power-size);
     height: var(--power-size);
-    rx: var(--radius-limit);
+    rx: 22px;
     fill: none;
     stroke: var(--accent);
     stroke-width: 1;
     opacity: 0;
     transform-box: fill-box;
     transform-origin: center;
-    animation: connect-pulse 3.6s linear infinite;
-    animation-delay: calc(var(--ring) * -1.2s);
+    animation: connect-pulse 4.8s cubic-bezier(0.33, 0, 0.67, 1) infinite;
+    animation-delay: calc(var(--ring) * -1.6s);
   }
 
   @keyframes connect-pulse {
     0% { transform: scale(1); opacity: 0; }
-    5% { opacity: 0.58; }
+    12% { transform: scale(1.21); opacity: 0.48; }
+    32% { transform: scale(1.53); opacity: 0.36; }
+    56% { transform: scale(2.65); opacity: 0.21; }
+    84% { opacity: 0.10; }
     100% { transform: scale(var(--pulse-scale, 36)); opacity: 0; }
   }
 

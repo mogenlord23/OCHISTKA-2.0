@@ -39,7 +39,7 @@
     min-height: 0;
     overflow: hidden;
     border-radius: var(--radius-adaptive);
-    background: radial-gradient(ellipse at 50% 0%, #291d2b, #101015 72%);
+    background: #000;
     box-shadow: inset 0 0 0 2px #000;
   }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { coverGeometry, EYE, startWinking, WINK_MAX_MS, WINK_MIN_MS } from './wink';
+import { portraitGeometry, EYE, startWinking, WINK_MAX_MS, WINK_MIN_MS } from './wink';
 
 afterEach(() => vi.useRealTimers());
 
@@ -52,18 +52,20 @@ describe('startWinking', () => {
   });
 });
 
-describe('coverGeometry', () => {
+describe('portraitGeometry', () => {
   it('matches the image exactly for the image aspect ratio', () => {
-    const g = coverGeometry(512, 768);
+    const g = portraitGeometry(512, 768);
     expect(g.scale).toBeCloseTo(0.5);
     expect(g.offsetX).toBeCloseTo(0);
     expect(g.offsetY).toBeCloseTo(0);
     expect(EYE.x + EYE.w).toBeLessThan(EYE.imgW);
   });
 
-  it('crops the height with a 30 percent focus when the box is wider', () => {
-    const g = coverGeometry(1024, 1000);
-    expect(g.scale).toBeCloseTo(1);
-    expect(g.offsetY).toBeCloseTo((1000 - 1536) * 0.3);
+  it('fits the whole image in a tall panel and centres the face', () => {
+    const g = portraitGeometry(204, 732);
+    expect(g.scale * EYE.imgW).toBeCloseTo(204);
+    expect(g.offsetX).toBeCloseTo(0);
+    expect((g.offsetY + 880 * g.scale) / 732).toBeCloseTo(0.49);
+    expect(g.offsetY + EYE.imgH * g.scale).toBeLessThan(732);
   });
 });

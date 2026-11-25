@@ -543,7 +543,7 @@
   /* Стрелка лежит посередине свободного места под последней плиткой. */
   .dock {
     --dock-gap: var(--content-gap);
-    --dock-handle-height: 20px;
+    --dock-button-size: 34px;
     --dock-panel-height: calc(var(--rail-tile) + 2 * var(--dock-gap));
     position: relative;
     z-index: 10;
@@ -558,7 +558,7 @@
   .bottom-wrap {
     position: absolute;
     inset-inline: 0;
-    top: calc(-1 * (var(--rail-tile) + var(--dock-gap)));
+    bottom: calc(50% + var(--dock-button-size) / 2);
     z-index: 10;
     isolation: isolate;
     overflow: hidden;
@@ -596,12 +596,14 @@
   }
 
   .handle {
+    --corner-size: var(--dock-button-size);
     display: grid;
     place-items: center;
-    width: 48px;
-    height: var(--dock-handle-height);
+    box-sizing: border-box;
+    width: var(--dock-button-size);
+    height: var(--dock-button-size);
     padding: 0;
-    border: 0;
+    border: 1px solid transparent;
     border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--muted);
@@ -609,7 +611,8 @@
   }
 
   .handle:hover {
-    background: var(--rail-hover);
+    background: var(--black);
+    border-color: var(--accent);
     color: var(--ink);
   }
 
@@ -629,7 +632,6 @@
   }
 
   .pill {
-    --dock-button-size: 34px;
     --corner-size: var(--dock-button-size);
     display: grid;
     place-items: center;
@@ -688,8 +690,7 @@
     gap: 8px;
   }
 
-  /* Выше минимального размера панель привязана к низу. Пока под плитками
-     нет места для всей карточки, она раскрывается сбоку от панели навигации. */
+  /* При растягивании стрелка остаётся снизу, меню раскрывается прямо над ней. */
   @media (min-width: 901px), (min-height: 761px), (display-mode: fullscreen) {
     .dock {
       justify-content: flex-end;
@@ -697,19 +698,7 @@
     }
 
     .bottom-wrap {
-      top: auto;
-      inset-inline: auto 100%;
-      bottom: var(--dock-gap);
-      width: var(--side-width);
-    }
-  }
-
-  /* 714 px занимает ряд плиток, 140 px — раскрытая панель со стрелкой и полями. */
-  @media (min-height: 854px) {
-    .bottom-wrap {
-      inset-inline: 0;
-      bottom: calc(2 * var(--dock-gap) + var(--dock-handle-height));
-      width: auto;
+      bottom: calc(var(--dock-gap) + var(--dock-button-size));
     }
   }
 </style>
