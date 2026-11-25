@@ -33,10 +33,20 @@ describe('App navigation', () => {
   it('opens VPN first, with its subsections', () => {
     render(App);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('VPN');
-    // У VPN своя панель вкладок внутри страницы (общая в оболочке скрыта), поэтому берём последнюю.
-    const tabs = screen.getAllByRole('tablist', { name: 'Подразделы' }).at(-1)!;
+    const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
+    const bar = tabs.closest('header')!;
+    expect(within(bar).getByRole('button', { name: 'Закрыть' })).toBeTruthy();
+    expect(screen.queryByLabelText('OCHISTKA')).toBeNull();
     expect(within(tabs).getByRole('tab', { name: 'VPN' })).toBeTruthy();
     expect(within(tabs).getByRole('tab', { name: 'Соединения' })).toBeTruthy();
+  });
+
+  it('only shows the portrait on the main VPN tab', async () => {
+    render(App);
+    expect(screen.getByRole('button', { name: 'Постер' })).toBeTruthy();
+    await fireEvent.keyDown(screen.getByRole('tab', { name: 'VPN' }), { key: 'ArrowRight' });
+    expect(screen.queryByRole('button', { name: 'Постер' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Дополнительно' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('opens the virus section from the rail', async () => {
@@ -45,6 +55,7 @@ describe('App navigation', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Вирусы');
     const tabs = screen.getByRole('tablist', { name: 'Подразделы' });
     expect(within(tabs).getByRole('tab', { name: 'Журнал проверки' })).toBeTruthy();
+    expect(within(tabs.closest('header')!).getByRole('button', { name: 'Закрыть' })).toBeTruthy();
   });
 
   it('opens the appearance section with its four tabs and the first grid', async () => {

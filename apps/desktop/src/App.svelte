@@ -19,7 +19,7 @@
   import { attachChromeGuards } from './lib/chromeGuards';
   import { attachUiSounds, playUiSound, preloadSounds } from './lib/sound';
   import { listenDesktop, type TrayAction } from './lib/tray';
-  import { scan, startScan } from './lib/scanState.svelte';
+  import { scan } from './lib/scanState.svelte';
   import { setSoundOn, soundState, syncSoundState } from './lib/soundState.svelte';
   import {
     BODY_FONT,
@@ -84,13 +84,9 @@
     const detachSounds = attachUiSounds(window);
     const detachGuards = attachChromeGuards(window);
     const stopWatching = watchMaximized((value) => (maximized = value));
-    const stopTray = listenDesktop<TrayAction | 'openVpn'>('tray-action', ({ payload }) => {
-      switch (payload) {
-        case 'scan': select('viruses'); chooseSub('scan'); void startScan(null); break;
-        case 'findings': select('viruses'); chooseSub('findings'); break;
-        case 'openVpn': select('vpn'); chooseSub('vpn'); break;
-        case 'processes': case 'programs': case 'disks': case 'computer': case 'design': select(payload); break;
-      }
+    const stopTray = listenDesktop<TrayAction>('tray-action', ({ payload }) => {
+      const destination = SECTIONS.find((item) => item.id === payload);
+      if (destination) select(destination.id);
     });
     const stopThreat = listenDesktop('scan-threat-found', () => {
       playUiSound('threat');
@@ -174,6 +170,12 @@
   }
 </script>
 
+{#snippet toolbar()}
+  <TitleBar {maximized}>
+    <Subtabs items={section.subsections} active={activeSub} onSelect={chooseSub} />
+  </TitleBar>
+{/snippet}
+
 <div
   class="shell"
   data-maximized={maximized}
@@ -212,16 +214,14 @@
 >
   <div class="body">
     <div class="stage">
-      <TitleBar {maximized} />
-      <main bind:this={main}>
+      {#if activeId !== 'vpn'}
+        <div class="section-toolbar" data-tauri-drag-region>{@render toolbar()}</div>
+      {/if}
+      <main bind:this={main} class:vpn-main={activeId === 'vpn'} data-tauri-drag-region>
         <h1 class="sr-only">{t(section.titleKey)}</h1>
 
-        {#if section.subsections.length > 0}
-          <Subtabs items={section.subsections} active={activeSub} onSelect={chooseSub} />
-        {/if}
-
         {#if activeId === 'vpn'}
-          <VpnPage subsection={activeSub} onSubsection={chooseSub} />
+          <VpnPage subsection={activeSub} header={toolbar} />
         {:else if activeId === 'viruses'}
           <VirusesPage subsection={activeSub} />
         {:else if activeId === 'computer'}
@@ -478,6 +478,14 @@
     position: relative;
   }
 
+  .section-toolbar {
+    padding: 12px var(--content-gutter) 10px;
+  }
+
+  main.vpn-main {
+    padding-top: 12px;
+  }
+
   main {
     display: flex;
     flex: 1;
@@ -490,8 +498,7 @@
     contain: layout paint;
   }
 
-  /* Заголовок раздела на экране не показывается (вкладки сразу под шапкой),
-     но остаётся для чтения с экрана. */
+  /* Заголовок остаётся доступным программам чтения с экрана. */
   :global(.sr-only) {
     position: absolute;
     width: 1px;

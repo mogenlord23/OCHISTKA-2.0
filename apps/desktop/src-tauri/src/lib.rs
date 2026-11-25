@@ -58,10 +58,6 @@ pub fn run() {
         ))
         .setup(|app| {
             use tauri::Manager;
-            // Значок окна и панели задач задаём явно: иначе берётся самый маленький из списка.
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
-            }
             let (registry, wallpaper) = ochistka_platform::current_appearance_ports();
             let (files, refresh) = ochistka_platform::current_appearance_system_ports();
             let resources = appearance::pick_resource_dir(
@@ -91,6 +87,18 @@ pub fn run() {
                     std::thread::spawn(move || {
                         let _ = scanner.load_signatures(&dir.to_string_lossy());
                     });
+                }
+            }
+            // WebView начинает вызывать команды сразу после создания окна.
+            // Открываем окна после регистрации состояния VPN и остальных разделов.
+            for config in &app.config().app.windows {
+                let result = tauri::WebviewWindowBuilder::from_config(app, config)
+                    .and_then(|builder| builder.build());
+                if config.label == "main" {
+                    let window = result?;
+                    let _ = window.set_icon(tauri::include_image!("icons/icon.png"));
+                } else if let Err(error) = result {
+                    eprintln!("не удалось создать окно {}: {error}", config.label);
                 }
             }
             if let Err(error) = tray::install(app.handle()) {

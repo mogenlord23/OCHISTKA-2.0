@@ -19,9 +19,9 @@ const MAIN: &str = "main";
 #[serde(rename_all = "camelCase")]
 pub enum TrayAction {
     Open,
+    ToggleVpn,
     Vpn,
-    Scan,
-    Findings,
+    Viruses,
     Processes,
     Programs,
     Disks,
@@ -32,9 +32,9 @@ pub enum TrayAction {
 
 const ACTIONS: [(&str, &str, TrayAction); 10] = [
     ("tray-open", "Открыть OCHISTKA", TrayAction::Open),
-    ("tray-vpn", "Переключить VPN", TrayAction::Vpn),
-    ("tray-scan", "Проверить компьютер", TrayAction::Scan),
-    ("tray-findings", "Находки", TrayAction::Findings),
+    ("tray-toggle-vpn", "Переключить VPN", TrayAction::ToggleVpn),
+    ("tray-vpn", "VPN", TrayAction::Vpn),
+    ("tray-viruses", "Вирусы", TrayAction::Viruses),
     ("tray-processes", "Процессы", TrayAction::Processes),
     ("tray-programs", "Программы", TrayAction::Programs),
     ("tray-disks", "Диски", TrayAction::Disks),
@@ -115,6 +115,7 @@ fn show_main(app: &AppHandle) {
 fn hide_panel(app: &AppHandle) {
     if let Some(panel) = app.get_webview_window(PANEL) {
         let _ = panel.hide();
+        let _ = app.emit_to(PANEL, "tray-closed", ());
     }
     if let Some(state) = app.try_state::<HoverState>() {
         if let Ok(mut hover) = state.lock() {
@@ -127,6 +128,10 @@ fn show_panel(app: &AppHandle, cursor: PhysicalPosition<f64>, icon: Rect) {
     let Some(panel) = app.get_webview_window(PANEL) else {
         return;
     };
+    update_hover(app, false, true);
+    if panel.is_visible().unwrap_or(false) {
+        return;
+    }
     let Ok(Some(monitor)) = app.monitor_from_point(cursor.x, cursor.y) else {
         return;
     };
@@ -147,7 +152,6 @@ fn show_panel(app: &AppHandle, cursor: PhysicalPosition<f64>, icon: Rect) {
         x.clamp(area.position.x, limit_x),
         y.clamp(area.position.y, limit_y),
     );
-    update_hover(app, false, true);
     if panel
         .set_position(position)
         .and_then(|_| panel.show())
@@ -199,14 +203,12 @@ pub fn tray_hover(window: tauri::Window, inside: bool) {
 #[serde(rename_all = "camelCase")]
 pub struct TrayStatus {
     vpn_connected: bool,
-    scanning: bool,
 }
 
 #[tauri::command]
 pub fn tray_status(app: AppHandle) -> TrayStatus {
     TrayStatus {
         vpn_connected: app.state::<VpnState>().0.status().state == ConnState::Connected,
-        scanning: app.state::<AppState>().scan_running.load(Ordering::SeqCst),
     }
 }
 
@@ -220,7 +222,7 @@ pub async fn tray_action(app: AppHandle, action: TrayAction) -> Result<(), Comma
             app.exit(0);
             return Ok(());
         }
-        TrayAction::Vpn => {
+        TrayAction::ToggleVpn => {
             let service = app.state::<VpnState>().0.clone();
             let result = tauri::async_runtime::spawn_blocking(move || {
                 let snapshot = service.snapshot();
@@ -243,10 +245,9 @@ pub async fn tray_action(app: AppHandle, action: TrayAction) -> Result<(), Comma
             } else {
                 hide_panel(&app);
                 show_main(&app);
-                app.emit_to(MAIN, "tray-action", "openVpn")
+                app.emit_to(MAIN, "tray-action", TrayAction::Vpn)
             }
         }
-        TrayAction::Scan => app.emit_to(MAIN, "tray-action", action),
         _ => {
             hide_panel(&app);
             show_main(&app);

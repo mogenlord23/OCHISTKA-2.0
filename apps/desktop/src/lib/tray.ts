@@ -1,12 +1,11 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen, type EventCallback } from '@tauri-apps/api/event';
+import type { SectionId } from './sections';
 
-export type TrayAction = 'open' | 'vpn' | 'scan' | 'findings' | 'processes' | 'programs'
-  | 'disks' | 'computer' | 'design' | 'exit';
+export type TrayAction = SectionId | 'open' | 'toggleVpn' | 'exit';
 
 export interface TrayStatus {
   vpnConnected: boolean;
-  scanning: boolean;
 }
 
 export function trayAction(action: TrayAction): Promise<void> {

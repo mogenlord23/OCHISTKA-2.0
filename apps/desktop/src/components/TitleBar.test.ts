@@ -20,9 +20,9 @@ afterEach(() => {
 });
 
 describe('TitleBar', () => {
-  it('shows the app name and no author credit line', () => {
+  it('keeps the window toolbar free of branding', () => {
     render(TitleBar);
-    expect(screen.getByLabelText('OCHISTKA')).toBeTruthy();
+    expect(screen.queryByLabelText('OCHISTKA')).toBeNull();
     expect(screen.queryByText(/Create/)).toBeNull();
     expect(screen.queryByText(/Slava/)).toBeNull();
   });
@@ -45,16 +45,11 @@ describe('TitleBar', () => {
     expect(win.close).toHaveBeenCalledTimes(1);
   });
 
-  it('lets the frameless window be dragged by the bar and brand, but not by the buttons', () => {
+  it('lets the frameless window be dragged by the empty bar, but not by the buttons', () => {
     const { container } = render(TitleBar);
     const header = container.querySelector('header');
-    const name = screen.getByLabelText('OCHISTKA');
-    const brand = name.parentElement;
-
     expect(header?.hasAttribute('data-tauri-drag-region')).toBe(true);
-    expect(brand?.classList.contains('brand')).toBe(true);
-    expect(brand?.hasAttribute('data-tauri-drag-region')).toBe(true);
-    expect(name.hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(header?.querySelector('.tabs')?.hasAttribute('data-tauri-drag-region')).toBe(true);
 
     for (const label of ['Свернуть', 'Развернуть', 'Закрыть']) {
       const button = screen.getByRole('button', { name: label });

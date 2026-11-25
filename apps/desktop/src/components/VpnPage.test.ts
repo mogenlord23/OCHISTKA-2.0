@@ -7,6 +7,7 @@ import { NETWORK_CHANGE_REASON, NO_SERVERS_REASON } from '../lib/vpn';
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: invokeMock,
+  isTauri: () => false,
   Channel: class {
     onmessage: (event: unknown) => void = () => {};
   },

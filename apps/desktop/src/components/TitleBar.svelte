@@ -1,16 +1,16 @@
 <script lang="ts">
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { t } from '../lib/i18n.svelte';
-  import BrandMark from './BrandMark.svelte';
+  import type { Snippet } from 'svelte';
 
-  let { maximized = false }: { maximized?: boolean } = $props();
+  let { maximized = false, children }: { maximized?: boolean; children?: Snippet } = $props();
 
   const win = getCurrentWindow();
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
-  <div class="brand" data-tauri-drag-region>
-    <BrandMark />
+  <div class="tabs" data-tauri-drag-region>
+    {@render children?.()}
   </div>
   <div class="controls">
     <button type="button" aria-label={t('minimize')} onclick={() => win.minimize()}>
@@ -38,35 +38,42 @@
 </header>
 
 <style>
-  /* Строка 64 px: центр Y = 32 общий для слова OCHISTKA, кнопок окна и первого пункта панели. */
   .titlebar {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: stretch;
     flex: none;
-    height: 64px;
-    padding: 0 var(--content-gutter, 22px);
+    min-width: 0;
+    gap: 8px;
+    min-height: 48px;
     user-select: none;
   }
 
-  /* Слово по центру строки 64 px: его ось совпадает с осью кнопок окна (Y = 32). */
-  .brand {
+  .tabs {
     display: flex;
-    align-items: center;
-    height: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tabs :global(.subtabs) {
+    flex: 1;
+    margin: 0;
+  }
+
+  .tabs :global(.subtabs button) {
+    padding-inline: clamp(6px, 1vw, 16px);
   }
 
   .controls {
     display: flex;
-    gap: 8px;
+    gap: 6px;
   }
 
   /* Как в прежнем приложении: крупные чёрные скруглённые квадраты, белый толстый знак. */
   button {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     padding: 0;
     border: 1px solid var(--btn-border);
     border-radius: var(--radius-sm);

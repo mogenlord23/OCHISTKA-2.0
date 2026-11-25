@@ -7,11 +7,9 @@
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
-  import { onDestroy, onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
   import { listenDesktop } from '../lib/tray';
   import poster from '../assets/pop-art.png';
-  import chePink from '../assets/che-pink.png';
-  import cheLime from '../assets/che-lime.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
   import VpnConnectionsTab from './VpnConnectionsTab.svelte';
@@ -43,8 +41,7 @@
   } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
 
-  let { subsection, onSubsection }: { subsection: string; onSubsection?: (id: string) => void } =
-    $props();
+  let { subsection, header }: { subsection: string; header?: Snippet } = $props();
 
   const vpnSubs = SECTIONS.find((section) => section.id === 'vpn')?.subsections ?? [];
 
@@ -342,8 +339,8 @@
 
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
-  let posterEl: HTMLButtonElement | null = null;
-  let portraitWrap: HTMLElement | null = null;
+  let posterEl = $state<HTMLButtonElement | null>(null);
+  let portraitWrap = $state<HTMLElement | null>(null);
   let winking = $state(false);
   let eyeStyle = $state('');
 
@@ -388,47 +385,42 @@
   }
 </script>
 
-<div class="vpn">
-  <div class="poster-cell">
-    <button
-      type="button"
-      class="poster"
-      class:pressed
-      aria-label="Постер"
-      bind:this={posterEl}
-      use:noWheelScroll
-      onpointerdown={onPosterDown}
-      onclick={onPosterClick}
-      onanimationend={() => (pressed = false)}
-    >
-      <span class="band">
-        <img src={chePink} alt="" draggable="false" />
-        <img src={cheLime} alt="" draggable="false" />
-      </span>
-      <span class="portrait-wrap" bind:this={portraitWrap}>
-        <img class="portrait" src={poster} alt="" draggable="false" />
-        {#if winking}
-          <span class="eye" style={eyeStyle} aria-hidden="true">
-            <span class="lid" onanimationend={() => (winking = false)}></span>
-          </span>
-        {/if}
-      </span>
-    </button>
-  </div>
+<div class="vpn" class:with-poster={tab === 'vpn'}>
+  {#if tab === 'vpn'}
+    <div class="poster-cell">
+      <button
+        type="button"
+        class="poster"
+        class:pressed
+        aria-label="Постер"
+        bind:this={posterEl}
+        use:noWheelScroll
+        onpointerdown={onPosterDown}
+        onclick={onPosterClick}
+        onanimationend={() => (pressed = false)}
+      >
+        <span class="portrait-wrap" bind:this={portraitWrap}>
+          <img class="portrait" src={poster} alt="" draggable="false" />
+          {#if winking}
+            <span class="eye" style={eyeStyle} aria-hidden="true">
+              <span class="lid" onanimationend={() => (winking = false)}></span>
+            </span>
+          {/if}
+        </span>
+      </button>
+    </div>
+  {/if}
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
       <p class="tagline">Подписка, серверы и сайты · сеть и соединения</p>
     </header>
 
-    <Subtabs
-      items={vpnSubs}
-      active={tab}
-      onSelect={(id) => {
-        tab = tabOf(id);
-        onSubsection?.(tab);
-      }}
-    />
+    {#if header}
+      {@render header()}
+    {:else}
+      <Subtabs items={vpnSubs} active={tab} onSelect={(id) => (tab = tabOf(id))} />
+    {/if}
 
     {#key tab}
       <div class="pane" role="tabpanel" aria-label={tabLabel}>
@@ -550,32 +542,24 @@
     display: none;
   }
 
-  /* Тот же верхний отступ, что у заголовка h1 на остальных страницах (12px). */
-  :global(main:has(> .vpn.vpn)) {
-    padding-top: 12px;
-  }
-
-  /* Слева плакат владельца (как на эталоне old-01), справа колонка карточек. */
   .vpn {
     display: grid;
     flex: 1;
-    grid-template-columns: clamp(200px, 26%, 320px) minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
   }
 
-  /* Постер во всю высоту колонки, как на эталоне old-01: сверху полоса с двумя
-     квадратами (Че Гевара на розовом и лаймовом), ниже портрет на остаток высоты.
-     Лицо портрета не обрезается: cover с фокусом на верхней трети. */
+  .vpn.with-poster {
+    grid-template-columns: clamp(154px, 27%, 320px) minmax(0, 1fr);
+    gap: 12px;
+  }
+
   .poster-cell {
     display: flex;
     min-width: 0;
     min-height: 0;
   }
 
-  /* Без чёрного фона и без overflow: каждая картинка скруглена сама, поэтому в углах
-     нет чёрной каймы от фона (раньше она просвечивала по краю скругления). Чёрные
-     разделители между картинками нарисованы рамками самих картинок. */
   .poster {
     display: flex;
     flex-direction: column;
@@ -589,37 +573,6 @@
     cursor: pointer;
   }
 
-  .band {
-    display: grid;
-    flex: none;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-  }
-
-  .poster img {
-    display: block;
-    width: 100%;
-    user-select: none;
-    pointer-events: none;
-  }
-
-  .band img {
-    box-sizing: border-box;
-    aspect-ratio: 1;
-    object-fit: cover;
-    border-bottom: 8px solid #000;
-  }
-
-  .band img:first-child {
-    border-top-left-radius: var(--radius-lg);
-    border-right: 4px solid #000;
-  }
-
-  .band img:last-child {
-    border-top-right-radius: var(--radius-lg);
-    border-left: 4px solid #000;
-  }
-
   .portrait-wrap {
     position: relative;
     flex: 1;
@@ -630,7 +583,10 @@
     position: absolute;
     inset: 0;
     height: 100%;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    width: 100%;
+    border-radius: var(--radius-lg);
+    user-select: none;
+    pointer-events: none;
     object-fit: cover;
     object-position: 50% 30%;
   }
@@ -700,18 +656,6 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  /* Три уровня промежутков: внутри карточки 8, между карточками и вкладками 12, между крупными
-     секциями 20. Верхняя панель вкладок стоит вплотную к верху колонки, как постер слева. */
-  .column :global(.subtabs) {
-    /* main имеет отступ 12px, обычная строка вкладок — 6px. */
-    margin: -6px 0 0;
-    min-height: 0;
-  }
-
-  .column :global(.subtabs .track) {
-    flex: 1;
   }
 
   .column {

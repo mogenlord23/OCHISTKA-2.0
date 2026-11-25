@@ -12,6 +12,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "OCHISTKA",
         "width": 900,
         "height": 712,
@@ -23,16 +25,18 @@
       },
       {
         "label": "tray-panel",
+        "create": false,
         "url": "index.html",
         "title": "OCHISTKA — быстрые действия",
-        "width": 330,
-        "height": 300,
-        "minWidth": 330,
-        "minHeight": 300,
+        "width": 386,
+        "height": 262,
+        "minWidth": 386,
+        "minHeight": 262,
         "visible": false,
         "focus": false,
         "resizable": false,
         "decorations": false,
+        "transparent": true,
         "skipTaskbar": true,
         "alwaysOnTop": true,
         "shadow": false
