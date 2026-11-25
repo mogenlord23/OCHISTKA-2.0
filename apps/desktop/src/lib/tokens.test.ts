@@ -5,7 +5,6 @@ import {
   HEADING_FONT,
   NEUTRAL,
   PATTERN,
-  RADIUS,
   SECTION_COLORS,
   TYPE_SCALE,
   contrastRatio,
@@ -63,7 +62,7 @@ describe('font tokens', () => {
   });
 });
 
-describe('neutral, radius and type tokens', () => {
+describe('neutral and type tokens', () => {
   it('defines the neutral colours used by the components', () => {
     expect(NEUTRAL).toEqual({
       black: '#080808',
@@ -74,10 +73,6 @@ describe('neutral, radius and type tokens', () => {
       surfaceAlt: '#111111',
       border: '#343434',
     });
-  });
-
-  it('defines the radius scale', () => {
-    expect(RADIUS).toEqual({ xs: '4px', sm: '8px', md: '12px', lg: '14px', pill: '999px' });
   });
 
   it('defines the type scale', () => {

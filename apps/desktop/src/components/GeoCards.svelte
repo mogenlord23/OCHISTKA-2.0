@@ -106,8 +106,8 @@
     gap: 8px;
     min-width: 0;
     margin: 0;
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: 0 0 0 2px #000;
     container-type: inline-size;
@@ -125,7 +125,7 @@
     gap: 12px;
     min-width: 0;
     padding: 12px 14px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #1a1a1a;
   }
 
@@ -135,7 +135,7 @@
     place-items: center;
     width: 44px;
     height: 44px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--accent);
     color: #000;
   }
@@ -172,7 +172,7 @@
     min-height: 36px;
     padding: 6px 18px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--btn-border);

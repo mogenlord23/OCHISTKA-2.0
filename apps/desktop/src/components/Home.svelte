@@ -435,12 +435,12 @@
 
   .summary {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
+    gap: var(--section-inset);
+    margin-bottom: var(--section-inset);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
   }
@@ -453,7 +453,7 @@
     min-height: 44px;
     padding: 4px 8px;
     border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: inherit;
     font: inherit;
@@ -479,7 +479,7 @@
     min-height: 44px;
     padding: 8px 16px;
     border: 1px solid var(--btn-border, #cf00ff);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--ink, #fafafa);
     font: inherit;
@@ -504,8 +504,8 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--section-inset);
+    margin-bottom: var(--section-inset);
   }
 
   .tile {
@@ -513,9 +513,9 @@
     align-items: center;
     gap: 8px;
     min-height: 44px;
-    padding: 16px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border: 0;
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
     font: inherit;
@@ -523,7 +523,7 @@
     cursor: pointer;
     transition:
       transform 160ms ease,
-      border-color 160ms ease;
+      box-shadow 160ms ease;
   }
 
   .tile:hover {
@@ -531,7 +531,7 @@
   }
 
   .tile.selected {
-    border-color: var(--ink, #fafafa);
+    box-shadow: inset 0 0 0 1px var(--ink, #fafafa);
   }
 
   .icon {
@@ -569,16 +569,16 @@
 
   .card,
   .alert {
-    margin-bottom: 8px;
-    padding: 16px;
-    border-radius: var(--radius-md);
+    margin-bottom: var(--section-inset);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
   }
 
   .card {
     position: relative;
-    padding: 16px;
+    padding: var(--card-inset);
   }
 
   .card .hide {
@@ -611,7 +611,6 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px 20px;
-    padding-top: 18px;
   }
 
   .graphs .hide {
@@ -682,7 +681,7 @@
   .bar {
     height: 4px;
     margin-top: 8px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: #21262d;
     overflow: hidden;
   }

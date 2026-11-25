@@ -1,0 +1,17 @@
+@property --corner-size {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+:root {
+  --radius-limit: 12px;
+  --section-inset: 14px;
+  --card-inset: 16px;
+}
+
+/* Процент следует за размером поверхности. Для элементов с заданной короткой
+   стороной используем её длину и получаем одинаковый радиус по обеим осям. */
+:where(*), ::before, ::after {
+  --radius-adaptive: min(var(--radius-limit), calc(var(--corner-size, 100%) / 4));
+}

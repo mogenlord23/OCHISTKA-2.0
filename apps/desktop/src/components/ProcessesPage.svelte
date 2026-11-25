@@ -432,7 +432,7 @@
   button {
     padding: 10px 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -466,7 +466,7 @@
   .row-btn:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
   }
   .path {
     font-family: ui-monospace, Consolas, monospace;
@@ -474,7 +474,7 @@
   }
   .path-box {
     padding: 12px 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: rgba(8, 8, 8, 0.35);
     color: var(--ink);
     font-size: var(--text-small);
@@ -483,7 +483,7 @@
   .notice {
     margin: 0;
     padding: 8px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     font-size: var(--text-small);
     font-weight: 700;
@@ -500,7 +500,7 @@
     flex: 1;
     min-height: 160px;
     overflow: auto;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: #111;
     color: var(--ink);
     font-size: var(--text-small);
@@ -548,7 +548,7 @@
     gap: 6px;
     padding: 6px 4px;
     border: 0;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: none;
     color: var(--accent);
     font-size: 10px;
@@ -588,7 +588,7 @@
     position: relative;
     height: 52px;
     padding: 0 12px 0 2px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     cursor: default;
     transition: background 120ms ease;
   }
@@ -624,7 +624,7 @@
     display: inline-block;
     min-width: 62px;
     padding: 5px 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #2a0f1e;
     color: #ff2e93;
     font-family: ui-monospace, Consolas, monospace;
@@ -662,7 +662,7 @@
   .dialog {
     width: min(420px, calc(100vw - 32px));
     padding: 20px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
   }

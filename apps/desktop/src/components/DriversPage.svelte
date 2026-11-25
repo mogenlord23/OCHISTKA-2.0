@@ -236,7 +236,7 @@
     aspect-ratio: 1;
     padding: 18px 8px 8px;
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
     font: inherit;
@@ -282,8 +282,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
   }
@@ -325,7 +325,7 @@
     min-height: 44px;
     padding: 10px 16px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
     font: inherit;
@@ -369,7 +369,7 @@
     color: #ffb4b4;
     background: #2a0f0f;
     padding: 8px 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     overflow-wrap: anywhere;
   }
 

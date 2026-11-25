@@ -151,7 +151,7 @@
     gap: 16px;
     margin-bottom: 8px;
     padding: 8px 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
   }
@@ -184,7 +184,7 @@
     min-height: 36px;
     padding: 6px 14px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #222;
     color: var(--ink, #fafafa);
     font: inherit;
@@ -220,7 +220,7 @@
     min-height: 40px;
     padding: 6px 14px;
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: #1a1a1a;
     color: var(--ink, #fafafa);
     font: inherit;
@@ -269,7 +269,7 @@
   .admin {
     margin: 0 0 8px;
     padding: 8px 14px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
     font-size: var(--text-small);

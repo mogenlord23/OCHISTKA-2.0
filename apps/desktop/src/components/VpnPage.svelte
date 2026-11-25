@@ -570,7 +570,7 @@
     height: 100%;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: none;
     box-shadow: none;
     cursor: pointer;
@@ -587,7 +587,7 @@
     inset: 0;
     height: 100%;
     width: 100%;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     user-select: none;
     pointer-events: none;
     object-fit: cover;
@@ -707,8 +707,8 @@
   }
 
   .card {
-    padding: 16px 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
   }
@@ -747,7 +747,7 @@
     min-width: 0;
     padding: 8px 16px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -765,7 +765,7 @@
     min-height: 38px;
     padding: 8px 14px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--btn-border);
@@ -799,7 +799,7 @@
     min-height: 0;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: #2a2a2a;
     color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent);
@@ -827,7 +827,7 @@
     display: block;
     width: 100%;
     height: 6px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #2a2a2a;
     box-shadow: 0 0 0 2px #000;
     overflow: hidden;
@@ -858,7 +858,7 @@
     flex: 1;
     min-height: 120px;
     /* Внутренний отступ от обводки до первой строки одинаковый с трёх сторон. */
-    padding: 16px;
+    padding: var(--card-inset);
     overflow-y: auto;
     /* Прокрутка работает (колесо, тачпад, клавиши), полоса не показывается. */
     scrollbar-width: none;
@@ -877,11 +877,12 @@
   }
 
   .servers.has-selection::before {
+    --corner-size: var(--server-height);
     content: '';
     position: absolute;
     inset: 0 0 auto;
     height: var(--server-height);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #222;
     box-shadow: inset 0 0 0 1px var(--accent);
     transform: translateY(calc(var(--selected-server-index) * var(--server-height)));
@@ -890,6 +891,7 @@
   }
 
   .server {
+    --corner-size: var(--server-height);
     position: relative;
     display: flex;
     align-items: center;
@@ -897,7 +899,7 @@
     width: 100%;
     height: var(--server-height);
     padding: 10px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     box-shadow: none;
     color: var(--ink);

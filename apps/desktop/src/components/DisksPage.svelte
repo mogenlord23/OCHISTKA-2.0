@@ -503,8 +503,8 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
   }
@@ -516,13 +516,13 @@
     justify-content: center;
     width: 72px;
     height: 72px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
   }
 
   .drive-glyph {
     width: 44px;
     height: 30px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: radial-gradient(circle at 34px 20px, #b4ff00 3px, transparent 4px), #080808;
   }
 
@@ -554,7 +554,7 @@
   .disk-bar {
     height: 6px;
     margin-top: 6px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     overflow: hidden;
   }
@@ -575,8 +575,8 @@
   }
 
   .panel {
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
   }
@@ -597,7 +597,7 @@
 
   .alert {
     padding: 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--page-text);
   }
@@ -630,7 +630,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
   }
@@ -656,7 +656,7 @@
   .meter {
     flex-basis: 100%;
     height: 6px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     overflow: hidden;
   }
@@ -669,7 +669,7 @@
 
   .confirm {
     padding: 8px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
   }
@@ -701,7 +701,7 @@
   select {
     min-height: 36px;
     padding: 6px 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--ink);
@@ -712,7 +712,7 @@
     min-height: 44px;
     padding: 10px 16px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
     font: inherit;

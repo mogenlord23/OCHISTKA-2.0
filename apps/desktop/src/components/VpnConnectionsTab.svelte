@@ -253,7 +253,7 @@
     flex: 1;
     min-height: 160px;
     overflow: auto;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
     contain: layout paint;
@@ -345,7 +345,7 @@
   .row-btn:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
   }
 
   .details {
@@ -356,7 +356,7 @@
     min-height: 64px;
     margin-top: 0;
     padding: 10px 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
     font-size: var(--text-caption);
@@ -380,7 +380,7 @@
 
   .state-chip {
     padding: 2px 8px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-adaptive);
     background: #222;
     color: var(--accent);
     font-size: 0.7rem;

@@ -307,12 +307,12 @@
                не зависит от переключателей: список плиток с постоянными ключами, без {#key}. -->
           <div class="options">
             <div class="opt">
-              <Switch square checked={transparencyOn} onchange={toggleTransparency}>
+              <Switch checked={transparencyOn} onchange={toggleTransparency}>
                 <span class="opt-text">Эффект прозрачности</span>
               </Switch>
             </div>
             <div class="opt">
-              <Switch square checked={fillOn} onchange={toggleFill}>
+              <Switch checked={fillOn} onchange={toggleFill}>
                 <span class="opt-text">Залить панель задач и Пуск</span>
               </Switch>
             </div>
@@ -411,7 +411,7 @@
   .msg.error {
     display: inline-block;
     padding: 8px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: #ff8a8a;
   }
@@ -428,7 +428,7 @@
     min-height: 44px;
     padding: 10px 14px;
     border: 1px solid var(--btn-border, #343434);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -438,7 +438,7 @@
   }
 
   .actions button {
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     flex: 1 1 220px;
     min-width: min(100%, 220px);
   }
@@ -474,7 +474,7 @@
     min-height: 44px;
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -573,7 +573,7 @@
     padding: 0;
     overflow: hidden;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background-origin: border-box;
     background-repeat: no-repeat;
     color: var(--ink);
@@ -587,7 +587,7 @@
   }
 
   .grid-color .tile {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     box-shadow: inset 0 0 0 3px #111;
   }
 
@@ -651,7 +651,7 @@
     min-height: 52px;
     margin-bottom: 8px;
     padding: 8px 16px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font-size: var(--text-small);
@@ -670,7 +670,7 @@
     min-width: 56px;
     min-height: 36px;
     border: 1px solid #343434;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--ink);
     font: inherit;

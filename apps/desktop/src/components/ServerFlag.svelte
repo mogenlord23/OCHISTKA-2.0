@@ -21,8 +21,10 @@
     display: block;
     flex: none;
     width: 24px;
-    height: 18px;
-    border-radius: var(--radius-xs);
+    --flag-height: 18px;
+    --corner-size: var(--flag-height);
+    height: var(--flag-height);
+    border-radius: var(--radius-adaptive);
     object-fit: cover;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
   }

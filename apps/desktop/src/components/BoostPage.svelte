@@ -187,7 +187,7 @@
     min-height: 36px;
     padding: 6px 14px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #222;
     color: var(--ink, #fafafa);
     font: inherit;
@@ -211,7 +211,7 @@
     display: inline-flex;
     max-width: 100%;
     padding: 3px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     box-shadow: 0 0 0 2px var(--ink, #fafafa);
   }
@@ -220,7 +220,7 @@
     min-height: 32px;
     padding: 4px 20px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--ink, #fafafa);
     font: inherit;
@@ -297,7 +297,7 @@
   .admin {
     margin: 8px 0 0;
     padding: 8px 14px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
     font-size: var(--text-small);
@@ -313,14 +313,14 @@
     z-index: 50;
     display: grid;
     place-items: center;
-    padding: 16px;
+    padding: var(--card-inset);
     background: rgb(0 0 0 / 60%);
   }
 
   .dialog {
     max-width: 440px;
     padding: 20px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
     box-shadow: 0 0 0 2px var(--ink, #fafafa);

@@ -54,7 +54,7 @@
     align-items: center;
     gap: 16px;
     padding: 8px 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black, #080808);
     color: var(--ink, #fafafa);
   }

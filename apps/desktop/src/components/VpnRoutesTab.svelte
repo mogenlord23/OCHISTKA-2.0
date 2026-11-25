@@ -164,8 +164,8 @@
 
 <style>
   .card {
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
   }
@@ -207,7 +207,7 @@
     resize: vertical;
     padding: 8px 12px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -271,7 +271,7 @@
     min-height: 44px;
     padding: 8px 22px;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--btn-border);

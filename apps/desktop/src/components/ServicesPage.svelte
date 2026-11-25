@@ -313,7 +313,7 @@
   button {
     padding: 10px 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -332,7 +332,7 @@
   .notice {
     margin: 0;
     padding: 8px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     font-size: var(--text-small);
     font-weight: 700;
@@ -350,7 +350,7 @@
     flex: 1;
     min-height: 160px;
     overflow: auto;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: #111;
     color: var(--ink);
     font-size: var(--text-small);
@@ -382,7 +382,7 @@
     position: relative;
     height: 52px;
     padding: 0 12px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
   }
   .row::after {
     content: '';
@@ -418,7 +418,7 @@
   .pill {
     display: inline-block;
     padding: 4px 10px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-adaptive);
     background: #1c1c1c;
     color: var(--muted);
     font-size: 11px;
@@ -440,7 +440,7 @@
     height: 30px;
     padding: 0 8px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;

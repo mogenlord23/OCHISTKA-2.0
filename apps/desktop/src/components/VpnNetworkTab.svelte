@@ -96,7 +96,7 @@
 
   .card {
     padding: 16px 18px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
   }

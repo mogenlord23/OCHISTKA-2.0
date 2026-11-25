@@ -31,7 +31,7 @@
     min-height: 38px;
     padding: 8px 14px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     box-shadow: inset 0 0 0 1px var(--btn-border);
     color: var(--ink);

@@ -74,7 +74,7 @@
   .dialog {
     width: min(460px, calc(100vw - 32px));
     padding: 20px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--surface, #111);
     color: var(--ink, #fafafa);
     animation: dialog-in 160ms cubic-bezier(0.2, 0, 0, 1);
@@ -99,7 +99,7 @@
     min-height: 44px;
     padding: 8px 18px;
     border: 1px solid #444;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: inherit;
     font: inherit;

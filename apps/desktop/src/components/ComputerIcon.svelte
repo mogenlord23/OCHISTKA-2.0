@@ -17,13 +17,14 @@
   class="icon-art"
   width={size}
   height={size}
+  style:--corner-size="{size}px"
   viewBox="0 0 88 88"
   aria-hidden="true"
   focusable="false"
   data-kind={kind}
 >
   {#if kind === 'cpu'}
-    <rect width="88" height="88" rx="12" fill={LIME} />
+    <rect width="88" height="88" fill={LIME} />
     {#each [24, 36, 48, 60] as p (p)}
       <rect x={p} y="12" width="4" height="8" fill={BLACK} />
       <rect x={p} y="68" width="4" height="8" fill={BLACK} />
@@ -33,7 +34,7 @@
     <rect x="20" y="20" width="48" height="48" rx="6" fill={BLACK} />
     <rect x="31" y="31" width="26" height="26" rx="3" fill={CREAM} />
   {:else if kind === 'gpu'}
-    <rect width="88" height="88" rx="12" fill={PINK} />
+    <rect width="88" height="88" fill={PINK} />
     <rect x="8" y="22" width="72" height="36" rx="5" fill={BLACK} />
     {#each [30, 58] as cx (cx)}
       <circle {cx} cy="40" r="12" fill={PINK} />
@@ -43,7 +44,7 @@
     {/each}
     <rect x="16" y="62" width="56" height="4" fill={YELLOW} />
   {:else if kind === 'ram'}
-    <rect width="88" height="88" rx="12" fill={BLUE} />
+    <rect width="88" height="88" fill={BLUE} />
     {#each [19, 49] as y (y)}
       <rect x="8" {y} width="72" height="20" rx="3" fill={BLACK} />
       {#each [16, 30, 44, 58] as x (x)}
@@ -52,7 +53,7 @@
       <rect x="16" y={y + 15} width="56" height="2" fill={YELLOW} />
     {/each}
   {:else if kind === 'board'}
-    <rect width="88" height="88" rx="12" fill={YELLOW} />
+    <rect width="88" height="88" fill={YELLOW} />
     <rect x="16" y="12" width="56" height="64" rx="3" fill={BLACK} />
     <rect x="26" y="22" width="18" height="18" fill={YELLOW} />
     <rect x="50" y="22" width="14" height="4" fill={YELLOW} opacity="0.7" />
@@ -60,13 +61,13 @@
     <rect x="26" y="52" width="38" height="4" fill={YELLOW} opacity="0.7" />
     <rect x="26" y="62" width="38" height="4" fill={YELLOW} opacity="0.7" />
   {:else if kind === 'disks'}
-    <rect width="88" height="88" rx="12" fill={PINK} />
+    <rect width="88" height="88" fill={PINK} />
     <rect x="20" y="12" width="48" height="64" rx="5" fill={BLACK} />
     <rect x="27" y="20" width="34" height="22" rx="2" fill={CREAM} />
     <circle cx="28" cy="64" r="3" fill={PINK} />
     <rect x="38" y="62" width="22" height="4" rx="2" fill={PINK} opacity="0.6" />
   {:else}
-    <rect width="88" height="88" rx="12" fill={LIME} />
+    <rect width="88" height="88" fill={LIME} />
     <rect x="12" y="20" width="48" height="34" rx="3" fill={BLACK} />
     <rect x="17" y="25" width="38" height="24" fill={BLUE} />
     <rect x="30" y="54" width="12" height="6" fill={BLACK} />
@@ -81,5 +82,7 @@
   .icon-art {
     display: block;
     flex: none;
+    overflow: hidden;
+    border-radius: var(--radius-adaptive);
   }
 </style>

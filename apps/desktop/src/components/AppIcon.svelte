@@ -83,9 +83,10 @@
     flex: none;
     align-items: center;
     justify-content: center;
+    --corner-size: var(--size);
     width: var(--size);
     height: var(--size);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     color: #080808;
     font-size: calc(var(--size) * 0.5);
     font-weight: 800;

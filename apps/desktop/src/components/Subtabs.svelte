@@ -118,6 +118,7 @@
   }
 
   .track {
+    --corner-size: var(--subtabs-height, 48px);
     position: relative;
     display: inline-grid;
     grid-auto-flow: column;
@@ -131,18 +132,19 @@
     gap: 2px;
     padding: var(--track-padding);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     touch-action: none;
     cursor: pointer;
   }
 
   .indicator {
+    --corner-size: var(--tab-height);
     position: absolute;
     top: var(--track-padding);
     left: 0;
     height: var(--tab-height);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--accent);
     box-shadow: inset 0 0 0 2px rgba(8, 8, 8, 0.72);
     visibility: hidden;
@@ -158,13 +160,14 @@
   }
 
   button {
+    --corner-size: var(--tab-height);
     position: relative;
     z-index: 1;
     min-width: 0;
     height: var(--tab-height);
     padding: 0 18px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--ink);
     font: inherit;

@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import App from './App.svelte';
 import TrayPanel from './components/TrayPanel.svelte';
 import { applyReduceMotion } from './lib/appearanceStore';
+import './geometry.css';
 
 // Уменьшенное движение берём только из настроек системы (prefers-reduced-motion).
 try {

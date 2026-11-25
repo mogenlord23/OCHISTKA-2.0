@@ -66,12 +66,13 @@
   }
 
   .indicator {
+    --corner-size: var(--tile);
     position: absolute;
     top: var(--gap);
     left: var(--gap);
     width: var(--tile);
     height: var(--tile);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--accent);
     transform: translateY(calc(var(--active-index) * (var(--tile) + var(--gap))));
     transition:
@@ -81,6 +82,7 @@
   }
 
   .item {
+    --corner-size: var(--tile);
     position: relative;
     z-index: 1;
     display: flex;
@@ -93,7 +95,7 @@
     height: var(--tile);
     padding: 0;
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: #fff;
     font: inherit;

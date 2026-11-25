@@ -608,8 +608,8 @@
 <style>
   .alert {
     margin: 0 0 8px;
-    padding: 16px;
-    border-radius: var(--radius-lg);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     box-shadow: inset 0 0 0 2px #000;
     font-size: var(--text-caption);
@@ -627,7 +627,7 @@
   .quarantine-list li {
     padding: 12px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     color: var(--ink-soft);
   }
@@ -645,7 +645,7 @@
     height: 10px;
     margin-bottom: 8px;
     overflow: hidden;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-adaptive);
     background: #222;
     box-shadow: inset 0 0 0 1px var(--border);
   }
@@ -669,7 +669,7 @@
   input {
     padding: 12px 14px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     font: inherit;
@@ -685,7 +685,7 @@
     min-height: 38px;
     padding: 8px 14px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     box-shadow: inset 0 0 0 1px var(--btn-border);
     color: var(--ink);
@@ -709,7 +709,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 16px;
+    gap: var(--section-inset);
   }
 
   .card.scanner {
@@ -718,9 +718,9 @@
     flex-direction: column;
     gap: 8px;
     min-width: 0;
-    padding: 16px;
+    padding: var(--card-inset);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
   }
 
@@ -746,7 +746,7 @@
     min-width: 0;
     overflow: hidden;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: radial-gradient(ellipse at 50% 110%, #243719, #191c19 62%, #141614);
     padding: 0;
     font: inherit;
@@ -822,7 +822,7 @@
     min-width: 0;
     min-height: 76px;
     padding: 25px 8px 8px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #202020;
     text-align: center;
   }
@@ -849,7 +849,7 @@
   .folder {
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
   }
 
@@ -913,7 +913,7 @@
     margin-top: 4px;
     padding: 6px 18px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--btn-border);
@@ -953,9 +953,9 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 16px;
+    padding: var(--card-inset);
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     font-size: var(--text-caption);
   }
@@ -978,7 +978,7 @@
     flex: 0 0 34px;
     place-items: center;
     height: 34px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--accent);
     color: var(--black);
   }
@@ -991,7 +991,7 @@
     min-height: 60px;
     padding: 12px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
   }
 
@@ -1048,7 +1048,7 @@
     padding: 11px 12px;
     border: 1px solid var(--border);
     border-inline-start: 3px solid var(--accent);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
   }
 
@@ -1060,7 +1060,7 @@
   .engine-details {
     padding: 12px 16px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--muted);
     font-size: var(--text-small);

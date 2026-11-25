@@ -8,7 +8,7 @@
   import { shortPercent } from '../lib/computer';
   import { SECTIONS } from '../lib/sections';
   import { t } from '../lib/i18n.svelte';
-  import { BODY_FONT, NEUTRAL, RADIUS, SECTION_COLORS, SHELL, textOn } from '../lib/tokens';
+  import { BODY_FONT, NEUTRAL, SECTION_COLORS, SHELL, textOn } from '../lib/tokens';
 
   const metrics = [
     { id: 'cpu', label: 'CPU' },
@@ -114,8 +114,6 @@
   style:--tile={NEUTRAL.surfaceAlt}
   style:--ink={NEUTRAL.ink}
   style:--border={NEUTRAL.border}
-  style:--radius-lg={RADIUS.lg}
-  style:--radius-md={RADIUS.md}
   style:--computer={SECTION_COLORS.computer}
   style:--vpn={SECTION_COLORS.vpn}
   style:--on-vpn={textOn(SECTION_COLORS.vpn)}
@@ -182,7 +180,7 @@
     overflow: hidden auto;
     scrollbar-width: none;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
     opacity: 0;
@@ -222,7 +220,7 @@
     aspect-ratio: 1;
     padding: 3px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--tile);
     color: var(--ink);
     text-align: center;
@@ -276,7 +274,7 @@
     height: 3px;
     margin: 5px auto 0;
     overflow: hidden;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--border);
   }
 

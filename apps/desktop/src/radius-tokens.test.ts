@@ -3,9 +3,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Правило владельца: одно скругление во всём приложении, значения только из токенов
- * (--radius-xs/sm/md/lg/pill в tokens.ts). Свои числа в стилях компонентов запрещены.
- * Разрешены: токены, 0, inherit, 50% и 9999px (круги).
+ * Для поверхностей используется общее адаптивное скругление.
+ * 50% остаётся для круга в анимации иллюстрации.
  * Иконки SVG (атрибут rx) это геометрия рисунка, не стили, их тест не проверяет.
  */
 const SRC = join(__dirname);
@@ -23,7 +22,7 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const ALLOWED_PART = /^(var\(--radius-(xs|sm|md|lg|pill)\)|0|inherit|50%|9999px)$/;
+const ALLOWED_PART = /^(var\(--radius-adaptive\)|0|inherit|50%)$/;
 
 export function rawRadii(css: string): string[] {
   const bad: string[] = [];
@@ -42,9 +41,9 @@ describe('скругления только из токенов', () => {
   it('распознаёт свои числа', () => {
     expect(rawRadii('a{border-radius: 10px;}')).toEqual(['border-radius: 10px']);
     expect(rawRadii('a{border-top-left-radius: 6px}')).toHaveLength(1);
-    expect(rawRadii('a{border-radius: 0 0 var(--radius-lg) var(--radius-lg);}')).toEqual([]);
-    expect(rawRadii('a{border-radius: 50%;} b{border-radius: 9999px}')).toEqual([]);
-    expect(rawRadii('a{border-radius: var(--radius-sm, 8px);}')).toHaveLength(1);
+    expect(rawRadii('a{border-radius: 0 0 var(--radius-adaptive) var(--radius-adaptive);}')).toEqual([]);
+    expect(rawRadii('a{border-radius: 50%;}')).toEqual([]);
+    expect(rawRadii('a{border-radius: var(--radius-sm);}')).toHaveLength(1);
   });
 
   const files = walk(SRC).filter((f) => {

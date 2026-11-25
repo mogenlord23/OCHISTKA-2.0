@@ -95,7 +95,7 @@
     width: 100%;
     height: 100%;
     border: 2px solid #4a4a4a;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: #1c1c1c;
     transition:
       background-color 140ms ease,

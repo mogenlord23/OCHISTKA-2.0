@@ -85,7 +85,7 @@
     min-width: 0;
     border: 1px solid var(--border);
     border-inline-start: 3px solid var(--accent);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     font-size: var(--text-caption);
   }
@@ -125,7 +125,7 @@
     display: block;
     height: 8px;
     margin: 8px 0 6px;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-adaptive);
     background: #21262d;
     overflow: hidden;
   }

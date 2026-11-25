@@ -170,8 +170,8 @@
 
 <style>
   .card {
-    padding: 16px;
-    border-radius: var(--radius-md);
+    padding: var(--card-inset);
+    border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
   }
@@ -182,7 +182,7 @@
     margin-top: 8px;
     padding: 6px 18px;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--btn-border);
@@ -218,7 +218,7 @@
     aspect-ratio: 1;
     min-width: 0;
     overflow: hidden;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #202020;
   }
 
@@ -284,7 +284,7 @@
   .stat {
     min-width: 0;
     padding: 8px 10px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: #202020;
     text-align: center;
   }

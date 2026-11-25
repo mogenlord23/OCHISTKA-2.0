@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  /** Единый переключатель «включить / выключить» (ADR 0012). Пилюля в стиле кнопки VPN:
+  /** Единый переключатель «включить / выключить» (ADR 0012):
       выкл: тёмная с белой обводкой, ручка слева; вкл: заливка цветом раздела, ручка справа.
       Состояние показывает только родитель (`checked`): нажатие лишь сообщает желаемое значение,
       а оптимистичный показ и откат при ошибке делает родитель. Ожидание: ручка пульсирует.
@@ -11,7 +11,6 @@
     disabled = false,
     pending = false,
     error = false,
-    square = false,
     label,
     ariaLabel,
     children,
@@ -21,7 +20,6 @@
     disabled?: boolean;
     pending?: boolean;
     error?: boolean;
-    square?: boolean;
     /** Подпись справа. Вместо неё можно передать содержимое. */
     label?: string;
     /** Имя для скринридера, когда видимой подписи рядом нет (подпись в соседнем тексте). */
@@ -44,7 +42,6 @@
     class:on={checked}
     class:pending
     class:error
-    class:square
     aria-checked={checked}
     aria-busy={pending}
     aria-label={ariaLabel ?? (label && !children ? label : undefined)}
@@ -82,11 +79,13 @@
     flex: none;
     box-sizing: border-box;
     width: 44px;
-    height: 24px;
+    --track-height: 24px;
+    --corner-size: var(--track-height);
+    height: var(--track-height);
     min-height: 0;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-adaptive);
     background: #1c1c1c;
     box-shadow: 0 0 0 2px var(--ink, #fafafa);
     cursor: pointer;
@@ -112,9 +111,11 @@
     position: absolute;
     top: 3px;
     left: 3px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
+    --knob-size: 18px;
+    --corner-size: var(--knob-size);
+    width: var(--knob-size);
+    height: var(--knob-size);
+    border-radius: var(--radius-adaptive);
     background: #fff;
     box-shadow: 0 0 0 2px #000;
     transition: transform 160ms ease;
@@ -122,14 +123,6 @@
 
   .track.on .knob {
     transform: translateX(20px);
-  }
-
-  .track.square {
-    border-radius: var(--radius-sm);
-  }
-
-  .track.square .knob {
-    border-radius: var(--radius-xs);
   }
 
   .track.pending .knob {

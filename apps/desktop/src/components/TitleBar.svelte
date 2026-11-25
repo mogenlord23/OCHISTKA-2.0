@@ -71,6 +71,7 @@
   }
 
   button {
+    --corner-size: var(--subtabs-height);
     display: grid;
     place-items: center;
     box-sizing: border-box;
@@ -78,7 +79,7 @@
     height: var(--subtabs-height);
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: #fff;
     cursor: pointer;

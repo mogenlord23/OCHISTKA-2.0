@@ -111,7 +111,7 @@
     left: 17%;
     width: 14%;
     height: 2px;
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-adaptive);
     background: linear-gradient(90deg, transparent, #f6ffce, transparent);
     animation: drift 8s linear -2s infinite;
   }

@@ -63,7 +63,7 @@
     min-width: 0;
     height: 52px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     transition: border-color 160ms ease;
   }

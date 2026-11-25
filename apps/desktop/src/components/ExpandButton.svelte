@@ -62,7 +62,7 @@
        Тонкая обводка в покое — inset-тенью, она не отнимает место у иконки. */
     border: 0;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--black);
     color: var(--ink);
     cursor: pointer;

@@ -26,7 +26,6 @@
     BODY_FONT,
     HEADING_FONT,
     NEUTRAL,
-    RADIUS,
     SHELL,
     SELECTION,
     PATTERN,
@@ -174,11 +173,6 @@
   style:--surface={NEUTRAL.surface}
   style:--surface-alt={NEUTRAL.surfaceAlt}
   style:--border={NEUTRAL.border}
-  style:--radius-xs={RADIUS.xs}
-  style:--radius-sm={RADIUS.sm}
-  style:--radius-md={RADIUS.md}
-  style:--radius-lg={RADIUS.lg}
-  style:--radius-pill={RADIUS.pill}
   style:--text-caption={TYPE_SCALE.caption}
   style:--text-small={TYPE_SCALE.small}
   style:--text-body={TYPE_SCALE.body}
@@ -307,12 +301,12 @@
     max-width: min(380px, 70vw);
     padding: 12px;
     border: 1px solid var(--accent);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background: var(--surface);
     color: var(--ink);
     font-size: var(--text-caption);
   }
-  .desktop-toast button { border: 0; border-radius: var(--radius-xs); padding: 4px 6px; background: var(--surface-alt); color: var(--ink); cursor: pointer; }
+  .desktop-toast button { border: 0; border-radius: var(--radius-adaptive); padding: 4px 6px; background: var(--surface-alt); color: var(--ink); cursor: pointer; }
   /* Окно прозрачное (tauri.conf.json: transparent, без тени). Скруглён только корень приложения;
      плавность изменения размера даёт contain (корень, сцена, прокручиваемая область). */
   :global(html),
@@ -394,7 +388,7 @@
   }
 
   .shell {
-    --frame-inset: 14px;
+    --frame-inset: var(--section-inset);
     --section-gap: var(--frame-inset);
     --selection-duration: 190ms;
     --selection-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -404,7 +398,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     overflow: hidden;
     contain: layout paint;
     font-family: var(--font-body, system-ui, sans-serif);
@@ -442,7 +436,7 @@
   .body::before {
     content: '';
     position: absolute;
-    inset: 0 calc(var(--side-width) - var(--radius-lg)) 0 0;
+    inset: 0 calc(var(--side-width) - var(--radius-limit)) 0 0;
     z-index: -1;
     background-color: var(--accent);
   }
@@ -521,7 +515,7 @@
 
   :global(.section-scroll) {
     overflow: hidden auto;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-adaptive);
     overscroll-behavior: contain;
   }
 
@@ -545,7 +539,7 @@
     flex: none;
     width: var(--side-width);
     background: var(--window);
-    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    border-radius: var(--radius-adaptive) 0 0 var(--radius-adaptive);
     /* Фон панели и дока рисуется до самых краёв, поэтому углы скругляет обрезание, а не один радиус. */
     overflow: hidden;
   }
@@ -574,10 +568,10 @@
     z-index: 10;
     isolation: isolate;
     overflow: hidden;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-adaptive);
     background-color: var(--black);
     visibility: hidden;
-    clip-path: inset(100% 0 0 0 round var(--radius-md));
+    clip-path: inset(100% 0 0 0 round var(--radius-adaptive));
     transform: translateY(10px);
     transition:
       clip-path 160ms cubic-bezier(0.4, 0, 1, 1),
@@ -587,7 +581,7 @@
 
   .bottom-wrap.open {
     visibility: visible;
-    clip-path: inset(0 0 0 0 round var(--radius-md));
+    clip-path: inset(0 0 0 0 round var(--radius-adaptive));
     transform: none;
     transition:
       clip-path 200ms cubic-bezier(0.2, 0, 0, 1),
@@ -616,7 +610,7 @@
     height: 20px;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: transparent;
     color: var(--muted);
     cursor: pointer;
@@ -645,7 +639,7 @@
   .pill {
     padding: 5px 10px;
     border: 1px solid var(--btn-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
     color: var(--ink);
     font: inherit;
