@@ -10,6 +10,7 @@
   import { SECTIONS } from '../lib/sections';
   import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
   import { listenDesktop } from '../lib/tray';
+  import { slideInOnChange } from '../lib/slideInOnChange';
   import poster from '../assets/pop-art.png';
   import { playHeehee } from '../lib/sound';
   import { coverGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
@@ -255,6 +256,9 @@
   const groupedServers = $derived(
     groupByLabel(servers, (server) => serverLabel(server.name, server.country, i18n.lang)),
   );
+  const selectedServerIndex = $derived(
+    groupedServers.findIndex((server) => server.id === snapshot?.selected),
+  );
   const serverLabels = $derived(
     numberedLabels(
       groupedServers.map((server) => serverLabel(server.name, server.country, i18n.lang)),
@@ -425,116 +429,122 @@
       <Subtabs items={vpnSubs} active={tab} onSelect={(id) => (tab = tabOf(id))} />
     {/if}
 
-    {#if networkVisited || tab === 'network'}
-      <div class="pane section-scroll" role="tabpanel" aria-label="Сеть" hidden={tab !== 'network'}>
-        <VpnNetworkTab active={active && tab === 'network'} />
-      </div>
-    {/if}
+    <div class="pane-slot" use:slideInOnChange={active ? tab : null}>
+      {#if networkVisited || tab === 'network'}
+        <div class="pane section-scroll" role="tabpanel" aria-label="Сеть" hidden={tab !== 'network'}>
+          <VpnNetworkTab active={active && tab === 'network'} />
+        </div>
+      {/if}
 
-    {#if tab !== 'network'}
-      <div class="pane section-scroll" role="tabpanel" aria-label={tabLabel}>
-        {#if tab === 'vpn'}
-          <section class="card">
-            <h2 class="sr-only">Ссылка подписки / импорта</h2>
-            <div class="row">
-              <SecretField bind:value={urlInput} label={fieldLabel} onenter={onImport} />
-              <button type="button" disabled={importing} onclick={() => fileInput?.click()}
-                >Из файла…</button
-              >
-              <input
-                bind:this={fileInput}
-                class="hidden"
-                type="file"
-                accept=".txt,.json,text/plain,application/json"
-                aria-label="Файл подписки"
-                onchange={onFile}
-              />
-            </div>
-            {#if importNote}
-              <p class="note" role="status">{importNote}</p>
-            {/if}
-          </section>
-
-          <section class="card connect">
-            <div class="connect-grid">
-              <div class="power-row">
-                <button
-                  type="button"
-                  class="power"
-                  class:on={ui.pressed}
-                  aria-pressed={ui.pressed}
-                  aria-busy={ui.busy}
-                  aria-label={ui.label}
-                  title={ui.reason ?? undefined}
-                  aria-disabled={ui.disabled}
-                  onclick={onConnect}
+      {#if tab !== 'network'}
+        <div class="pane section-scroll" role="tabpanel" aria-label={tabLabel}>
+          {#if tab === 'vpn'}
+            <section class="card">
+              <h2 class="sr-only">Ссылка подписки / импорта</h2>
+              <div class="row">
+                <SecretField bind:value={urlInput} label={fieldLabel} onenter={onImport} />
+                <button type="button" disabled={importing} onclick={() => fileInput?.click()}
+                  >Из файла…</button
                 >
-                  <VpnPowerIcon />
-                </button>
-                <div class="power-text">
-                  {#if preparing !== null}
-                    <span
-                      class="prepare-bar"
-                      role="progressbar"
-                      aria-label="Подготовка VPN"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-valuenow={preparing}
-                    >
-                      <span class="prepare-fill" style:width={`${preparing}%`}></span>
-                    </span>
-                  {/if}
-                  <span class="timer" aria-label="Время подключения"
-                    >{formatElapsed(elapsedSeconds)}</span
+                <input
+                  bind:this={fileInput}
+                  class="hidden"
+                  type="file"
+                  accept=".txt,.json,text/plain,application/json"
+                  aria-label="Файл подписки"
+                  onchange={onFile}
+                />
+              </div>
+              {#if importNote}
+                <p class="note" role="status">{importNote}</p>
+              {/if}
+            </section>
+
+            <section class="card connect">
+              <div class="connect-grid">
+                <div class="power-row">
+                  <button
+                    type="button"
+                    class="power"
+                    class:on={ui.pressed}
+                    aria-pressed={ui.pressed}
+                    aria-busy={ui.busy}
+                    aria-label={ui.label}
+                    title={ui.reason ?? undefined}
+                    aria-disabled={ui.disabled}
+                    onclick={onConnect}
                   >
-                  <span class="status-line" role="status">{status}</span>
+                    <VpnPowerIcon />
+                  </button>
+                  <div class="power-text">
+                    {#if preparing !== null}
+                      <span
+                        class="prepare-bar"
+                        role="progressbar"
+                        aria-label="Подготовка VPN"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow={preparing}
+                      >
+                        <span class="prepare-fill" style:width={`${preparing}%`}></span>
+                      </span>
+                    {/if}
+                    <span class="timer" aria-label="Время подключения"
+                      >{formatElapsed(elapsedSeconds)}</span
+                    >
+                    <span class="status-line" role="status">{status}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <h2 class="sr-only">Серверы / {servers.length}</h2>
-          <section class="card servers-card">
-            {#if servers.length > 0}
-              <ul class="servers" aria-label="Серверы">
-                {#each groupedServers as server, i (server.id)}
-                  <li>
-                    <button
-                      type="button"
-                      class="server"
-                      class:selected={snapshot?.selected === server.id}
-                      aria-pressed={snapshot?.selected === server.id}
-                      aria-label={serverAria(server.name, server.country, i18n.lang)}
-                      onclick={() => onSelect(server.id)}
-                    >
-                      <ServerFlag code={server.country} />
-                      <span class="srv-name"
-                        >{serverLabels[i]}</span
+            <h2 class="sr-only">Серверы / {servers.length}</h2>
+            <section class="card servers-card">
+              {#if servers.length > 0}
+                <ul
+                  class="servers"
+                  class:has-selection={selectedServerIndex >= 0}
+                  style:--selected-server-index={selectedServerIndex}
+                  aria-label="Серверы"
+                >
+                  {#each groupedServers as server, i (server.id)}
+                    <li>
+                      <button
+                        type="button"
+                        class="server"
+                        aria-pressed={snapshot?.selected === server.id}
+                        aria-label={serverAria(server.name, server.country, i18n.lang)}
+                        onclick={() => onSelect(server.id)}
                       >
-                      <span class="scheme">{server.protocol.toUpperCase()}</span>
-                      <span
-                        class="latency"
-                        class:dead={server.measured && server.latencyMs === null}
-                        >{server.measured ? formatLatency(server) : ''}</span
-                      >
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {:else}
-              <p class="note empty">
-                Серверов пока нет. Вставь ссылку https:// или список ссылок серверов в поле выше,
-                либо выбери файл.
-              </p>
-            {/if}
-          </section>
-        {:else if tab === 'advanced'}
-          <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
-        {:else}
-          <VpnConnectionsTab />
-        {/if}
-      </div>
-    {/if}
+                        <ServerFlag code={server.country} />
+                        <span class="srv-name"
+                          >{serverLabels[i]}</span
+                        >
+                        <span class="scheme">{server.protocol.toUpperCase()}</span>
+                        <span
+                          class="latency"
+                          class:dead={server.measured && server.latencyMs === null}
+                          >{server.measured ? formatLatency(server) : ''}</span
+                        >
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              {:else}
+                <p class="note empty">
+                  Серверов пока нет. Вставь ссылку https:// или список ссылок серверов в поле выше,
+                  либо выбери файл.
+                </p>
+              {/if}
+            </section>
+          {:else if tab === 'advanced'}
+            <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
+          {:else}
+            <VpnConnectionsTab />
+          {/if}
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -652,10 +662,9 @@
   }
 
   .column {
-    --pane-outline-bleed: 2px;
     display: flex;
     flex-direction: column;
-    gap: var(--frame-inset, 14px);
+    gap: var(--section-gap, 14px);
     min-width: 0;
     min-height: 0;
   }
@@ -670,15 +679,16 @@
     color: #000;
   }
 
+  .pane-slot,
   .pane {
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 12px;
     min-height: 0;
-    /* Внутреннее поле сохраняет обводку карточек в пределах общей колонки. */
-    margin: calc(-1 * var(--pane-outline-bleed)) 0 0;
-    padding: var(--pane-outline-bleed);
+  }
+
+  .pane {
+    gap: var(--section-gap, 14px);
   }
 
   .pane[hidden] { display: none; }
@@ -700,7 +710,7 @@
     padding: 16px 16px;
     border-radius: var(--radius-md);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: inset 0 0 0 2px #000;
   }
 
   h2 {
@@ -847,7 +857,7 @@
   .servers-card {
     flex: 1;
     min-height: 120px;
-    /* Как у всех карточек раздела: одинаковый отступ со всех сторон (16 px, как в «Дополнительно»). */
+    /* Внутренний отступ от обводки до первой строки одинаковый с трёх сторон. */
     padding: 16px;
     overflow-y: auto;
     /* Прокрутка работает (колесо, тачпад, клавиши), полоса не показывается. */
@@ -859,17 +869,33 @@
   }
 
   .servers {
+    --server-height: 44px;
+    position: relative;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
+  .servers.has-selection::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: var(--server-height);
+    border-radius: var(--radius-sm);
+    background: #222;
+    box-shadow: inset 0 0 0 1px var(--accent);
+    transform: translateY(calc(var(--selected-server-index) * var(--server-height)));
+    transition: transform var(--selection-duration, 190ms) var(--selection-ease, ease-out);
+    pointer-events: none;
+  }
+
   .server {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
     width: 100%;
-    min-height: 44px;
+    height: var(--server-height);
     padding: 10px 12px;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -880,13 +906,12 @@
     transition: background-color 120ms ease;
   }
 
-  .server:hover {
+  .server:hover:not([aria-pressed='true']) {
     background: #1a1a1a;
   }
 
-  .server.selected {
-    background: #222;
-    box-shadow: inset 0 0 0 1px var(--accent);
+  .server:active:not(:disabled) {
+    transform: none;
   }
 
   .srv-name {

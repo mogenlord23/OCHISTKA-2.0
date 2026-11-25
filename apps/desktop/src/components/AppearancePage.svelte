@@ -307,12 +307,12 @@
                не зависит от переключателей: список плиток с постоянными ключами, без {#key}. -->
           <div class="options">
             <div class="opt">
-              <Switch checked={transparencyOn} onchange={toggleTransparency}>
+              <Switch square checked={transparencyOn} onchange={toggleTransparency}>
                 <span class="opt-text">Эффект прозрачности</span>
               </Switch>
             </div>
             <div class="opt">
-              <Switch checked={fillOn} onchange={toggleFill}>
+              <Switch square checked={fillOn} onchange={toggleFill}>
                 <span class="opt-text">Залить панель задач и Пуск</span>
               </Switch>
             </div>
@@ -474,7 +474,7 @@
     min-height: 44px;
     padding: 0;
     border: 1px solid var(--btn-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     background: var(--black);
     color: var(--ink);
     font: inherit;

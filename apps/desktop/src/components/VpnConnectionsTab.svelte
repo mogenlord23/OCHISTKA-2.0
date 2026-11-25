@@ -255,7 +255,7 @@
     overflow: auto;
     border-radius: var(--radius-md);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: inset 0 0 0 2px #000;
     contain: layout paint;
     overscroll-behavior: contain;
   }
@@ -358,7 +358,7 @@
     padding: 10px 14px;
     border-radius: var(--radius-md);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: inset 0 0 0 2px #000;
     font-size: var(--text-caption);
     font-variant-numeric: tabular-nums;
   }

@@ -14,6 +14,7 @@
   } = $props();
 
   let rail = $state<HTMLElement>();
+  const activeIndex = $derived(SECTIONS.findIndex((section) => section.id === active));
 
   const tiles = (): HTMLElement[] =>
     rail ? Array.from(rail.querySelectorAll<HTMLElement>('.item')) : [];
@@ -25,15 +26,16 @@
     if (source === 'drag') playActionSound('switch');
     onSelect(section.id);
   }
-
 </script>
 
 <nav
   class="rail"
   aria-label={t('navLabel')}
+  style:--active-index={activeIndex}
   bind:this={rail}
   use:dragSelect={{ axis: 'y', items: tiles, onSelect: select }}
 >
+  <span class="indicator" aria-hidden="true"></span>
   {#each SECTIONS as section (section.id)}
     <button
       type="button"
@@ -61,6 +63,21 @@
     min-height: 0;
     padding: var(--gap);
     background: var(--window);
+  }
+
+  .indicator {
+    position: absolute;
+    top: var(--gap);
+    left: var(--gap);
+    width: var(--tile);
+    height: var(--tile);
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    transform: translateY(calc(var(--active-index) * (var(--tile) + var(--gap))));
+    transition:
+      transform var(--selection-duration, 190ms) var(--selection-ease, ease-out),
+      background-color var(--selection-duration, 190ms) ease-out;
+    pointer-events: none;
   }
 
   .item {
@@ -92,7 +109,6 @@
   }
 
   .item.active {
-    background: var(--accent);
     color: var(--page-text);
   }
 

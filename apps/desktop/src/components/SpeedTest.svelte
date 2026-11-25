@@ -173,7 +173,7 @@
     padding: 16px;
     border-radius: var(--radius-md);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: inset 0 0 0 2px #000;
   }
 
   .btn {

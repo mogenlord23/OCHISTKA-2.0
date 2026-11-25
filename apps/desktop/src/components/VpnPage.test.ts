@@ -99,7 +99,17 @@ it('places the VPN tabs and content in the same column', () => {
   const column = container.querySelector('.column');
   expect(column).toBeTruthy();
   expect(column?.querySelector(':scope > .subtabs [role="tablist"]')).toBeTruthy();
-  expect(column?.querySelector(':scope > .pane[role="tabpanel"]')).toBeTruthy();
+  expect(column?.querySelector(':scope > .pane-slot > .pane[role="tabpanel"]')).toBeTruthy();
+});
+
+it('moves the single server highlight to the newly selected row immediately', async () => {
+  await openLoaded();
+  const list = await screen.findByRole('list', { name: 'Серверы' });
+  expect(list.style.getPropertyValue('--selected-server-index')).toBe('0');
+  const second = within(list).getAllByRole('button')[1];
+  await fireEvent.click(second);
+  expect(second.getAttribute('aria-pressed')).toBe('true');
+  expect(list.style.getPropertyValue('--selected-server-index')).toBe('1');
 });
 
 describe('VpnPage: подпись поля ссылки с печатным эффектом', () => {

@@ -15,6 +15,7 @@
   import { loadSubsections, saveSubsections, subFor, type SubMemory } from './lib/sectionMemory';
   import { onMount } from 'svelte';
   import { navigation } from './lib/navigation.svelte';
+  import { slideInOnChange } from './lib/slideInOnChange';
   import { watchMaximized } from './lib/windowState';
   import { attachChromeGuards } from './lib/chromeGuards';
   import { attachUiSounds, playUiSound, preloadSounds } from './lib/sound';
@@ -204,6 +205,7 @@
         class:vpn-main={activeId === 'vpn'}
         class:section-scroll={activeId !== 'vpn'}
         data-tauri-drag-region
+        use:slideInOnChange={activeId === 'vpn' ? 'vpn' : `${activeId}:${activeSub}`}
       >
         <h1 class="sr-only">{t(section.titleKey)}</h1>
 
@@ -243,12 +245,16 @@
             <button
               type="button"
               class="pill sound"
+              aria-label={t('sound')}
               aria-pressed={soundOn}
               title={t(soundOn ? 'soundTitleOn' : 'soundTitleOff')}
               onclick={toggleSound}
             >
-              {t('sound')}
-              <span class="state">{t(soundOn ? 'soundOn' : 'soundOff')}</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5 6 9H3v6h3l5 4Z" />
+                <path class="sound-waves" d="M15 9a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12" />
+                <path class="sound-slash" pathLength="1" d="m3 3 18 18" />
+              </svg>
             </button>
             <div class="lang">
               <button
@@ -389,6 +395,9 @@
 
   .shell {
     --frame-inset: 14px;
+    --section-gap: var(--frame-inset);
+    --selection-duration: 190ms;
+    --selection-ease: cubic-bezier(0.2, 0, 0, 1);
     --dock-closed-height: 28px;
     --rail-tile: clamp(64px, calc((100dvh - var(--dock-closed-height) - 8 * var(--frame-inset)) / 7), 88px);
     --side-width: calc(var(--rail-tile) + 2 * var(--frame-inset));
@@ -485,7 +494,7 @@
   }
 
   .section-toolbar {
-    padding-block: var(--frame-inset);
+    padding-block: var(--frame-inset) var(--section-gap);
   }
 
   main.vpn-main {
@@ -654,15 +663,39 @@
   }
 
   .pill.sound {
-    width: 84px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
   }
 
-  .state {
-    display: block;
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: none;
+  .sound svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sound-waves {
+    transition: opacity 150ms ease;
+  }
+
+  .sound-slash {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 180ms var(--selection-ease);
+  }
+
+  .sound[aria-pressed='false'] .sound-waves {
+    opacity: 0;
+  }
+
+  .sound[aria-pressed='false'] .sound-slash {
+    stroke-dashoffset: 0;
   }
 
   .lang {

@@ -114,8 +114,8 @@
   style:--tile={NEUTRAL.surfaceAlt}
   style:--ink={NEUTRAL.ink}
   style:--border={NEUTRAL.border}
-  style:--window-radius={RADIUS.lg}
-  style:--tile-radius={RADIUS.md}
+  style:--radius-lg={RADIUS.lg}
+  style:--radius-md={RADIUS.md}
   style:--computer={SECTION_COLORS.computer}
   style:--vpn={SECTION_COLORS.vpn}
   style:--on-vpn={textOn(SECTION_COLORS.vpn)}
@@ -182,7 +182,7 @@
     overflow: hidden auto;
     scrollbar-width: none;
     border: 1px solid var(--border);
-    border-radius: var(--window-radius);
+    border-radius: var(--radius-lg);
     background: var(--surface);
     color: var(--ink);
     opacity: 0;
@@ -222,7 +222,7 @@
     aspect-ratio: 1;
     padding: 3px;
     border: 1px solid var(--border);
-    border-radius: var(--tile-radius);
+    border-radius: var(--radius-md);
     background: var(--tile);
     color: var(--ink);
     text-align: center;
@@ -276,7 +276,7 @@
     height: 3px;
     margin: 5px auto 0;
     overflow: hidden;
-    border-radius: var(--tile-radius);
+    border-radius: var(--radius-md);
     background: var(--border);
   }
 

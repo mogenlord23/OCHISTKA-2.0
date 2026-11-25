@@ -111,8 +111,8 @@ describe('FND-0020: sound control toggles and persists', () => {
     const sound = screen.getByRole('button', { name: /ЗВУК/ }) as HTMLButtonElement;
     expect(sound.disabled).toBe(false);
     expect(sound.getAttribute('aria-pressed')).toBe('true');
-    expect(within(sound).getByText('ВКЛ')).toBeTruthy();
-    expect(sound.textContent).not.toContain('в разработке');
+    expect(sound.querySelector('svg')).toBeTruthy();
+    expect(sound.textContent?.trim()).toBe('');
   });
 
   it('FND-0020: clicking toggles on/off and saves the state', async () => {
@@ -120,7 +120,7 @@ describe('FND-0020: sound control toggles and persists', () => {
     const sound = screen.getByRole('button', { name: /ЗВУК/ });
     await fireEvent.click(sound);
     expect(sound.getAttribute('aria-pressed')).toBe('false');
-    expect(within(sound).getByText('ВЫКЛ')).toBeTruthy();
+    expect(sound.getAttribute('title')).toBe('Звук выключен');
     expect(localStorage.getItem('soundEnabled')).toBe('0');
     await fireEvent.click(sound);
     expect(sound.getAttribute('aria-pressed')).toBe('true');

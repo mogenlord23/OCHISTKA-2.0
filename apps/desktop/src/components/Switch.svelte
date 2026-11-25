@@ -11,6 +11,7 @@
     disabled = false,
     pending = false,
     error = false,
+    square = false,
     label,
     ariaLabel,
     children,
@@ -20,6 +21,7 @@
     disabled?: boolean;
     pending?: boolean;
     error?: boolean;
+    square?: boolean;
     /** Подпись справа. Вместо неё можно передать содержимое. */
     label?: string;
     /** Имя для скринридера, когда видимой подписи рядом нет (подпись в соседнем тексте). */
@@ -42,6 +44,7 @@
     class:on={checked}
     class:pending
     class:error
+    class:square
     aria-checked={checked}
     aria-busy={pending}
     aria-label={ariaLabel ?? (label && !children ? label : undefined)}
@@ -119,6 +122,14 @@
 
   .track.on .knob {
     transform: translateX(20px);
+  }
+
+  .track.square {
+    border-radius: var(--radius-sm);
+  }
+
+  .track.square .knob {
+    border-radius: var(--radius-xs);
   }
 
   .track.pending .knob {

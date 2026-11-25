@@ -42,6 +42,8 @@ describe('Navigation rail', () => {
     const selected = screen.getByRole('button', { name: 'Процессы', current: 'page' });
     expect(selected.classList.contains('active')).toBe(true);
     expect(screen.getAllByRole('button', { current: 'page' })).toHaveLength(1);
+    const nav = screen.getByRole('navigation');
+    expect(nav.style.getPropertyValue('--active-index')).toBe('2');
   });
 
   it('selects on click and on press-and-drag across tiles, never on hover', async () => {

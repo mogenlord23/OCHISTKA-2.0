@@ -15,9 +15,47 @@
   } = $props();
 
   let track = $state<HTMLElement>();
+  let indicator = $state<HTMLElement>();
+  let positioned = $state(false);
+  let frame: number | undefined;
 
   const tabs = (): HTMLElement[] =>
     track ? Array.from(track.querySelectorAll<HTMLElement>('[role="tab"]')) : [];
+
+  function schedulePosition() {
+    if (frame !== undefined) return;
+    frame = requestAnimationFrame(() => {
+      frame = undefined;
+      const selected = track?.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!selected || !indicator) {
+        positioned = false;
+        return;
+      }
+      const { offsetLeft, offsetWidth } = selected;
+      indicator.style.transform = `translateX(${offsetLeft}px)`;
+      indicator.style.width = `${offsetWidth}px`;
+      positioned = offsetWidth > 0;
+    });
+  }
+
+  $effect(() => {
+    void active;
+    schedulePosition();
+  });
+
+  $effect(() => {
+    void items;
+    if (!track) return;
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(schedulePosition) : null;
+    observer?.observe(track);
+    for (const tab of tabs()) observer?.observe(tab);
+    schedulePosition();
+    return () => {
+      observer?.disconnect();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = undefined;
+    };
+  });
 
   function select(index: number, source: 'press' | 'drag' | 'key') {
     const item = items[index];
@@ -45,6 +83,7 @@
 <div class="subtabs">
   <div
     class="track"
+    class:positioned
     role="tablist"
     tabindex="-1"
     aria-label={t('subnavLabel')}
@@ -52,6 +91,7 @@
     use:dragSelect={{ axis: 'x', items: tabs, onSelect: select }}
     onkeydown={onKeydown}
   >
+    <span class="indicator" bind:this={indicator} aria-hidden="true"></span>
     {#each items as item (item.id)}
       <button
         type="button"
@@ -97,6 +137,26 @@
     cursor: pointer;
   }
 
+  .indicator {
+    position: absolute;
+    top: var(--track-padding);
+    left: 0;
+    height: var(--tab-height);
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    box-shadow: inset 0 0 0 2px rgba(8, 8, 8, 0.72);
+    visibility: hidden;
+    pointer-events: none;
+    contain: strict;
+  }
+
+  .positioned .indicator {
+    visibility: visible;
+    transition:
+      transform var(--selection-duration, 190ms) var(--selection-ease, ease-out),
+      width var(--selection-duration, 190ms) var(--selection-ease, ease-out);
+  }
+
   button {
     position: relative;
     z-index: 1;
@@ -120,8 +180,11 @@
   }
 
   button[aria-selected='true'] {
+    color: var(--page-text);
+  }
+
+  .track:not(.positioned) button[aria-selected='true'] {
     background: var(--accent);
     box-shadow: inset 0 0 0 2px rgba(8, 8, 8, 0.72);
-    color: var(--page-text);
   }
 </style>
