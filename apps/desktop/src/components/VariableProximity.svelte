@@ -7,7 +7,6 @@
    * цвет (color-mix), масштаб и подъём, ожидающая «волна» (idleWave).
    * Не перенесён перенос слова на несколько строк (lineStarts): нашему логотипу он не нужен.
    */
-  import { onMount } from 'svelte';
 
   let {
     label = '',
@@ -69,7 +68,6 @@
   };
 
   let root = $state<HTMLElement>();
-  const letters: (HTMLElement | undefined)[] = [];
   // Состояние живёт дольше пересоздания эффекта, как stateRef в оригинале.
   const shared = {
     pointer: { x: 0, y: 0, active: false },
@@ -78,15 +76,14 @@
   };
 
   const words = $derived(label.split(' '));
-  const wordStarts = $derived(
-    words.map((_, i) => words.slice(0, i).reduce((sum, w) => sum + w.length, 0)),
-  );
 
   $effect(() => {
     // Зависимости эффекта: параметры и текст.
     const from = fromFontVariationSettings;
     const to = toFontVariationSettings;
     void label;
+    if (!root) return;
+    const letters = Array.from(root.querySelectorAll<HTMLElement>('[data-letter]'));
     const fromSettings = parseSettings(from);
     const toSettings = parseSettings(to);
     const axes = Array.from(fromSettings.entries()).map(([axis, fromValue]) => ({
@@ -108,6 +105,7 @@
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const waving = idleWave && !reduced;
     let frame = 0;
+    let disposed = false;
     let lastTime = 0;
     let dirty = true;
     let layoutDirty = true;
@@ -257,7 +255,7 @@
 
     const schedule = () => {
       dirty = true;
-      if (!frame) frame = requestAnimationFrame(tick);
+      if (!disposed && !frame) frame = requestAnimationFrame(tick);
     };
 
     const relayout = () => {
@@ -304,6 +302,7 @@
     schedule();
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       observer?.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
@@ -316,9 +315,6 @@
     };
   });
 
-  onMount(() => () => {
-    letters.length = 0;
-  });
 </script>
 
 <span bind:this={root} class="{className} variable-proximity" style:display="inline">
@@ -326,7 +322,7 @@
     <span data-word="" style:display="inline-block" style:white-space="nowrap">
       {#each word.split('') as letter, i (i)}
         <span
-          bind:this={letters[wordStarts[wordIndex] + i]}
+          data-letter
           aria-hidden="true"
           style:display="inline-block"
           style:font-variation-settings={fromFontVariationSettings}

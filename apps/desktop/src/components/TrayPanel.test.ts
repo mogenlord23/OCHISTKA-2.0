@@ -60,7 +60,9 @@ afterEach(() => {
 
 it('shows the seven section tiles and opens the chosen section', async () => {
   render(TrayPanel);
-  expect(screen.getAllByRole('button').slice(1).map((button) => button.textContent?.trim()))
+  const tiles = screen.getAllByRole('button').slice(1);
+  expect(tiles.every((tile) => !tile.textContent?.trim())).toBe(true);
+  expect(tiles.map((tile) => tile.getAttribute('aria-label')))
     .toEqual(SECTIONS.map((section) => section.title));
   expect(screen.queryByRole('button', { name: /Проверить/ })).toBeNull();
   await fireEvent.click(screen.getByRole('button', { name: 'Вирусы' }));
@@ -75,6 +77,7 @@ it('updates the VPN button after the existing connection command returns', async
   await fireEvent.click(button);
   expect(trayAction).toHaveBeenCalledWith('toggleVpn');
   expect(await screen.findByRole('button', { name: 'Выключить VPN' })).toBeTruthy();
+  expect(document.querySelector('.tray .connect-pulses')).toBeTruthy();
 });
 
 it('warms the CPU, GPU and RAM values once, then only polls while the native tray is open', async () => {

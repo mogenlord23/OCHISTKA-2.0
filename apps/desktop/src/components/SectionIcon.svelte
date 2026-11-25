@@ -43,7 +43,7 @@
     height: var(--section-icon-size, 28px);
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.8;
+    stroke-width: var(--section-icon-stroke, 1.8);
     stroke-linecap: round;
     stroke-linejoin: round;
   }

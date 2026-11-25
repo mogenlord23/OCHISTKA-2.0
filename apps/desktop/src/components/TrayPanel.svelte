@@ -2,6 +2,7 @@
   import { isTauri } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import SectionIcon from './SectionIcon.svelte';
+  import VpnPulses from './VpnPulses.svelte';
   import VpnPowerIcon from './VpnPowerIcon.svelte';
   import { listenDesktop, trayAction, trayHover, trayStatus, type TrayAction, type TrayStatus } from '../lib/tray';
   import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
@@ -151,14 +152,14 @@
 
     <nav class="sections" aria-label={t('navLabel')}>
       {#each SECTIONS as section (section.id)}
-        <button type="button" style:--marker={section.accent} disabled={pending} onclick={() => void run(section.id)}>
+        <button type="button" style:--marker={section.accent} aria-label={t(section.titleKey)} title={t(section.titleKey)} disabled={pending} onclick={() => void run(section.id)}>
           <SectionIcon id={section.id} />
-          <span>{t(section.titleKey)}</span>
         </button>
       {/each}
     </nav>
   </div>
 
+  {#if present && status?.vpnConnected}<VpnPulses />{/if}
   {#if notice}<p role="status">{notice}</p>{/if}
 </section>
 
@@ -170,6 +171,8 @@
   }
 
   .tray {
+    position: relative;
+    isolation: isolate;
     --tray-gap: 8px;
     --small-tile: 64px;
     /* Четыре квадрата слева и семь справа заканчиваются на одной линии. */
@@ -243,13 +246,9 @@
   }
 
   .sections button {
-    --section-icon-size: 23px;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-    font: 700 9.5px/1.15 var(--font);
+    --section-icon-size: 36px;
+    --section-icon-stroke: 2.2;
   }
-
-  .sections button span { overflow-wrap: anywhere; }
 
   .sections button:hover:not(:disabled), .sections button:focus-visible {
     border-color: var(--marker);
@@ -259,19 +258,21 @@
 
   .loads { margin: 0; }
   .metric { gap: 4px; }
-  .metric dt { color: var(--computer); font-size: 12px; font-weight: 800; }
+  .metric dt { color: var(--computer); font-size: 17px; font-weight: 800; }
 
   .metric dd {
     margin: 0;
-    font-size: 27px;
+    font-size: 34px;
+    line-height: 1.15;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
 
   .load-track {
     display: block;
-    width: 44px;
-    height: 3px;
+    width: 70px;
+    height: 8px;
+    --corner-size: 8px;
     margin: 5px auto 0;
     overflow: hidden;
     border-radius: var(--radius-adaptive);
@@ -283,6 +284,7 @@
     max-width: 100%;
     height: 100%;
     background: var(--computer);
+    border-radius: inherit;
   }
 
   p {

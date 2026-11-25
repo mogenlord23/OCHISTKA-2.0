@@ -84,12 +84,14 @@ describe('web audio playback', () => {
   it('decodes every sound in advance and starts a buffer without loading anything on click', async () => {
     const { started, decoded } = fakeWebAudio();
     await preloadSounds();
-    expect(decoded).toHaveLength(3);
+    expect(decoded).toHaveLength(4);
     const fetchMock = vi.mocked(globalThis.fetch);
     const loads = fetchMock.mock.calls.length;
     playHeehee();
     playUiSound('click');
-    expect(started).toHaveLength(2);
+    playUiSound('switch');
+    playUiSound('threat');
+    expect(started).toHaveLength(4);
     expect(fetchMock.mock.calls.length).toBe(loads);
   });
 

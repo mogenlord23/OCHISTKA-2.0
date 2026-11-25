@@ -39,12 +39,12 @@ export function pageAllowsWink(): boolean {
   }
 }
 
-/** Расположение глаза в координатах картинки 1024x1536 (правый глаз зрителя). */
-export const EYE = { x: 612, y: 755, w: 123, h: 57, imgW: 1024, imgH: 1536, focusY: 0.43 };
+/** Расположение глаза в координатах картинки 699×2170 (правый глаз зрителя). */
+export const EYE = { x: 414, y: 732, w: 73, h: 34, imgW: 699, imgH: 2170, focusY: 0.5 };
 
 /** Масштаб и сдвиг портрета внутри панели, включая видимые поля. */
 export function portraitGeometry(boxW: number, boxH: number) {
-  const scale = Math.min(boxW / EYE.imgW, boxH / EYE.imgH);
+  const scale = boxW / EYE.imgW;
   return {
     scale,
     offsetX: (boxW - EYE.imgW * scale) * 0.5,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { mountVpnGlobe } from '../lib/vpnGlobe';
+  import type { mountVpnGlobe } from '../lib/vpnGlobe';
 
   let { active, country, connected, label }: {
     active: boolean;
@@ -13,9 +13,16 @@
 
   $effect(() => {
     if (!active || !canvas || typeof ResizeObserver !== 'function') return;
-    const renderer = mountVpnGlobe(canvas, () => ({ country, connected }));
-    invalidate = renderer?.invalidate;
+    const element = canvas;
+    let disposed = false;
+    let renderer: ReturnType<typeof mountVpnGlobe>;
+    void import('../lib/vpnGlobe').then(({ mountVpnGlobe }) => {
+      if (disposed) return;
+      renderer = mountVpnGlobe(element, () => ({ country, connected }));
+      invalidate = renderer?.invalidate;
+    });
     return () => {
+      disposed = true;
       invalidate = undefined;
       renderer?.destroy();
     };
@@ -39,15 +46,16 @@
     min-height: 0;
     overflow: hidden;
     border-radius: var(--radius-adaptive);
-    background: #000;
+    background: var(--surface-alt);
     box-shadow: inset 0 0 0 2px #000;
   }
 
   canvas {
     position: absolute;
-    inset: 0;
+    inset: 2px;
     display: block;
-    width: 100%;
-    height: 100%;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    border-radius: inherit;
   }
 </style>

@@ -113,7 +113,6 @@
   let frame = $state<Frame>({ shown: [], revealed: [], tint: [], dim: [], squeeze: [] });
 
   let container: HTMLElement | undefined;
-  const cells: (HTMLElement | undefined)[] = [];
   let mask: boolean[] = [];
   let run: {
     forward: boolean;
@@ -447,7 +446,6 @@
           {#each group.letters as index (index)}
             {@const revealed = frame.revealed[index] ?? true}
             <span
-              bind:this={cells[index]}
               class={revealed ? className : encryptedClass}
               style={cellStyle(index, revealed)}
             >

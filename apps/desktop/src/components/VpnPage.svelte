@@ -4,6 +4,7 @@
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
   import VpnPowerIcon from './VpnPowerIcon.svelte';
+  import VpnPulses from './VpnPulses.svelte';
   import VpnGlobe from './VpnGlobe.svelte';
   import { countryName, groupByLabel, numberedLabels, serverLabel } from '../lib/countryFlags';
   import { i18n, t } from '../lib/i18n.svelte';
@@ -297,10 +298,17 @@
   function fitServerRows(node: HTMLElement) {
     if (typeof ResizeObserver !== 'function') return;
     const minimum = 44;
+    let previousHeight = 0;
     const observer = new ResizeObserver(([entry]) => {
       const { height } = entry.contentRect;
       const count = Math.max(1, Math.floor(height / minimum));
-      node.style.setProperty('--server-height', `${Math.max(minimum, height / count)}px`);
+      if (height <= 0) return;
+      const rowHeight = height / count;
+      if (rowHeight === previousHeight) return;
+      const first = previousHeight ? Math.round(node.scrollTop / previousHeight) : 0;
+      node.style.setProperty('--server-height', rowHeight + 'px');
+      node.scrollTop = first * rowHeight;
+      previousHeight = rowHeight;
     });
     observer.observe(node);
     return { destroy: () => observer.disconnect() };
@@ -388,7 +396,9 @@
     winking = true;
   }
 
-  onMount(() => startWinking({ canWink: () => active && !pressed && pageAllowsWink(), wink }));
+  $effect(() => {
+    if (active) return startWinking({ canWink: () => !pressed && pageAllowsWink(), wink });
+  });
 
   /** Один запуск анимации и звука на одно нажатие. Повторное нажатие перезапускает цикл. */
   function playPoster() {
@@ -467,10 +477,14 @@
             <section class="card">
               <h2 class="sr-only">Ссылка подписки / импорта</h2>
               <div class="row">
-                <SecretField bind:value={urlInput} label={fieldLabel} onenter={onImport} />
-                <button type="button" disabled={importing} onclick={() => fileInput?.click()}
-                  >Из файла…</button
-                >
+                <SecretField {active} bind:value={urlInput} label={fieldLabel} onenter={onImport} />
+                <button type="button" class="file-button" aria-label={t('vpnImportFile')} title={t('vpnImportFile')}
+                  disabled={importing} onclick={() => fileInput?.click()}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+                    <path d="M3 8V6a2 2 0 0 1 2-2h4l2 3h7a2 2 0 0 1 2 2v1M3 10h18l-2.2 8.5A2 2 0 0 1 17 20H6a2 2 0 0 1-2-1.7L3 10Z" />
+                  </svg>
+                </button>
                 <input
                   bind:this={fileInput}
                   class="hidden"
@@ -487,11 +501,7 @@
 
             <section class="card connect">
               {#if active && connected}
-                <svg class="connect-pulses" aria-hidden="true">
-                  {#each [0, 1, 2] as ring}
-                    <rect vector-effect="non-scaling-stroke" style:--ring={ring} />
-                  {/each}
-                </svg>
+                <VpnPulses />
               {/if}
               <div class="connect-grid">
                 <div class="power-row">
@@ -630,32 +640,23 @@
   }
 
   .portrait-wrap {
-    --portrait-width: min(100cqw, 100cqh * 2 / 3);
-    --portrait-height: calc(var(--portrait-width) * 1.5);
     position: relative;
     flex: 1;
     min-height: 0;
     container-type: size;
     overflow: hidden;
     border-radius: var(--radius-adaptive);
-    background: #050505;
-  }
-
-  .portrait-wrap::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 50%;
-    background: repeating-linear-gradient(to bottom, #ff168c 0 8px, #050505 8px 16px);
+    background: linear-gradient(to bottom, #cafa00 50%, #000 50%);
   }
 
   .poster .portrait {
     position: absolute;
-    top: calc((100cqh - var(--portrait-height)) * 0.43);
-    left: 50%;
-    width: var(--portrait-width);
+    top: 50%;
+    left: 0;
+    width: 100%;
     height: auto;
-    transform: translateX(-50%);
-    mask-image: linear-gradient(#000 92%, transparent);
+    transform: translateY(-50%);
+    mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent);
     user-select: none;
     pointer-events: none;
   }
@@ -675,7 +676,7 @@
     box-sizing: border-box;
     border-bottom: 3px solid #000;
     border-radius: 50%;
-    background: #fbbebd;
+    background: #cafa00;
     transform: scaleY(0);
     transform-origin: 50% 0;
     animation: poster-wink 340ms ease-in-out forwards;
@@ -841,8 +842,13 @@
     cursor: pointer;
   }
 
-  .row > button {
-    min-height: 48px;
+  .row > .file-button {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 54px;
+    height: 54px;
+    padding: 0;
   }
 
   .power-row {
@@ -961,7 +967,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    scroll-snap-type: y proximity;
+    scroll-snap-type: y mandatory;
+    overflow-anchor: none;
   }
 
   .servers {
@@ -997,6 +1004,8 @@
     gap: 6px;
     width: 100%;
     height: var(--server-height);
+    min-height: 0;
+    box-sizing: border-box;
     padding: 8px;
     border-radius: var(--radius-adaptive);
     background: transparent;
@@ -1060,45 +1069,6 @@
     overflow: hidden;
     isolation: isolate;
     container-type: inline-size;
-  }
-
-  .connect-pulses {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
-
-  @supports (transform: scale(calc(1px / 1px))) {
-    .connect-pulses {
-      --pulse-scale: calc(2 * 100cqw / var(--power-size));
-    }
-  }
-
-  .connect-pulses rect {
-    x: var(--card-inset);
-    y: var(--card-inset);
-    width: var(--power-size);
-    height: var(--power-size);
-    rx: 22px;
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 1;
-    opacity: 0;
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: connect-pulse 4.8s cubic-bezier(0.33, 0, 0.67, 1) infinite;
-    animation-delay: calc(var(--ring) * -1.6s);
-  }
-
-  @keyframes connect-pulse {
-    0% { transform: scale(1); opacity: 0; }
-    12% { transform: scale(1.21); opacity: 0.48; }
-    32% { transform: scale(1.53); opacity: 0.36; }
-    56% { transform: scale(2.65); opacity: 0.21; }
-    84% { opacity: 0.10; }
-    100% { transform: scale(var(--pulse-scale, 36)); opacity: 0; }
   }
 
   .connect-grid {

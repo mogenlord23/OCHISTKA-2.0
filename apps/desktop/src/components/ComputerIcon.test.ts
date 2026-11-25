@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
+import iconSource from './ComputerIcon.svelte?raw';
 import ComputerIcon, { type IconKind } from './ComputerIcon.svelte';
 
 afterEach(cleanup);
@@ -36,14 +37,15 @@ describe('ComputerIcon', () => {
   });
 
   it('keeps one corner radius and size for every tile', () => {
+    expect(iconSource).toMatch(/\.icon-art\s*\{[^}]*border-radius:\s*var\(--radius-adaptive\)/);
     for (const kind of KINDS) {
       const { container } = render(ComputerIcon, { kind });
-      const tile = container.querySelector('svg rect') as SVGRectElement;
+      const tile = container.querySelector('svg.icon-art rect') as SVGRectElement;
       expect([
         tile.getAttribute('width'),
         tile.getAttribute('height'),
         tile.getAttribute('rx'),
-      ]).toEqual(['88', '88', '12']);
+      ]).toEqual(['88', '88', null]);
       cleanup();
     }
   });

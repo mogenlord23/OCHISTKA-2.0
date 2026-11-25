@@ -16,11 +16,12 @@
       настоящую ссылку (в этот момент она видна). Значение `value` не меняется и уходит в импорт.
       Это оформление, а не защита от снимка экрана. */
   let {
+    active = true,
     value = $bindable(''),
     label = 'Ссылка подписки',
     ariaLabel = 'Ссылка подписки',
     onenter,
-  }: { value?: string; label?: string; ariaLabel?: string; onenter?: () => void } = $props();
+  }: { active?: boolean; value?: string; label?: string; ariaLabel?: string; onenter?: () => void } = $props();
 
   /** Пауза между заменами: одна-две буквы раз в ~0,7 с. */
   const TICK_MS = 700;
@@ -80,7 +81,7 @@
   }
 
   $effect(() => {
-    if (!showOverlay || !visible || rendered === 0) return;
+    if (!active || !showOverlay || !visible || rendered === 0) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const key = rendered;
     const timer = setInterval(() => {

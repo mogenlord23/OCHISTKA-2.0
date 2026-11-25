@@ -19,7 +19,8 @@ describe('offline VPN globe', () => {
 
   it('crops the spinning globe at the horizon and centres the zoomed map', () => {
     const rest = globeViewport(538, 222, 1);
-    expect(rest.y).toBeGreaterThan(222 * 0.9);
+    expect(rest.y).toBeGreaterThan(222);
+    expect(rest.radius * 2).toBeGreaterThanOrEqual(538);
     expect(rest.y - rest.radius).toBeGreaterThanOrEqual(0);
     expect(rest.y + rest.radius).toBeGreaterThan(222);
     const close = globeViewport(538, 222, 4.25);
