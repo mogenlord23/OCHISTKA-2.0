@@ -929,6 +929,10 @@
     box-shadow: none;
   }
 
+  .scanner .btn {
+    min-height: var(--control-height);
+  }
+
   .btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;

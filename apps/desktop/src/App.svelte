@@ -154,7 +154,7 @@
 </script>
 
 {#snippet toolbar()}
-  <TitleBar {maximized} alignCursorGrid={activeId === 'design' && activeSub === 'cursors'}>
+  <TitleBar {maximized}>
     <Subtabs items={section.subsections} active={activeSub} onSelect={chooseSub} />
   </TitleBar>
 {/snippet}
@@ -542,23 +542,24 @@
     overflow: hidden;
   }
 
-  /* Стрелка держится рядом с последней плиткой при любой высоте окна. */
+  /* Стрелка лежит посередине свободного места под последней плиткой. */
   .dock {
     --dock-gap: var(--content-gap);
     position: relative;
     z-index: 10;
     background-color: var(--window);
     display: flex;
+    flex: 1;
     flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding-block: var(--dock-gap);
   }
 
   /* Карточка раскрывается над стрелкой. Поля вокруг последней плитки закрывают и её углы. */
   .bottom-wrap {
     position: absolute;
     inset-inline: 0;
-    bottom: calc(100% - var(--dock-gap));
+    top: calc(-1 * (var(--rail-tile) + var(--dock-gap)));
     z-index: 10;
     isolation: isolate;
     overflow: hidden;

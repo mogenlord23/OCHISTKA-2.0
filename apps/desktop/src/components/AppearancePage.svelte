@@ -425,7 +425,7 @@
 
   .actions button,
   .more button {
-    min-height: 44px;
+    min-height: var(--control-height);
     padding: 10px 14px;
     border: 1px solid var(--btn-border, #343434);
     border-radius: var(--radius-adaptive);
@@ -471,7 +471,7 @@
     align-items: center;
     box-sizing: border-box;
     min-width: 0;
-    min-height: 44px;
+    min-height: var(--control-height);
     padding: 0;
     border: 1px solid var(--btn-border);
     border-radius: var(--radius-adaptive);
@@ -490,7 +490,7 @@
     justify-content: space-between;
     min-width: 0;
     box-sizing: border-box;
-    min-height: 42px;
+    min-height: calc(var(--control-height) - 2px);
     padding: 0 14px;
   }
 
@@ -547,8 +547,9 @@
   }
 
   .grid-cursor {
-    grid-template-columns: repeat(auto-fill, minmax(var(--cursor-tile-min), 1fr));
-    --tile-ratio: 128 / 94;
+    grid-template-columns:
+      repeat(auto-fill, minmax(var(--cursor-tile-min), 1fr)) var(--window-controls-width);
+    grid-auto-rows: 105px;
   }
 
   .grid-color {

@@ -58,6 +58,11 @@ describe('dock panel (item 1)', () => {
     expect(block).not.toMatch(/@media/);
     expect(block).toMatch(/height:\s*calc\(var\(--rail-tile\) \+ 2 \* var\(--dock-gap\)\)/);
   });
+
+  it('centres the handle in the free space below the last navigation tile', () => {
+    expect(APP).toMatch(/\.dock\s*\{[^}]*flex:\s*1/);
+    expect(APP).toMatch(/\.dock\s*\{[^}]*justify-content:\s*center/);
+  });
 });
 
 describe('context menu position (item 9.3)', () => {

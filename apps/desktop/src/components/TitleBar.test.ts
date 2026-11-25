@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import TitleBar from './TitleBar.svelte';
+import source from './TitleBar.svelte?raw';
+
+const geometry = readFileSync(join(__dirname, '..', 'geometry.css'), 'utf8');
 
 const win = vi.hoisted(() => ({
   minimize: vi.fn(),
@@ -20,11 +25,11 @@ afterEach(() => {
 });
 
 describe('TitleBar', () => {
-  it('enables the cursor grid alignment only when requested', async () => {
-    const { container, rerender } = render(TitleBar);
-    expect(container.querySelector('header')?.classList.contains('cursor-grid')).toBe(false);
-    await rerender({ alignCursorGrid: true });
-    expect(container.querySelector('header')?.classList.contains('cursor-grid')).toBe(true);
+  it('uses the common 44px control height and keeps window buttons square in every section', () => {
+    expect(geometry).toMatch(/--control-height:\s*44px/);
+    expect(source).toContain('--subtabs-height: var(--control-height)');
+    expect(source).toMatch(/width:\s*var\(--subtabs-height\);\s*height:\s*var\(--subtabs-height\)/);
+    expect(source).not.toContain('cursor-grid');
   });
 
   it('keeps the window toolbar free of branding', () => {

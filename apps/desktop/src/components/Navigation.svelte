@@ -112,8 +112,8 @@
   }
 
   .item :global(svg) {
-    width: 42px;
-    height: 42px;
+    width: var(--section-icon-size);
+    height: var(--section-icon-size);
     fill: none;
     stroke: currentColor;
     stroke-width: 2;

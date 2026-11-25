@@ -9,6 +9,9 @@
   --section-inset: 14px;
   --content-gap: 8px;
   --card-inset: 16px;
+  --control-height: 44px;
+  --window-controls-width: calc(3 * var(--control-height) + 2 * var(--content-gap));
+  --section-icon-size: 42px;
   --cursor-tile-min: 128px;
 }
 
