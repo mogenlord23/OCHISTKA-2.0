@@ -94,7 +94,7 @@
     align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: var(--frame-inset-block, 14px) 0 0;
+    padding: var(--frame-inset, 14px) 0 0;
     background: var(--window);
   }
 

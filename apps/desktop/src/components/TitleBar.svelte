@@ -39,7 +39,7 @@
 
 <style>
   .titlebar {
-    --subtabs-height: 36px;
+    --subtabs-height: 40px;
     --subtabs-padding: 3px;
     display: flex;
     align-items: stretch;

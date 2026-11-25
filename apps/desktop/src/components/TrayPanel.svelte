@@ -3,10 +3,19 @@
   import { onMount } from 'svelte';
   import SectionIcon from './SectionIcon.svelte';
   import { listenDesktop, trayAction, trayHover, trayStatus, type TrayAction, type TrayStatus } from '../lib/tray';
-  import { toCommandError } from '../lib/api';
+  import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
+  import { shortPercent } from '../lib/computer';
   import { SECTIONS } from '../lib/sections';
   import { t } from '../lib/i18n.svelte';
   import { BODY_FONT, NEUTRAL, RADIUS, SECTION_COLORS, SHELL, textOn } from '../lib/tokens';
+
+  const metrics = [
+    { id: 'gpu', label: 'GPU', read: async () => (await getHardware()).gpus[0]?.usagePercent ?? null },
+    { id: 'ram', label: 'RAM', read: async () => (await getSystemOverview()).memory.usagePercent },
+  ] as const;
+  type LoadMetric = (typeof metrics)[number];
+  const inFlight = new Set<LoadMetric>();
+  const loads = $state<Record<LoadMetric['id'], number | null>>({ gpu: null, ram: null });
 
   let present = $state(!isTauri());
   let status = $state<TrayStatus | null>(null);
@@ -32,6 +41,39 @@
     return () => {
       stopOpen();
       stopClose();
+    };
+  });
+
+  $effect(() => {
+    if (!present) {
+      loads.gpu = null;
+      loads.ram = null;
+      return;
+    }
+
+    let active = true;
+    async function readMetric(metric: LoadMetric) {
+      if (inFlight.has(metric)) return;
+      inFlight.add(metric);
+      try {
+        const value = await metric.read();
+        if (active) loads[metric.id] = value;
+      } catch {
+        if (active) loads[metric.id] = null;
+      } finally {
+        inFlight.delete(metric);
+      }
+    }
+
+    function sample() {
+      for (const metric of metrics) void readMetric(metric);
+    }
+
+    sample();
+    const timer = window.setInterval(sample, POLL_INTERVAL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
     };
   });
 
@@ -63,6 +105,7 @@
   style:--border={NEUTRAL.border}
   style:--window-radius={RADIUS.lg}
   style:--tile-radius={RADIUS.sm}
+  style:--computer={SECTION_COLORS.computer}
   style:--vpn={SECTION_COLORS.vpn}
   style:--on-vpn={textOn(SECTION_COLORS.vpn)}
   style:--font={BODY_FONT}
@@ -83,7 +126,7 @@
 
   {#if notice}<p role="status">{notice}</p>{/if}
 
-  <div class="sections">
+  <div class="tiles sections">
     {#each SECTIONS as section (section.id)}
       <button type="button" style:--marker={section.accent} disabled={pending} onclick={() => void run(section.id)}>
         <SectionIcon id={section.id} />
@@ -91,6 +134,21 @@
       </button>
     {/each}
   </div>
+
+  <dl class="tiles loads" aria-label="Загрузка компьютера">
+    {#each metrics as metric (metric.id)}
+      {@const value = loads[metric.id]}
+      <div class="metric">
+        <dt>{metric.label}</dt>
+        <dd>
+          {value === null ? '—' : shortPercent(value)}
+          <span class="load-track" aria-hidden="true">
+            <span style:width={(value ?? 0) + '%'}></span>
+          </span>
+        </dd>
+      </div>
+    {/each}
+  </dl>
 </section>
 
 <style>
@@ -161,14 +219,15 @@
     color: var(--on-vpn);
   }
 
-  .sections {
+  .tiles {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
   }
 
-  .sections button {
+  .tiles > * {
+    box-sizing: border-box;
     flex: 0 0 calc((100% - 24px) / 4);
     aspect-ratio: 1;
   }
@@ -177,6 +236,46 @@
     border-color: var(--marker);
     color: var(--marker);
     background-color: color-mix(in srgb, var(--tile), var(--marker) 9%);
+  }
+
+  .loads { margin: 0; }
+
+  .metric {
+    display: grid;
+    min-width: 0;
+    place-content: center;
+    justify-items: center;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--tile-radius);
+    background: var(--tile);
+  }
+
+  .metric dt { color: var(--computer); font-size: 11px; font-weight: 800; }
+
+  .metric dd {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .load-track {
+    display: block;
+    width: 38px;
+    height: 3px;
+    margin: 5px auto 0;
+    overflow: hidden;
+    border-radius: var(--tile-radius);
+    background: var(--border);
+  }
+
+  .load-track > span {
+    display: block;
+    max-width: 100%;
+    height: 100%;
+    background: var(--computer);
   }
 
   p { margin: 0; font-size: 12px; overflow-wrap: anywhere; }

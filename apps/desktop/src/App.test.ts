@@ -41,12 +41,15 @@ describe('App navigation', () => {
     expect(within(tabs).getByRole('tab', { name: 'Соединения' })).toBeTruthy();
   });
 
-  it('only shows the portrait on the main VPN tab', async () => {
+  it('keeps the same portrait when switching between all VPN tabs', async () => {
     render(App);
-    expect(screen.getByRole('button', { name: 'Постер' })).toBeTruthy();
-    await fireEvent.keyDown(screen.getByRole('tab', { name: 'VPN' }), { key: 'ArrowRight' });
-    expect(screen.queryByRole('button', { name: 'Постер' })).toBeNull();
-    expect(screen.getByRole('tab', { name: 'Дополнительно' }).getAttribute('aria-selected')).toBe('true');
+    const poster = screen.getByRole('button', { name: 'Постер' });
+    for (const name of ['Дополнительно', 'Сеть', 'Соединения']) {
+      const selected = screen.getByRole('tab', { selected: true });
+      await fireEvent.keyDown(selected, { key: 'ArrowRight' });
+      expect(screen.getByRole('tab', { name, selected: true })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Постер' })).toBe(poster);
+    }
   });
 
   it('opens the virus section from the rail', async () => {

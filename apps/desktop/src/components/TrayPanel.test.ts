@@ -3,21 +3,58 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import TrayPanel from './TrayPanel.svelte';
 import { trayAction, trayStatus } from '../lib/tray';
 import { SECTIONS } from '../lib/sections';
+import { isTauri } from '@tauri-apps/api/core';
+import { tick } from 'svelte';
+import { getHardware, getSystemOverview, POLL_INTERVAL_MS } from '../lib/api';
+import type { HardwareOverview, SystemOverview } from '../lib/types';
+
+vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tauri-apps/api/core')>()),
+  isTauri: vi.fn(),
+}));
+
+vi.mock('../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/api')>()),
+  getHardware: vi.fn(),
+  getSystemOverview: vi.fn(),
+}));
+
+const trayEvents = new Map<string, () => void>();
+const hardware: HardwareOverview = {
+  gpus: [{ vendor: null, model: null, totalMemoryBytes: null, usedMemoryBytes: null, usagePercent: 42 }],
+  motherboard: { vendor: null, name: null, version: null },
+  cpuBrand: null,
+  driveModels: [],
+};
+const overview: SystemOverview = {
+  cpu: { logicalCores: 8, usagePercent: 13 },
+  memory: { totalBytes: 100, usedBytes: 61, usagePercent: 61 },
+  disks: [],
+  osName: 'Windows',
+  osVersion: '11',
+};
 
 vi.mock('../lib/tray', () => ({
-  listenDesktop: () => () => {},
+  listenDesktop: (event: string, handler: () => void) => {
+    trayEvents.set(event, handler);
+    return () => trayEvents.delete(event);
+  },
   trayAction: vi.fn(),
   trayHover: vi.fn(),
   trayStatus: vi.fn(),
 }));
 
 beforeEach(() => {
+  vi.mocked(isTauri).mockReturnValue(false);
+  vi.mocked(getHardware).mockResolvedValue(hardware);
+  vi.mocked(getSystemOverview).mockResolvedValue(overview);
   vi.mocked(trayStatus).mockResolvedValue({ vpnConnected: false });
   vi.mocked(trayAction).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.resetAllMocks();
 });
 
@@ -38,4 +75,36 @@ it('updates the VPN button after the existing connection command returns', async
   await fireEvent.click(button);
   expect(trayAction).toHaveBeenCalledWith('toggleVpn');
   expect(await screen.findByRole('button', { name: 'Выключить VPN' })).toBeTruthy();
+});
+
+it('samples the Computer metrics while the native tray is open and stops on close', async () => {
+  vi.mocked(isTauri).mockReturnValue(true);
+  vi.useFakeTimers();
+  render(TrayPanel);
+  expect(getHardware).not.toHaveBeenCalled();
+  expect(getSystemOverview).not.toHaveBeenCalled();
+
+  trayEvents.get('tray-open')?.();
+  await tick();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.getByText('42%')).toBeTruthy();
+  expect(screen.getByText('61%')).toBeTruthy();
+
+  vi.mocked(getHardware).mockResolvedValue({
+    ...hardware,
+    gpus: [{ ...hardware.gpus[0], usagePercent: null }],
+  });
+  vi.mocked(getSystemOverview).mockResolvedValue({
+    ...overview,
+    memory: { ...overview.memory, usagePercent: 0 },
+  });
+  await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+  expect(screen.getByText('—')).toBeTruthy();
+  expect(screen.getByText('0%')).toBeTruthy();
+
+  trayEvents.get('tray-closed')?.();
+  await tick();
+  await vi.advanceTimersByTimeAsync(3 * POLL_INTERVAL_MS);
+  expect(getHardware).toHaveBeenCalledTimes(2);
+  expect(getSystemOverview).toHaveBeenCalledTimes(2);
 });

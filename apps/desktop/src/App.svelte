@@ -217,7 +217,12 @@
       {#if activeId !== 'vpn'}
         <div class="section-toolbar" data-tauri-drag-region>{@render toolbar()}</div>
       {/if}
-      <main bind:this={main} class:vpn-main={activeId === 'vpn'} data-tauri-drag-region>
+      <main
+        bind:this={main}
+        class:vpn-main={activeId === 'vpn'}
+        class:section-scroll={activeId !== 'vpn'}
+        data-tauri-drag-region
+      >
         <h1 class="sr-only">{t(section.titleKey)}</h1>
 
         {#if activeId === 'vpn'}
@@ -348,7 +353,6 @@
   /* Выделение текста: в интерфейсе (заголовки, кнопки, вкладки, навигация, карточки, декор)
      выключено, разрешено в полях ввода и там, где нужно скопировать (.selectable). */
   .shell {
-    --frame-inset-block: 14px;
     user-select: none;
     -webkit-user-select: none;
   }
@@ -396,6 +400,7 @@
   }
 
   .shell {
+    --frame-inset: 14px;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -458,9 +463,6 @@
        Узор лежит на своём слое выше и остаётся на месте, карточки и текст не перерисовываются.
        Быстрые переключения не копятся: переход сразу идёт к последнему цвету. */
     transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
-    /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
-    --content-gutter-start: max(20px, calc((100% - 1480px) / 2));
-    --content-gutter-end: max(16px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -482,15 +484,15 @@
 
   .section-toolbar,
   main {
-    padding-inline: var(--content-gutter-start) var(--content-gutter-end);
+    margin-inline: var(--frame-inset);
   }
 
   .section-toolbar {
-    padding-block: var(--frame-inset-block) 10px;
+    padding-block: var(--frame-inset) 10px;
   }
 
   main.vpn-main {
-    padding-block-start: var(--frame-inset-block);
+    margin-block-start: var(--frame-inset);
   }
 
   main {
@@ -499,10 +501,14 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    overflow: hidden auto;
-    padding-block-end: var(--frame-inset-block);
-    overscroll-behavior: contain;
+    margin-block-end: var(--frame-inset);
     contain: layout paint;
+  }
+
+  :global(.section-scroll) {
+    overflow: hidden auto;
+    border-radius: var(--radius-lg);
+    overscroll-behavior: contain;
   }
 
   /* Заголовок остаётся доступным программам чтения с экрана. */

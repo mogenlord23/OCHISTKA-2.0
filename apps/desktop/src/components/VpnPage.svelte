@@ -385,31 +385,29 @@
   }
 </script>
 
-<div class="vpn" class:with-poster={tab === 'vpn'}>
-  {#if tab === 'vpn'}
-    <div class="poster-cell">
-      <button
-        type="button"
-        class="poster"
-        class:pressed
-        aria-label="Постер"
-        bind:this={posterEl}
-        use:noWheelScroll
-        onpointerdown={onPosterDown}
-        onclick={onPosterClick}
-        onanimationend={() => (pressed = false)}
-      >
-        <span class="portrait-wrap" bind:this={portraitWrap}>
-          <img class="portrait" src={poster} alt="" draggable="false" />
-          {#if winking}
-            <span class="eye" style={eyeStyle} aria-hidden="true">
-              <span class="lid" onanimationend={() => (winking = false)}></span>
-            </span>
-          {/if}
-        </span>
-      </button>
-    </div>
-  {/if}
+<div class="vpn">
+  <div class="poster-cell">
+    <button
+      type="button"
+      class="poster"
+      class:pressed
+      aria-label="Постер"
+      bind:this={posterEl}
+      use:noWheelScroll
+      onpointerdown={onPosterDown}
+      onclick={onPosterClick}
+      onanimationend={() => (pressed = false)}
+    >
+      <span class="portrait-wrap" bind:this={portraitWrap}>
+        <img class="portrait" src={poster} alt="" draggable="false" />
+        {#if winking}
+          <span class="eye" style={eyeStyle} aria-hidden="true">
+            <span class="lid" onanimationend={() => (winking = false)}></span>
+          </span>
+        {/if}
+      </span>
+    </button>
+  </div>
   <div class="column">
     <header class="head">
       <div class="title" data-testid="vpn-title">{tabLabel}</div>
@@ -423,7 +421,7 @@
     {/if}
 
     {#key tab}
-      <div class="pane" role="tabpanel" aria-label={tabLabel}>
+      <div class="pane section-scroll" role="tabpanel" aria-label={tabLabel}>
         {#if tab === 'vpn'}
           <section class="card">
             <h2 class="sr-only">Ссылка подписки / импорта</h2>
@@ -535,19 +533,12 @@
 </div>
 
 <style>
-  /* Экран VPN рисует свой заголовок и вкладку «Дополнительно», как на эталоне old-01. */
-  :global(main:has(> .vpn) > h1),
-  :global(main:has(> .vpn) > .lead),
   .vpn {
     display: grid;
     flex: 1;
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
-  }
-
-  .vpn.with-poster {
     grid-template-columns: clamp(154px, 27%, 320px) minmax(0, 1fr);
-    gap: 14px;
+    gap: var(--frame-inset, 14px);
+    min-height: 0;
   }
 
   .poster-cell {
@@ -682,9 +673,6 @@
     /* Внутреннее поле сохраняет обводку карточек в пределах общей колонки. */
     margin: calc(-1 * var(--pane-outline-bleed)) 0 0;
     padding: var(--pane-outline-bleed);
-    /* Обрезание прокручиваемого содержимого идёт по скруглённой границе, а не по прямой линии. */
-    border-radius: var(--radius-lg);
-    overflow-y: auto;
     animation: pane-in 0.22s ease-out;
   }
 
