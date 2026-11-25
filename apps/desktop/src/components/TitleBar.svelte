@@ -88,11 +88,11 @@
   }
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 2;
+    stroke-width: 2.8;
     stroke-linecap: round;
     stroke-linejoin: round;
     shape-rendering: geometricPrecision;

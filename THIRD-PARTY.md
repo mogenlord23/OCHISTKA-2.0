@@ -1,5 +1,14 @@
 # Сторонние материалы
 
+## Natural Earth 5.1.2 (общественное достояние)
+
+Точки суши и центры меток стран для локального глобуса VPN получены из
+[`ne_50m_admin_0_countries.geojson`](https://github.com/nvkelso/natural-earth-vector/blob/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_50m_admin_0_countries.geojson).
+SHA-256 исходника — `3e458fc036ad0a66411f2c1e6cac49c5d7bfb81cb1123bc513b22511a2b7fdeb`.
+Условия — [Natural Earth Terms of Use](https://www.naturalearthdata.com/about/terms-of-use/).
+Преобразование в `apps/desktop/src/assets/vpn-globe.json` выполняет
+`apps/desktop/scripts/generate-vpn-globe.py` с исходным GeoJSON в качестве аргумента.
+
 ## simple-icons 16.38.0 (CC0-1.0)
 
 Контуры логотипов NVIDIA, AMD и Intel в `apps/desktop/src/lib/driverLogos.ts` взяты из npm-пакета `simple-icons` 16.38.0 (https://github.com/simple-icons/simple-icons), лицензия CC0 1.0 Universal (передача в общественное достояние, указание авторства не требуется). Сами названия и знаки принадлежат их владельцам (NVIDIA Corporation, Advanced Micro Devices, Intel Corporation) и показаны только для обозначения производителя драйвера. Знака USB в simple-icons нет: для него нарисована буквенная метка. Значки «Звук и связь» и «Производители ПК» нарисованы самостоятельно.

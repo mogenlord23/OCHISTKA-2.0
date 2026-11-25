@@ -449,7 +449,7 @@
     flex: 1;
     flex-direction: column;
     min-width: 0;
-    overflow: hidden;
+    overflow: clip;
     background-color: var(--accent);
     --section-gutter: max(var(--frame-inset), calc((100% - 1480px) / 2));
   }
@@ -538,16 +538,15 @@
     width: var(--side-width);
     background: var(--window);
     border-radius: var(--radius-adaptive) 0 0 var(--radius-adaptive);
-    /* Фон панели и дока рисуется до самых краёв, поэтому углы скругляет обрезание, а не один радиус. */
-    overflow: hidden;
   }
 
   /* Стрелка лежит посередине свободного места под последней плиткой. */
   .dock {
     --dock-gap: var(--content-gap);
+    --dock-handle-height: 20px;
+    --dock-panel-height: calc(var(--rail-tile) + 2 * var(--dock-gap));
     position: relative;
     z-index: 10;
-    background-color: var(--window);
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -590,7 +589,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    height: calc(var(--rail-tile) + 2 * var(--dock-gap));
+    height: var(--dock-panel-height);
     min-height: 0;
     padding: 0 10px;
     overflow: hidden;
@@ -600,7 +599,7 @@
     display: grid;
     place-items: center;
     width: 48px;
-    height: 20px;
+    height: var(--dock-handle-height);
     padding: 0;
     border: 0;
     border-radius: var(--radius-adaptive);
@@ -630,7 +629,14 @@
   }
 
   .pill {
-    padding: 5px 10px;
+    --dock-button-size: 34px;
+    --corner-size: var(--dock-button-size);
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--dock-button-size);
+    height: var(--dock-button-size);
+    padding: 0;
     border: 1px solid var(--btn-border);
     border-radius: var(--radius-adaptive);
     background: var(--btn-bg);
@@ -647,14 +653,6 @@
 
   .pill[aria-pressed='true'] {
     border-color: #4a4a4a;
-  }
-
-  .pill.sound {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    padding: 0;
   }
 
   .sound svg {
@@ -688,5 +686,30 @@
   .lang {
     display: flex;
     gap: 8px;
+  }
+
+  /* Выше минимального размера панель привязана к низу. Пока под плитками
+     нет места для всей карточки, она раскрывается сбоку от панели навигации. */
+  @media (min-width: 901px), (min-height: 761px), (display-mode: fullscreen) {
+    .dock {
+      justify-content: flex-end;
+      padding-bottom: var(--dock-gap);
+    }
+
+    .bottom-wrap {
+      top: auto;
+      inset-inline: auto 100%;
+      bottom: var(--dock-gap);
+      width: var(--side-width);
+    }
+  }
+
+  /* 714 px занимает ряд плиток, 140 px — раскрытая панель со стрелкой и полями. */
+  @media (min-height: 854px) {
+    .bottom-wrap {
+      inset-inline: 0;
+      bottom: calc(2 * var(--dock-gap) + var(--dock-handle-height));
+      width: auto;
+    }
   }
 </style>

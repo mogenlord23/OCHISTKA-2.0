@@ -668,8 +668,11 @@
   }
 
   .seg button {
-    min-width: 56px;
-    min-height: 36px;
+    --corner-size: var(--control-height);
+    width: var(--control-height);
+    height: var(--control-height);
+    box-sizing: border-box;
+    padding: 0;
     border: 1px solid #343434;
     border-radius: var(--radius-adaptive);
     background: transparent;

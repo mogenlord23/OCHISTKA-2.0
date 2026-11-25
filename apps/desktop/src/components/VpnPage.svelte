@@ -4,8 +4,9 @@
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
   import VpnPowerIcon from './VpnPowerIcon.svelte';
-  import { groupByLabel, numberedLabels, serverLabel } from '../lib/countryFlags';
-  import { i18n } from '../lib/i18n.svelte';
+  import VpnGlobe from './VpnGlobe.svelte';
+  import { countryName, groupByLabel, numberedLabels, serverLabel } from '../lib/countryFlags';
+  import { i18n, t } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
   import { SECTIONS } from '../lib/sections';
   import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
@@ -153,6 +154,18 @@
   const isConnected = $derived(
     snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching',
   );
+  const connected = $derived(snapshot?.connection.state === 'connected');
+  const connecting = $derived(
+    !actionNote && (snapshot?.connection.state === 'connecting' || (requesting && !isConnected)),
+  );
+  const globeCountry = $derived.by(() => {
+    const connection = snapshot?.connection;
+    const serverId = isConnected ? connection?.serverId
+      : connecting ? connection?.serverId ?? snapshot?.selected
+      : null;
+    return servers.find((server) => server.id === serverId)?.country ?? null;
+  });
+  const globeName = $derived(countryName(globeCountry, i18n.lang));
   $effect(() => {
     if (!active || !isConnected) return;
     nowMs = Date.now();
@@ -279,6 +292,18 @@
       actionNote = errorMessage(err);
       await refresh();
     }
+  }
+
+  function fitServerRows(node: HTMLElement) {
+    if (typeof ResizeObserver !== 'function') return;
+    const minimum = 44;
+    const observer = new ResizeObserver(([entry]) => {
+      const { height } = entry.contentRect;
+      const count = Math.max(1, Math.floor(height / minimum));
+      node.style.setProperty('--server-height', `${Math.max(minimum, height / count)}px`);
+    });
+    observer.observe(node);
+    return { destroy: () => observer.disconnect() };
   }
 
   let measuredAt = 0;
@@ -461,6 +486,13 @@
             </section>
 
             <section class="card connect">
+              {#if active && connected}
+                <svg class="connect-pulses" aria-hidden="true">
+                  {#each [0, 1, 2] as ring}
+                    <rect vector-effect="non-scaling-stroke" style:--ring={ring} />
+                  {/each}
+                </svg>
+              {/if}
               <div class="connect-grid">
                 <div class="power-row">
                   <button
@@ -492,51 +524,72 @@
                     <span class="timer" aria-label="Время подключения"
                       >{formatElapsed(elapsedSeconds)}</span
                     >
-                    <span class="status-line" role="status">{status}</span>
+                    <span class="status-line" role="status" title={status}>
+                      {#if connected}
+                        <span class="status-dot" aria-hidden="true"></span>
+                        {t('vpnConnected')}
+                        {#if actionNote}<span class="status-note">{actionNote}</span>{/if}
+                      {:else if connecting && preparing === null}
+                        {t('vpnConnecting')}
+                      {:else}
+                        {status}
+                      {/if}
+                    </span>
                   </div>
                 </div>
               </div>
             </section>
 
-            <h2 class="sr-only">Серверы / {servers.length}</h2>
-            <section class="card servers-card">
-              {#if servers.length > 0}
-                <ul
-                  class="servers"
-                  class:has-selection={selectedServerIndex >= 0}
-                  style:--selected-server-index={selectedServerIndex}
-                  aria-label="Серверы"
-                >
-                  {#each groupedServers as server, i (server.id)}
-                    <li>
-                      <button
-                        type="button"
-                        class="server"
-                        aria-pressed={snapshot?.selected === server.id}
-                        aria-label={serverAria(server.name, server.country, i18n.lang)}
-                        onclick={() => onSelect(server.id)}
-                      >
-                        <ServerFlag code={server.country} />
-                        <span class="srv-name"
-                          >{serverLabels[i]}</span
-                        >
-                        <span class="scheme">{server.protocol.toUpperCase()}</span>
-                        <span
-                          class="latency"
-                          class:dead={server.measured && server.latencyMs === null}
-                          >{server.measured ? formatLatency(server) : ''}</span
-                        >
-                      </button>
-                    </li>
-                  {/each}
-                </ul>
-              {:else}
-                <p class="note empty">
-                  Серверов пока нет. Вставь ссылку https:// или список ссылок серверов в поле выше,
-                  либо выбери файл.
-                </p>
-              {/if}
-            </section>
+            <div class="vpn-dashboard">
+              <section class="card servers-card">
+                <h2 class="sr-only">Серверы / {servers.length}</h2>
+                {#if servers.length > 0}
+                  <div class="servers-scroll" use:fitServerRows>
+                    <ul
+                      class="servers"
+                      class:has-selection={selectedServerIndex >= 0}
+                      style:--selected-server-index={selectedServerIndex}
+                      aria-label="Серверы"
+                    >
+                      {#each groupedServers as server, i (server.id)}
+                        <li>
+                          <button
+                            type="button"
+                            class="server"
+                            aria-pressed={snapshot?.selected === server.id}
+                            aria-label={serverAria(server.name, server.country, i18n.lang)}
+                            title={serverLabels[i]}
+                            onclick={() => onSelect(server.id)}
+                          >
+                            <ServerFlag code={server.country} />
+                            <span class="srv-name"
+                              >{serverLabels[i]}</span
+                            >
+                            <span class="scheme">{server.protocol.toUpperCase()}</span>
+                            <span
+                              class="latency"
+                              class:dead={server.measured && server.latencyMs === null}
+                              >{server.measured ? formatLatency(server) : ''}</span
+                            >
+                          </button>
+                        </li>
+                      {/each}
+                    </ul>
+                  </div>
+                {:else}
+                  <p class="note empty">
+                    Серверов пока нет. Вставь ссылку https:// или список ссылок серверов в поле выше,
+                    либо выбери файл.
+                  </p>
+                {/if}
+              </section>
+              <VpnGlobe
+                {active}
+                country={globeCountry}
+                {connected}
+                label={globeName ? `${t('vpnGlobe')} · ${globeName}` : t('vpnGlobe')}
+              />
+            </div>
           {:else if tab === 'advanced'}
             <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
           {:else}
@@ -794,8 +847,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 88px;
-    height: 88px;
+    width: var(--power-size);
+    height: var(--power-size);
     min-height: 0;
     padding: 0;
     border: 0;
@@ -850,30 +903,62 @@
   }
 
   .status-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
     font-size: 0.75rem;
+    font-weight: 700;
     color: var(--ink);
   }
 
-  .servers-card {
-    flex: 1;
-    min-height: 120px;
-    /* Внутренний отступ от обводки до первой строки одинаковый с трёх сторон. */
-    padding: var(--card-inset);
-    overflow-y: auto;
-    /* Прокрутка работает (колесо, тачпад, клавиши), полоса не показывается. */
-    scrollbar-width: none;
+  .status-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 
-  .servers-card::-webkit-scrollbar {
-    display: none;
+  .status-note {
+    flex-basis: 100%;
+    font-weight: 500;
+  }
+
+  .vpn-dashboard {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1;
+    gap: var(--content-gap);
+    min-height: 160px;
+  }
+
+  .servers-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .servers-scroll {
+    --server-height: 44px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    scroll-snap-type: y proximity;
   }
 
   .servers {
-    --server-height: 44px;
     position: relative;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .servers li {
+    scroll-snap-align: start;
   }
 
   .servers.has-selection::before {
@@ -895,10 +980,10 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
     height: var(--server-height);
-    padding: 10px 12px;
+    padding: 8px;
     border-radius: var(--radius-adaptive);
     background: transparent;
     box-shadow: none;
@@ -934,8 +1019,9 @@
 
   .server .latency {
     flex: none;
-    min-width: 58px;
+    min-width: 44px;
     text-align: right;
+    white-space: nowrap;
   }
 
   .note {
@@ -954,7 +1040,52 @@
 
 
 
+  .connect {
+    --power-size: 88px;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    container-type: inline-size;
+  }
+
+  .connect-pulses {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  @supports (transform: scale(calc(1px / 1px))) {
+    .connect-pulses {
+      --pulse-scale: calc(2 * 100cqw / var(--power-size));
+    }
+  }
+
+  .connect-pulses rect {
+    x: var(--card-inset);
+    y: var(--card-inset);
+    width: var(--power-size);
+    height: var(--power-size);
+    rx: var(--radius-limit);
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: connect-pulse 3.6s linear infinite;
+    animation-delay: calc(var(--ring) * -1.2s);
+  }
+
+  @keyframes connect-pulse {
+    0% { transform: scale(1); opacity: 0; }
+    5% { opacity: 0.58; }
+    100% { transform: scale(var(--pulse-scale, 36)); opacity: 0; }
+  }
+
   .connect-grid {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -980,17 +1111,7 @@
     }
   }
 
-  /* Невысокое окно (минимум 712): блок серверов и «Соединения» заканчиваются на нижней линии постера.
-     Отступ карточек остаётся одинаковым со всех сторон (16 px), как в остальных разделах. */
   @media (max-height: 780px) {
-    .card {
-      padding: 16px;
-    }
-
-    .servers-card {
-      min-height: 96px;
-    }
-
     .note {
       margin-top: 6px;
     }

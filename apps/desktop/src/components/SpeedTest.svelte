@@ -177,8 +177,9 @@
   }
 
   .btn {
+    --corner-size: var(--control-height);
     width: 100%;
-    min-height: 36px;
+    min-height: var(--control-height);
     margin-top: 8px;
     padding: 6px 18px;
     border: 0;

@@ -62,7 +62,6 @@
     gap: var(--gap);
     min-height: 0;
     padding: var(--gap) var(--gap) 0;
-    background: var(--window);
   }
 
   .indicator {
@@ -140,10 +139,10 @@
     inset: auto 0 18px;
     box-sizing: border-box;
     max-width: 100%;
-    padding: 0 4px;
+    padding: 0 2px;
     overflow: hidden;
-    font-size: 10.5px;
-    font-weight: 700;
+    font-size: var(--text-small);
+    font-weight: 800;
     letter-spacing: 0;
     text-align: center;
     text-overflow: clip;

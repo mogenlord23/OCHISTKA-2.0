@@ -538,7 +538,14 @@ describe('VpnPage: подключение и серверы', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Включить VPN' }));
     const off = await screen.findByRole('button', { name: 'Выключить VPN' });
     expect(off.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('Подключено · Латвия · передача данных проверена')).toBeTruthy();
+    const label = screen.getByText('Подключено', { exact: true });
+    expect(label.closest('.status-line')?.getAttribute('title')).toBe(connected.message);
+    expect(document.querySelector('.connect-pulses')).toBeTruthy();
+    const globe = screen.getByRole('img', { name: 'Глобус VPN · Латвия' }).closest('.globe');
+    expect(globe?.getAttribute('data-country')).toBe('LV');
+    expect(globe?.getAttribute('data-connected')).toBe('true');
+    await fireEvent.click(within(screen.getByRole('list', { name: 'Серверы' })).getAllByRole('button')[1]);
+    expect(globe?.getAttribute('data-country')).toBe('LV');
     expect(screen.getByLabelText('Время подключения').textContent).toMatch(/^00:01:0\d$/);
     await fireEvent.click(off);
     const on = await screen.findByRole('button', { name: 'Включить VPN' });

@@ -109,7 +109,7 @@
     padding: var(--card-inset);
     border-radius: var(--radius-adaptive);
     background: var(--surface-alt);
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: inset 0 0 0 2px #000;
     container-type: inline-size;
   }
 
@@ -130,11 +130,12 @@
   }
 
   .icon {
+    --corner-size: var(--control-height);
     display: grid;
     flex-shrink: 0;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: var(--control-height);
+    height: var(--control-height);
     border-radius: var(--radius-adaptive);
     background: var(--accent);
     color: #000;
@@ -167,9 +168,10 @@
   }
 
   .btn {
+    --corner-size: var(--control-height);
     width: 100%;
     min-width: 0;
-    min-height: 36px;
+    min-height: var(--control-height);
     padding: 6px 18px;
     border: 0;
     border-radius: var(--radius-adaptive);

@@ -49,6 +49,10 @@ it('changes section colour without animating the whole background', () => {
   expect(APP).not.toMatch(/\.stage\s*\{[^}]*transition:/);
 });
 
+it('clips the decorative backdrop without making the stage a scroll container', () => {
+  expect(APP).toMatch(/\.stage\s*\{[^}]*overflow:\s*clip/);
+});
+
 describe('dock panel (item 1)', () => {
   it('has no border, a black card, one size and no media-query resize', () => {
     const block = APP.slice(APP.indexOf('.bottom-wrap {'), APP.indexOf('.handle {'));
@@ -56,7 +60,7 @@ describe('dock panel (item 1)', () => {
     expect(block).not.toMatch(/border-color/);
     expect(block).toMatch(/background-color:\s*var\(--black\)/);
     expect(block).not.toMatch(/@media/);
-    expect(block).toMatch(/height:\s*calc\(var\(--rail-tile\) \+ 2 \* var\(--dock-gap\)\)/);
+    expect(block).toMatch(/height:\s*var\(--dock-panel-height\)/);
   });
 
   it('centres the handle in the free space below the last navigation tile', () => {
