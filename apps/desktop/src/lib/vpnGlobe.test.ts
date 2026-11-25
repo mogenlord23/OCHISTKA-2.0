@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { globeBufferSize, globeCountry, globeViewport, shortestTurn } from './vpnGlobe';
 
+import map from '../assets/vpn-globe.json';
+
 describe('offline VPN globe', () => {
+  it('keeps the country palette on both sides of the Baltic and Asian borders', () => {
+    const bits = atob(map.lime);
+    for (const [code, expected] of Object.entries({ LV: true, SE: true, RU: false, CN: true, US: false, BR: true })) {
+      const [lon, lat] = globeCountry(code)!;
+      const cell = Math.floor((lat + 90) / 180 * map.gridHeight) * map.gridWidth +
+        Math.floor((lon + 180) / 360 * map.gridWidth);
+      expect(Boolean(bits.charCodeAt(cell >> 3) & (1 << (cell % 8))), code).toBe(expected);
+    }
+  });
   it('uses local country coordinates and accepts subscription aliases', () => {
     const latvia = globeCountry(' lv ');
     expect(latvia?.[0]).toBeCloseTo(25.46);

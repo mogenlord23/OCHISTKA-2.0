@@ -4,8 +4,8 @@
   let layer: SVGSVGElement;
   let origin = $state({ x: 0, y: 0, side: 0, reach: 0 });
   const travel = $derived(Math.max(1, origin.reach - origin.side / 2));
-  // Постоянные 76 CSS-пикселей в секунду при любой длине карточки.
-  const period = $derived(travel / 76);
+  // Постоянные 60 CSS-пикселей в секунду при любой длине карточки.
+  const period = $derived(travel / 60);
   const rings = $derived(Math.max(2, Math.round(travel / 84)));
 
   onMount(() => {
@@ -54,7 +54,7 @@
     transform-box: fill-box;
     transform-origin: center;
     animation: expand var(--period) linear var(--delay) infinite,
-      fade var(--period) linear var(--delay) infinite;
+      fade var(--period) ease-in-out var(--delay) infinite;
   }
   @keyframes expand {
     from { transform: scale(1); }
@@ -62,8 +62,8 @@
   }
   @keyframes fade {
     0%, 100% { opacity: 0; }
-    5% { opacity: .46; }
-    75% { opacity: .18; }
+    15% { opacity: .32; }
+    70% { opacity: .15; }
   }
   @media (prefers-reduced-motion: reduce) {
     svg { display: none; }

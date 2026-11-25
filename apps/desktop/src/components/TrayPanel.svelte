@@ -197,6 +197,8 @@
   }
 
   .tray-columns {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: var(--large-tile) var(--small-tile);
     gap: var(--tray-gap);
@@ -254,6 +256,11 @@
     border-color: var(--marker);
     color: var(--marker);
     background-color: color-mix(in srgb, var(--tile), var(--marker) 9%);
+  }
+
+  .sections button :global(.knob) { fill: var(--tile); }
+  .sections button:is(:hover, :focus-visible) :global(.knob) {
+    fill: color-mix(in srgb, var(--tile), var(--marker) 9%);
   }
 
   .loads { margin: 0; }

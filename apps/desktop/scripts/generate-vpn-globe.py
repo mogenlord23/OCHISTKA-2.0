@@ -63,10 +63,15 @@ def main():
     if hashlib.sha256(raw).hexdigest() != SOURCE_SHA256:
         raise ValueError("Expected the Natural Earth source listed in THIRD-PARTY.md")
     countries = {}
+    lime_ids = set()
     polygons = []
     for index, feature in enumerate(json.loads(raw)["features"], 1):
         properties = feature["properties"]
         code = properties["ISO_A2_EH"]
+        continent = properties["CONTINENT"]
+        if code != "RU" and (continent in {"Europe", "South America", "Oceania"}
+                             or code == "CN" or (continent in {"Africa", "Asia"} and index % 2 == 0)):
+            lime_ids.add(index)
         if len(code) == 2 and code.isalpha():
             countries[code] = [properties["LABEL_X"], properties["LABEL_Y"]]
         geometry = feature["geometry"]
@@ -76,6 +81,10 @@ def main():
             polygons.append((min(yy), max(yy), index, polygon))
 
     labels = rasterize(polygons)
+    palette = bytearray((len(labels) + 7) // 8)
+    for cell, label in enumerate(labels):
+        if label in lime_ids:
+            palette[cell // 8] |= 1 << (cell % 8)
     land = []
     for row in range(math.floor(180 / STEP) + 1):
         y = -89 + row * STEP
@@ -90,7 +99,7 @@ def main():
                 land.append([round(x, 2), round(y, 2)])
     output = Path(__file__).resolve().parents[1] / "src/assets/vpn-globe.json"
     data = {"land": land, "countries": countries, "detail": pack_detail(labels),
-            "gridWidth": GRID_WIDTH, "gridHeight": GRID_HEIGHT}
+            "lime": base64.b64encode(palette).decode("ascii"), "gridWidth": GRID_WIDTH, "gridHeight": GRID_HEIGHT}
     output.write_text(json.dumps(data, separators=(",", ":")) + "\n",
                       encoding="utf-8", newline="\n")
 

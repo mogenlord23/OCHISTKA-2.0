@@ -1,5 +1,5 @@
 import map from '../assets/vpn-globe.json';
-import { NEUTRAL, SECTION_COLORS } from './tokens';
+import { NEUTRAL, SECTION_COLORS, SHELL } from './tokens';
 
 const RAD = Math.PI / 180;
 const TURN = Math.PI * 2;
@@ -21,9 +21,19 @@ function vector(longitude: number, latitude: number) {
   ] as const;
 }
 
-type Dot = readonly [x: number, y: number, z: number, border: boolean];
-const land: Dot[] = map.land.map(([longitude, latitude]) => [...vector(longitude, latitude), false]);
+type Dot = readonly [x: number, y: number, z: number, border: boolean, lime: boolean];
+const palette = atob(map.lime);
+const isLime = (index: number) => Boolean(palette.charCodeAt(index >> 3) & (1 << (index % 8)));
+const land: Dot[] = map.land.map(([longitude, latitude]) => {
+  const column = Math.min(map.gridWidth - 1, Math.floor((longitude + 180) * map.gridWidth / 360));
+  const row = Math.min(map.gridHeight - 1, Math.floor((latitude + 90) * map.gridHeight / 180));
+  return [...vector(longitude, latitude), false, isLime(row * map.gridWidth + column)];
+});
 let packedDetail: string | undefined;
+const meridians = Array.from({ length: map.gridWidth }, (_, column) => {
+  const radians = ((column + 0.5) * 360 / map.gridWidth - 180) * RAD;
+  return [Math.sin(radians), Math.cos(radians)] as const;
+});
 
 function detailNear([longitude, latitude]: readonly number[]): Dot[] {
   const packed = packedDetail ??= atob(map.detail);
@@ -37,13 +47,17 @@ function detailNear([longitude, latitude]: readonly number[]): Dot[] {
 
   for (let row = minRow; row <= maxRow; row++) {
     const y = (row + 0.5) * step - 90;
+    const parallel = Math.cos(y * RAD);
+    const north = Math.sin(y * RAD);
     for (let column = 0; column < gridWidth; column++) {
       const index = row * gridWidth + column;
       const kind = (packed.charCodeAt(index >> 2) >> (2 * (index & 3))) & 3;
       if (!kind) continue;
-      const dot = vector((column + 0.5) * step - 180, y);
-      if (dot[0] * targetX + dot[1] * targetY + dot[2] * targetZ >= threshold) {
-        region.push([...dot, kind === 2]);
+      const [sin, cos] = meridians[column];
+      const x = parallel * sin;
+      const z = parallel * cos;
+      if (x * targetX + north * targetY + z * targetZ >= threshold) {
+        region.push([x, north, z, kind === 2, isLime(index)]);
       }
     }
   }
@@ -109,6 +123,9 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   let latitude = 0.38;
   let zoom = 1;
   let focus: readonly number[] | null = null;
+  let destination: readonly number[] | null = null;
+  let departure = { longitude, latitude, zoom };
+  let progress = 1;
   let detail: Dot[] = [];
   let cachedMap: HTMLCanvasElement | undefined;
   let cachedView = '';
@@ -128,11 +145,20 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
       focus = target;
       detail = detailNear(target);
     }
-    const ease = reduced ? 1 : 1 - Math.exp(-6 * elapsed);
-    longitude += target ? shortestTurn(longitude, target[0] * RAD) * ease : reduced ? 0 : elapsed * 0.16;
-    longitude %= TURN;
-    latitude += ((target ? target[1] * RAD : 0.38) - latitude) * ease;
-    zoom += ((target ? CLOSE_ZOOM : 1) - zoom) * ease;
+    if (destination !== target) {
+      destination = target;
+      departure = { longitude, latitude, zoom };
+      progress = 0;
+    }
+    progress = reduced ? 1 : Math.min(1, progress + Math.min(elapsed, 0.05) / 1.85);
+    const t = progress * progress * (3 - 2 * progress);
+    if (target) {
+      longitude = departure.longitude + shortestTurn(departure.longitude, target[0] * RAD) * t;
+    } else if (!reduced) {
+      longitude = (longitude + elapsed * 0.16 * t) % TURN;
+    }
+    latitude = departure.latitude + ((target ? target[1] * RAD : 0.38) - departure.latitude) * t;
+    zoom = departure.zoom + ((target ? CLOSE_ZOOM : 1) - departure.zoom) * t;
 
     const [bufferWidth, bufferHeight] = globeBufferSize(width, height, window.devicePixelRatio || 1);
     if (canvas.width !== bufferWidth) canvas.width = bufferWidth;
@@ -165,11 +191,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
     } else {
       ctx.fillStyle = NEUTRAL.surfaceAlt;
       ctx.fillRect(0, 0, width, height);
-      const light = ctx.createLinearGradient(0, centerY - radius, 0, centerY + radius);
-      light.addColorStop(0, '#232323');
-      light.addColorStop(0.4, NEUTRAL.black);
-      light.addColorStop(1, '#000');
-      ctx.fillStyle = light;
+      ctx.fillStyle = SHELL.window;
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, TURN);
       ctx.fill();
@@ -185,7 +207,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
         if (alpha <= 0) return;
         ctx.globalAlpha = alpha;
         const half = size / 2;
-        for (const [x, y, z, border] of dots) {
+        for (const [x, y, z, border, lime] of dots) {
           const meridian = x * sx + z * cx;
           const front = y * sy + meridian * cy;
           if (front <= 0) continue;
@@ -193,8 +215,6 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
           const top = centerY - (y * cy - meridian * sy) * radius;
           if (left < -half || left > width + half || top < -half || top > height + half) continue;
           if (marker && Math.abs(left - marker.x) < 10 + half && Math.abs(top - marker.y) < 10 + half) continue;
-          // Два цвета закреплены на поверхности и вращаются вместе с материками.
-          const lime = x * 1.8 + y * 0.72 - z * 0.68 > 0.46;
           const rank = (lime ? 3 : 0) + (border || front > 0.85 ? 2 : front < 0.46 ? 0 : 1);
           ctx.drawImage(sprites, rank * DOT_PIXELS, 0, DOT_PIXELS, DOT_PIXELS, left - half, top - half, size, size);
         }

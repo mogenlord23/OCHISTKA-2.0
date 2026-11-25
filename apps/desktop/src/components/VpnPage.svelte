@@ -1025,6 +1025,8 @@
   }
 
   .srv-name {
+    font-weight: 800;
+    font-size: var(--text-small);
     flex: 1;
     min-width: 0;
     overflow: hidden;
