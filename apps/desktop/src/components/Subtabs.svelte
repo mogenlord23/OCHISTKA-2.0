@@ -101,13 +101,14 @@
 </div>
 
 <style>
-  /* Строка вкладок прямо под шапкой: тонкая чёрная дорожка и ползунок цвета раздела. */
   .subtabs {
+    --track-padding: var(--subtabs-padding, 4px);
+    --tab-height: calc(var(--subtabs-height, 48px) - 2 * (var(--track-padding) + 1px));
     display: flex;
     flex: none;
     align-items: center;
     min-width: 0;
-    min-height: 48px;
+    min-height: var(--subtabs-height, 48px);
     margin: 6px 0 12px;
   }
 
@@ -123,7 +124,7 @@
     overflow-y: hidden;
     max-width: 100%;
     gap: 2px;
-    padding: 4px;
+    padding: var(--track-padding);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--black);
@@ -133,15 +134,15 @@
 
   .ind {
     position: absolute;
-    top: 4px;
+    top: var(--track-padding);
     left: 0;
     z-index: 0;
     width: 40px;
-    height: 38px;
+    height: var(--tab-height);
     border-radius: var(--radius-sm);
     background: var(--accent);
     box-shadow: inset 0 0 0 2px rgba(8, 8, 8, 0.72);
-    transform: translateX(4px);
+    transform: translateX(var(--track-padding));
     transition:
       transform 190ms cubic-bezier(0.2, 0, 0, 1),
       width 190ms cubic-bezier(0.2, 0, 0, 1),
@@ -154,7 +155,7 @@
     position: relative;
     z-index: 1;
     min-width: 0;
-    height: 38px;
+    height: var(--tab-height);
     padding: 0 18px;
     border: 0;
     border-radius: var(--radius-sm);

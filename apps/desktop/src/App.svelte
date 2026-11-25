@@ -348,6 +348,7 @@
   /* Выделение текста: в интерфейсе (заголовки, кнопки, вкладки, навигация, карточки, декор)
      выключено, разрешено в полях ввода и там, где нужно скопировать (.selectable). */
   .shell {
+    --frame-inset-block: 14px;
     user-select: none;
     -webkit-user-select: none;
   }
@@ -458,7 +459,8 @@
        Быстрые переключения не копятся: переход сразу идёт к последнему цвету. */
     transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
     /* Поля содержимого: на широком экране текст не растягивается дальше 1480 px. */
-    --content-gutter: max(22px, calc((100% - 1480px) / 2));
+    --content-gutter-start: max(20px, calc((100% - 1480px) / 2));
+    --content-gutter-end: max(16px, calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -478,12 +480,17 @@
     position: relative;
   }
 
+  .section-toolbar,
+  main {
+    padding-inline: var(--content-gutter-start) var(--content-gutter-end);
+  }
+
   .section-toolbar {
-    padding: 12px var(--content-gutter) 10px;
+    padding-block: var(--frame-inset-block) 10px;
   }
 
   main.vpn-main {
-    padding-top: 12px;
+    padding-block-start: var(--frame-inset-block);
   }
 
   main {
@@ -493,7 +500,7 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden auto;
-    padding: 0 var(--content-gutter) 22px;
+    padding-block-end: var(--frame-inset-block);
     overscroll-behavior: contain;
     contain: layout paint;
   }

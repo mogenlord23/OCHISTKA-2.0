@@ -39,12 +39,14 @@
 
 <style>
   .titlebar {
+    --subtabs-height: 36px;
+    --subtabs-padding: 3px;
     display: flex;
     align-items: stretch;
     flex: none;
     min-width: 0;
     gap: 8px;
-    min-height: 48px;
+    min-height: var(--subtabs-height);
     user-select: none;
   }
 
@@ -65,15 +67,15 @@
 
   .controls {
     display: flex;
-    gap: 6px;
+    gap: 8px;
   }
 
-  /* Как в прежнем приложении: крупные чёрные скруглённые квадраты, белый толстый знак. */
   button {
     display: grid;
     place-items: center;
-    width: 48px;
-    height: 48px;
+    box-sizing: border-box;
+    width: var(--subtabs-height);
+    height: var(--subtabs-height);
     padding: 0;
     border: 1px solid var(--btn-border);
     border-radius: var(--radius-sm);
@@ -83,11 +85,11 @@
   }
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 2.5;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
     shape-rendering: geometricPrecision;

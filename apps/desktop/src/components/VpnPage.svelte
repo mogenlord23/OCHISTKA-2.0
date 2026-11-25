@@ -538,10 +538,6 @@
   /* Экран VPN рисует свой заголовок и вкладку «Дополнительно», как на эталоне old-01. */
   :global(main:has(> .vpn) > h1),
   :global(main:has(> .vpn) > .lead),
-  :global(main:has(> .vpn) > .subtabs) {
-    display: none;
-  }
-
   .vpn {
     display: grid;
     flex: 1;
@@ -551,7 +547,7 @@
 
   .vpn.with-poster {
     grid-template-columns: clamp(154px, 27%, 320px) minmax(0, 1fr);
-    gap: 12px;
+    gap: 14px;
   }
 
   .poster-cell {
@@ -662,7 +658,7 @@
     --pane-outline-bleed: 2px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     min-width: 0;
     min-height: 0;
   }
