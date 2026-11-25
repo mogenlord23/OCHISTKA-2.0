@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import App from './App.svelte';
 import { SECTIONS } from './lib/sections';
 
@@ -50,6 +50,26 @@ describe('App navigation', () => {
       expect(screen.getByRole('tab', { name, selected: true })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Постер' })).toBe(poster);
     }
+  });
+
+  it('keeps a dedicated non-interactive strip for dragging the frameless window', () => {
+    const { container } = render(App);
+    const strip = container.querySelector('.window-drag-strip');
+    expect(strip?.hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(strip?.querySelector('button, input, a')).toBeNull();
+  });
+
+  it('keeps the Network page mounted across VPN tabs and section changes', async () => {
+    render(App);
+    await fireEvent.click(screen.getByRole('tab', { name: 'Сеть' }));
+    const speedTest = screen.getByRole('region', { name: 'Тест скорости интернета' });
+    await fireEvent.click(screen.getByRole('tab', { name: 'Дополнительно' }));
+    await fireEvent.click(screen.getByRole('tab', { name: 'Сеть' }));
+    expect(screen.getByRole('region', { name: 'Тест скорости интернета' })).toBe(speedTest);
+    await fireEvent.click(screen.getByRole('button', { name: 'Вирусы' }));
+    expect(screen.queryByRole('region', { name: 'Тест скорости интернета' })).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'VPN' }));
+    expect(screen.getByRole('region', { name: 'Тест скорости интернета' })).toBe(speedTest);
   });
 
   it('opens the virus section from the rail', async () => {
@@ -164,9 +184,11 @@ describe('App subsection memory', () => {
     expect(
       screen.getAllByRole('tab', { name: 'Курсоры' }).at(-1)!.getAttribute('aria-selected'),
     ).toBe('true');
-    expect(JSON.parse(localStorage.getItem('ochistka.subsections') ?? '{}')).toMatchObject({
-      vpn: 'network',
-      design: 'cursors',
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem('ochistka.subsections') ?? '{}')).toMatchObject({
+        vpn: 'network',
+        design: 'cursors',
+      });
     });
   });
 });

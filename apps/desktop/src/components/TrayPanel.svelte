@@ -2,6 +2,7 @@
   import { isTauri } from '@tauri-apps/api/core';
   import { onMount } from 'svelte';
   import SectionIcon from './SectionIcon.svelte';
+  import VpnPowerIcon from './VpnPowerIcon.svelte';
   import { listenDesktop, trayAction, trayHover, trayStatus, type TrayAction, type TrayStatus } from '../lib/tray';
   import { getHardware, getSystemOverview, POLL_INTERVAL_MS, toCommandError } from '../lib/api';
   import { shortPercent } from '../lib/computer';
@@ -10,17 +11,20 @@
   import { BODY_FONT, NEUTRAL, RADIUS, SECTION_COLORS, SHELL, textOn } from '../lib/tokens';
 
   const metrics = [
-    { id: 'gpu', label: 'GPU', read: async () => (await getHardware()).gpus[0]?.usagePercent ?? null },
-    { id: 'ram', label: 'RAM', read: async () => (await getSystemOverview()).memory.usagePercent },
+    { id: 'cpu', label: 'CPU' },
+    { id: 'gpu', label: 'GPU' },
+    { id: 'ram', label: 'RAM' },
   ] as const;
-  type LoadMetric = (typeof metrics)[number];
-  const inFlight = new Set<LoadMetric>();
-  const loads = $state<Record<LoadMetric['id'], number | null>>({ gpu: null, ram: null });
+  const loads = $state<{ cpu: number | null; gpu: number | null; ram: number | null }>({
+    cpu: null, gpu: null, ram: null,
+  });
 
   let present = $state(!isTauri());
   let status = $state<TrayStatus | null>(null);
   let pending = $state(false);
   let notice = $state('');
+  let systemPending = false;
+  let gpuPending = false;
 
   async function refresh() {
     try {
@@ -30,8 +34,41 @@
     }
   }
 
+  async function sampleSystem() {
+    if (systemPending) return;
+    systemPending = true;
+    try {
+      const overview = await getSystemOverview();
+      loads.cpu = overview.cpu.usagePercent;
+      loads.ram = overview.memory.usagePercent;
+    } catch {
+      // При сбое оставляем последний успешный замер.
+    } finally {
+      systemPending = false;
+    }
+  }
+
+  async function sampleGpu() {
+    if (gpuPending) return;
+    gpuPending = true;
+    try {
+      loads.gpu = (await getHardware()).gpus[0]?.usagePercent ?? null;
+    } catch {
+      // Медленный ответ видеокарты не задерживает процессор и память.
+    } finally {
+      gpuPending = false;
+    }
+  }
+
+  function sample() {
+    void sampleSystem();
+    void sampleGpu();
+  }
+
   onMount(() => {
     void refresh();
+    // Один стартовый замер готовит значения к первому наведению.
+    if (!present) sample();
     const stopOpen = listenDesktop('tray-open', () => {
       present = true;
       notice = '';
@@ -45,36 +82,10 @@
   });
 
   $effect(() => {
-    if (!present) {
-      loads.gpu = null;
-      loads.ram = null;
-      return;
-    }
-
-    let active = true;
-    async function readMetric(metric: LoadMetric) {
-      if (inFlight.has(metric)) return;
-      inFlight.add(metric);
-      try {
-        const value = await metric.read();
-        if (active) loads[metric.id] = value;
-      } catch {
-        if (active) loads[metric.id] = null;
-      } finally {
-        inFlight.delete(metric);
-      }
-    }
-
-    function sample() {
-      for (const metric of metrics) void readMetric(metric);
-    }
-
+    if (!present) return;
     sample();
     const timer = window.setInterval(sample, POLL_INTERVAL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
+    return () => window.clearInterval(timer);
   });
 
   async function run(action: TrayAction) {
@@ -104,51 +115,53 @@
   style:--ink={NEUTRAL.ink}
   style:--border={NEUTRAL.border}
   style:--window-radius={RADIUS.lg}
-  style:--tile-radius={RADIUS.sm}
+  style:--tile-radius={RADIUS.md}
   style:--computer={SECTION_COLORS.computer}
   style:--vpn={SECTION_COLORS.vpn}
   style:--on-vpn={textOn(SECTION_COLORS.vpn)}
   style:--font={BODY_FONT}
 >
-  <button
-    type="button"
-    class="power"
-    class:connected={status?.vpnConnected}
-    disabled={pending || status === null}
-    aria-pressed={status?.vpnConnected ?? false}
-    onclick={() => void run('toggleVpn')}
-  >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <path d="M12 3v9m-5.5-6a8 8 0 1 0 11 0" />
-    </svg>
-    {status?.vpnConnected ? 'Выключить VPN' : 'Включить VPN'}
-  </button>
-
-  {#if notice}<p role="status">{notice}</p>{/if}
-
-  <div class="tiles sections">
-    {#each SECTIONS as section (section.id)}
-      <button type="button" style:--marker={section.accent} disabled={pending} onclick={() => void run(section.id)}>
-        <SectionIcon id={section.id} />
-        <span>{t(section.titleKey)}</span>
+  <div class="tray-columns">
+    <div class="overview">
+      <button
+        type="button"
+        class="power"
+        class:connected={status?.vpnConnected}
+        disabled={pending || status === null}
+        aria-pressed={status?.vpnConnected ?? false}
+        aria-label={status?.vpnConnected ? 'Выключить VPN' : 'Включить VPN'}
+        title={status?.vpnConnected ? 'Выключить VPN' : 'Включить VPN'}
+        onclick={() => void run('toggleVpn')}
+      >
+        <VpnPowerIcon />
       </button>
-    {/each}
+      <dl class="loads" aria-label="Загрузка компьютера" title="Последние показания. Обновляются, пока открыт трей.">
+        {#each metrics as metric (metric.id)}
+          {@const value = loads[metric.id]}
+          <div class="metric">
+            <dt>{metric.label}</dt>
+            <dd>
+              {value === null ? '—' : shortPercent(value)}
+              <span class="load-track" aria-hidden="true">
+                <span style:width={(value ?? 0) + '%'}></span>
+              </span>
+            </dd>
+          </div>
+        {/each}
+      </dl>
+    </div>
+
+    <nav class="sections" aria-label={t('navLabel')}>
+      {#each SECTIONS as section (section.id)}
+        <button type="button" style:--marker={section.accent} disabled={pending} onclick={() => void run(section.id)}>
+          <SectionIcon id={section.id} />
+          <span>{t(section.titleKey)}</span>
+        </button>
+      {/each}
+    </nav>
   </div>
 
-  <dl class="tiles loads" aria-label="Загрузка компьютера">
-    {#each metrics as metric (metric.id)}
-      {@const value = loads[metric.id]}
-      <div class="metric">
-        <dt>{metric.label}</dt>
-        <dd>
-          {value === null ? '—' : shortPercent(value)}
-          <span class="load-track" aria-hidden="true">
-            <span style:width={(value ?? 0) + '%'}></span>
-          </span>
-        </dd>
-      </div>
-    {/each}
-  </dl>
+  {#if notice}<p role="status">{notice}</p>{/if}
 </section>
 
 <style>
@@ -159,9 +172,10 @@
   }
 
   .tray {
-    display: grid;
-    gap: 10px;
-    align-content: start;
+    --tray-gap: 8px;
+    --small-tile: 64px;
+    /* Четыре квадрата слева и семь справа заканчиваются на одной линии. */
+    --large-tile: calc((7 * var(--small-tile) + 3 * var(--tray-gap)) / 4);
     box-sizing: border-box;
     height: 100dvh;
     padding: 12px;
@@ -178,59 +192,66 @@
 
   .tray.present {
     opacity: 1;
-    animation: enter 260ms cubic-bezier(.16, 1, .3, 1) both;
+    animation: enter 180ms cubic-bezier(.16, 1, .3, 1) both;
   }
 
-  button {
+  .tray-columns {
+    display: grid;
+    grid-template-columns: var(--large-tile) var(--small-tile);
+    gap: var(--tray-gap);
+  }
+
+  .overview, .loads, .sections {
+    display: grid;
+    align-content: start;
+    gap: var(--tray-gap);
+  }
+
+  .sections {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  button, .metric {
     display: grid;
     place-content: center;
     justify-items: center;
-    gap: 5px;
+    box-sizing: border-box;
     min-width: 0;
-    padding: 4px;
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 3px;
     border: 1px solid var(--border);
     border-radius: var(--tile-radius);
     background: var(--tile);
     color: var(--ink);
-    font: 700 11px/1.15 var(--font);
     text-align: center;
-    cursor: pointer;
-    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
   }
 
+  button { cursor: pointer; }
   button:focus-visible { outline: 2px solid var(--marker, var(--vpn)); outline-offset: 2px; }
   button:disabled { opacity: .65; cursor: default; }
 
   .power {
-    --marker: var(--vpn);
-    grid-auto-flow: column;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    border-color: var(--vpn);
+    border: 0;
+    background: #2a2a2a;
     color: var(--vpn);
-    font-size: 13px;
+    box-shadow: inset 0 0 0 2px var(--vpn);
   }
-
-  .power svg { width: 20px; height: 20px; }
 
   .power.connected {
     background-color: var(--vpn);
     color: var(--on-vpn);
   }
 
-  .tiles {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
+  .sections button {
+    --section-icon-size: 23px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    font: 700 9.5px/1.15 var(--font);
   }
 
-  .tiles > * {
-    box-sizing: border-box;
-    flex: 0 0 calc((100% - 24px) / 4);
-    aspect-ratio: 1;
-  }
+  .sections button span { overflow-wrap: anywhere; }
 
   .sections button:hover:not(:disabled), .sections button:focus-visible {
     border-color: var(--marker);
@@ -239,31 +260,19 @@
   }
 
   .loads { margin: 0; }
-
-  .metric {
-    display: grid;
-    min-width: 0;
-    place-content: center;
-    justify-items: center;
-    gap: 4px;
-    border: 1px solid var(--border);
-    border-radius: var(--tile-radius);
-    background: var(--tile);
-  }
-
-  .metric dt { color: var(--computer); font-size: 11px; font-weight: 800; }
+  .metric { gap: 4px; }
+  .metric dt { color: var(--computer); font-size: 12px; font-weight: 800; }
 
   .metric dd {
     margin: 0;
-    font-size: 22px;
+    font-size: 27px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-    text-align: center;
   }
 
   .load-track {
     display: block;
-    width: 38px;
+    width: 44px;
     height: 3px;
     margin: 5px auto 0;
     overflow: hidden;
@@ -278,16 +287,19 @@
     background: var(--computer);
   }
 
-  p { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+  p {
+    margin: var(--tray-gap) 0 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
 
   @keyframes enter {
-    from { opacity: 0; transform: translateY(12px) scale(.985); }
-    to { opacity: 1; transform: none; }
+    from { transform: translateY(9px); }
+    to { transform: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .tray.present { animation: none; }
-    button { transition: none; }
   }
 
   :global(:root[data-reduce-motion='true']) .tray.present { animation: none; }

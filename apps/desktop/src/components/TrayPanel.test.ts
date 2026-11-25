@@ -77,17 +77,24 @@ it('updates the VPN button after the existing connection command returns', async
   expect(await screen.findByRole('button', { name: 'Выключить VPN' })).toBeTruthy();
 });
 
-it('samples the Computer metrics while the native tray is open and stops on close', async () => {
+it('warms the CPU, GPU and RAM values once, then only polls while the native tray is open', async () => {
   vi.mocked(isTauri).mockReturnValue(true);
   vi.useFakeTimers();
   render(TrayPanel);
-  expect(getHardware).not.toHaveBeenCalled();
-  expect(getSystemOverview).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(3 * POLL_INTERVAL_MS);
+  expect(getHardware).toHaveBeenCalledTimes(1);
+  expect(getSystemOverview).toHaveBeenCalledTimes(1);
+  let release!: (value: HardwareOverview) => void;
+  vi.mocked(getHardware).mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
 
   trayEvents.get('tray-open')?.();
   await tick();
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.getByText('42%')).toBeTruthy();
+  expect(screen.getByText('13%')).toBeTruthy();
+  expect(screen.getAllByRole('term').map(el => el.textContent)).toEqual(['CPU', 'GPU', 'RAM']);
+  release(hardware);
+  await vi.advanceTimersByTimeAsync(0);
   expect(screen.getByText('61%')).toBeTruthy();
 
   vi.mocked(getHardware).mockResolvedValue({
@@ -105,6 +112,6 @@ it('samples the Computer metrics while the native tray is open and stops on clos
   trayEvents.get('tray-closed')?.();
   await tick();
   await vi.advanceTimersByTimeAsync(3 * POLL_INTERVAL_MS);
-  expect(getHardware).toHaveBeenCalledTimes(2);
-  expect(getSystemOverview).toHaveBeenCalledTimes(2);
+  expect(getHardware).toHaveBeenCalledTimes(3);
+  expect(getSystemOverview).toHaveBeenCalledTimes(3);
 });

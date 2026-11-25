@@ -13,7 +13,7 @@
   import { SECTIONS, type SectionId } from './lib/sections';
   import { i18n, setLang, t } from './lib/i18n.svelte';
   import { loadSubsections, saveSubsections, subFor, type SubMemory } from './lib/sectionMemory';
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
   import { navigation } from './lib/navigation.svelte';
   import { watchMaximized } from './lib/windowState';
   import { attachChromeGuards } from './lib/chromeGuards';
@@ -28,7 +28,6 @@
     RADIUS,
     SHELL,
     SELECTION,
-    STAGE_TRANSITION_MS,
     PATTERN,
     TYPE_SCALE,
     textOn,
@@ -92,8 +91,11 @@
       playUiSound('threat');
       showDesktopNotice('Обнаружена угроза. Проверка продолжается.');
     });
+    window.addEventListener('pagehide', flushSubsections);
     const stopActionError = listenDesktop<string>('tray-action-error', ({ payload }) => showDesktopNotice(payload));
     return () => {
+      window.removeEventListener('pagehide', flushSubsections);
+      flushSubsections();
       detachSounds();
       detachGuards();
       stopWatching();
@@ -120,44 +122,24 @@
   // svelte-ignore state_referenced_locally
   let activeSub = $state(subFor('vpn', subMemory));
 
-  function chooseSub(id: string) {
-    activeSub = id;
-    subMemory = { ...subMemory, [activeId]: id };
+  let subsectionSave: ReturnType<typeof setTimeout> | undefined;
+
+  function flushSubsections() {
+    if (subsectionSave === undefined) return;
+    clearTimeout(subsectionSave);
+    subsectionSave = undefined;
     saveSubsections(subMemory);
   }
 
+  function chooseSub(id: string) {
+    if (activeSub === id) return;
+    activeSub = id;
+    subMemory = { ...subMemory, [activeId]: id };
+    clearTimeout(subsectionSave);
+    subsectionSave = setTimeout(flushSubsections, 120);
+  }
+
   const section = $derived(SECTIONS.find((item) => item.id === activeId) ?? SECTIONS[0]);
-
-  /* Смена страницы визуально мгновенная: только короткое проявление (90 мс), без сдвига и очереди. */
-  const EASE = 'cubic-bezier(0.2, 0, 0, 1)';
-  const FADE_IN = [{ opacity: 0.35 }, { opacity: 1 }];
-
-  let main = $state<HTMLElement>();
-  let firstRun = true;
-
-  /** Смена страницы: короткое проявление 90 мс (только opacity).
-      При смене раздела двигается всё содержимое, при смене вкладки только тело страницы.
-      При prefers-reduced-motion: reduce анимации нет. */
-  $effect(() => {
-    const id = activeId;
-    const sub = activeSub;
-    if (firstRun) {
-      firstRun = false;
-      return;
-    }
-    void tick().then(() => {
-      if (!main || typeof main.animate !== 'function') return;
-      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-      const sectionChanged = id !== lastId;
-      lastId = id;
-      void sub;
-      const all = Array.from(main.children);
-      const head = sectionChanged ? all.filter((el) => el.matches('h1, .lead, .subtabs')) : [];
-      const body = all.filter((el) => !el.matches('h1, .lead, .subtabs'));
-      for (const el of [...head, ...body]) el.animate(FADE_IN, { duration: 90, easing: EASE });
-    });
-  });
-  let lastId: SectionId = 'vpn';
 
   /** «Показать процесс» из другого раздела: открываем «Процессы». */
   $effect(() => {
@@ -165,6 +147,7 @@
   });
 
   function select(id: SectionId) {
+    if (activeId === id) return;
     activeId = id;
     activeSub = subFor(id, subMemory);
   }
@@ -210,24 +193,29 @@
   style:--rail-hover={SHELL.railHover}
   style:--selection-bg={SELECTION.background}
   style:--selection-text={SELECTION.text}
-  style:--stage-ms="{STAGE_TRANSITION_MS}ms"
 >
   <div class="body">
-    <div class="stage">
+    <div class="stage" data-tauri-drag-region>
+      <div class="window-drag-strip" data-tauri-drag-region aria-hidden="true"></div>
       {#if activeId !== 'vpn'}
         <div class="section-toolbar" data-tauri-drag-region>{@render toolbar()}</div>
       {/if}
       <main
-        bind:this={main}
         class:vpn-main={activeId === 'vpn'}
         class:section-scroll={activeId !== 'vpn'}
         data-tauri-drag-region
       >
         <h1 class="sr-only">{t(section.titleKey)}</h1>
 
-        {#if activeId === 'vpn'}
-          <VpnPage subsection={activeSub} header={toolbar} />
-        {:else if activeId === 'viruses'}
+        <div class="vpn-surface" hidden={activeId !== 'vpn'}>
+          <VpnPage
+            subsection={subFor('vpn', subMemory)}
+            active={activeId === 'vpn'}
+            header={toolbar}
+          />
+        </div>
+
+        {#if activeId === 'viruses'}
           <VirusesPage subsection={activeSub} />
         {:else if activeId === 'computer'}
           <ComputerPage subsection={activeSub} />
@@ -239,9 +227,9 @@
           <ProgramsPage subsection={activeSub} />
         {:else if activeId === 'design'}
           <AppearancePage subsection={activeSub} />
-        {:else if section.subsections.length === 0}
+        {:else if activeId !== 'vpn' && section.subsections.length === 0}
           <PlaceholderPage note={t('subsectionsPending')} />
-        {:else}
+        {:else if activeId !== 'vpn'}
           <PlaceholderPage />
         {/if}
       </main>
@@ -401,6 +389,9 @@
 
   .shell {
     --frame-inset: 14px;
+    --dock-closed-height: 28px;
+    --rail-tile: clamp(64px, calc((100dvh - var(--dock-closed-height) - 8 * var(--frame-inset)) / 7), 88px);
+    --side-width: calc(var(--rail-tile) + 2 * var(--frame-inset));
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -442,10 +433,9 @@
   .body::before {
     content: '';
     position: absolute;
-    inset: 0 calc(110px - var(--radius-lg)) 0 0;
+    inset: 0 calc(var(--side-width) - var(--radius-lg)) 0 0;
     z-index: -1;
     background-color: var(--accent);
-    transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
   }
 
   /* Цветная область раздела занимает окно от края до края (справа её ограничивает панель).
@@ -459,10 +449,7 @@
     min-width: 0;
     overflow: hidden;
     background-color: var(--accent);
-    /* Плавная смена цвета раздела (как в старой OCHISTKA): перетекает только общий фон области.
-       Узор лежит на своём слое выше и остаётся на месте, карточки и текст не перерисовываются.
-       Быстрые переключения не копятся: переход сразу идёт к последнему цвету. */
-    transition: background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
+    --section-gutter: max(var(--frame-inset), calc((100% - 1480px) / 2));
   }
 
   .stage::before {
@@ -482,13 +469,23 @@
     position: relative;
   }
 
+  .stage > .window-drag-strip {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: var(--frame-inset);
+    cursor: grab;
+  }
+
+  .window-drag-strip:active { cursor: grabbing; }
+
   .section-toolbar,
   main {
-    margin-inline: var(--frame-inset);
+    margin-inline: var(--section-gutter);
   }
 
   .section-toolbar {
-    padding-block: var(--frame-inset) 10px;
+    padding-block: var(--frame-inset);
   }
 
   main.vpn-main {
@@ -504,6 +501,14 @@
     margin-block-end: var(--frame-inset);
     contain: layout paint;
   }
+
+  .vpn-surface {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .vpn-surface[hidden] { display: none; }
 
   :global(.section-scroll) {
     overflow: hidden auto;
@@ -529,7 +534,7 @@
     flex-direction: column;
     justify-content: space-between;
     flex: none;
-    width: 110px;
+    width: var(--side-width);
     background: var(--window);
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
     /* Фон панели и дока рисуется до самых краёв, поэтому углы скругляет обрезание, а не один радиус. */

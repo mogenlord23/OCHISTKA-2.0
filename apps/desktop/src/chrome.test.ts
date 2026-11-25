@@ -44,11 +44,9 @@ describe('text selection (item 5)', () => {
   });
 });
 
-describe('section background transition (item 4)', () => {
-  it('animates only the stage background colour, with ease-out, honouring reduced motion', () => {
-    expect(APP).toMatch(/\.stage\s*\{[^}]*transition:\s*background-color var\(--stage-ms\)/);
-    expect(APP).toMatch(/prefers-reduced-motion: reduce[\s\S]*transition:\s*none !important/);
-  });
+it('changes section colour without animating the whole background', () => {
+  expect(APP).toMatch(/\.stage\s*\{[^}]*background-color:\s*var\(--accent\)/);
+  expect(APP).not.toMatch(/\.stage\s*\{[^}]*transition:/);
 });
 
 describe('dock panel (item 1)', () => {

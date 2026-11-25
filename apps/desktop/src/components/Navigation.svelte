@@ -1,7 +1,6 @@
 <script lang="ts">
   import SectionIcon from './SectionIcon.svelte';
   import { SECTIONS, type SectionId } from '../lib/sections';
-  import { onMount } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { dragSelect } from '../lib/dragSelect';
   import { playActionSound } from '../lib/sound';
@@ -15,8 +14,6 @@
   } = $props();
 
   let rail = $state<HTMLElement>();
-  let indicator = $state<HTMLElement>();
-  let placed = false;
 
   const tiles = (): HTMLElement[] =>
     rail ? Array.from(rail.querySelectorAll<HTMLElement>('.item')) : [];
@@ -29,31 +26,6 @@
     onSelect(section.id);
   }
 
-  /** Ползунок: блок 88x88 цвета раздела, ездит transform между плитками; первая установка без анимации. */
-  function place(jump: boolean) {
-    if (!indicator) return;
-    const current = tiles().find((tile) => tile.getAttribute('aria-current') === 'page');
-    if (!current) return;
-    if (jump) indicator.style.transition = 'none';
-    indicator.style.transform = `translate(${current.offsetLeft}px, ${current.offsetTop}px)`;
-    if (jump) {
-      void indicator.offsetWidth;
-      indicator.style.transition = '';
-    }
-  }
-
-  $effect(() => {
-    void active;
-    place(!placed);
-    placed = true;
-  });
-
-  onMount(() => {
-    const observer =
-      typeof ResizeObserver === 'function' ? new ResizeObserver(() => place(true)) : null;
-    if (rail) observer?.observe(rail);
-    return () => observer?.disconnect();
-  });
 </script>
 
 <nav
@@ -62,7 +34,6 @@
   bind:this={rail}
   use:dragSelect={{ axis: 'y', items: tiles, onSelect: select }}
 >
-  <span class="ind" bind:this={indicator} aria-hidden="true"></span>
   {#each SECTIONS as section (section.id)}
     <button
       type="button"
@@ -78,41 +49,18 @@
 </nav>
 
 <style>
-  /* Пункт — квадрат 88 px, размер фиксированный: при уменьшении окна не сжимается.
-     Верх первого квадрата совпадает с верхней строкой окна.
-     Шрифт — системный Segoe UI (не вшит): на Windows вес 800 может выбрать «Segoe UI Black»,
-     он заметно шире. Поэтому подпись набирается жирным (700), без межбуквенного интервала, а
-     самая длинная («Оформление») занимает не больше ~76% плитки даже в Black.
-     Минимальная высота окна (tauri.conf.json) рассчитана так, чтобы все 7 пунктов были видны. */
   .rail {
     position: relative;
     touch-action: none;
-    --gap: 8px;
-    --tile: 88px;
+    --gap: var(--frame-inset, 14px);
+    --tile: var(--rail-tile, 88px);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--gap);
     min-height: 0;
-    padding: var(--frame-inset, 14px) 0 0;
+    padding: var(--gap);
     background: var(--window);
-  }
-
-  /* Ползунок выбранного раздела: тот же квадрат 88 px, что и плитка, цвет раздела. */
-  .ind {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 0;
-    width: var(--tile);
-    height: var(--tile);
-    border-radius: var(--radius-md);
-    background: var(--accent);
-    transition:
-      transform 190ms cubic-bezier(0.2, 0, 0, 1),
-      background-color var(--stage-ms) cubic-bezier(0, 0, 0.2, 1);
-    will-change: transform;
-    pointer-events: none;
   }
 
   .item {
@@ -136,15 +84,15 @@
     font-weight: 800;
     line-height: 1.1;
     cursor: pointer;
+    transition: none;
   }
 
   .item:hover:not(.active) {
     background: var(--rail-hover);
   }
 
-  /* Фон выбранной плитки рисует ползунок; сама плитка прозрачная, текст цвета textOn(акцент). */
   .item.active {
-    background: transparent;
+    background: var(--accent);
     color: var(--page-text);
   }
 

@@ -19,11 +19,7 @@ describe('VirusesPage reduced motion', () => {
   });
 });
 
-describe('VpnPage reduced motion', () => {
-  it('turns the tab-switch animation off under prefers-reduced-motion: reduce', async () => {
-    const source = (await import('./VpnPage.svelte?raw')).default;
-    const css = source.slice(source.indexOf('<style>'));
-    const match = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\s{2}\}/);
-    expect(match?.[1] ?? '').toMatch(/\.pane\s*\{[^}]*animation:\s*none/);
-  });
+it('shows the selected VPN pane without an entrance animation', async () => {
+  const source = (await import('./VpnPage.svelte?raw')).default;
+  expect(source).not.toContain('pane-in');
 });

@@ -382,17 +382,6 @@
     color: var(--page-text);
   }
 
-  .pane {
-    animation: pane-in 220ms ease-out both;
-  }
-
-  @keyframes pane-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-  }
-
   h2 {
     margin: 0 0 6px;
     font-family: var(--font-heading);
@@ -449,6 +438,7 @@
   }
 
   .actions button {
+    border-radius: var(--radius-lg);
     flex: 1 1 220px;
     min-width: min(100%, 220px);
   }
@@ -694,7 +684,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pane,
     .tile {
       animation: none;
       transition: none;

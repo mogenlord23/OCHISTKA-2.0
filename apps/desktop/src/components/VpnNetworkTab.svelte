@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import SpeedTest from './SpeedTest.svelte';
   import GeoCards from './GeoCards.svelte';
   import { formatBytes } from '../lib/format';
@@ -11,26 +10,34 @@
     type NetworkAdapter,
   } from '../lib/vpnNetwork';
 
+  let { active = true }: { active?: boolean } = $props();
+  let pending = false;
+
   let adapters = $state<NetworkAdapter[] | null>(null);
   let error = $state<string | null>(null);
 
   async function load() {
+    if (pending) return;
+    pending = true;
     try {
       adapters = await listAdapters();
       error = null;
     } catch (err) {
       error = errorMessage(err);
+    } finally {
+      pending = false;
     }
   }
 
-  onMount(() => {
+  $effect(() => {
+    if (!active) return;
     void load();
     const timer = setInterval(() => void load(), NETWORK_REFRESH_MS);
     return () => clearInterval(timer);
   });
 </script>
 
-<SpeedTest />
+<SpeedTest {active} />
 <GeoCards />
 
 {#if error}

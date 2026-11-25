@@ -2,7 +2,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import Navigation from './Navigation.svelte';
 import source from './Navigation.svelte?raw';
-import tauriConf from '../../src-tauri/tauri.conf.json';
 import { SECTIONS } from '../lib/sections';
 
 class TestPointerEvent extends MouseEvent {
@@ -30,30 +29,19 @@ describe('Navigation rail', () => {
     }
   });
 
-  it('keeps a fixed 88px square tile that does not shrink with the window', () => {
-    expect(source).toMatch(/--tile:\s*88px;/);
-    expect(source).not.toMatch(/clamp\(/);
-    expect(source).not.toMatch(/@media/);
+  it('gives the side rail and inter-tile gaps the same inset', () => {
+    expect(source).toMatch(/--gap:\s*var\(--frame-inset, 14px\)/);
+    expect(source).toMatch(/gap:\s*var\(--gap\)/);
+    expect(source).toMatch(/padding:\s*var\(--gap\)/);
     expect(source).toMatch(/width:\s*var\(--tile\)/);
     expect(source).toMatch(/height:\s*var\(--tile\)/);
   });
 
-  it('window minimum height fits title bar offset, 7 tiles and the collapsed dock', () => {
-    // 12 (верх) + 7 * 88 + 6 * 8 (промежутки) = 676; ниже 8 + стрелка 20 + отступ 8.
-    const rail = 12 + 7 * 88 + 6 * 8;
-    const dockCollapsed = 8 + 20 + 8;
-    const win = tauriConf.app.windows[0];
-    expect(win.minHeight).toBeGreaterThanOrEqual(rail + dockCollapsed);
-    expect(win.height).toBeGreaterThanOrEqual(win.minHeight);
-  });
-
-  it('has a sliding indicator behind the tiles and transparent active tile', () => {
-    expect(source).toMatch(/class="ind"/);
-    expect(source).toMatch(/\.item\.active\s*\{\s*background:\s*transparent;/);
+  it('applies the selected state immediately to a single tile', () => {
     render(Navigation, { active: 'processes', onSelect: () => {} });
-    const nav = screen.getByRole('navigation', { name: 'Навигация' });
-    expect(nav.querySelector('.ind')).toBeTruthy();
-    expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    const selected = screen.getByRole('button', { name: 'Процессы', current: 'page' });
+    expect(selected.classList.contains('active')).toBe(true);
+    expect(screen.getAllByRole('button', { current: 'page' })).toHaveLength(1);
   });
 
   it('selects on click and on press-and-drag across tiles, never on hover', async () => {

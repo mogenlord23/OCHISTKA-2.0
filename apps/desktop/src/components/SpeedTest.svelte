@@ -15,6 +15,8 @@
     summarize,
   } from '../lib/speedtest';
 
+  let { active = true }: { active?: boolean } = $props();
+
   /** Состояние теста лежит в хранилище: уход из раздела его не прерывает. */
   const ui = $derived(speedStore.view);
   const status = $derived(speedStore.ui.status);
@@ -76,13 +78,13 @@
   }
 
   $effect(() => {
-    void target;
-    if (!running) {
+    if (!active || !running) {
       if (frame !== 0 && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
       frame = 0;
       last = 0;
-      shown = target;
+      if (active) shown = target;
     } else {
+      void target;
       schedule();
     }
   });

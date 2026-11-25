@@ -3,6 +3,7 @@
   import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
   import ExpandButton from './ExpandButton.svelte';
+  import VpnPowerIcon from './VpnPowerIcon.svelte';
   import { groupByLabel, numberedLabels, serverLabel } from '../lib/countryFlags';
   import { i18n } from '../lib/i18n.svelte';
   import Subtabs from './Subtabs.svelte';
@@ -41,7 +42,7 @@
   } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
 
-  let { subsection, header }: { subsection: string; header?: Snippet } = $props();
+  let { subsection, header, active = true }: { subsection: string; header?: Snippet; active?: boolean } = $props();
 
   const vpnSubs = SECTIONS.find((section) => section.id === 'vpn')?.subsections ?? [];
 
@@ -63,6 +64,10 @@
     tab = tabOf(subsection);
   });
   const tabLabel = $derived(TABS.find((item) => item.id === tab)?.label ?? 'VPN');
+  let networkVisited = $state(false);
+  $effect(() => {
+    if (tab === 'network') networkVisited = true;
+  });
   let fileInput: HTMLInputElement | undefined = $state();
   /** Размер файла подписки не больше 5 МБ (так же ограничивает Rust). */
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -131,7 +136,8 @@
     urlInput = saved;
   }
 
-  onMount(() => {
+  $effect(() => {
+    if (!active) return;
     // Подписка уже сохранена (серверы есть до вставки ссылки): подпись сразу «Подписка сохранена».
     void refresh().then(() => {
       restoreSavedLink();
@@ -147,7 +153,7 @@
     snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching',
   );
   $effect(() => {
-    if (!isConnected) return;
+    if (!active || !isConnected) return;
     nowMs = Date.now();
     const clock = setInterval(() => (nowMs = Date.now()), 1000);
     const poll = setInterval(async () => {
@@ -167,8 +173,7 @@
   /** Задержки серверов видны всё время, пока открыт раздел VPN (включён он или нет): замеры идут
       непрерывно. Уход из раздела останавливает их. */
   $effect(() => {
-    if (subsection !== 'vpn') return;
-    untrack(() => void onMeasure());
+    if (!active || tab !== 'vpn') return;
     // Замеры идут один за другим, без паузы в несколько секунд: цифры обновляются постоянно.
     let alive = true;
     const loop = async () => {
@@ -354,7 +359,7 @@
     winking = true;
   }
 
-  onMount(() => startWinking({ canWink: () => !pressed && pageAllowsWink(), wink }));
+  onMount(() => startWinking({ canWink: () => active && !pressed && pageAllowsWink(), wink }));
 
   /** Один запуск анимации и звука на одно нажатие. Повторное нажатие перезапускает цикл. */
   function playPoster() {
@@ -414,13 +419,19 @@
       <p class="tagline">Подписка, серверы и сайты · сеть и соединения</p>
     </header>
 
-    {#if header}
+    {#if header && active}
       {@render header()}
-    {:else}
+    {:else if !header}
       <Subtabs items={vpnSubs} active={tab} onSelect={(id) => (tab = tabOf(id))} />
     {/if}
 
-    {#key tab}
+    {#if networkVisited || tab === 'network'}
+      <div class="pane section-scroll" role="tabpanel" aria-label="Сеть" hidden={tab !== 'network'}>
+        <VpnNetworkTab active={active && tab === 'network'} />
+      </div>
+    {/if}
+
+    {#if tab !== 'network'}
       <div class="pane section-scroll" role="tabpanel" aria-label={tabLabel}>
         {#if tab === 'vpn'}
           <section class="card">
@@ -458,10 +469,7 @@
                   aria-disabled={ui.disabled}
                   onclick={onConnect}
                 >
-                  <svg class="power-icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 3v8" />
-                    <path d="M6.3 6.3a8 8 0 1 0 11.4 0" />
-                  </svg>
+                  <VpnPowerIcon />
                 </button>
                 <div class="power-text">
                   {#if preparing !== null}
@@ -522,13 +530,11 @@
           </section>
         {:else if tab === 'advanced'}
           <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
-        {:else if tab === 'network'}
-          <VpnNetworkTab />
         {:else}
           <VpnConnectionsTab />
         {/if}
       </div>
-    {/key}
+    {/if}
   </div>
 </div>
 
@@ -649,7 +655,7 @@
     --pane-outline-bleed: 2px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--frame-inset, 14px);
     min-width: 0;
     min-height: 0;
   }
@@ -673,27 +679,13 @@
     /* Внутреннее поле сохраняет обводку карточек в пределах общей колонки. */
     margin: calc(-1 * var(--pane-outline-bleed)) 0 0;
     padding: var(--pane-outline-bleed);
-    animation: pane-in 0.22s ease-out;
   }
 
-  @keyframes pane-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
+  .pane[hidden] { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
     .eye {
       display: none;
-    }
-
-    .pane {
-      animation: none;
     }
   }
 
@@ -813,15 +805,6 @@
   .power.on {
     background: var(--accent);
     color: #000;
-  }
-
-  .power-icon {
-    width: 40px;
-    height: 40px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.4;
-    stroke-linecap: round;
   }
 
   .power-text {

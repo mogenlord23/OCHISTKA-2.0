@@ -88,6 +88,3 @@ export const PATTERN = { tile: 320, opacity: 0.07, worstCoverage: 0.25 } as cons
 /** Выделение текста: фирменный розовый раздела VPN, текст почти чёрный (контраст 5.5:1, норма 4.5:1).
     Одинаково во всех областях, включая поля ввода. */
 export const SELECTION = { background: SECTION_COLORS.vpn, text: NEUTRAL.black } as const;
-
-/** Длительность плавной смены фона между разделами, мс (в старой OCHISTKA 180 мс, здесь заметнее). */
-export const STAGE_TRANSITION_MS = 360;
