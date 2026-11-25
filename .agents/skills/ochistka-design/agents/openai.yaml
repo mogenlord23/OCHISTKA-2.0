@@ -1,0 +1,6 @@
+interface:
+  display_name: "Дизайн OCHISTKA"
+  short_description: "Оформление OCHISTKA для приложения и сайта"
+  default_prompt: "Используй $ochistka-design и предложи варианты для обсуждения по текущему экрану."
+policy:
+  allow_implicit_invocation: false
