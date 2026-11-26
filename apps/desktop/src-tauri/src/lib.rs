@@ -153,6 +153,7 @@ pub fn run() {
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
+            vpn::vpn_clear_subscription,
             vpn::vpn_select,
             vpn::vpn_set_rules,
             vpn::vpn_set_mode,

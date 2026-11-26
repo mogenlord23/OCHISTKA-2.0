@@ -50,12 +50,25 @@
     box-shadow: inset 0 0 0 2px #000;
   }
 
-  canvas {
+  canvas,
+  .globe :global(.orbit-layer) {
     position: absolute;
     inset: 2px;
     display: block;
     width: calc(100% - 4px);
     height: calc(100% - 4px);
     border-radius: inherit;
+  }
+  .globe :global(.orbit-layer[hidden]) { display: none; }
+  .globe :global(.globe-pulse) {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 25%;
+    border: 1px solid currentColor;
+    animation: pulse 2s linear infinite;
+  }
+  @keyframes pulse {
+    from { transform: translate(-50%,-50%) scale(.85); opacity:.65; }
+    to { transform: translate(-50%,-50%) scale(2.4); opacity:0; }
   }
 </style>

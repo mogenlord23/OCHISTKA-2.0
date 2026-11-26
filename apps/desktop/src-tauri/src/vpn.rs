@@ -117,6 +117,11 @@ pub async fn vpn_import(
 }
 
 #[tauri::command]
+pub async fn vpn_clear_subscription(state: State<'_, VpnState>) -> Result<(), CommandError> {
+    blocking(&state, VpnService::clear_subscription).await
+}
+
+#[tauri::command]
 pub async fn vpn_select(state: State<'_, VpnState>, id: String) -> Result<(), CommandError> {
     blocking(&state, move |s| s.select(&id)).await
 }

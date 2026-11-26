@@ -1,10 +1,10 @@
 <script module lang="ts">
   import type { TcpConnection } from '../lib/vpnNetwork';
-  let lastConnections: TcpConnection[] = [];
+  export type ConnectionCache = { rows?: TcpConnection[]; pending?: Promise<TcpConnection[]> };
 </script>
 
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { untrack, tick } from 'svelte';
   import ContextMenu from './ContextMenu.svelte';
   import { exePath, revealExe, toProcessesError } from '../lib/processesApi';
   import { showProcess } from '../lib/navigation.svelte';
@@ -23,7 +23,8 @@
     type ConnectionSortKey,
   } from '../lib/vpnNetwork';
 
-  let connections = $state<TcpConnection[]>(lastConnections);
+  let { cache = {}, active = true }: { cache?: ConnectionCache; active?: boolean } = $props();
+  let connections = $state.raw<TcpConnection[] | undefined>(untrack(() => cache.rows));
   let error = $state<string | null>(null);
   let sort = $state<ConnectionSort>({ key: 'process', direction: 'asc' });
 
@@ -135,25 +136,42 @@
     }
   }
 
-  async function load() {
-    try {
-      connections = await listConnections();
-      lastConnections = connections;
-      error = null;
-    } catch (err) {
-      error = errorMessage(err);
-    }
-  }
-
   function ariaSort(key: ConnectionSortKey): 'ascending' | 'descending' | 'none' {
     if (sort.key !== key) return 'none';
     return sort.direction === 'asc' ? 'ascending' : 'descending';
   }
 
-  onMount(() => {
-    void load();
-    const timer = setInterval(() => void load(), CONNECTIONS_REFRESH_MS);
-    return () => clearInterval(timer);
+  $effect(() => {
+    const current = cache;
+    if (!active) return;
+    connections = current.rows;
+    error = null;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function update() {
+      clearTimeout(timer);
+      if (document.hidden || disposed) return;
+      try {
+        current.pending ??= listConnections().then(rows => current.rows = rows)
+          .finally(() => { current.pending = undefined; });
+        const rows = await current.pending;
+        if (!disposed) { connections = rows; error = null; }
+      } catch (err) {
+        if (!disposed) error = errorMessage(err);
+      } finally {
+        if (!disposed && !document.hidden) {
+          clearTimeout(timer);
+          timer = setTimeout(update, CONNECTIONS_REFRESH_MS);
+        }
+      }
+    }
+    void update();
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
   });
 </script>
 
@@ -207,7 +225,7 @@
             <td>{row.pid ?? '—'}</td>
           </tr>
         {:else}
-          <tr><td colspan="5" class="none">Соединений нет.</td></tr>
+          <tr><td colspan="5" class="none">{connections ? 'Соединений нет.' : 'Обновление…'}</td></tr>
         {/each}
         {#if last < rows.length}
           <tr class="spacer" aria-hidden="true" style:height="{(rows.length - last) * ROW_H}px"

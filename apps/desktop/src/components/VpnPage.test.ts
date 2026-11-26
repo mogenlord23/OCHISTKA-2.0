@@ -241,7 +241,7 @@ describe('VpnPage: подпись поля ссылки с печатным эф
     await flush();
     await paste('https://sub.example.com/gone');
     await flush();
-    expect(screen.getByText('Ссылка больше не действует')).toBeTruthy();
+    expect(screen.getByText(/Не удалось загрузить подписку/)).toBeTruthy();
     await vi.advanceTimersByTimeAsync(500);
     expect(labelText()).toBe('Ссылка подписки');
   });
@@ -347,7 +347,7 @@ describe('VpnPage: подписка и импорт', () => {
     await fireEvent.input(screen.getByLabelText('Ссылка подписки'), {
       target: { value: 'https://sub.example.com/x' },
     });
-    expect(await screen.findByText('Сервис подписки ответил HTTP 403')).toBeTruthy();
+    expect(await screen.findByText(/Не удалось загрузить подписку/)).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Из файла…' }) as HTMLButtonElement).disabled).toBe(
       false,
     );
@@ -446,11 +446,11 @@ describe('VpnPage: подписка и импорт', () => {
 });
 
 describe('VpnPage: повторная вставка подписки', () => {
-  it('reuses saved servers on clear and repaste without a provider request', async () => {
+  it('clears the subscription and reloads the same URL on repaste', async () => {
     const link = 'https://saved.example/sub';
     backend({
       vpn_snapshot: () => makeSnapshot({ subscriptionUrl: link, servers: SERVERS, selected: 's1' }),
-      vpn_import: () => Promise.reject({ message: 'HTTP 400' }),
+      vpn_import: () => ({count: 2, skipped: 0, issues: []}),
     });
     render(VpnPage, { props: { subsection: 'vpn' } });
     const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
@@ -458,7 +458,8 @@ describe('VpnPage: повторная вставка подписки', () => {
     await fireEvent.input(input, { target: { value: '' } });
     await fireEvent.input(input, { target: { value: link } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled')).toBe('false'));
-    expect(calls('vpn_import')).toHaveLength(0);
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
+    expect(calls('vpn_clear_subscription')).toHaveLength(1);
     expect(screen.queryByText(/HTTP 400/)).toBeNull();
     expect(document.querySelector('.globe')?.getAttribute('data-country')).toBeNull();
   });
@@ -473,7 +474,7 @@ describe('VpnPage: повторная вставка подписки', () => {
     render(VpnPage, { props: { subsection: 'vpn' } });
     const input = screen.getByLabelText('Ссылка подписки');
     await fireEvent.input(input, { target: { value: 'https://new.example/sub' } });
-    await screen.findByText('HTTP 400');
+    await screen.findByText(/Не удалось загрузить подписку/);
     await fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(calls('vpn_import')).toHaveLength(2));
     await waitFor(() => expect(screen.queryByText('HTTP 400')).toBeNull());

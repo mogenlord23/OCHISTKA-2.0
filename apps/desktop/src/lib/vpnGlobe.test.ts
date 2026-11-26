@@ -50,8 +50,9 @@ describe('offline VPN globe', () => {
     expect(close.radius).toBeGreaterThan(538);
   });
 
-  it('reuses the backing buffer across small resizes and caps its dimensions', () => {
-    expect(globeBufferSize(600, 222, 1)).toEqual(globeBufferSize(610, 225, 1));
-    expect(globeBufferSize(1920, 1080, 2).every((size, i) => size <= [1024, 512][i])).toBe(true);
+  it('renders at the physical pixel resolution at desktop scales', () => {
+    for (const scale of [1, 1.25, 1.5, 2]) {
+      expect(globeBufferSize(1280, 720, scale)).toEqual([1280 * scale, 720 * scale]);
+    }
   });
 });

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { isTauri } from '@tauri-apps/api/core';
+  import { watchWindowVisibility } from '../lib/windowState';
   import SecretField from './SecretField.svelte';
   import { createLabelTypewriter, LABEL } from '../lib/labelTypewriter';
   import ServerFlag from './ServerFlag.svelte';
@@ -16,7 +18,7 @@
   import poster from '../assets/pop-art.png';
   import { playHeehee } from '../lib/sound';
   import { portraitGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
-  import VpnConnectionsTab from './VpnConnectionsTab.svelte';
+  import VpnConnectionsTab, { type ConnectionCache } from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
   import VpnRoutesTab from './VpnRoutesTab.svelte';
   import {
@@ -36,6 +38,7 @@
     vpnConnect,
     vpnDisconnect,
     vpnImport,
+    vpnClearSubscription,
     vpnMeasureLatency,
     vpnSelect,
     vpnSnapshot,
@@ -84,6 +87,17 @@
   onDestroy(() => labelEffect.reset());
   let importing = $state(false);
   let importVersion = 0;
+  let fieldEdited = false;
+  let nativeVisible = $state(true);
+  let documentVisible = $state(true);
+  const pageVisible = $derived(nativeVisible && documentVisible);
+  onMount(() => {
+    const sync = () => { documentVisible = !document.hidden; };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    const stop = typeof isTauri === 'function' && isTauri() ? watchWindowVisibility(value => nativeVisible = value) : undefined;
+    return () => { stop?.(); document.removeEventListener("visibilitychange", sync); };
+  });
   let importQueue = Promise.resolve();
   let queuedImports = 0;
   let measuring = $state(false);
@@ -103,11 +117,11 @@
     connectUi(snapshot, requesting || importing, {
       preparing,
       retry,
-      disconnecting: requesting && snapshot?.connection.state === 'connected',
+      disconnecting: requesting && snapshot?.connection?.state === 'connected',
     }),
   );
   const elapsedSeconds = $derived(
-    snapshot?.connection.state === 'connected' || snapshot?.connection.state === 'switching'
+    snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching'
       ? elapsedSince(snapshot.connection.since, nowMs)
       : 0,
   );
@@ -122,11 +136,14 @@
   );
 
   async function refresh() {
+    const version = importVersion;
     try {
       const next = await vpnSnapshot();
+      if (version !== importVersion) return;
       snapshot = next;
       // Поле подписки не заполняется сохранённой ссылкой: личная ссылка не показывается при открытии.
     } catch (err) {
+      if (version !== importVersion) return;
       actionNote = `Не удалось получить состояние VPN: ${errorMessage(err)}`;
     }
   }
@@ -136,7 +153,7 @@
       как обработанная. */
   function restoreSavedLink() {
     const saved = snapshot?.subscriptionUrl?.trim() ?? '';
-    if (!saved || urlInput !== '') return;
+    if (fieldEdited || !saved || urlInput !== '') return;
     previousValue = saved;
     lastAutoLink = saved;
     urlInput = saved;
@@ -158,9 +175,9 @@
   const isConnected = $derived(
     snapshot?.connection?.state === 'connected' || snapshot?.connection?.state === 'switching',
   );
-  const connected = $derived(snapshot?.connection.state === 'connected');
+  const connected = $derived(snapshot?.connection?.state === 'connected');
   const connecting = $derived(
-    !actionNote && (snapshot?.connection.state === 'connecting' || (requesting && !isConnected)),
+    !actionNote && (snapshot?.connection?.state === 'connecting' || (requesting && !isConnected)),
   );
   const globeCountry = $derived.by(() => {
     const connection = snapshot?.connection;
@@ -171,20 +188,29 @@
     const server = servers.find((item) => item.id === serverId);
     return server?.country || server?.name || 'GLOBAL';
   });
+  const sessionKey = $derived(JSON.stringify([snapshot?.connection?.state, snapshot?.connection?.serverId, snapshot?.connection?.since]));
+  const connectionCache = $derived.by((): ConnectionCache => { void sessionKey; return {}; });
   const globeName = $derived(countryName(globeCountry, i18n.lang));
   $effect(() => {
-    if (!active || !isConnected) return;
+    if (!active || !pageVisible || !isConnected) return;
     nowMs = Date.now();
     const clock = setInterval(() => (nowMs = Date.now()), 1000);
+    let disposed = false;
+    let polling = false;
     const poll = setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         const connection = await vpnStatus();
-        if (snapshot && connection) snapshot = { ...snapshot, connection };
+        if (!disposed && snapshot && connection) snapshot = { ...snapshot, connection };
       } catch {
         // Следующая проверка повторит запрос.
+      } finally {
+        polling = false;
       }
     }, 3000);
     return () => {
+      disposed = true;
       clearInterval(clock);
       clearInterval(poll);
     };
@@ -193,20 +219,15 @@
   /** Задержки серверов видны всё время, пока открыт раздел VPN (включён он или нет): замеры идут
       непрерывно. Уход из раздела останавливает их. */
   $effect(() => {
-    if (!active || tab !== 'vpn') return;
-    // Замеры идут один за другим, без паузы в несколько секунд: цифры обновляются постоянно.
+    if (!active || !pageVisible || tab !== 'vpn') return;
     let alive = true;
-    const loop = async () => {
-      while (alive) {
-        await onMeasure();
-        if (!alive) break;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+    let timer: ReturnType<typeof setTimeout>;
+    const update = async () => {
+      await onMeasure();
+      if (alive) timer = setTimeout(update, 15_000);
     };
-    untrack(() => void loop());
-    return () => {
-      alive = false;
-    };
+    untrack(() => void update());
+    return () => { alive = false; clearTimeout(timer); };
   });
 
   function runImport(raw: string): Promise<void> {
@@ -223,14 +244,8 @@
     importQueue = importQueue.then(async () => {
       try {
         if (version !== importVersion) return;
-        // Повторная вставка сохранённой подписки сразу использует её серверы.
-        if (input === snapshot?.subscriptionUrl?.trim() && servers.length > 0) {
-          actionNote = null;
-          lastAutoLink = input;
-          labelEffect.showSaved();
-          return;
-        }
         const summary = await vpnImport(input);
+        if (version !== importVersion) return;
         await refresh();
         if (version !== importVersion) return;
         actionNote = null;
@@ -241,7 +256,7 @@
         importTick += 1;
       } catch (err) {
         if (version === importVersion) {
-          importNote = errorMessage(err);
+          importNote = isSubscriptionUrl(input) ? 'Не удалось загрузить подписку. Проверьте ссылку и повторите.' : errorMessage(err);
           lastAutoLink = '';
         }
       } finally {
@@ -253,18 +268,30 @@
   }
 
   let lastAutoLink = '';
+  let pastedFromClipboard = false;
   let previousValue = '';
   $effect(() => {
     const raw = urlInput;
     untrack(() => {
       if (raw === previousValue) return;
-      const pasted = raw.length - previousValue.length >= 8;
+      const pasted = pastedFromClipboard || raw.length - previousValue.length >= 8;
+      pastedFromClipboard = false;
       previousValue = raw;
+      fieldEdited = true;
       importVersion += 1;
       importNote = null;
       if (!raw.trim()) {
         lastAutoLink = '';
         labelEffect.reset();
+        const version = importVersion;
+        importQueue = importQueue.then(async () => {
+          try {
+            await vpnClearSubscription();
+            if (version === importVersion) await refresh();
+          } catch {
+            if (version === importVersion) importNote = 'Не удалось удалить подписку. Если VPN включён, отключите его.';
+          }
+        });
         return;
       }
       if (pasted && /^http:\/\/\S+$/i.test(raw.trim())) {
@@ -354,7 +381,9 @@
     if (measuring) return;
     measuring = true;
     try {
+      const version = importVersion;
       const fresh = await vpnMeasureLatency();
+      if (version !== importVersion || importing) return;
       if (snapshot && fresh) snapshot = { ...snapshot, servers: fresh.servers };
     } catch {
       // Тихо: показанные значения сохраняются.
@@ -378,7 +407,7 @@
     requesting = true;
     actionNote = null;
     retry = false;
-    const connecting = snapshot?.connection.state !== 'connected';
+    const connecting = snapshot?.connection?.state !== 'connected';
     // Подготовка начинается только если файлов VPN ещё нет: до первого ответа показываем её.
     if (connecting && snapshot && !snapshot.core.available) preparing = 0;
     try {
@@ -507,8 +536,8 @@
           {#if tab === 'vpn'}
             <section class="card">
               <h2 class="sr-only">Ссылка подписки / импорта</h2>
-              <div class="row">
-                <SecretField {active} bind:value={urlInput} label={fieldLabel} onenter={onImport} />
+              <div class="row" onpaste={() => { pastedFromClipboard = true; }}>
+                <SecretField active={active && pageVisible} bind:value={urlInput} label={fieldLabel} onenter={onImport} />
                 <button type="button" class="file-button" aria-label={t('vpnImportFile')} title={t('vpnImportFile')}
                   disabled={importing} onclick={() => fileInput?.click()}>
                   <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
@@ -531,7 +560,7 @@
             </section>
 
             <section class="card connect">
-              {#if active && connected}
+              {#if active && pageVisible && connected}
                 <VpnPulses />
               {/if}
               <div class="connect-grid">
@@ -625,16 +654,16 @@
                 {/if}
               </section>
               <VpnGlobe
-                {active}
+                active={active && pageVisible}
                 country={globeCountry}
-                {connected}
+                connected={connected || connecting || isConnected}
                 label={globeName ? `${t('vpnGlobe')} · ${globeName}` : t('vpnGlobe')}
               />
             </div>
           {:else if tab === 'advanced'}
             <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
           {:else}
-            <VpnConnectionsTab />
+            {#key sessionKey}<VpnConnectionsTab cache={connectionCache} active={active && pageVisible} />{/key}
           {/if}
         </div>
       {/if}

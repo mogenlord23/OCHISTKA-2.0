@@ -16,6 +16,7 @@ export const vpnSnapshot = () => invoke<VpnSnapshot>('vpn_snapshot');
 export const vpnStatus = () => invoke<ConnectionStatus>('vpn_status');
 /** Ссылка https:// подписки, вставленный список ссылок или текст файла. */
 export const vpnImport = (input: string) => invoke<ImportSummary>('vpn_import', { input });
+export const vpnClearSubscription = () => invoke<void>('vpn_clear_subscription');
 export const vpnSelect = (id: string) => invoke<void>('vpn_select', { id });
 export const vpnSetRules = (rules: RoutingRules) =>
   invoke<RoutingRules>('vpn_set_rules', { rules });

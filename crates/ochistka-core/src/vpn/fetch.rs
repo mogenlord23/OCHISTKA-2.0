@@ -109,7 +109,11 @@ fn unwrap_link(link: &str) -> Result<String, VpnError> {
     for marker in ["https://", "https%3a%2f%2f"] {
         if let Some(pos) = lower.find(marker) {
             let tail = link[pos..].split(['#', ' ']).next().unwrap_or_default();
-            return validate_https_url(&percent_decode(tail));
+            return if marker == "https://" {
+                validate_https_url(tail)
+            } else {
+                validate_https_url(&percent_decode(tail))
+            };
         }
     }
     Err(VpnError::NotHttps)
@@ -243,6 +247,11 @@ mod tests {
             classify_input("vless://x@h:1#a vless://y@h:2#b"),
             Ok(Input::Text(_))
         ));
+        let signed = "https://example.invalid/%2F?key=a%26b%3D";
+        assert_eq!(
+            classify_input(&format!("v2raytun://import/{signed}")).unwrap(),
+            Input::Url(signed.into())
+        );
         assert_eq!(
             classify_input("v2raytun://import/https://s.example/sub#Name").unwrap(),
             Input::Url("https://s.example/sub".into())

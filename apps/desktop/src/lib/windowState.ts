@@ -36,3 +36,28 @@ export function watchMaximized(onChange: (maximized: boolean) => void): () => vo
     unlisten?.();
   };
 }
+
+/** Some WebView2 windows stay document-visible after the native window is minimized. */
+export function watchWindowVisibility(change: (visible: boolean) => void): () => void {
+  let stopped = false;
+  let revision = 0;
+  let timer: ReturnType<typeof setTimeout>;
+  const stops: Array<() => void> = [];
+  const win = getCurrentWindow();
+  async function read() {
+    const current = ++revision;
+    try {
+      const [visible, minimized] = await Promise.all([win.isVisible(), win.isMinimized()]);
+      if (!stopped && current === revision && typeof visible === 'boolean') change(visible && !minimized);
+    } catch { /* In a browser document visibility is sufficient. */ }
+  }
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(read, 100);
+  }
+  for (const subscription of [win.onResized(schedule), win.onFocusChanged(schedule), win.listen('main-window-visibility', schedule)]) {
+    void subscription.then(stop => stopped ? stop() : stops.push(stop)).catch(() => {});
+  }
+  void read();
+  return () => { stopped = true; clearTimeout(timer); for (const stop of stops) stop(); };
+}

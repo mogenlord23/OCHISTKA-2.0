@@ -55,12 +55,13 @@ async function rowOf(text: string) {
 
 describe('VpnConnectionsTab: выбор и меню', () => {
   it('shows the last connection list immediately while refreshing after reopening', async () => {
-    const first = render(VpnConnectionsTab);
+    const cache = {};
+    const first = render(VpnConnectionsTab, {props: {cache}});
     await rowOf('10.0.0.5:50000');
     first.unmount();
     invokeMock.mockImplementation((cmd: string) => cmd === 'get_tcp_connections'
       ? new Promise(() => {}) : undefined);
-    render(VpnConnectionsTab);
+    render(VpnConnectionsTab, {props: {cache}});
     expect(screen.getByRole('button', { name: '10.0.0.5:50000' })).toBeTruthy();
     expect(screen.queryByText('Читаем соединения…')).toBeNull();
   });

@@ -99,6 +99,7 @@ pub fn window_event(window: &tauri::Window, event: &WindowEvent) {
             && window.app_handle().tray_by_id(ICON).is_some()
             && window.hide().is_ok()
         {
+            let _ = window.emit_to(MAIN, "main-window-visibility", ());
             api.prevent_close();
         }
     }
@@ -109,6 +110,7 @@ fn show_main(app: &AppHandle) {
         let _ = main.show();
         let _ = main.unminimize();
         let _ = main.set_focus();
+        let _ = main.emit_to(MAIN, "main-window-visibility", ());
     }
 }
 

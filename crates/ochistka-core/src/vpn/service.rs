@@ -437,6 +437,21 @@ impl VpnService {
 
     // ---------- импорт и настройки ----------
 
+    pub fn clear_subscription(&self) -> Result<(), VpnError> {
+        let _op = lock(&self.op);
+        if self.is_busy() {
+            return Err(VpnError::Busy);
+        }
+        let mut data = lock(&self.data);
+        let next = Data {
+            rules: data.rules.clone(),
+            ..Data::default()
+        };
+        self.save(&next)?;
+        *data = next;
+        Ok(())
+    }
+
     pub fn import(&self, input: &str) -> Result<ImportSummary, VpnError> {
         if self.is_busy() {
             return Err(VpnError::Busy);
@@ -448,14 +463,15 @@ impl VpnService {
         };
         let skipped = report.issues.len();
         let mut data = lock(&self.data);
-        data.servers = report.servers;
-        if let Some(u) = url {
-            data.subscription_url = u;
-        }
-        data.latencies.clear();
-        // Новый список заменяет прежний целиком, и выбирается его первый сервер.
-        data.selected = data.servers.first().map(|s| s.id.clone());
-        self.save(&data)?;
+        let next = Data {
+            selected: report.servers.first().map(|s| s.id.clone()),
+            servers: report.servers,
+            subscription_url: url.unwrap_or_default(),
+            rules: data.rules.clone(),
+            ..Data::default()
+        };
+        self.save(&next)?;
+        *data = next;
         Ok(ImportSummary {
             count: data.servers.len() as u32,
             skipped: skipped as u32,
@@ -1166,6 +1182,11 @@ mod tests {
         let r = s.import("https://sub.example/s?t=1").unwrap();
         assert_eq!(r.count, 2);
         assert_eq!(s.snapshot().subscription_url, "https://sub.example/s?t=1");
+        let saved = s.snapshot().subscription_url;
+        s.clear_subscription().unwrap();
+        assert!(s.snapshot().servers.is_empty());
+        assert!(s.snapshot().subscription_url.is_empty());
+        assert_eq!(s.import(&saved).unwrap().count, 2);
         assert_eq!(
             s.import("http://sub.example/s").unwrap_err(),
             VpnError::NotHttps

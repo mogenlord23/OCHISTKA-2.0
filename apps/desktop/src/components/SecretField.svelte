@@ -122,7 +122,7 @@
 
   /* Мягко появляется только заменённый знак; начальная приманка видна сразу, без мигания. */
   .ch.fresh {
-    animation: ch-in 0.9s ease both;
+    animation: ch-in 210ms steps(7, end) backwards;
   }
 
   @keyframes ch-in {
