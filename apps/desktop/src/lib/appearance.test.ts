@@ -82,7 +82,7 @@ describe('appearance tiles', () => {
     }
   });
 
-  it('has unique accent colours (no near twins), acid first, white and black last', () => {
+  it('has unique accent colours (no near twins), hues grouped, white and black last', () => {
     expect(COLOR_SCHEMES).toHaveLength(ACCENT_COLORS.length);
     expect(ACCENT_COLORS.length).toBeGreaterThanOrEqual(60);
     expect(new Set(ACCENT_COLORS.map((c) => c.toUpperCase())).size).toBe(ACCENT_COLORS.length);
@@ -95,7 +95,7 @@ describe('appearance tiles', () => {
       }
     }
     for (const tile of COLOR_SCHEMES) expect(tile.preview).toMatch(/^#[0-9A-F]{6}$/);
-    expect(ACCENT_COLORS[0]).toBe('#B4FF00');
+    expect(COLOR_SCHEMES.find(({ id }) => id === 'color-01')?.preview).toBe('#B4FF00');
     expect(ACCENT_COLORS.slice(-7)).toContain('#FFFFFF');
     expect(ACCENT_COLORS.at(-1)).toBe('#000000');
   });

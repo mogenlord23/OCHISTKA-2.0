@@ -546,15 +546,11 @@
     --tile-ratio: 16 / 9;
   }
 
-  .grid-cursor {
+  .grid-cursor,
+  .grid-color {
     grid-template-columns:
       repeat(auto-fill, minmax(var(--cursor-tile-min), 1fr)) var(--window-controls-width);
     grid-auto-rows: 105px;
-  }
-
-  .grid-color {
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-    --tile-ratio: 3 / 2;
   }
 
   .grid li {
@@ -585,16 +581,6 @@
 
   .grid-cursor .tile {
     background-color: #161616 !important;
-  }
-
-  .grid-color .tile {
-    border-radius: var(--radius-adaptive);
-    box-shadow: inset 0 0 0 3px #111;
-  }
-
-  /* Наведение дешёвое: масштаб только у плиток цвета. На обоях и курсорах слой с картинкой не пересоздаётся. */
-  .grid-color .tile:hover {
-    transform: scale(1.05);
   }
 
   .tile:focus-visible {
