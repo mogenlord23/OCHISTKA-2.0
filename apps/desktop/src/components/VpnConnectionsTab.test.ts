@@ -54,6 +54,17 @@ async function rowOf(text: string) {
 }
 
 describe('VpnConnectionsTab: выбор и меню', () => {
+  it('shows the last connection list immediately while refreshing after reopening', async () => {
+    const first = render(VpnConnectionsTab);
+    await rowOf('10.0.0.5:50000');
+    first.unmount();
+    invokeMock.mockImplementation((cmd: string) => cmd === 'get_tcp_connections'
+      ? new Promise(() => {}) : undefined);
+    render(VpnConnectionsTab);
+    expect(screen.getByRole('button', { name: '10.0.0.5:50000' })).toBeTruthy();
+    expect(screen.queryByText('Читаем соединения…')).toBeNull();
+  });
+
   it('selects a row, shows details with the file path, and a second click clears it', async () => {
     render(VpnConnectionsTab);
     const row = await rowOf('10.0.0.5:50000');

@@ -96,6 +96,16 @@ function detailNear([longitude, latitude]: readonly number[]): [Dot[], Dot[]] {
   return region;
 }
 
+const detailCache = new Map<string, [Dot[], Dot[]]>();
+function cachedDetail(code: string, target: readonly number[]): [Dot[], Dot[]] {
+  let detail = detailCache.get(code);
+  if (!detail) {
+    detail = detailNear(target);
+    detailCache.set(code, detail);
+  }
+  return detail;
+}
+
 export function shortestTurn(from: number, to: number): number {
   return Math.atan2(Math.sin(to - from), Math.cos(to - from));
 }
@@ -175,7 +185,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
     const target = globeCountry(country);
     if (target && target !== focus) {
       focus = target;
-      detail = detailNear(target);
+      detail = cachedDetail(country!, target);
     }
     if (destination !== target) {
       destination = target;
@@ -254,8 +264,8 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
       };
       const size = globeDotSize(width, height);
       paint(land, size, 1);
-      paint(detail[0], size, smooth((zoom - 1) / 1.4));
-      paint(detail[1], size, smooth((zoom - 2) / 2.25));
+      paint(detail[0], size, smooth((zoom - 1.7) / 1.6));
+      paint(detail[1], size, smooth((zoom - 3.5) / 0.75));
       ctx.globalAlpha = 1;
 
       cachedView = '';

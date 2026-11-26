@@ -1,3 +1,8 @@
+<script module lang="ts">
+  import type { TcpConnection } from '../lib/vpnNetwork';
+  let lastConnections: TcpConnection[] = [];
+</script>
+
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import ContextMenu from './ContextMenu.svelte';
@@ -16,10 +21,9 @@
     sortConnections,
     type ConnectionSort,
     type ConnectionSortKey,
-    type TcpConnection,
   } from '../lib/vpnNetwork';
 
-  let connections = $state<TcpConnection[] | null>(null);
+  let connections = $state<TcpConnection[]>(lastConnections);
   let error = $state<string | null>(null);
   let sort = $state<ConnectionSort>({ key: 'process', direction: 'asc' });
 
@@ -134,6 +138,7 @@
   async function load() {
     try {
       connections = await listConnections();
+      lastConnections = connections;
       error = null;
     } catch (err) {
       error = errorMessage(err);
@@ -154,8 +159,6 @@
 
 {#if error}
   <p class="state" role="alert">{error}</p>
-{:else if connections === null}
-  <p class="state" role="status">Читаем соединения…</p>
 {:else}
   <div class="table-wrap" use:measure onscroll={(e) => (scrollTop = e.currentTarget.scrollTop)}>
     <table>
