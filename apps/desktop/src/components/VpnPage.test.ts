@@ -445,6 +445,61 @@ describe('VpnPage: подписка и импорт', () => {
   });
 });
 
+describe('VpnPage: повторная вставка подписки', () => {
+  it('reuses saved servers on clear and repaste without a provider request', async () => {
+    const link = 'https://saved.example/sub';
+    backend({
+      vpn_snapshot: () => makeSnapshot({ subscriptionUrl: link, servers: SERVERS, selected: 's1' }),
+      vpn_import: () => Promise.reject({ message: 'HTTP 400' }),
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const input = screen.getByLabelText('Ссылка подписки') as HTMLInputElement;
+    await waitFor(() => expect(input.value).toBe(link));
+    await fireEvent.input(input, { target: { value: '' } });
+    await fireEvent.input(input, { target: { value: link } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Включить VPN' }).getAttribute('aria-disabled')).toBe('false'));
+    expect(calls('vpn_import')).toHaveLength(0);
+    expect(screen.queryByText(/HTTP 400/)).toBeNull();
+    expect(document.querySelector('.globe')?.getAttribute('data-country')).toBeNull();
+  });
+
+  it('allows Enter to retry a failed import', async () => {
+    let attempts = 0;
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      vpn_import: () => ++attempts === 1 ? Promise.reject({ message: 'HTTP 400' })
+        : { count: 1, skipped: 0, issues: [] },
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const input = screen.getByLabelText('Ссылка подписки');
+    await fireEvent.input(input, { target: { value: 'https://new.example/sub' } });
+    await screen.findByText('HTTP 400');
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByText('HTTP 400')).toBeNull());
+  });
+
+  it('imports a replacement pasted during a pending request and suppresses the stale error', async () => {
+    let rejectFirst!: (error: unknown) => void;
+    backend({
+      vpn_snapshot: () => makeSnapshot(),
+      vpn_import: (args) => args?.input === 'https://first.example/sub'
+        ? new Promise((_, reject) => { rejectFirst = reject; })
+        : { count: 1, skipped: 0, issues: [] },
+    });
+    render(VpnPage, { props: { subsection: 'vpn' } });
+    const input = screen.getByLabelText('Ссылка подписки');
+    await fireEvent.input(input, { target: { value: 'https://first.example/sub' } });
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(1));
+    await fireEvent.input(input, { target: { value: '' } });
+    await fireEvent.input(input, { target: { value: 'https://second.example/sub' } });
+    rejectFirst({ message: 'Old HTTP 400' });
+    await waitFor(() => expect(calls('vpn_import')).toHaveLength(2));
+    expect(calls('vpn_import')[1][1]).toEqual({ input: 'https://second.example/sub' });
+    expect(screen.queryByText('Old HTTP 400')).toBeNull();
+  });
+});
+
 describe('VpnPage: подключение и серверы', () => {
   it('without servers the connect button is disabled; the reason is a tooltip, not clutter', async () => {
     render(VpnPage, { props: { subsection: 'vpn' } });

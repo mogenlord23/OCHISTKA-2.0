@@ -83,6 +83,9 @@
   const labelEffect = createLabelTypewriter((text) => (fieldLabel = text));
   onDestroy(() => labelEffect.reset());
   let importing = $state(false);
+  let importVersion = 0;
+  let importQueue = Promise.resolve();
+  let queuedImports = 0;
   let measuring = $state(false);
   /** Растёт после каждого успешного импорта: запускает новую первую проверку. */
   let importTick = $state(0);
@@ -134,7 +137,7 @@
   function restoreSavedLink() {
     const saved = snapshot?.subscriptionUrl?.trim() ?? '';
     if (!saved || urlInput !== '') return;
-    previousLength = saved.length;
+    previousValue = saved;
     lastAutoLink = saved;
     urlInput = saved;
   }
@@ -164,7 +167,9 @@
     const serverId = isConnected ? connection?.serverId
       : connecting ? connection?.serverId ?? snapshot?.selected
       : null;
-    return servers.find((server) => server.id === serverId)?.country ?? null;
+    if (!serverId) return null;
+    const server = servers.find((item) => item.id === serverId);
+    return server?.country || server?.name || 'GLOBAL';
   });
   const globeName = $derived(countryName(globeCountry, i18n.lang));
   $effect(() => {
@@ -204,51 +209,77 @@
     };
   });
 
-  async function runImport(raw: string) {
+  function runImport(raw: string): Promise<void> {
+    const version = ++importVersion;
     const prepared = prepareImport(normalizePasted(raw));
+    importNote = null;
     if (!prepared.ok) {
       importNote = prepared.reason;
-      return;
+      return Promise.resolve();
     }
+    const input = prepared.input;
+    queuedImports += 1;
     importing = true;
-    actionNote = null;
-    importNote = null;
-    try {
-      const summary = await vpnImport(prepared.input);
-      importNote = importMessage(summary.count, summary.skipped, summary.issues) || null;
-      labelEffect.play();
-      await refresh();
-      measuredAt = 0;
-      importTick += 1;
-    } catch (err) {
-      importNote = errorMessage(err);
-    } finally {
-      importing = false;
-    }
+    importQueue = importQueue.then(async () => {
+      try {
+        if (version !== importVersion) return;
+        // Повторная вставка сохранённой подписки сразу использует её серверы.
+        if (input === snapshot?.subscriptionUrl?.trim() && servers.length > 0) {
+          actionNote = null;
+          lastAutoLink = input;
+          labelEffect.showSaved();
+          return;
+        }
+        const summary = await vpnImport(input);
+        await refresh();
+        if (version !== importVersion) return;
+        actionNote = null;
+        importNote = importMessage(summary.count, summary.skipped, summary.issues) || null;
+        if (summary.count > 0) labelEffect.play();
+        lastAutoLink = input;
+        measuredAt = 0;
+        importTick += 1;
+      } catch (err) {
+        if (version === importVersion) {
+          importNote = errorMessage(err);
+          lastAutoLink = '';
+        }
+      } finally {
+        queuedImports -= 1;
+        importing = queuedImports > 0;
+      }
+    });
+    return importQueue;
   }
 
-  /** Автоимпорт: как только вставлена корректная ссылка https:// (длина выросла сразу на много знаков),
-      подписка импортируется сама. Побуквенный набор не импортирует недописанный адрес. */
   let lastAutoLink = '';
-  let previousLength = 0;
+  let previousValue = '';
   $effect(() => {
     const raw = urlInput;
-    if (raw === '') lastAutoLink = '';
-    const pasted = raw.length - previousLength >= 8;
-    previousLength = raw.length;
-    if (pasted && !importing && /^http:\/\/\S+$/i.test(raw.trim())) {
-      untrack(() => (importNote = 'Разрешены только ссылки https://'));
-      return;
-    }
-    if (!pasted || importing || !isSubscriptionUrl(normalizePasted(raw))) return;
-    const link = raw.trim();
-    if (link === lastAutoLink) return;
-    lastAutoLink = link;
-    untrack(() => void runImport(raw));
+    untrack(() => {
+      if (raw === previousValue) return;
+      const pasted = raw.length - previousValue.length >= 8;
+      previousValue = raw;
+      importVersion += 1;
+      importNote = null;
+      if (!raw.trim()) {
+        lastAutoLink = '';
+        labelEffect.reset();
+        return;
+      }
+      if (pasted && /^http:\/\/\S+$/i.test(raw.trim())) {
+        importNote = 'Разрешены только ссылки https://';
+        return;
+      }
+      if (!pasted || !isSubscriptionUrl(normalizePasted(raw))) return;
+      const link = raw.trim();
+      if (link === lastAutoLink) return;
+      lastAutoLink = link;
+      void runImport(raw);
+    });
   });
 
   function onImport() {
-    // Ссылка уже импортирована автоматически: повторно не грузим.
     if (urlInput.trim() !== '' && urlInput.trim() === lastAutoLink) return;
     void runImport(urlInput);
   }
