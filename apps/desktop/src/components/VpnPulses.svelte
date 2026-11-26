@@ -9,8 +9,20 @@
   const rings = 3;
 
   onMount(() => {
+    const syncMotion = () => {
+      if (document.visibilityState === 'hidden' || !document.hasFocus()) layer.pauseAnimations?.();
+      else layer.unpauseAnimations?.();
+    };
+    document.addEventListener('visibilitychange', syncMotion);
+    window.addEventListener('blur', syncMotion);
+    window.addEventListener('focus', syncMotion);
+    syncMotion();
     const button = layer.parentElement?.querySelector<HTMLButtonElement>('.power');
-    if (!button || typeof ResizeObserver !== 'function') return;
+    if (!button || typeof ResizeObserver !== 'function') return () => {
+      document.removeEventListener('visibilitychange', syncMotion);
+      window.removeEventListener('blur', syncMotion);
+      window.removeEventListener('focus', syncMotion);
+    };
     function measure() {
       if (!button) return;
       const bounds = layer.getBoundingClientRect();
@@ -22,7 +34,12 @@
     const observer = new ResizeObserver(measure);
     observer.observe(layer);
     observer.observe(button);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', syncMotion);
+      window.removeEventListener('blur', syncMotion);
+      window.removeEventListener('focus', syncMotion);
+    };
   });
 </script>
 

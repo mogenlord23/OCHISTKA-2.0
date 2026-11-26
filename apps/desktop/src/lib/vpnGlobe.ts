@@ -44,8 +44,8 @@ const packedDetail = atob(map.detail);
 const land: Dot[] = [];
 const gridStep = 360 / map.gridWidth;
 // Все уровни используют одну сетку. При приближении добавляются точки между существующими.
-for (let row = 0; row < map.gridHeight; row += 4) {
-  for (let column = 0; column < map.gridWidth; column += 4) {
+for (let row = 0; row < map.gridHeight; row += 8) {
+  for (let column = 0; column < map.gridWidth; column += 8) {
     const index = row * map.gridWidth + column;
     const kind = (packedDetail.charCodeAt(index >> 2) >> (2 * (index & 3))) & 3;
     if (kind) land.push([...vector((column + 0.5) * gridStep - 180, (row + 0.5) * gridStep - 90), kind === 2, isLime(index)]);
@@ -84,7 +84,7 @@ function detailNear([longitude, latitude]: readonly number[]): [Dot[], Dot[]] {
     for (let column = 0; column < gridWidth; column++) {
       const index = row * gridWidth + column;
       const kind = (packed.charCodeAt(index >> 2) >> (2 * (index & 3))) & 3;
-      if (!kind || (row % 4 === 0 && column % 4 === 0)) continue;
+      if (!kind || (row % 8 === 0 && column % 8 === 0)) continue;
       const [sin, cos] = meridians[column];
       const x = parallel * sin;
       const z = parallel * cos;
@@ -158,6 +158,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   const sprites = dotSprites ??= makeDots();
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let frame = 0;
+  let frameTimer = 0;
   let previous = 0;
   let width = 0;
   let height = 0;
@@ -304,19 +305,25 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   }
 
   function invalidate() {
-    if (!frame && width > 0 && height > 0 && document.visibilityState !== 'hidden') {
-      frame = requestAnimationFrame(draw);
+    if (!frame && !frameTimer && width > 0 && height > 0 &&
+      document.visibilityState !== 'hidden' && document.hasFocus()) {
+      frameTimer = window.setTimeout(() => {
+        frameTimer = 0;
+        frame = requestAnimationFrame(draw);
+      }, destination ? 40 : 80);
     }
   }
 
   function pause() {
+    clearTimeout(frameTimer);
+    frameTimer = 0;
     cancelAnimationFrame(frame);
     frame = 0;
     previous = 0;
   }
 
   function syncVisibility() {
-    if (document.visibilityState === 'hidden') pause();
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) pause();
     else invalidate();
   }
 
@@ -327,6 +334,8 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   observer.observe(canvas);
   motion.addEventListener('change', invalidate);
   document.addEventListener('visibilitychange', syncVisibility);
+  window.addEventListener('blur', syncVisibility);
+  window.addEventListener('focus', syncVisibility);
   return {
     invalidate,
     destroy() {
@@ -334,6 +343,8 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
       observer.disconnect();
       motion.removeEventListener('change', invalidate);
       document.removeEventListener('visibilitychange', syncVisibility);
+      window.removeEventListener('blur', syncVisibility);
+      window.removeEventListener('focus', syncVisibility);
     },
   };
 }
