@@ -59,10 +59,11 @@
       aria-labelledby="zapret-title"
       onclick={toggle}
     >
-      <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+      <span class="state-label" aria-hidden="true">{filled ? 'ON' : 'OFF'}</span>
     </button>
     <div class="copy">
       <h2 id="zapret-title" class="vpn-power-heading">Обход блокировок</h2>
+      <p>Открывает сайты с помощью Zapret. Работает вместо VPN.</p>
       {#if message || status?.configured === false}
         <p role="status">{message || 'Функция недоступна в этой сборке'}</p>
       {/if}
@@ -82,49 +83,29 @@
   }
 
   .zapret-tile {
-    overflow: hidden;
-    transition: color 220ms ease;
+    background: #000;
+    color: #ff009d;
+    box-shadow: 0 0 0 2px #ff009d;
+    transition: color 300ms ease-in-out, box-shadow 300ms ease-in-out;
   }
 
-  .zapret-tile::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--accent);
-    transform-origin: left;
-    transform: scaleX(0);
-    transition: transform 220ms ease;
+  .zapret-tile.filled {
+    color: #caff00;
+    box-shadow: 0 0 0 2px #caff00;
   }
 
-  .zapret-tile.filled { color: #000; }
-  .zapret-tile.filled::before { transform: scaleX(1); }
   .zapret-tile[aria-busy='true'] { opacity: 1; cursor: wait; }
 
-  .track {
-    position: relative;
-    display: block;
-    width: 38px;
-    height: 20px;
-    border: 2px solid currentColor;
-    border-radius: 10px;
+  .state-label {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
   }
 
-  .thumb {
-    position: absolute;
-    left: 3px;
-    top: 3px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: currentColor;
-    transition: transform 220ms ease;
-  }
-
-  .filled .thumb { transform: translateX(18px); }
   h2 { margin: 0; }
   p { margin: 6px 0 0; color: var(--muted); font-size: var(--text-caption); }
 
   @media (prefers-reduced-motion: reduce) {
-    .zapret-tile, .zapret-tile::before, .thumb { transition: none; }
+    .zapret-tile { transition: none; }
   }
 </style>

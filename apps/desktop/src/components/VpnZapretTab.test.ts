@@ -29,10 +29,12 @@ it('offers a single action, animates on click and reflects the real result', asy
   const card = screen.getByRole('region', { name: 'Обход блокировок' });
   const button = within(card).getByRole('button', { name: 'Обход блокировок' }) as HTMLButtonElement;
   expect(within(card).getAllByRole('button')).toHaveLength(1);
+  expect(button.textContent?.trim()).toBe('OFF');
   await waitFor(() => expect(button.disabled).toBe(false));
 
   await fireEvent.click(button);
   expect(button.classList.contains('filled')).toBe(true);
+  expect(button.textContent?.trim()).toBe('ON');
   expect(button.getAttribute('aria-busy')).toBe('true');
   expect(invoke).toHaveBeenCalledWith('zapret_set', { enabled: true });
   finish();
@@ -40,6 +42,7 @@ it('offers a single action, animates on click and reflects the real result', asy
 
   await fireEvent.click(button);
   expect(button.classList.contains('filled')).toBe(false);
+  expect(button.textContent?.trim()).toBe('OFF');
   expect(invoke).toHaveBeenCalledWith('zapret_set', { enabled: false });
   finish();
   await waitFor(() => expect(button.getAttribute('aria-pressed')).toBe('false'));
