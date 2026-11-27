@@ -8,6 +8,7 @@
     determineGeo,
     geo,
     initGeo,
+    revokeGeo,
   } from '../lib/geoStore.svelte';
 
   onMount(() => {
@@ -17,14 +18,20 @@
   let changingConsent = $state(false);
   let traffic = $state<{ received: number; sent: number } | null>(null);
   let trafficError = $state('');
-  let copied = $state(false);
 
   async function changeConsent() {
     if (changingConsent || geo.loading) return;
     changingConsent = true;
     try {
-      copied = false;
-      await Promise.all([determineGeo(), loadTraffic()]);
+      if (geo.consent) {
+        await revokeGeo();
+        if (!geo.consent) {
+          traffic = null;
+          trafficError = '';
+        }
+      } else {
+        await Promise.all([determineGeo(), loadTraffic()]);
+      }
     } finally {
       changingConsent = false;
     }
@@ -41,16 +48,6 @@
     } catch (err) {
       traffic = null;
       trafficError = errorMessage(err);
-    }
-  }
-
-  async function copyIp() {
-    if (!geo.info?.ip) return;
-    try {
-      await navigator.clipboard.writeText(geo.info.ip);
-      copied = true;
-    } catch {
-      copied = false;
     }
   }
 
@@ -115,20 +112,20 @@
     <div class="card" data-testid="geo-ip">
       <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18M12 3c-5 5-5 13 0 18"/></svg></span>
       <span class="text"><span class="label">IP-адрес</span><span class="value selectable" class:none={!geo.info?.ip}>{geo.info?.ip ?? GEO_UNDETERMINED}</span></span>
-      {#if geo.info?.ip}<button type="button" class="copy" onclick={copyIp} aria-label="Скопировать IP-адрес">{copied ? 'Скопировано' : 'Копировать'}</button>{/if}
     </div>
     <div class="card" data-testid="geo-traffic">
       <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v14m-4-4 4 4 4-4M17 20V6m-4 4 4-4 4 4"/></svg></span>
-      <span class="text"><span class="label">Трафик адаптеров</span><span class="value" class:none={!traffic}>{traffic ? `Получено ${formatBytes(traffic.received)} · Отправлено ${formatBytes(traffic.sent)}` : GEO_UNDETERMINED}</span></span>
+      <span class="text"><span class="label">Трафик адаптеров</span><span class="value" class:none={!traffic} aria-label={traffic ? `Получено ${formatBytes(traffic.received)}, отправлено ${formatBytes(traffic.sent)}` : GEO_UNDETERMINED}>{traffic ? `↓ ${formatBytes(traffic.received)} · ↑ ${formatBytes(traffic.sent)}` : GEO_UNDETERMINED}</span></span>
     </div>
   </div>
   <div class="actions">
     <button
       type="button"
-      class="btn go"
+      class="btn"
+      class:go={!geo.consent}
       disabled={geo.consent === null || geo.loading || changingConsent}
       onclick={() => void changeConsent()}
-      >{geo.loading ? 'Определяем…' : 'Определить'}</button
+      >{geo.loading ? 'Определяем…' : geo.consent ? 'Отозвать разрешение' : 'Определить'}</button
     >
   </div>
   {#if geo.error}<p class="note error" role="alert">{geo.error}</p>{/if}
@@ -202,17 +199,6 @@
 
   .value.none {
     color: var(--muted);
-  }
-  .copy {
-    margin-left: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-adaptive);
-    background: var(--btn-bg);
-    color: var(--ink);
-    padding: 6px 8px;
-    font: inherit;
-    font-size: var(--text-caption);
-    cursor: pointer;
   }
 
   .btn {

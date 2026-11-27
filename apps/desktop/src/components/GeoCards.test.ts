@@ -66,7 +66,7 @@ describe('GeoCards', () => {
     await screen.findByText(provider);
     expect(screen.getByText(`${city}, Страна`)).toBeTruthy();
     expect(screen.getAllByRole('button')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Определить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Отозвать разрешение' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Обновить' })).toBeNull();
   });
 
@@ -81,7 +81,7 @@ describe('GeoCards', () => {
     await fireEvent.click(await screen.findByRole('button', { name: 'Определить' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Сервис недоступен');
     expect(invokeMock.mock.calls.filter((call) => call[0] === 'geo_lookup')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Определить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Отозвать разрешение' })).toBeTruthy();
   });
 
   it('"Определить" shows provider and place; the consent can be revoked', async () => {
@@ -90,6 +90,12 @@ describe('GeoCards', () => {
     await waitFor(() => expect(screen.getByText('Example ISP')).toBeTruthy());
     expect(screen.getByText('Latvia')).toBeTruthy();
     expect(screen.getByText('203.0.113.8')).toBeTruthy();
-    expect(screen.getByText(/Получено 1/)).toBeTruthy();
+    expect(screen.getByText(/↓ 1/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Скопировать IP-адрес' })).toBeNull();
+    const revoke = screen.getByRole('button', { name: 'Отозвать разрешение' });
+    await waitFor(() => expect(revoke.hasAttribute('disabled')).toBe(false));
+    await fireEvent.click(revoke);
+    await waitFor(() => expect(screen.getAllByText('Не определено')).toHaveLength(4));
+    expect(screen.getByRole('button', { name: 'Определить' })).toBeTruthy();
   });
 });
