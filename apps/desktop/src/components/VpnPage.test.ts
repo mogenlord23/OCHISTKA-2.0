@@ -843,35 +843,12 @@ describe('VpnPage: вкладки', () => {
 });
 
 describe('VpnPage: вкладка «Сеть»', () => {
-  it('lists adapters with MAC, traffic, rates in human units and addresses', async () => {
-    invokeMock.mockResolvedValue([
-      {
-        name: 'Ethernet',
-        mac: 'AA:BB:CC:DD:EE:FF',
-        receivedBytes: 3 * 1024 * 1024,
-        transmittedBytes: 2048,
-        receiveRate: 1536,
-        transmitRate: 0,
-        addresses: ['192.168.0.5/24'],
-      },
-    ]);
+  it('shows the summary without the adapter list or background traffic polling', async () => {
+    backend({ vpn_snapshot: () => makeSnapshot(), geo_consent: () => ({ granted: false }) });
     render(VpnPage, { props: { subsection: 'network' } });
-    expect(await screen.findByText('Ethernet')).toBeTruthy();
-    expect(invokeMock).toHaveBeenCalledWith('get_network_adapters');
-    expect(screen.getByText('AA:BB:CC:DD:EE:FF')).toBeTruthy();
-    expect(screen.getByText('3.0 МБ')).toBeTruthy();
-    expect(screen.getByText('1.5 КБ/с')).toBeTruthy();
-    expect(screen.getByText('0 Б/с')).toBeTruthy();
-    expect(screen.getByText('192.168.0.5/24')).toBeTruthy();
-  });
-
-  it('shows the backend reason when reading is unsupported', async () => {
-    invokeMock.mockRejectedValue({
-      kind: 'unsupported',
-      message: 'Чтение сети недоступно на Linux',
-    });
-    render(VpnPage, { props: { subsection: 'network' } });
-    expect((await screen.findByRole('alert')).textContent).toContain('недоступно на Linux');
+    expect(await screen.findByTestId('geo-traffic')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Сетевые адаптеры' })).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalledWith('get_network_adapters');
   });
 });
 

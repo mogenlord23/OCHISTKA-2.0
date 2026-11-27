@@ -5,13 +5,11 @@
   import {
     CANCELLED_MESSAGE,
     PHASE_LABEL,
-    SPEED_NOTE,
     easeToward,
     failureMessage,
     formatMbps,
     formatMs,
     gaugeFraction,
-    noteSeen,
     summarize,
   } from '../lib/speedtest';
 
@@ -20,7 +18,6 @@
   /** Состояние теста лежит в хранилище: уход из раздела его не прерывает. */
   const ui = $derived(speedStore.view);
   const status = $derived(speedStore.ui.status);
-  let showNote = $state(!noteSeen());
   const running = $derived(speedStore.running);
   const target = $derived(running ? speedStore.ui.liveMbps : (ui.downloadMbps ?? 0));
   // При возврате в раздел показываем прежнее значение сразу, без разгона с нуля.
@@ -95,7 +92,6 @@
   });
 
   function start() {
-    showNote = false;
     shown = 0;
     void speedStore.start();
   }
@@ -163,8 +159,6 @@
     <p class="msg" role="status">{CANCELLED_MESSAGE}</p>
   {:else if summary}
     <p class="msg" role="status"><b>{summary.title}.</b> {summary.text}</p>
-  {:else if showNote}
-    <p class="msg note" role="note">{SPEED_NOTE}</p>
   {/if}
 </section>
 
@@ -321,10 +315,6 @@
     margin: 12px 0 0;
     font-size: var(--text-caption);
     color: var(--ink-soft, var(--ink));
-  }
-
-  .msg.note {
-    color: var(--muted);
   }
 
   .msg.error {

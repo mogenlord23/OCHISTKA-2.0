@@ -9,7 +9,7 @@ use serde::Serialize;
 use ts_rs::TS;
 
 /// Адрес сервиса (https, поля ограничены тем, что показываем).
-pub const GEO_URL: &str = "https://ipwho.is/?fields=success,country,city,connection";
+pub const GEO_URL: &str = "https://ipwho.is/?fields=success,ip,country,city,connection";
 
 /// Самый длинный показываемый текст: защита от мусорного ответа.
 const MAX_TEXT: usize = 80;
@@ -19,6 +19,7 @@ const MAX_TEXT: usize = 80;
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "GeoInfo.ts")]
 pub struct GeoInfo {
+    pub ip: Option<String>,
     pub provider: Option<String>,
     pub country: Option<String>,
     pub city: Option<String>,
@@ -107,6 +108,11 @@ pub fn parse_geo(body: &str) -> Result<GeoInfo, GeoError> {
     let provider = clean(connection.and_then(|c| c.get("isp")))
         .or_else(|| clean(connection.and_then(|c| c.get("org"))));
     Ok(GeoInfo {
+        ip: value
+            .get("ip")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<std::net::IpAddr>().ok())
+            .map(|ip| ip.to_string()),
         provider,
         country: clean(value.get("country")),
         city: clean(value.get("city")),
@@ -131,6 +137,15 @@ pub fn set_consent(store: &dyn ConsentStore, granted: bool) -> Result<GeoConsent
 mod tests {
     use super::*;
     use std::cell::{Cell, RefCell};
+
+    #[test]
+    fn parses_public_ip_and_rejects_invalid_values() {
+        assert_eq!(
+            parse_geo(r#"{"ip":"203.0.113.8"}"#).unwrap().ip.as_deref(),
+            Some("203.0.113.8")
+        );
+        assert_eq!(parse_geo(r#"{"ip":"invalid"}"#).unwrap().ip, None);
+    }
 
     struct Fake {
         calls: RefCell<Vec<String>>,

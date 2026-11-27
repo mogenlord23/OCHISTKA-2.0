@@ -61,7 +61,7 @@ describe('SpeedTest', () => {
     backend(FULL);
     render(SpeedTest);
     expect(invokeMock).not.toHaveBeenCalled();
-    expect(screen.getByText(/расходует трафик и обращается к внешнему серверу/)).toBeTruthy();
+    expect(screen.queryByText(/расходует трафик и обращается к внешнему серверу/)).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Проверить скорость' }));
     await screen.findByText('Отличное соединение.');
     expect(screen.queryByText(/расходует трафик/)).toBeNull();
@@ -246,7 +246,7 @@ describe('Network tab', () => {
     backend(FULL);
     render(VpnNetworkTab);
     expect(screen.getByRole('region', { name: 'Тест скорости интернета' })).toBeTruthy();
-    expect(await screen.findByText('Сетевых адаптеров не найдено.')).toBeTruthy();
+    expect(await screen.findByTestId('geo-traffic')).toBeTruthy();
   });
 });
 

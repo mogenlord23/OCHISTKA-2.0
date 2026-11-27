@@ -3,4 +3,4 @@
 /**
  * Что определили. `None` — не определено, интерфейс покажет «Не определено».
  */
-export type GeoInfo = { provider: string | null, country: string | null, city: string | null, };
+export type GeoInfo = { ip: string | null, provider: string | null, country: string | null, city: string | null, };
