@@ -20,7 +20,8 @@
   import { portraitGeometry, EYE, pageAllowsWink, startWinking } from '../lib/wink';
   import VpnConnectionsTab, { type ConnectionCache } from './VpnConnectionsTab.svelte';
   import VpnNetworkTab from './VpnNetworkTab.svelte';
-  import VpnRoutesTab from './VpnRoutesTab.svelte';
+  import VpnZapretTab from './VpnZapretTab.svelte';
+  import './vpnPower.css';
   import {
     PREPARE_FAILED_PREFIX,
     connectUi,
@@ -43,7 +44,6 @@
     vpnSelect,
     vpnSnapshot,
     vpnStatus,
-    type RoutingRules,
     type VpnSnapshot,
   } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
@@ -435,10 +435,6 @@
 
   onMount(() => listenDesktop('tray-vpn-changed', () => { void refresh(); }));
 
-  function onRulesSaved(rules: RoutingRules) {
-    if (snapshot) snapshot = { ...snapshot, rules };
-  }
-
   /** Пасхалка: звук (если включён) и анимация нажатия. */
   let pressed = $state(false);
   let posterEl = $state<HTMLButtonElement | null>(null);
@@ -567,7 +563,7 @@
                 <div class="power-row">
                   <button
                     type="button"
-                    class="power"
+                    class="vpn-power-tile"
                     class:on={ui.pressed}
                     aria-pressed={ui.pressed}
                     aria-busy={ui.busy}
@@ -591,7 +587,7 @@
                         <span class="prepare-fill" style:width={`${preparing}%`}></span>
                       </span>
                     {/if}
-                    <span class="timer" aria-label="Время подключения"
+                    <span class="timer vpn-power-heading" aria-label="Время подключения"
                       >{formatElapsed(elapsedSeconds)}</span
                     >
                     <span class="status-line" role="status" title={status}>
@@ -662,7 +658,11 @@
               />
             </div>
           {:else if tab === 'advanced'}
-            <VpnRoutesTab {snapshot} onsaved={onRulesSaved} />
+            <VpnZapretTab
+              active={active && pageVisible}
+              vpnState={snapshot?.connection.state}
+              onchanged={() => { void refresh(); }}
+            />
           {:else}
             {#key sessionKey}<VpnConnectionsTab cache={connectionCache} active={active && pageVisible} />{/key}
           {/if}
@@ -919,37 +919,6 @@
     margin-bottom: 8px;
   }
 
-  /* Квадратная плитка с тем же скруглением и размером, что у боковой панели. Выключено — тёмная с
-     обводкой акцентом; включено — акцент. */
-  .power {
-    position: relative;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--power-size);
-    height: var(--power-size);
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-adaptive);
-    background: #2a2a2a;
-    color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent);
-    cursor: pointer;
-  }
-
-  .power:disabled,
-  .power[aria-disabled='true'] {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .power.on {
-    background: var(--accent);
-    color: #000;
-  }
-
   .power-text {
     display: flex;
     flex-direction: column;
@@ -975,11 +944,6 @@
 
   .timer {
     font-variant-numeric: tabular-nums;
-    font-size: 2.1rem;
-    font-weight: 650;
-    line-height: 1;
-    letter-spacing: 0.01em;
-    color: var(--ink);
   }
 
   .status-line {

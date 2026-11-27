@@ -88,11 +88,6 @@ pub fn run() {
                 app.manage(zapret);
             }
             app.manage(vpn_state);
-            app.manage(bypass_sites::ZapretSitesState(std::sync::Mutex::new(
-                ochistka_core::desync::user_sites::UserSites::new(
-                    &ochistka_platform::desync::desync_data_dir().join("zapret"),
-                ),
-            )));
             app.manage(bypass_sites::BypassSitesState(
                 ochistka_core::desync::user_sites::UserSites::new(
                     &ochistka_platform::desync::desync_data_dir(),
@@ -169,11 +164,8 @@ pub fn run() {
             bypass_sites::bypass_sites_list,
             bypass_sites::bypass_sites_add,
             bypass_sites::bypass_sites_remove,
-            bypass_sites::zapret_sites_import,
             #[cfg(windows)]
             zapret::zapret_status,
-            #[cfg(windows)]
-            zapret::zapret_select_folder,
             #[cfg(windows)]
             zapret::zapret_set,
             vpn::vpn_snapshot,

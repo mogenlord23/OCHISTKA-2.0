@@ -1,0 +1,36 @@
+.vpn-power-tile {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--power-size, 88px);
+  height: var(--power-size, 88px);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-adaptive);
+  background: #2a2a2a;
+  color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  cursor: pointer;
+}
+
+.vpn-power-tile:disabled,
+.vpn-power-tile[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vpn-power-tile.on {
+  background: var(--accent);
+  color: #000;
+}
+
+.vpn-power-heading {
+  font-size: 2.1rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
