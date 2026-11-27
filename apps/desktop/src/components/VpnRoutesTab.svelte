@@ -24,7 +24,7 @@
   let importingZapret = $state(false);
   let zapretMessage = $state('');
   let zapretFile = $state<HTMLInputElement>();
-  type ZapretStatus = { running: boolean; configured: boolean; elevated: boolean };
+  type ZapretStatus = { running: boolean; configured: boolean; elevated: boolean; embedded: boolean };
   let zapret = $state<ZapretStatus>();
   let changingZapret = $state(false);
 
@@ -132,6 +132,9 @@
         label="Обход блокировок"
         onchange={(enabled) => zapretAction('zapret_set', { enabled })}
       />
+      {#if zapret?.embedded}
+        <p class="note">Встроенный Zapret 1.9.0b</p>
+      {/if}
       {#if !zapret?.configured}
         <p class="note">Выберите папку Zapret 1.9.0b с файлами bin, lists и general.bat</p>
       {:else if !zapret.elevated}
@@ -140,10 +143,12 @@
         <p class="note">Включение Zapret отключает VPN</p>
       {/if}
       <div class="save-row">
-        <button type="button" class="save" disabled={changingZapret || zapret?.running}
-          onclick={() => zapretAction('zapret_select_folder')}>
-          {zapret?.configured ? 'Сменить папку Zapret' : 'Выбрать папку Zapret'}
-        </button>
+        {#if !zapret?.embedded}
+          <button type="button" class="save" disabled={changingZapret || zapret?.running}
+            onclick={() => zapretAction('zapret_select_folder')}>
+            {zapret?.configured ? 'Сменить папку Zapret' : 'Выбрать папку Zapret'}
+          </button>
+        {/if}
         <button type="button" class="save" disabled={importingZapret} onclick={() => zapretFile?.click()}>
           {importingZapret ? 'Импортируем…' : 'Импорт списка сайтов'}
         </button>

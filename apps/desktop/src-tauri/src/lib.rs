@@ -17,6 +17,11 @@ pub mod vpn;
 #[cfg(windows)]
 mod zapret;
 
+#[cfg(windows)]
+pub fn check_embedded_zapret() -> Result<(), String> {
+    zapret::check_embedded()
+}
+
 use std::sync::Arc;
 
 use commands::{

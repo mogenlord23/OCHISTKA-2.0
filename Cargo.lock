@@ -3045,6 +3045,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-notification",
+ "tempfile",
 ]
 
 [[package]]
