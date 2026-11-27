@@ -27,6 +27,23 @@
   color: #000;
 }
 
+.vpn-main-power,
+.vpn-main-power.on {
+  background: #000;
+  color: #ff009d;
+  box-shadow: 0 0 0 2px #ff009d;
+  transition: color 240ms ease, box-shadow 240ms ease;
+}
+
+.vpn-main-power.on {
+  color: #caff00;
+  box-shadow: 0 0 0 2px #caff00;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vpn-main-power { transition: none; }
+}
+
 .vpn-power-heading {
   font-size: 2.1rem;
   font-weight: 650;

@@ -563,7 +563,7 @@
                 <div class="power-row">
                   <button
                     type="button"
-                    class="vpn-power-tile"
+                    class="vpn-power-tile vpn-main-power"
                     class:on={ui.pressed}
                     aria-pressed={ui.pressed}
                     aria-busy={ui.busy}
@@ -961,7 +961,7 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--accent);
+    background: #caff00;
   }
 
   .status-note {
@@ -1014,7 +1014,7 @@
     inset: 0 0 auto;
     height: var(--server-height);
     border-radius: var(--radius-adaptive);
-    background: #222;
+    background: #000;
     box-shadow: inset 0 0 0 1px var(--accent);
     transform: translateY(calc(var(--selected-server-index) * var(--server-height)));
     transition: transform var(--selection-duration, 190ms) var(--selection-ease, ease-out);

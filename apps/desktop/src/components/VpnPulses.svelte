@@ -12,6 +12,7 @@
 
 <svg class="connect-pulses" class:paused={!visible} aria-hidden="true">
   <rect pathLength="100" rx="12" />
+  <rect class="second" pathLength="100" rx="12" />
 </svg>
 
 <style>
@@ -29,14 +30,16 @@
     width: calc(100% - 2px);
     height: calc(100% - 2px);
     fill: none;
-    stroke: var(--vpn, var(--accent));
+    stroke: #ff009d;
     stroke-width: 1.5px;
     stroke-linecap: round;
-    stroke-dasharray: 17 33;
+    stroke-dasharray: 17 83;
     opacity: .48;
     animation: follow 4s linear infinite;
   }
-  @keyframes follow { to { stroke-dashoffset: -50; } }
+  rect.second { stroke: #caff00; stroke-dashoffset: -50; animation-name: follow-second; }
+  @keyframes follow { to { stroke-dashoffset: -100; } }
+  @keyframes follow-second { from { stroke-dashoffset: -50; } to { stroke-dashoffset: -150; } }
   .paused rect { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { rect { animation: none; } }
   :global(:root[data-reduce-motion='true']) rect { animation: none; }
