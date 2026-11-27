@@ -170,6 +170,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   const ctx = context;
   const sprites = (dotSprites ??= makeDots());
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let visible = true;
   let frame = 0;
   let timer = 0;
   let nextFrame = 0;
@@ -379,7 +380,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   function invalidate() {
     clearTimeout(timer);
     timer = 0;
-    if (!frame && width > 0 && height > 0 && document.visibilityState !== 'hidden') {
+    if (visible && !frame && width > 0 && height > 0 && document.visibilityState !== 'hidden') {
       frame = requestAnimationFrame(draw);
     }
   }
@@ -394,7 +395,7 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   }
 
   function syncVisibility() {
-    if (document.visibilityState === 'hidden') pause();
+    if (!visible || document.visibilityState === 'hidden') pause();
     else invalidate();
   }
 
@@ -407,6 +408,10 @@ export function mountVpnGlobe(canvas: HTMLCanvasElement, state: () => GlobeState
   document.addEventListener('visibilitychange', syncVisibility);
   return {
     invalidate,
+    setVisible(value: boolean) {
+      visible = value;
+      syncVisibility();
+    },
     destroy() {
       pause();
       orbit?.destroy();

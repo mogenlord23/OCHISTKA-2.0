@@ -654,7 +654,8 @@
                 {/if}
               </section>
               <VpnGlobe
-                active={active && pageVisible}
+                {active}
+                visible={pageVisible}
                 country={globeCountry}
                 connected={connected || connecting || isConnected}
                 label={globeName ? `${t('vpnGlobe')} · ${globeName}` : t('vpnGlobe')}
