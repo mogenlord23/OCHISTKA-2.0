@@ -13,6 +13,9 @@ pub mod os_status;
 pub mod pe_model;
 pub mod speedtest;
 pub mod vpn;
+#[cfg(windows)]
+#[path = "windows/zapret.rs"]
+pub mod zapret;
 
 /// Очистка дисков Windows: файловый адаптер и раскладка. Файл лежит в `windows/`, но модуль
 /// объявлен здесь, потому что `windows/mod.rs` ведётся отдельно.

@@ -24,6 +24,31 @@
   let importingZapret = $state(false);
   let zapretMessage = $state('');
   let zapretFile = $state<HTMLInputElement>();
+  type ZapretStatus = { running: boolean; configured: boolean; elevated: boolean };
+  let zapret = $state<ZapretStatus>();
+  let changingZapret = $state(false);
+
+  $effect(() => {
+    if (!showZapret) return;
+    let current = true;
+    void invoke<ZapretStatus>('zapret_status').then(
+      (status) => { if (current) zapret = status; },
+      (err) => { if (current) zapretMessage = errorMessage(err); },
+    );
+    return () => { current = false; };
+  });
+
+  async function zapretAction(command: string, args?: Record<string, unknown>) {
+    changingZapret = true;
+    zapretMessage = '';
+    try {
+      zapret = await invoke<ZapretStatus>(command, args);
+    } catch (err) {
+      zapretMessage = errorMessage(err);
+    } finally {
+      changingZapret = false;
+    }
+  }
 
   async function importZapret(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
@@ -100,9 +125,25 @@
   {#if showZapret}
     <section class="card block" aria-labelledby="zapret-title">
       <h2 id="zapret-title" class="block-title">Запрет</h2>
-      <Switch disabled label="Обход блокировок" />
-      <p class="note">Включение станет доступно после проверки движка на Windows.</p>
+      <Switch
+        checked={zapret?.running ?? false}
+        disabled={!zapret?.configured || changingZapret}
+        pending={changingZapret}
+        label="Обход блокировок"
+        onchange={(enabled) => zapretAction('zapret_set', { enabled })}
+      />
+      {#if !zapret?.configured}
+        <p class="note">Выберите папку Zapret 1.9.0b с файлами bin, lists и general.bat</p>
+      {:else if !zapret.elevated}
+        <p class="note">Для запуска Zapret откройте ОЧИСТКУ от имени администратора</p>
+      {:else}
+        <p class="note">Включение Zapret отключает VPN</p>
+      {/if}
       <div class="save-row">
+        <button type="button" class="save" disabled={changingZapret || zapret?.running}
+          onclick={() => zapretAction('zapret_select_folder')}>
+          {zapret?.configured ? 'Сменить папку Zapret' : 'Выбрать папку Zapret'}
+        </button>
         <button type="button" class="save" disabled={importingZapret} onclick={() => zapretFile?.click()}>
           {importingZapret ? 'Импортируем…' : 'Импорт списка сайтов'}
         </button>

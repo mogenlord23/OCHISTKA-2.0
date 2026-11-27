@@ -14,6 +14,8 @@ pub mod speedtest;
 mod tray;
 pub mod tweaks;
 pub mod vpn;
+#[cfg(windows)]
+mod zapret;
 
 use std::sync::Arc;
 
@@ -72,7 +74,14 @@ pub fn run() {
             // Одно общее право на сетевой режим для VPN и обхода.
             let coord =
                 std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
-            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord);
+            let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord.clone());
+            #[cfg(windows)]
+            {
+                let zapret = Arc::new(zapret::Zapret::new(coord));
+                let guard = Arc::clone(&zapret);
+                vpn_state.0.set_conflict_guard(Box::new(move || guard.stop().err()));
+                app.manage(zapret);
+            }
             app.manage(vpn_state);
             app.manage(bypass_sites::ZapretSitesState(std::sync::Mutex::new(
                 ochistka_core::desync::user_sites::UserSites::new(
@@ -156,6 +165,12 @@ pub fn run() {
             bypass_sites::bypass_sites_add,
             bypass_sites::bypass_sites_remove,
             bypass_sites::zapret_sites_import,
+            #[cfg(windows)]
+            zapret::zapret_status,
+            #[cfg(windows)]
+            zapret::zapret_select_folder,
+            #[cfg(windows)]
+            zapret::zapret_set,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,
@@ -174,6 +189,10 @@ pub fn run() {
         Ok(app) => app.run(|handle, event| {
             if let tauri::RunEvent::Exit = event {
                 use tauri::Manager;
+                #[cfg(windows)]
+                if let Some(zapret) = handle.try_state::<Arc<zapret::Zapret>>() {
+                    let _ = zapret.stop();
+                }
                 if let Some(state) = handle.try_state::<vpn::VpnState>() {
                     state.0.shutdown();
                 }

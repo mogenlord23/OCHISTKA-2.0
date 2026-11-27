@@ -239,3 +239,42 @@ pub fn service_stop(name: &str) -> Result<(), ServiceCode> {
             .map_err(|e| code_of(&e))
     })
 }
+/// Ends the attached process when the last handle is dropped, including on app crash.
+pub(crate) struct ProcessJob(windows::Win32::Foundation::HANDLE);
+
+// The handle is owned by the job and the OS allows it to be used from any thread.
+unsafe impl Send for ProcessJob {}
+
+impl ProcessJob {
+    pub(crate) fn new() -> Result<Self, String> {
+        use windows::Win32::System::JobObjects::*;
+
+        let job = Self(unsafe { CreateJobObjectW(None, None) }.map_err(|err| err.to_string())?);
+        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        unsafe {
+            SetInformationJobObject(
+                job.0,
+                JobObjectExtendedLimitInformation,
+                &limits as *const _ as *const std::ffi::c_void,
+                std::mem::size_of_val(&limits) as u32,
+            )
+        }
+        .map_err(|err| err.to_string())?;
+        Ok(job)
+    }
+
+    pub(crate) fn attach(&self, child: &std::process::Child) -> Result<(), String> {
+        use std::os::windows::io::AsRawHandle;
+        use windows::Win32::{Foundation::HANDLE, System::JobObjects::AssignProcessToJobObject};
+
+        unsafe { AssignProcessToJobObject(self.0, HANDLE(child.as_raw_handle())) }
+            .map_err(|err| err.to_string())
+    }
+}
+
+impl Drop for ProcessJob {
+    fn drop(&mut self) {
+        let _ = unsafe { windows::Win32::Foundation::CloseHandle(self.0) };
+    }
+}
