@@ -74,6 +74,11 @@ pub fn run() {
                 std::sync::Arc::new(ochistka_core::desync::coordinator::NetCoordinator::new());
             let vpn_state = vpn::build_service(app.path().resource_dir().ok(), coord);
             app.manage(vpn_state);
+            app.manage(bypass_sites::ZapretSitesState(std::sync::Mutex::new(
+                ochistka_core::desync::user_sites::UserSites::new(
+                    &ochistka_platform::desync::desync_data_dir().join("zapret"),
+                ),
+            )));
             app.manage(bypass_sites::BypassSitesState(
                 ochistka_core::desync::user_sites::UserSites::new(
                     &ochistka_platform::desync::desync_data_dir(),
@@ -150,6 +155,7 @@ pub fn run() {
             bypass_sites::bypass_sites_list,
             bypass_sites::bypass_sites_add,
             bypass_sites::bypass_sites_remove,
+            bypass_sites::zapret_sites_import,
             vpn::vpn_snapshot,
             vpn::vpn_status,
             vpn::vpn_import,

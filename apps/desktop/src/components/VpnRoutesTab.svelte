@@ -1,5 +1,6 @@
 <script lang="ts">
   import Switch from './Switch.svelte';
+  import { invoke, isTauri } from '@tauri-apps/api/core';
   import { joinEntries, splitEntries } from '../lib/vpn';
   import { vpnSetRules, type RoutingRules, type VpnSnapshot } from '../lib/vpnApi';
   import { errorMessage } from '../lib/vpnNetwork';
@@ -18,6 +19,32 @@
   let saving = $state(false);
   let message = $state<string | null>(null);
   let failed = $state(false);
+  const showZapret =
+    typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent) && isTauri();
+  let importingZapret = $state(false);
+  let zapretMessage = $state('');
+  let zapretFile = $state<HTMLInputElement>();
+
+  async function importZapret(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || importingZapret) return;
+    if (file.size > 256 * 1024) {
+      zapretMessage = 'Файл должен быть не больше 256 КБ';
+      return;
+    }
+    importingZapret = true;
+    zapretMessage = '';
+    try {
+      const count = await invoke<number>('zapret_sites_import', { text: await file.text() });
+      zapretMessage = `Сайтов в списке: ${count}`;
+    } catch (err) {
+      zapretMessage = errorMessage(err);
+    } finally {
+      importingZapret = false;
+    }
+  }
 
   // Поля заполняются один раз, когда пришло сохранённое состояние; дальше их ведёт пользователь.
   $effect(() => {
@@ -70,6 +97,21 @@
 {#if !snapshot}
   <p class="state" role="status">Читаем сохранённые правила…</p>
 {:else}
+  {#if showZapret}
+    <section class="card block" aria-labelledby="zapret-title">
+      <h2 id="zapret-title" class="block-title">Запрет</h2>
+      <Switch disabled label="Обход блокировок" />
+      <p class="note">Включение станет доступно после проверки движка на Windows.</p>
+      <div class="save-row">
+        <button type="button" class="save" disabled={importingZapret} onclick={() => zapretFile?.click()}>
+          {importingZapret ? 'Импортируем…' : 'Импорт списка сайтов'}
+        </button>
+        <input type="file" hidden accept=".txt,text/plain" bind:this={zapretFile} onchange={importZapret} />
+      </div>
+      <p class="note">Файл TXT в UTF-8, один адрес на строку</p>
+      {#if zapretMessage}<p class="note" role="status">{zapretMessage}</p>{/if}
+    </section>
+  {/if}
   <section class="card block" aria-labelledby="vpn-routes-title">
     <h2 id="vpn-routes-title" class="block-title">Через VPN</h2>
     <p class="note lead">
