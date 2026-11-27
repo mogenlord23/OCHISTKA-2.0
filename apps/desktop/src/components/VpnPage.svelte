@@ -903,6 +903,24 @@
     cursor: pointer;
   }
 
+  button.vpn-main-power {
+    min-height: 0;
+    padding: 0;
+    background: #000;
+    color: #ff009d;
+    box-shadow: 0 0 0 2px #ff009d;
+    transition: color 300ms ease-in-out, box-shadow 300ms ease-in-out;
+  }
+
+  button.vpn-main-power.on {
+    color: #caff00;
+    box-shadow: 0 0 0 2px #caff00;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button.vpn-main-power { transition: none; }
+  }
+
   .row > .file-button {
     display: grid;
     place-items: center;
